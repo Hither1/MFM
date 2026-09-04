@@ -57,9 +57,28 @@ Pre-existing defects found on the way, not fixed (not on the measured paths):
 tests after it must be run by hand (they pass).
 
 Not done: `tools/zoom.py` output into the episode's `crops/`; the optional retrieval
-block in the turn prompt (off = absent); section 5; the engine-dependent stage-run check;
-the waves. The MCU purple agent closes the store on the next `init`, so an episode
-killed by the launcher loses only its open entry.
+block in the turn prompt (off = absent); section 5. The MCU purple agent closes the store
+on the next `init`, so an episode killed by the launcher loses only its open entry.
+
+**Wave 1 is running (2026-09-04).** KiCad: `--agent mfm` as job 44469925, from a git
+worktree of the run checkout so the three arms already mid-run were not disturbed, with
+the already-running `--agent prolong` (44396608) as its baseline -- legitimate because
+the pins show the rendered system and turn prompts are byte-identical across the
+refactor, checked again by hashing both trees' `build_system_prompt`/`build_turn_prompt`.
+Its first task scored 1.0 in 11 steps and wrote 12 episodes. MCU: `dmw3_prolong` and
+`dmw3_mfm` on `mine_diamond_from_scratch` at 12000 steps, one job each, forced onto
+different nodes.
+
+Two things that cost three launches and are worth knowing before the next wave. The
+green server's readiness ceiling was 300 s and its import time off NFS is
+node-dependent by more than an order of magnitude -- 10 s on a warm node against 210 s
+on a cold one in the same wave, and past 300 s twice -- so arms were being killed for a
+cold page cache; the ceiling is now 900 s with a heartbeat. And `run-arm.sh` must not be
+edited while a job is executing it, since bash reads a script by byte offset as it runs,
+which is why the wave was relaunched rather than patched in place.
+
+The MFM and PRO-LONG task orders differ within a KiCad run, so the arms must be compared
+on the task ids they both finished, not on whatever each got through.
 
 ---
 
