@@ -1,0 +1,6 @@
+[submodule "CUA-KiCad"]
+	path = CUA-KiCad
+	url = git@github.com:Hither1/CUA-KiCad.git
+[submodule "MCU"]
+	path = MCU
+	url = git@github.com:Hither1/MCU.git
