@@ -78,9 +78,6 @@
  "step": 1
 }
 
-### ep_000001/state/ticks.jsonl
-{"feedback": null, "max_steps": 8, "png_sha256": "37c50eaef55527394f58a661041bd16010998f3657ca717cfc1fbff965638685", "step": 2}
-
 ### ep_000002/action.json
 {
  "briefing": "",
@@ -140,9 +137,6 @@
  "step": 2
 }
 
-### ep_000002/state/ticks.jsonl
-{"feedback": "Some actions were invalid and skipped: unknown action {'action': 'fly', 'coordinate': [1, 1]} | env error: dialog blocked the click", "max_steps": 8, "png_sha256": "238a2aab5195e927fd23cf6938d70fc6a86fa170c39acc08c7548ce973e14c8a", "step": 3}
-
 ### ep_000003/action.json
 {
  "briefing": "",
@@ -199,9 +193,6 @@
  "png_sha256": "238a2aab5195e927fd23cf6938d70fc6a86fa170c39acc08c7548ce973e14c8a",
  "step": 3
 }
-
-### ep_000003/state/ticks.jsonl
-{"feedback": null, "max_steps": 8, "png_sha256": "8f87064d6581d8604d0cbf148a79cfbf6145f22b8a6c5494ea60057dd47327e4", "step": 4}
 
 ### ep_000004/action.json
 {

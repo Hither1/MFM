@@ -43,7 +43,7 @@ What was built (all gated on `memory_mode == "mfm"`; the logbook arm is pinned):
   the mfm contract from the logbook contract by replacing one paragraph, every other
   segment being the same object as the logbook's.
 - `memory.py`: `episodes=True` keeps `episodes/`, `index.jsonl`, `tools/` between
-  turns (the sweep otherwise removes them) and writes `tools/zoom.py`.
+  turns (the sweep otherwise removes them). (It wrote `tools/zoom.py` until 2026-09-05.)
 - `codex_backend.py` (chassis): counts `tools/episodes.py` runs in the rollout scan;
   `session_max_turns` is a constructor argument.
 - `worldmodel_purple_agent.py`: `--memory mfm`; explicit `--session-turns 1` and
@@ -184,7 +184,10 @@ Pre-existing defects found on the way, not fixed (not on the measured paths):
 `test_task_framing_matches_baseline` on a file removed in commit fb46ac9, so the four
 tests after it must be run by hand (they pass).
 
-Not done: `tools/zoom.py` output into the episode's `crops/`; section 5. The retrieval
+Dropped 2026-09-05: `observation/crops/` and the mfm arm's `tools/zoom.py` -- 805 crops
+directories across every MCU and KiCad run, all empty; zoom.py never called on MCU and
+only failing on KiCad (KiCad's baseline-promised `tools/zoom.py` stays, its prompt is
+pinned). Not done: section 5. The retrieval
 block exists since 2026-09-05 (below), off by default. The MCU purple agent closes the
 store on the next `init`, so an episode killed by the launcher loses only its open entry.
 
@@ -306,16 +309,16 @@ Unchanged from the first draft. Decided.
     ep_000042/                         one per PLAN ENTRY ({"action": {...}, "repeat": N})
       observation/
         image.png                      hard link to frames/step_<first tick>.png
-        crops/                         zoom outputs and (later) harness crops; append-only
+        crops/                         (dropped 2026-09-05: never written in any run)
       state/
         state.json                     state at the entry's first tick, structured
-        ticks.jsonl                    one line per tick: the same fields state_block prints
+        (ticks.jsonl dropped 2026-09-05: 12k lines a run, never read by anything)
       action.json                      the entry, its repeat, its position in the plan,
                                        the turn that produced it, briefing + [PLAN] text
                                        (on the plan's first entry only)
       outcome.json                     written when the entry's last tick has been observed
   index.jsonl                          one line per episode: id, steps, tags, summary, paths
-  tools/zoom.py                        as today; default output moves into the episode's crops/
+  tools/zoom.py                        KiCad only (its baseline prompt promises it); dropped from MCU's mfm arm 2026-09-05
   tools/episodes.py                    query the index (see 2.2)
 ```
 
@@ -325,7 +328,7 @@ Unchanged from the first draft. Decided.
 - **`logs.txt` stays the primary model-facing record.** Written exactly as today;
   `episodes/` is written beside it from the same call sites. `render_logs_txt` regenerates
   the log from the episodes and the bytes must match (section 7).
-- **Episode = plan entry, not tick** (MCU). Per-tick facts go into `state/ticks.jsonl`.
+- **Episode = plan entry, not tick** (MCU). (Per-tick facts went into `state/ticks.jsonl` until 2026-09-05.)
   The KiCad episode is one turn: one screenshot, one batch, one feedback.
 - **Ownership.** Everything under `episodes/*/` except `observation/crops/`, and
   `index.jsonl`, is harness-written and immutable once closed.

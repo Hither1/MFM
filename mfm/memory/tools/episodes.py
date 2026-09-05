@@ -89,7 +89,7 @@ def grep(rows: list[dict], root: Path, text: str) -> list[dict]:
     for r in rows:
         d = Path(root) / r.get("path", "")
         hay = [json.dumps(r)]
-        for name in ("action.json", "outcome.json", "state/state.json", "state/ticks.jsonl"):
+        for name in ("action.json", "outcome.json", "state/state.json"):
             p = d / name
             if p.exists():
                 try:

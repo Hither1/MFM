@@ -192,7 +192,8 @@ class MemoryAgent:
     # -- what the episode store asks the benchmark ----------------------------------
 
     def episode_state(self, obs: Observation) -> dict[str, Any]:
-        """The structured state written to `state/state.json` and `ticks.jsonl`."""
+        """The structured state written to `state/state.json` (and tracked per tick
+        for the outcome)."""
         return {"step": obs.step, **{k: v for k, v in obs.state.items()}}
 
     def episode_action(self, item: dict[str, Any]) -> Any:

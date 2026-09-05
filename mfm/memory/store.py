@@ -4,9 +4,7 @@ decision, written from the same call sites.
     episodes/
       ep_000042/
         observation/image.png     hard link to the frame the decision was made from
-        observation/crops/        zoom outputs; append-only, the agent's
         state/state.json          structured state at the entry's first tick
-        state/ticks.jsonl         one line per tick observed while the entry ran
         action.json               the entry, its place in the plan, the turn, the plan text
         outcome.json              what the entry changed, notes, tags (on close)
     index.jsonl                   one line per closed episode
@@ -20,8 +18,10 @@ is the initial state, closed at once, with no action.
 
 What is Minecraft or KiCad about the contents comes from the agent's hooks
 (`episode_state`, `episode_action`, `episode_outcome`); the store knows only the layout.
-Everything under `episodes/*/` except `observation/crops/` is harness-written and
-immutable once closed; writes are atomic (`.tmp` + `replace`).
+Everything under `episodes/*/` is harness-written and immutable once closed; writes
+are atomic (`.tmp` + `replace`). (An `observation/crops/` the model could write zoom
+outputs into was part of the layout until 2026-09-05: 805 of them across every MCU and
+KiCad run, all empty.)
 """
 from __future__ import annotations
 
@@ -112,9 +112,10 @@ class EpisodeStore(MemorySink):
         ep = self._open
         if ep is None:
             return
+        # The entry's running state is kept in memory for the outcome; a per-tick
+        # `state/ticks.jsonl` was written until 2026-09-05 (12k lines a run) and
+        # nothing -- model, recall block, CLI -- ever read one.
         state = self._state(agent, obs)
-        with (ep["dir"] / "state" / "ticks.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps(state, sort_keys=True, default=str) + "\n")
         ep["last_state"] = state
         ep["last_step"] = obs.step
         ep["ticks_seen"] += 1
@@ -224,7 +225,7 @@ class EpisodeStore(MemorySink):
         ep_id = f"ep_{self._next_id:06d}"
         self._next_id += 1
         d = self.dir / ep_id
-        (d / "observation" / "crops").mkdir(parents=True, exist_ok=True)
+        (d / "observation").mkdir(parents=True, exist_ok=True)
         (d / "state").mkdir(parents=True, exist_ok=True)
         if obs.attachment and (self.root / obs.attachment).exists():
             _link(self.root / obs.attachment, d / "observation" / "image.png")

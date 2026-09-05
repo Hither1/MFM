@@ -28,19 +28,17 @@ the error this design exists to avoid.
 `episodes/` holds the same history as `logs.txt` a second time, structured: one
 directory per plan entry (one procedure call or one held raw action -- exactly the
 entries the log has an "Action N" section for). In each `ep_NNNNNN/`:
-`observation/image.png` (the view the entry started from), `state/state.json` and
-`state/ticks.jsonl` (position, inventory, hotbar, GUI, vitals, mobs, milestones -- at
-the first tick and at every tick after), `action.json` (the entry, its place in the
+`observation/image.png` (the view the entry started from), `state/state.json`
+(position, inventory, hotbar, GUI, vitals, mobs, milestones at the entry's first
+tick), `action.json` (the entry, its place in the
 plan, the briefing and plan it came from) and `outcome.json` (what it changed: moved,
 descended, inventory delta, [EVENT]s, milestone transition, harness notes, tags such as
 `stuck`, `inventory_changed`, `milestone`, `damage`, `gui`, `flushed`). `index.jsonl`
 has one line per episode. `./tools/episodes.py --last 5 | --steps A B | --near X Z
 [--radius R] | --tag stuck | --action dig_down | --grep text` lists matching episodes
 one per line with their paths; add `--sheet out.png` to tile their frames into one
-image you can view, `--json` for the rows. `./tools/zoom.py <image.png> x y w h out.png`
-magnifies a region of any saved frame. These files persist across turns like
-`logs.txt`; `episodes/*/observation/crops/` is yours to write (zoom outputs), the rest
-is harness-written and immutable.
+image you can view, `--json` for the rows. These files persist across turns like
+`logs.txt`; they are harness-written and immutable.
 
 Any other file or directory you create in `./` is removed when your turn ends; the
 current view is attached to this call, and the earlier views are the episodes' images.
