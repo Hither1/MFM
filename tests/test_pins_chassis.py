@@ -108,3 +108,39 @@ def test_chassis_system_prompts_pin():
     out = {mode: hashlib.sha256(prompts.act_prompt(**kw, memory_mode=mode).encode()).hexdigest()
            for mode in ("worldmodel", "logbook", "wmlite", "direct")}
     check_pin("chassis_prompt_hashes.json", json.dumps(out, indent=1, sort_keys=True))
+
+
+def test_chassis_mfm_mode(tmp_path: Path):
+    """The mfm arm: the logbook arm's log byte for byte, plus the store beside it."""
+    agent, actions = drive_chassis(tmp_path, "mfm")
+    ws = agent.memory.root
+    pinned_log = (Path(__file__).parent / "pins" / "chassis_logbook_logs.txt").read_text()
+    assert _norm((ws / "logs.txt").read_text(), tmp_path) == pinned_log
+    pinned_actions = (Path(__file__).parent / "pins" / "chassis_logbook_actions.json").read_text()
+    assert json.dumps([{k: (v.tolist() if hasattr(v, "tolist") else v) for k, v in a.items()}
+                       for a in actions], sort_keys=True) == pinned_actions
+    agents_md = (ws / "AGENTS.md").read_text()
+    assert "tools/episodes.py" in agents_md and "no earlier frame is kept" not in agents_md
+    assert "tools/episodes.py" in agent.codex.prompts[0]   # the turn prompt (retries send the nudge)
+    assert (ws / "tools" / "episodes.py").exists() and (ws / "tools" / "zoom.py").exists()
+    rows = [json.loads(l) for l in (ws / "index.jsonl").read_text().splitlines() if l]
+    sections = pinned_log.count("\nAction ") - 1          # minus the initial section
+    assert len(rows) == sections + 1, (len(rows), sections)  # plus ep_000000
+    assert rows[0]["kind"] == "initial" and all(r["kind"] == "episode" for r in rows[1:])
+    kinds = [r["action_kind"] for r in rows[1:]]
+    assert "dig_down" in kinds and "forward+jump" in kinds
+    for r in rows[1:]:
+        d = ws / r["path"]
+        assert (d / "observation" / "image.png").exists() and (d / "action.json").exists()
+        assert (d / "outcome.json").exists() and (d / "state" / "ticks.jsonl").exists()
+    # The observation image is the frame the entry opened on, not the latest view.
+    import hashlib
+    imgs = [hashlib.sha256((ws / r["path"] / "observation" / "image.png").read_bytes()).hexdigest()
+            for r in rows]
+    assert len(set(imgs)) > 1
+    outcome = json.loads((ws / rows[3]["path"] / "outcome.json").read_text())
+    assert "moved" in outcome and "events" in outcome and "inventory_delta" in outcome
+    rep = agent.report()
+    assert rep["memory_mode"] == "mfm" and rep["mfm"]["n"] == len(rows)
+    check_pin("chassis_mfm_index.jsonl", _norm((ws / "index.jsonl").read_text(), tmp_path))
+    check_pin("chassis_mfm_agents.md", _norm(agents_md, tmp_path))

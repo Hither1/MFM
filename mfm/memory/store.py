@@ -240,8 +240,10 @@ class EpisodeStore(MemorySink):
                 "image": (d / "observation" / "image.png").relative_to(self.root).as_posix()
                          if (d / "observation" / "image.png").exists() else None,
                 "observation_hash": state.get("png_sha256"),
-                # The log-relative frame the episode opened on (what `publish` keys on).
-                "attachment": obs.attachment}
+                # The log-relative frame the episode opened on (what `publish` keys on);
+                # an absolute path is a caller's scratch file, not a name in the log.
+                "attachment": (obs.attachment if obs.attachment
+                               and not Path(obs.attachment).is_absolute() else None)}
 
     def _close(self, agent: "MemoryAgent", *, flushed: bool, last_step: int,
                extra: dict[str, Any] | None = None) -> None:
