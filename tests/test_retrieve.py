@@ -102,6 +102,18 @@ def test_repeated_note_chain(tmp_path: Path):
     assert R.repeated_note(rows[:2], tmp_path) is None
 
 
+def test_entries_that_never_ran_do_not_make_a_streak():
+    # five deferred crafts (zero ticks, nothing changed) around one real harvest_tree failure
+    rows = [_row(i, "craft", 100 + i, 100 + i) for i in range(1, 6)]
+    rows.append(_row(9, "harvest_tree", 200, 400))
+    assert R.streaks(rows) == []
+    rows += [_row(10 + i, "harvest_tree", 500 + i * 100, 550 + i * 100) for i in range(2)]
+    assert [s["kind"] for s in R.streaks(rows)] == ["harvest_tree"]
+    # a one-tick entry that DID change something still counts as a success
+    rows.append(_row(20, "craft", 900, 900, tags=["inventory_changed"]))
+    assert R.streaks(rows, min_len=1)[0]["kind"] == "harvest_tree"
+
+
 def test_here_before_excludes_the_visible_tail_and_cites_what_changed():
     rows = [_row(1, "dig_down", 10, 20, tags=["stuck"], x=5, z=5),
             _row(2, "craft", 20, 21, tags=["inventory_changed"], x=5, z=6,
@@ -125,6 +137,33 @@ def test_milestone_recipe_index():
     assert ("- Milestones so far, with the entry that scored each: mine_log step 300 "
             '(ep_000001: {"attack":1} x110); crafting_table step 562 '
             "(ep_000002: craft(item=crafting_table,count=1))." in block)
+
+
+def _write_delta(root: Path, row: dict, delta: dict, events=()):
+    d = root / row["path"]; d.mkdir(parents=True, exist_ok=True)
+    (d / "outcome.json").write_text(json.dumps({"inventory_delta": delta, "events": list(events),
+                                                "notes": [], "tags": row["tags"]}))
+
+
+def test_left_behind_tracks_placements_and_pickups(tmp_path: Path):
+    rows = [_row(1, "craft", 500, 501, tags=["inventory_changed"], x=-3005, z=-5567,
+                 summary="[ACTION] craft(item=crafting_table,count=1) -> 1 ticks: moved 0.0, inv {'crafting_table': 1}"),
+            _row(2, "place_and_open", 571, 631, tags=["inventory_changed"], x=-3005, z=-5567,
+                 summary="[ACTION] place_and_open(item=crafting_table) -> 60 ticks: moved 0.0, inv {'crafting_table': -1}"),
+            _row(3, "dig_down", 700, 900, tags=["inventory_changed"], x=-3005, z=-5567,
+                 summary="[ACTION] dig_down(n=200) -> 200 ticks: moved 0.0, inv {'cobblestone': 9}")]
+    for r in rows: r["y"] = 68.0
+    _write_delta(tmp_path, rows[0], {"crafting_table": 1}, ["craft_item crafting_table +1"])
+    _write_delta(tmp_path, rows[1], {"crafting_table": -1})
+    _write_delta(tmp_path, rows[2], {"cobblestone": 9})
+    out = R.left_behind(rows, tmp_path)
+    assert [(p["item"], p["id"], p["step"], p["y"]) for p in out] == [("crafting_table", "ep_000002", 571, 68.0)]
+    # a pickup (a gain with no craft event) closes it; a second craft does not
+    rows.append(_row(4, "mine_ahead", 950, 990, tags=["inventory_changed"], x=-3005, z=-5567,
+                     summary="[ACTION] mine_ahead(n=40) -> 40 ticks: moved 0.0, inv {'crafting_table': 1}"))
+    _write_delta(tmp_path, rows[3], {"crafting_table": 1})
+    assert R.left_behind(rows, tmp_path) == []
+    assert R.left_behind(rows, None) == []
 
 
 def test_cli_lists_the_outcome_note(tmp_path: Path):

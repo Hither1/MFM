@@ -28,7 +28,7 @@ def _pov(step: int) -> np.ndarray:
     return frame
 
 
-def drive_chassis(root: Path, memory_mode: str, steps: int = 120, **kw):
+def drive_chassis(root: Path, memory_mode: str, steps: int = 120, script=None, **kw):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
     from mcu_worldmodel.selftest import FakeCodex, fake_info
@@ -44,7 +44,7 @@ def drive_chassis(root: Path, memory_mode: str, steps: int = 120, **kw):
                             ledger=MilestoneLedger(cfg, "t"), induction_every=10,
                             step_cap=50, memory_mode=memory_mode,
                             platform_prompt="HOST REFERENCE", **kw)
-    script = [
+    default_script = [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5},
                                  {"action": {"attack": 1}, "repeat": 3}]},
          "message": "briefing one\n[PLAN]\nwalk then chop",
@@ -56,7 +56,7 @@ def drive_chassis(root: Path, memory_mode: str, steps: int = 120, **kw):
          "message": "[PLAN]\nrun"},
     ] + [{"actions": {"actions": [{"action": {"attack": 1}, "repeat": 6}]},
           "message": f"[PLAN]\nchop {i}"} for i in range(20)]
-    agent.codex = FakeCodex(agent.memory.root, script)
+    agent.codex = FakeCodex(agent.memory.root, default_script if script is None else script)
 
     info = fake_info(inventory={"oak_log": 1})
     info["pov"] = _pov(0)
@@ -183,6 +183,69 @@ def test_chassis_mfm_retrieval(tmp_path: Path):
     rep = agent.report()
     assert rep["mfm"]["retrieval"] is True and rep["mfm"]["recalls"] == len(with_block)
     check_pin("chassis_mfm_recall_prompt.txt", _norm(last, tmp_path))
+
+
+def _chop_script(why: str | None = None):
+    chop = {"action": {"attack": 1}, "repeat": 6}
+    if why:
+        chop = {**chop, "why": why}
+    return [
+        {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5},
+                                 {"action": {"attack": 1}, "repeat": 3}]},
+         "message": "briefing one\n[PLAN]\nwalk then chop"},
+        {"actions": {"actions": [{"procedure": "dig_down", "args": {"n": 4}}]},
+         "message": "briefing two\n[PLAN]\ndig"},
+    ] + [{"actions": {"actions": [chop]}, "message": f"[PLAN]\nchop {i}"} for i in range(30)]
+
+
+def test_chassis_mfm_refusal(tmp_path: Path):
+    """`--refuse`: after five `attack` entries that changed nothing, the next plan
+    proposing one is refused -- whole plan, one no-op, a note naming the streak --
+    at most twice per streak; an entry that says `why` runs and records it."""
+    import pytest
+    with pytest.raises(ValueError):
+        drive_chassis(tmp_path / "x", "logbook", refusal=True)
+    agent, actions = drive_chassis(tmp_path / "a", "mfm", refusal=True, script=_chop_script())
+    ws = agent.memory.root
+    log = (ws / "logs.txt").read_text()
+    refusals = [ln for ln in log.splitlines() if "harness: refused `attack`" in ln]
+    assert len(refusals) == 2, log
+    assert "changed nothing in its last" in refusals[0] and "`\"why\"" in refusals[0]
+    rep = agent.report()
+    assert rep["mfm"]["refusal"] is True and rep["mfm"]["refusals"] == {"streak": 2}
+    assert rep["mfm"]["overrides"] == 0 and rep["cursor"]["mfm_refusals"] == 2
+    # the same streak is not refused a third time: chops kept running afterwards
+    assert log.count("[ACTION] {\"attack\":1} x6") > 7
+    assert "[RECALL]" not in agent.codex.prompts[-1]          # retrieval is a separate flag
+    assert "refused before they spend steps" in (ws / "AGENTS.md").read_text()
+
+    agent2, _ = drive_chassis(tmp_path / "b", "mfm", refusal=True,
+                              script=_chop_script(why="new trunk, closer"))
+    ws2 = agent2.memory.root
+    assert "harness: refused" not in (ws2 / "logs.txt").read_text()
+    rep2 = agent2.report()
+    assert rep2["mfm"]["refusals"] == {} and rep2["mfm"]["overrides"] > 5
+    chops = [json.loads((ws2 / r["path"] / "action.json").read_text())
+             for r in (json.loads(l) for l in (ws2 / "index.jsonl").read_text().splitlines() if l)
+             if r.get("action_kind") == "attack"]
+    assert chops and all(c["entry"].get("why") == "new trunk, closer" for c in chops[-3:])
+
+
+def test_descent_guard_is_a_pure_rule():
+    from mcu_worldmodel.episodes import descent_guard
+    placed = [{"item": "crafting_table", "id": "ep_000029", "step": 571, "x": -3005.0, "y": 68.0, "z": -5567.0}]
+    here = {"x": -3005.0, "y": 40.0, "z": -5560.0}
+    dig = [{"procedure": "dig_down", "args": {"until_y": 12}}]
+    note = descent_guard(placed, here, {"cobblestone": 20}, dig)
+    assert note and "28 blocks ABOVE you" in note and "ep_000029" in note and "step 571" in note
+    assert descent_guard(placed, here, {"crafting_table": 1}, dig) is None        # carried
+    assert descent_guard(placed, {**here, "y": 62.0}, {}, [{"procedure": "dig_down", "args": {"n": 40}}]) is None   # within 8 blocks, no target
+    beside = descent_guard(placed, {**here, "y": 68.0}, {}, dig)                   # standing at the table, aiming at Y=12
+    assert beside and "56 blocks above where this descent ends" in beside
+    assert descent_guard(placed, here, {}, [{"procedure": "mine_forward", "args": {}}]) is None
+    assert descent_guard(placed, here, {}, [{**dig[0], "leave_table": True}]) is None
+    assert descent_guard([], here, {}, dig) is None
+    assert descent_guard([{**placed[0], "item": "furnace"}], here, {}, dig) is None
 
 
 def test_chassis_vision_audit_survives_a_real_rollout(tmp_path: Path):

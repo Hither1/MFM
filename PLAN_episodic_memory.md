@@ -244,6 +244,31 @@ Pinned: `tests/test_pins_chassis.py::test_chassis_mfm_retrieval`, `tests/test_re
 The lad3 pair is `mfm` against `mfm --retrieval`; the ladder worktree needs the MCU
 commits and `PYTHONPATH` at the MFM root, since the run venv's `mfm` is a frozen copy.
 
+**lad3 (2026-09-05): mfm --retrieval scored 90** (9/10; iron_pickaxe at 11954, diamond
+unreached). But the block cannot be credited: across its 68 turns no briefing cites an
+episode id or a streak, and a flagged action was used in 43% of the turns right after
+the flag against 27% unflagged (confounded -- a flag marks a phase the model is already
+in -- but no evidence of an effect either). The 4,800-step loss was a decision, not a
+loop: the table was placed at Y=68 (step 571), the model descended without it, and at
+Y=12 with three ingots it climbed 56 blocks, 27 turns, to craft the pickaxe. The rule
+("carry ONE table") was in the contract 400 lines from the pre-descent checklist.
+
+**The refusal rules (`--refuse`, 2026-09-05)**, since narration showed nothing and the
+governor's refusals are the one channel the model demonstrably reads: the store vetoes
+a plan, whole, for one no-op tick, with a [NOTE] naming the episodes -- (1) an entry
+whose kind changed nothing in its last 5 calls ANYWHERE (the governor sees only the
+same spot; entries that never ran, a deferred `craft`, do not count), (2) a
+`dig_down`/`stair_down` while the placed table stands 8+ blocks above where the descent
+ends and none is carried (`left_behind`, from `inventory_delta`). Each streak or
+placement is refused at most twice; `"why": "..."` / `"leave_table": true` on the entry
+lets it through and is recorded in the episode's action.json. Replayed over the
+recorded plans: lad2 would have been refused 9 times of 89 turns -- five inside the
+plank loop, the two furnace-less descents at 3367/3939 -- and lad3 10 of 68, including
+step 3092, the descent that cost it the pickaxe. `parse_actions` carries the two keys
+through for every arm (no pinned plan uses them). Pinned: `test_chassis_mfm_refusal`,
+`test_descent_guard_is_a_pure_rule`, `test_left_behind_tracks_placements_and_pickups`,
+`test_entries_that_never_ran_do_not_make_a_streak`. lad4 = `mfm --retrieval --refuse`.
+
 ---
 
 ## 0. What exists, and what is duplicated

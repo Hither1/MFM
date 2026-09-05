@@ -24,6 +24,7 @@ is the "what you did" the log already holds, put where the model is looking.
 from __future__ import annotations
 
 import re
+import json
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
@@ -45,6 +46,16 @@ def changed(row: dict[str, Any], movers: Iterable[str] = ()) -> bool:
     if CHANGE_TAGS & tags:
         return True
     return row.get("action_kind") in set(movers) and "stuck" not in tags
+
+
+def ran(row: dict[str, Any]) -> bool:
+    """False for an entry that never executed: it spans no ticks and changed nothing --
+    a `craft` the parser deferred for want of planks, a procedure refused before it
+    started. Those are the FAILING entry's fault, not this kind's, and counting them
+    made the lad2 plank loop read as a `craft` streak when it was a `harvest_tree` one."""
+    if changed(row):
+        return True
+    return (row.get("last_step") or 0) > (row.get("first_step") or 0)
 
 
 def _spot(row: dict[str, Any]) -> tuple[int, int] | None:
@@ -108,7 +119,7 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
     by_kind: dict[str, list[dict[str, Any]]] = {}
     for i, r in enumerate(rows):
         k = r.get("action_kind")
-        if r.get("kind") != "episode" or not k or k in skip:
+        if r.get("kind") != "episode" or not k or k in skip or not ran(r):
             continue
         by_kind.setdefault(k, []).append((i, r))
     out = []
@@ -180,6 +191,28 @@ def repeated_note(rows: list[dict[str, Any]], root: Path | str | None, *, min_le
     return best
 
 
+def streak_line(s: dict[str, Any], root: Path | str | None = None) -> str:
+    """One streak as a sentence: the run, the note it last ended on, the last time
+    the same action changed something. Used by the recall block and, under the
+    refusal flag, as the reason an entry of that kind is refused."""
+    root = Path(root) if root is not None else None
+    last = s["last"]
+    line = (f"`{s['kind']}` changed nothing in its last {s['n']} calls "
+            f"(since step {s['since_step']}, {s['spots']} spot"
+            f"{'s' if s['spots'] != 1 else ''}; latest {last['id']}, "
+            f"steps {last.get('first_step')}-{last.get('last_step')})")
+    note = _note(root, last)
+    if note:
+        line += f': "{note}"'
+    ok = s["last_success"]
+    if ok is not None:
+        line += (f". It last changed something at step {ok.get('first_step')} "
+                 f"({ok['id']}: {_action(ok)}).")
+    else:
+        line += ". It has never changed anything."
+    return line
+
+
 def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
                 radius: float = 6.0, exclude_last: int = 6) -> list[dict[str, Any]]:
     """Episodes that started within `radius` of `pos`, older than the `exclude_last`
@@ -188,6 +221,43 @@ def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
         return []
     older = rows[:-exclude_last] if exclude_last > 0 else rows
     return [r for r in near(older, pos[0], pos[1], radius) if r.get("kind") == "episode"]
+
+
+def left_behind(rows: list[dict[str, Any]], root: Path | str | None, *,
+                items: Iterable[str] = ("crafting_table", "furnace")) -> list[dict[str, Any]]:
+    """Placed blocks the agent walked away from: for each item, the episodes whose
+    `inventory_delta` lost one (a placement, at that episode's position) that no later
+    episode gained one back without crafting it (a pickup). Newest last.
+
+    lad3 (2026-09-05): the table was placed at step 571 at Y=68 and left there; at
+    step 7117, at Y=12 with every ingredient of the iron pickaxe, the climb back took
+    4,800 steps. The contract's rule ("carry ONE table") was 400 lines from the
+    decision; this is the fact, from the record, at the decision."""
+    if root is None:
+        return []
+    root = Path(root)
+    items = tuple(items)
+    open_: dict[str, list[dict[str, Any]]] = {i: [] for i in items}
+    for r in rows:
+        s = str(r.get("summary") or "")
+        if not any(i in s for i in items):
+            continue
+        try:
+            oc = json.loads((root / r["path"] / "outcome.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError, KeyError):
+            continue
+        delta = oc.get("inventory_delta") or {}
+        events = " ".join(oc.get("events") or [])
+        for item in items:
+            d = delta.get(item, 0)
+            if d < 0:
+                open_[item].append({"item": item, "id": r["id"], "step": r.get("first_step"),
+                                    "x": r.get("x"), "y": r.get("y"), "z": r.get("z")})
+            elif d > 0 and f"craft_item {item}" not in events and open_[item]:
+                open_[item].pop()          # picked back up
+    out = [p for item in items for p in open_[item]]
+    out.sort(key=lambda p: p["step"] or 0)
+    return out
 
 
 def milestone_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -211,21 +281,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     movers = set(movers)
     for s in streaks(rows, min_len=streak_min, ignore=ignore_kinds,
                      movers=movers, recent=streak_recent)[:max_streaks]:
-        last = s["last"]
-        line = (f"- `{s['kind']}` changed nothing in its last {s['n']} calls "
-                f"(since step {s['since_step']}, {s['spots']} spot"
-                f"{'s' if s['spots'] != 1 else ''}; latest {last['id']}, "
-                f"steps {last.get('first_step')}-{last.get('last_step')})")
-        note = _note(root, last)
-        if note:
-            line += f': "{note}"'
-        ok = s["last_success"]
-        if ok is not None:
-            line += (f". It last changed something at step {ok.get('first_step')} "
-                     f"({ok['id']}: {_action(ok)}).")
-        else:
-            line += ". It has never changed anything."
-        lines.append(line)
+        lines.append("- " + streak_line(s, root))
 
     rep = repeated_note(rows, root, min_len=repeat_min, recent=streak_recent,
                         ignore=ignore_kinds)
