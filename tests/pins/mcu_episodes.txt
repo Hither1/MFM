@@ -188,7 +188,7 @@
  "mobs": {
   "zombie": 1
  },
- "moved": 0.0,
+ "moved": 0.316,
  "pos": {
   "pitch": 10.0,
   "x": 1.9,
@@ -248,7 +248,7 @@
   "note",
   "flushed"
  ],
- "verified_after": "no"
+ "verified_after": "yes"
 }
 
 ### ep_000003/state/state.json
@@ -271,7 +271,7 @@
  },
  "mainhand": "wooden_pickaxe",
  "mobs": {},
- "moved": 0.0,
+ "moved": 0.316,
  "pos": {
   "pitch": 10.0,
   "x": 2.2,
@@ -292,7 +292,7 @@
 ### ep_000003/state/ticks.jsonl
 {"goals": {"done": ["mine_log"], "next": "crafting_table"}, "gui_open": false, "hotbar": {"1": "spruce_log x4", "2": "wooden_pickaxe x1"}, "inventory": {"cobblestone": 10, "spruce_log": 4, "wooden_pickaxe": 1}, "mainhand": "wooden_pickaxe", "mobs": {}, "moved": 0.316, "pos": {"pitch": 10.0, "x": 2.5, "y": 64.0, "yaw": 90.0, "z": 1.5}, "step": 5, "verified": "no", "vitals": {"food": 18.0, "health": 20.0, "light": 7.0, "sky": true}}
 {"goals": {"done": ["mine_log"], "next": "crafting_table"}, "gui_open": false, "hotbar": {"1": "spruce_log x4", "2": "wooden_pickaxe x1"}, "inventory": {"cobblestone": 12, "spruce_log": 4, "wooden_pickaxe": 1}, "mainhand": "wooden_pickaxe", "mobs": {"zombie": 1}, "moved": 0.316, "pos": {"pitch": 10.0, "x": 2.8, "y": 64.0, "yaw": 90.0, "z": 1.4}, "step": 6, "verified": "no", "vitals": {"food": 18.0, "health": 20.0, "light": 7.0, "sky": true}}
-{"goals": {"done": ["mine_log", "crafting_table"], "next": null}, "gui_open": false, "hotbar": {"1": "spruce_log x4", "2": "wooden_pickaxe x1"}, "inventory": {"cobblestone": 14, "spruce_log": 4, "wooden_pickaxe": 1}, "mainhand": "wooden_pickaxe", "mobs": {}, "moved": 0.316, "pos": {"pitch": 10.0, "x": 3.1, "y": 64.0, "yaw": 90.0, "z": 1.2999999999999998}, "step": 7, "verified": "no", "vitals": {"food": 18.0, "health": 20.0, "light": 7.0, "sky": true}}
+{"goals": {"done": ["mine_log", "crafting_table"], "next": null}, "gui_open": false, "hotbar": {"1": "spruce_log x4", "2": "wooden_pickaxe x1"}, "inventory": {"cobblestone": 14, "spruce_log": 4, "wooden_pickaxe": 1}, "mainhand": "wooden_pickaxe", "mobs": {}, "moved": 0.316, "pos": {"pitch": 10.0, "x": 3.1, "y": 64.0, "yaw": 90.0, "z": 1.2999999999999998}, "step": 7, "verified": "yes", "vitals": {"food": 18.0, "health": 20.0, "light": 7.0, "sky": true}}
 
 ### ep_000004/action.json
 {
@@ -352,7 +352,7 @@
  },
  "mainhand": "wooden_pickaxe",
  "mobs": {},
- "moved": 0.0,
+ "moved": 0.316,
  "pos": {
   "pitch": 10.0,
   "x": 3.1,
@@ -432,7 +432,7 @@
  "mobs": {
   "zombie": 1
  },
- "moved": 0.0,
+ "moved": 0.316,
  "pos": {
   "pitch": 10.0,
   "x": 3.6999999999999997,
@@ -508,7 +508,7 @@
  },
  "mainhand": "wooden_pickaxe",
  "mobs": {},
- "moved": 0.0,
+ "moved": 0.316,
  "pos": {
   "pitch": 10.0,
   "x": 4.3,
@@ -527,10 +527,10 @@
 }
 
 ### index.jsonl
-{"action_kind": null, "first_step": 0, "gui_open": false, "id": "ep_000000", "image": "episodes/ep_000000/observation/image.png", "kind": "initial", "last_step": 0, "observation_hash": null, "path": "episodes/ep_000000", "summary": "initial state", "tags": ["initial"], "x": 1.0, "z": 2.0}
-{"action_kind": "forward+sprint", "first_step": 0, "gui_open": false, "id": "ep_000001", "image": "episodes/ep_000001/observation/image.png", "kind": "episode", "last_step": 3, "observation_hash": null, "path": "episodes/ep_000001", "summary": "{\"forward\":1,\"sprint\":1} x3: moved 0.9, inv {'cobblestone': 6}", "tags": ["inventory_changed"], "x": 1.0, "z": 2.0}
-{"action_kind": "camera", "first_step": 3, "gui_open": false, "id": "ep_000002", "image": "episodes/ep_000002/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": null, "path": "episodes/ep_000002", "summary": "{\"camera\":[0,30]} x1: moved 0.3, inv {'cobblestone': 2, 'spruce_log': 1}", "tags": ["inventory_changed", "gui"], "x": 1.9, "z": 1.7}
-{"action_kind": "attack", "first_step": 4, "gui_open": true, "id": "ep_000003", "image": "episodes/ep_000003/observation/image.png", "kind": "episode", "last_step": 7, "observation_hash": null, "path": "episodes/ep_000003", "summary": "{\"attack\":1} x4: moved 0.9, inv {'cobblestone': 6}, milestone ['crafting_table']", "tags": ["milestone", "inventory_changed", "note", "flushed"], "x": 2.2, "z": 1.6}
-{"action_kind": "inventory", "first_step": 7, "gui_open": false, "id": "ep_000004", "image": "episodes/ep_000004/observation/image.png", "kind": "episode", "last_step": 9, "observation_hash": null, "path": "episodes/ep_000004", "summary": "{\"inventory\":1} x2: moved 0.6, inv {'cobblestone': 4, 'spruce_log': 1}", "tags": ["inventory_changed", "gui"], "x": 3.1, "z": 1.2999999999999998}
-{"action_kind": "inventory", "first_step": 9, "gui_open": true, "id": "ep_000005", "image": "episodes/ep_000005/observation/image.png", "kind": "episode", "last_step": 11, "observation_hash": null, "path": "episodes/ep_000005", "summary": "{\"inventory\":1} x2: moved 0.6, inv {'cobblestone': 4}", "tags": ["inventory_changed"], "x": 3.6999999999999997, "z": 1.1}
-{"action_kind": "inventory", "first_step": 11, "gui_open": false, "id": "ep_000006", "image": "episodes/ep_000006/observation/image.png", "kind": "episode", "last_step": 11, "observation_hash": null, "path": "episodes/ep_000006", "summary": "{\"inventory\":1} x2: moved 0.0", "tags": [], "x": 4.3, "z": 0.8999999999999999}
+{"action_kind": null, "attachment": "frames/step_0000.png", "first_step": 0, "gui_open": false, "id": "ep_000000", "image": "episodes/ep_000000/observation/image.png", "kind": "initial", "last_step": 0, "observation_hash": null, "path": "episodes/ep_000000", "summary": "initial state", "tags": ["initial"], "x": 1.0, "z": 2.0}
+{"action_kind": "forward+sprint", "attachment": "frames/step_0000.png", "first_step": 0, "gui_open": false, "id": "ep_000001", "image": "episodes/ep_000001/observation/image.png", "kind": "episode", "last_step": 3, "observation_hash": null, "path": "episodes/ep_000001", "summary": "{\"forward\":1,\"sprint\":1} x3: moved 0.9, inv {'cobblestone': 6}", "tags": ["inventory_changed"], "x": 1.0, "z": 2.0}
+{"action_kind": "camera", "attachment": "frames/step_0003.png", "first_step": 3, "gui_open": false, "id": "ep_000002", "image": "episodes/ep_000002/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": null, "path": "episodes/ep_000002", "summary": "{\"camera\":[0,30]} x1: moved 0.3, inv {'cobblestone': 2, 'spruce_log': 1}", "tags": ["inventory_changed", "gui"], "x": 1.9, "z": 1.7}
+{"action_kind": "attack", "attachment": "frames/step_0004.png", "first_step": 4, "gui_open": true, "id": "ep_000003", "image": "episodes/ep_000003/observation/image.png", "kind": "episode", "last_step": 7, "observation_hash": null, "path": "episodes/ep_000003", "summary": "{\"attack\":1} x4: moved 0.9, inv {'cobblestone': 6}, milestone ['crafting_table']", "tags": ["milestone", "inventory_changed", "note", "flushed"], "x": 2.2, "z": 1.6}
+{"action_kind": "inventory", "attachment": "frames/step_0007.png", "first_step": 7, "gui_open": false, "id": "ep_000004", "image": "episodes/ep_000004/observation/image.png", "kind": "episode", "last_step": 9, "observation_hash": null, "path": "episodes/ep_000004", "summary": "{\"inventory\":1} x2: moved 0.6, inv {'cobblestone': 4, 'spruce_log': 1}", "tags": ["inventory_changed", "gui"], "x": 3.1, "z": 1.2999999999999998}
+{"action_kind": "inventory", "attachment": "frames/step_0009.png", "first_step": 9, "gui_open": true, "id": "ep_000005", "image": "episodes/ep_000005/observation/image.png", "kind": "episode", "last_step": 11, "observation_hash": null, "path": "episodes/ep_000005", "summary": "{\"inventory\":1} x2: moved 0.6, inv {'cobblestone': 4}", "tags": ["inventory_changed"], "x": 3.6999999999999997, "z": 1.1}
+{"action_kind": "inventory", "attachment": "frames/step_0011.png", "first_step": 11, "gui_open": false, "id": "ep_000006", "image": "episodes/ep_000006/observation/image.png", "kind": "episode", "last_step": 11, "observation_hash": null, "path": "episodes/ep_000006", "summary": "{\"inventory\":1} x2: moved 0.0", "tags": [], "x": 4.3, "z": 0.8999999999999999}

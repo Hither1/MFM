@@ -71,6 +71,10 @@ class EpisodeStore(MemorySink):
         self._open: dict[str, Any] | None = None
         self._pending_notes: list[str] = []
         self._plan: dict[str, Any] = {}
+        # The state computed for the current step, shared by `observe` and `act`: the
+        # hooks that compute it keep per-tick state (the previous position for `moved`),
+        # so computing it twice for one observation read moved=0.0 in every state.json.
+        self._state_at: tuple[int, dict[str, Any]] | None = None
         self.n_closed = 0
         self.tags: Counter[str] = Counter()
         self.closed: list[dict[str, Any]] = []
@@ -86,10 +90,20 @@ class EpisodeStore(MemorySink):
     # -- sink hooks -----------------------------------------------------------
 
     def prompt_note(self, agent: "MemoryAgent") -> str | None:
+        # Under the stateless ablation the visible workspace is rebuilt without
+        # `episodes/` or the tool every turn (see `publish`), so the model is not told
+        # about them; the record still holds them for the analysis.
+        if getattr(agent, "stateless", False):
+            return None
         return getattr(agent, "mfm_memory_note", None)
 
+    def _state(self, agent: "MemoryAgent", obs: "Observation") -> dict[str, Any]:
+        if self._state_at is None or self._state_at[0] != obs.step:
+            self._state_at = (obs.step, agent.episode_state(obs))
+        return self._state_at[1]
+
     def initial(self, agent: "MemoryAgent", obs: "Observation") -> None:
-        state = agent.episode_state(obs)
+        state = self._state(agent, obs)
         ep = self._new_episode(agent, obs, state, kind="initial")
         self._open = ep
         self._close(agent, flushed=False, last_step=obs.step)
@@ -98,7 +112,7 @@ class EpisodeStore(MemorySink):
         ep = self._open
         if ep is None:
             return
-        state = agent.episode_state(obs)
+        state = self._state(agent, obs)
         with (ep["dir"] / "state" / "ticks.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(state, sort_keys=True, default=str) + "\n")
         ep["last_state"] = state
@@ -106,6 +120,12 @@ class EpisodeStore(MemorySink):
         ep["ticks_seen"] += 1
         if ep["ticks_seen"] >= ep["ticks"]:
             self._close(agent, flushed=False, last_step=obs.step)
+
+    def refill(self, agent: "MemoryAgent", obs: "Observation") -> None:
+        if self._open is not None:
+            # Closed here, at the step the turn runs on, rather than when the next entry
+            # opens: the ticks between (a failed turn's default actions) are not its.
+            self._close(agent, flushed=True, last_step=obs.step)
 
     def plan(self, agent: "MemoryAgent", plan: "Plan") -> None:
         self._plan = {"turn": agent.codex.calls, "briefing": plan.briefing, "plan": plan.think}
@@ -118,7 +138,7 @@ class EpisodeStore(MemorySink):
         if self._open is not None:
             # The previous entry did not run to its last tick: the plan was flushed.
             self._close(agent, flushed=True, last_step=obs.step)
-        state = agent.episode_state(obs)
+        state = self._state(agent, obs)
         ep = self._new_episode(agent, obs, state, kind="episode", item=item)
         self._open = ep
 
@@ -146,8 +166,22 @@ class EpisodeStore(MemorySink):
             (Path(visible) / "index.jsonl").unlink(missing_ok=True)
             return
         step_now = agent._obs.step if agent._obs is not None else 0
-        keep = [r for r in self.closed
-                if window is None or (r.get("last_step") or 0) >= step_now - window]
+
+        def inside(r: dict[str, Any]) -> bool:
+            # An episode is inside the window when the frame it opened on is: its
+            # image is that frame, and its ticks all come after it. Judged by what the
+            # log's publish left in `visible` (the attachment it opened on), so the two
+            # views cannot disagree; an episode with no attachment falls back to its
+            # first step. Keeping by `last_step` leaked frames from before the window
+            # through `episodes/` (window 3 at step 13 showed step 8's frame).
+            if window is None:
+                return True
+            att = r.get("attachment")
+            if att:
+                return (Path(visible) / att).exists()
+            return (r.get("first_step") or 0) > step_now - window
+
+        keep = [r for r in self.closed if inside(r)]
         keep_ids = {r["id"] for r in keep}
         for r in self.closed:
             src, dst = self.dir / r["id"], vis_dir / r["id"]
@@ -205,7 +239,9 @@ class EpisodeStore(MemorySink):
                 "last_state": state, "notes": notes,
                 "image": (d / "observation" / "image.png").relative_to(self.root).as_posix()
                          if (d / "observation" / "image.png").exists() else None,
-                "observation_hash": state.get("png_sha256")}
+                "observation_hash": state.get("png_sha256"),
+                # The log-relative frame the episode opened on (what `publish` keys on).
+                "attachment": obs.attachment}
 
     def _close(self, agent: "MemoryAgent", *, flushed: bool, last_step: int,
                extra: dict[str, Any] | None = None) -> None:
@@ -230,6 +266,7 @@ class EpisodeStore(MemorySink):
                "image": ep["image"], "path": ep["dir"].relative_to(self.root).as_posix(),
                "action_kind": ep["action_kind"],
                "observation_hash": ep["observation_hash"],
+               "attachment": ep["attachment"],
                **agent.episode_index_fields(ep["first_state"], ep["last_state"])}
         with self.index_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, sort_keys=True, default=str) + "\n")

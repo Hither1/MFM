@@ -1,9 +1,12 @@
-# Plan: MFM agents (Multimodal Filesystem Memory), built on PRO-LONG
+# Plan: MFM agents (Multimodal Filesystem Memory)
 
 Scope: a new memory arm, the **MFM agent**, for MCU (diamond / dragon) and for the KiCad
-GUI benchmark. The MFM agent **replaces** the world-model agent in both repos: it is the
-simplified successor, built on PRO-LONG instead of on the world-model code. The existing
-world-model agents are retired, not kept alongside.
+GUI benchmark. On KiCad it is PRO-LONG plus the episode store. On MCU, **revised
+2026-09-04 (evening)**: it is built on the world-model chassis's *logbook* mode, not on
+the original PRO-LONG port -- see "Status: the MCU chassis decision" below. The rule
+"built on PRO-LONG instead of on the world-model code" that the rest of this document
+still states is therefore overturned for MCU; `mfm/` (backend, agent base, memory) is
+unchanged by that decision, only the MCU adapter layer moved.
 
 Design rule, unchanged: **the MCU arm is the current PRO-LONG agent with the smallest
 possible delta**, so its measured behaviour is preserved. What changed in this revision is
@@ -12,6 +15,70 @@ and stacking subclasses on top, which meant writing every MFM piece twice (once 
 and reaching into the parent's private fields. This revision lifts the code the two repos
 already share into one package, in three layers, and guarantees the baseline with pinned
 tests (section 7) instead of with untouched files. MFM is then written once.
+
+## Status: the MCU chassis decision (2026-09-04, evening)
+
+**Decision.** The MCU MFM arm is `worldmodel_purple_agent.py --memory mfm`: the logbook
+arm (the world-model chassis -- macros, cursor, vision, governor -- with PRO-LONG's
+memory protocol, one append-only `logs.txt`) plus the episode store beside the log.
+The ladder on one chassis is now direct -> logbook -> **mfm** -> wmlite -> worldmodel,
+so MFM's memory effect separates from the chassis. The PRO-LONG-based MFM arm stays
+launchable as `--agent plmfm` (the dmw3 wave) for the original PRO-LONG-vs-PRO-LONG+MFM
+comparison; it is no longer the ladder rung.
+
+Why. Prompt-tuning PRO-LONG towards longer plans cannot close the gap: its caps are
+already 40 entries / repeat 200 / 400 ticks and the model still writes 1-2 tick plans,
+because raw keypresses give no in-plan feedback -- two to three times fewer calls at
+best, not the twenty times the chassis's macros give (median plan entry ~40 ticks). And
+"episode = plan entry" maps onto a macro call naturally: the chassis already writes one
+log section per finished entry with position delta, [INV], [EVENT]s and the governor's
+[NOTE], which is the outcome record.
+
+What was built (all gated on `memory_mode == "mfm"`; the logbook arm is pinned):
+
+- `mcu_worldmodel/episodes.py`: `EpisodeBridge`, the adapter that drives
+  `mfm.memory.store.EpisodeStore` from four chassis hook points (`start`, entry open
+  in `next_action`, `observe`, `_log_entry_done`) and implements the store's
+  `episode_*` hooks for Minecraft. `MFM_MEMORY_NOTE` lives there; `prompts.py` builds
+  the mfm contract from the logbook contract by replacing one paragraph, every other
+  segment being the same object as the logbook's.
+- `memory.py`: `episodes=True` keeps `episodes/`, `index.jsonl`, `tools/` between
+  turns (the sweep otherwise removes them) and writes `tools/zoom.py`.
+- `codex_backend.py` (chassis): counts `tools/episodes.py` runs in the rollout scan;
+  `session_max_turns` is a constructor argument.
+- `worldmodel_purple_agent.py`: `--memory mfm`; explicit `--session-turns 1` and
+  `--codex-timeout 480` (no environment defaults); the open episode is closed and the
+  report written on the last step.
+- `tests/test_pins_chassis.py`: the logbook arm replayed through the selftest's fakes
+  (120 ticks, 15 sections, a procedure, governor notes, a hit reflex, a failed
+  attempt): `logs.txt`, `AGENTS.md`, every prompt, every action, the workspace listing
+  and the report keys, plus the four modes' system-prompt hashes. Recorded before the
+  mfm changes; green after.
+
+Fixes from the 2026-09-04 review (all pinned or covered by `tests/`):
+
+- Results-losing: `slurm/arm.sbatch` walltime 24 h -> 2.5 days (a PRO-LONG-cadence arm
+  needs 18-29 h; sapphire allows 3 days). `prolong_purple_agent.py` now writes
+  `prolong_vision_audit.json` every 200 steps and calls `save_state` (closing the
+  store's open episode) on the last step -- nothing ever called it before, so no MCU
+  run of this arm had an audit and its last episode never closed. The subscription
+  account's usage limit: the shared backend gained the chassis's gate as an MCU policy
+  knob (after 5 refusals in a row the calls stop, one probe every 40th) and the MCU
+  adapter waits 2/4/8/16/30 s between contentless failed attempts (the chassis's own
+  rule); prompts, log and actions unchanged.
+- Ablations: the store's `publish` keeps an episode under a window only when the frame
+  it opened on is visible (it kept by `last_step`, leaking pre-window frames); under
+  stateless the system prompt no longer names the tool the publish removes.
+  `tests/test_pins_ablation.py` pins `--log-window 3` and `--stateless`, with and
+  without the store.
+- Data: state.json `moved` was always 0.0 (the state hook was called twice per
+  observation; now once, cached per step, after the flush decision so it carries the
+  updated verification state); a flushed entry no longer absorbs the default-action
+  ticks of a failed turn (a `refill` sink hook closes it when the turn starts).
+- Backend: `audit()` remembers each session's rollout path (was O(N^2) in sessions);
+  the empty-output session discard no longer starts the new session with one failure
+  already counted; `session_max_turns` / `timeout` are explicit arguments from both
+  purple agents.
 
 ## Status (2026-09-04)
 

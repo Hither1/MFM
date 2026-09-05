@@ -118,7 +118,21 @@ AUTO_COMPACT_TOKEN_LIMIT = os.environ.get("CODEX_AUTO_COMPACT_TOKEN_LIMIT", "").
 # `MCU/prolong_mc/codex_backend.py`; see the module docstring for each knob.
 MCU_POLICY: dict[str, Any] = dict(
     derive_codex_home=False, window_headroom=1, compact_scope=False,
-    poisoned_after=None, salvage_timeouts=False, overflow_policy=None)  # set below
+    poisoned_after=None, salvage_timeouts=False, overflow_policy=None,  # set below
+    quota_gate=True)
+
+# The account behind the credential has no usage left. Codex reports it as an ordinary
+# turn error carrying the reset time ("You've hit your usage limit ... try again at
+# Sep 7th, 2026 10:25 AM"), so nothing else here can tell it apart from a transient
+# failure. The MCU arms run on a subscription credential and retry in a fixed loop:
+# dg_pl spent 1,551 of its 2,394 calls on this refusal, each an instant failure. With
+# the gate (the world-model chassis's rule, mcu_worldmodel/codex_backend.py), after
+# QUOTA_STREAK_STOP refusals in a row the calls stop -- no spawn, no call counted
+# against the ceiling -- and every QUOTA_RETRY_AFTER-th blocked call still goes out as a
+# probe, which is what picks up a rolling window reopening mid-run.
+_QUOTA_RE = re.compile(r"hit your usage limit|usage limit reached|purchase more credits", re.I)
+QUOTA_STREAK_STOP = 5
+QUOTA_RETRY_AFTER = 40
 
 # Consecutive failed turns on one session before it is treated as unusable. 2, not 1: one
 # failure is a hiccup worth retrying in place, and the analyzer gets 3 attempts, so the
@@ -686,6 +700,7 @@ class CodexTurn(LocalServerGate):
         poisoned_after: int | None = _POISONED_AFTER,
         salvage_timeouts: bool = True,
         overflow_policy: dict[str, tuple] | None = None,
+        quota_gate: bool = False,
     ) -> None:
         # Absolute, always. Codex runs with cwd == this directory, so every path derived
         # from it -- `-o last_message.txt`, the `-i` frames -- is handed to codex relative
@@ -742,6 +757,7 @@ class CodexTurn(LocalServerGate):
         # cap an episode leaves many sessions behind, and the vision audit has to scan
         # all of their rollouts rather than the last one's.
         self.session_ids: list[str] = []
+        self._rollout_by_session: dict[str, Path] = {}
         self.calls = 0
         # Audited in the comparison: an arm's score is only interpretable next to how
         # much of the observation it actually received.
@@ -767,6 +783,13 @@ class CodexTurn(LocalServerGate):
         # guarantees one present after this attempt was written by it. g56low_v0 Q22
         # lost three completed answers to this over 45 minutes and scored a default.
         self.timeouts_salvaged = 0
+        # The usage-limit gate (module docstring at `_QUOTA_RE`); off in the KiCad
+        # policy, whose extend loop hands infrastructure failures to the driver.
+        self.quota_gate = quota_gate
+        self.quota_refusals = 0
+        self.quota_streak = 0
+        self.quota_message = ""
+        self.quota_skipped = 0
         self.empty_resets = 0
         # A backend that slows with session depth instead of erroring never trips the
         # overflow cold start. The cap synthesises the missing signal client-side: the
@@ -818,6 +841,29 @@ class CodexTurn(LocalServerGate):
         which read the artifact under the name the original port gave it."""
         return {"artifact": artifact, "actions_json": artifact, "message": message,
                 "ok": ok, "error": error, "overflow": overflow}
+
+    def _quota_blocked(self) -> bool:
+        """Has the account's usage limit refused enough turns in a row that spawning
+        another codex is pure cost? See `_QUOTA_RE`."""
+        if not self.quota_gate or self.quota_streak < QUOTA_STREAK_STOP:
+            return False
+        self.quota_skipped += 1
+        return bool(self.quota_skipped % QUOTA_RETRY_AFTER)
+
+    def _note_quota(self, errors: list[str]) -> None:
+        quota = next((e for e in errors if _QUOTA_RE.search(e)), None)
+        if quota:
+            self.quota_refusals += 1
+            self.quota_streak += 1
+            self.quota_message = quota.strip()[:200]
+            if self.quota_streak == 1:
+                logger.error("[codex] the account has no usage left: %s", self.quota_message)
+            elif self.quota_gate and self.quota_streak == QUOTA_STREAK_STOP:
+                logger.error("[codex] %d usage-limit refusals in a row; model calls stop, "
+                             "one probe every %d", self.quota_streak, QUOTA_RETRY_AFTER)
+        elif self.quota_streak:
+            logger.info("[codex] usage limit cleared after %d refusal(s)", self.quota_streak)
+            self.quota_streak = 0
 
     def _discard_session(self, why: str, counter: str) -> None:
         """Drop the thread rather than retry into it -- the single place a session ends.
@@ -941,6 +987,10 @@ class CodexTurn(LocalServerGate):
                              "failure paths", self.max_calls)
             return self._result(None, "", ok=False,
                                 error=f"call ceiling {self.max_calls} reached", overflow=False)
+        if self._quota_blocked():
+            return dict(self._result(None, "", ok=False,
+                                     error=f"account usage limit: {self.quota_message}",
+                                     overflow=False), skipped=True)
         self.calls += 1
         ceiling = self.timeout if timeout is None else timeout
         if (
@@ -1102,18 +1152,25 @@ class CodexTurn(LocalServerGate):
         message_path = self.workspace / self.message_name
         message = message_path.read_text(encoding="utf-8").strip() if message_path.exists() else ""
 
+        self._note_quota(errors)
+        discarded_now = False
         if artifact is None and not message and self.session_id:
             # No artifact AND no message means the call produced nothing at all; the
             # nudged same-session retry is for a model that answered badly, not for a
             # call that never answered.
             self._discard_session("produced no output at all", "empty_resets")
+            discarded_now = True
         if expect_artifact and artifact is None:
             logger.warning(
                 "[codex] turn %d wrote no %s (rc=%s); %s",
                 self.calls, self.artifact_name, proc.returncode,
                 errors[-1] if errors else proc.stderr.strip()[:200],
             )
-            self._failed_turns_on_session += 1
+            # The failure that just discarded the session belongs to that session; the
+            # next one starts at zero, not at one (which made it poisoned after a
+            # single failure instead of `poisoned_after`).
+            if not discarded_now:
+                self._failed_turns_on_session += 1
             if (self.poisoned_after and self.session_id
                     and self._failed_turns_on_session >= self.poisoned_after):
                 self._discard_session(
@@ -1149,9 +1206,17 @@ class CodexTurn(LocalServerGate):
         # a session age cap (or after resets) an episode leaves many rollouts, and a scan
         # of the last would report a fraction of the episode as if it were the whole.
         seen = self.session_ids or ([self.session_id] if self.session_id else [])
-        rollouts = [r for r in (
-            find_rollout(self.codex_home, self.workspace, sid) for sid in seen
-        ) if r is not None]
+        # A rollout's path never changes once found, so it is looked up once per
+        # session and remembered. Under a 1-turn session cap every call is a session,
+        # and looking all of them up again on every audit walked the sessions tree
+        # N times for the N-th audit (a 2,000-call episode: millions of stats).
+        for sid in seen:
+            if sid not in self._rollout_by_session:
+                path = find_rollout(self.codex_home, self.workspace, sid)
+                if path is not None:
+                    self._rollout_by_session[sid] = path
+        rollouts = [self._rollout_by_session[sid] for sid in seen
+                    if sid in self._rollout_by_session]
         self._last_rollouts = rollouts
         if rollouts:
             self.view_image_calls = 0
@@ -1250,6 +1315,10 @@ class CodexTurn(LocalServerGate):
             "age_resets": a["age_resets"],
             "timeout_resets": a["timeout_resets"],
             "empty_resets": a["empty_resets"],
+            # The subscription account's usage limit: turns it refused, and calls the
+            # gate did not make because of it (neither is a model failure).
+            "quota_refusals": self.quota_refusals,
+            "quota_skipped_calls": self.quota_skipped,
         }
 
     @staticmethod

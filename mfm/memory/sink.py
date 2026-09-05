@@ -31,6 +31,11 @@ class MemorySink:
              lines: list[str]) -> None:
         """A log section was written for this observation (and the previous action)."""
 
+    def refill(self, agent: "MemoryAgent", obs: "Observation") -> None:
+        """The queue is empty and a model turn is about to run. Whatever entry was still
+        open did not run to its last tick (the plan was flushed, or the previous turn
+        produced nothing and the driver's default action ran instead)."""
+
     def plan(self, agent: "MemoryAgent", plan: "Plan") -> None:
         """A model call produced a plan; the queue is about to be filled from it."""
 

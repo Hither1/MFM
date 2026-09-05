@@ -162,6 +162,11 @@ class MemoryAgent:
     def after_pop(self, item: dict[str, Any]) -> None:
         """Bookkeeping once a queue item is about to be returned to the driver."""
 
+    def before_retry(self, result: dict[str, Any], attempt: int, budget: int) -> None:
+        """A fixed-policy attempt failed and another follows. The benchmark may wait
+        here (an infrastructure refusal is not cured by an immediate retry); the
+        default does not, which is the loop the measured runs used."""
+
     def on_no_plan(self, result: dict[str, Any]) -> None:
         """The retry budget is spent and there is no plan."""
         logger.error("[%s] analyzer produced nothing after %d tries", self.arm,
@@ -209,9 +214,12 @@ class MemoryAgent:
         return {}
 
     def observe(self, obs: Observation) -> None:
+        # The flush decision first: it is where the benchmark updates what it knows
+        # about this observation (MCU's verification state), and the sinks' state for
+        # the step is computed once, here, so it must see that update.
+        reason = self.flush_reason(obs)
         for sink in self.sinks:
             sink.observe(self, obs)
-        reason = self.flush_reason(obs)
         if reason and self.queue:
             logger.info("[%s] %s: flushing %d queued step(s) and re-planning",
                         self.arm, reason, len(self.queue))
@@ -256,6 +264,8 @@ class MemoryAgent:
     def refill(self, obs: Observation) -> bool:
         """One model turn: publish the view, prompt, retry, parse, queue. True when a
         plan was queued."""
+        for sink in self.sinks:
+            sink.refill(self, obs)
         published = self.log.publish(self.visible, self.log_window, self.stateless,
                                      current=obs.attachment)
         self._published = published
@@ -300,6 +310,8 @@ class MemoryAgent:
                     time.sleep(min(2 ** capacity, 60))
                 elif attempt < budget:
                     time.sleep(min(2 ** attempt, 30))
+            elif attempt < budget:
+                self.before_retry(result, attempt, budget)
             logger.warning("[%s] turn %d attempt %d/%d produced no usable plan (%s%s)",
                            self.arm, self.codex.calls, attempt, budget,
                            "context overflow; " if result.get("overflow") else "", err)
