@@ -144,3 +144,96 @@ def test_chassis_mfm_mode(tmp_path: Path):
     assert rep["memory_mode"] == "mfm" and rep["mfm"]["n"] == len(rows)
     check_pin("chassis_mfm_index.jsonl", _norm((ws / "index.jsonl").read_text(), tmp_path))
     check_pin("chassis_mfm_agents.md", _norm(agents_md, tmp_path))
+
+
+def test_chassis_vision_audit_survives_a_real_rollout(tmp_path: Path):
+    """`report()` must not raise on the real backend.
+
+    The pin tests above drive the agent with the selftest's FakeCodex, whose
+    `vision_audit` is a fixed dict, so an audit key the real backend cannot produce is
+    invisible to them. One did happen: `vision_audit` read a key that the rollout scan
+    did not write, every `save_report` raised KeyError inside the adapter's
+    `try/except`, and the whole wave finished with no report at all.
+    """
+    from mcu_worldmodel.codex_backend import CodexTurn
+
+    home = tmp_path / "home"
+    sid = "01a06fad-0685-71d1-afa7-ce20e9d9f3f2"
+    day = home / "sessions" / "2026" / "09" / "04"
+    day.mkdir(parents=True)
+    (day / f"rollout-2026-09-04T23-46-45-{sid}.jsonl").write_text(
+        '{"type":"thread.started","thread_id":"%s"}\n'
+        '{"type":"item.completed","item":{"type":"command_execution",'
+        '"command":"./tools/episodes.py --last 5"}}\n'
+        '{"type":"custom_tool_call","name":"view_image"}\n' % sid, encoding="utf-8")
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    codex = CodexTurn(ws, model="gpt-5.6-sol", codex_home=home)
+    codex.session_id = sid
+    audit = codex.vision_audit()
+    for key in ("frames_attached", "view_image_calls", "image_attach_failures",
+                "tool_errors", "turns_with_tool_error", "episodes_tool_calls",
+                "compactions", "session_max_turns" if False else "empty_resets"):
+        assert key in audit, key
+    assert audit["episodes_tool_calls"] == 1, audit["episodes_tool_calls"]
+    assert audit["view_image_calls"] == 1, audit["view_image_calls"]
+
+
+def test_episodes_tool_counted_in_every_cli_shape(tmp_path: Path):
+    """The counter must see a call in each shape a CLI records one in, and must not
+    count the tool's own description in the system prompt.
+
+    Both shapes are taken from real runs: codex 0.149 records shell work as
+    `command_execution` (MCU's saved transcripts), 0.153 runs it in a code-mode `exec`
+    cell recorded as `custom_tool_call` (the KiCad GPT-6 rollouts). Counting only the
+    first pair reported 0 for a KiCad run whose 1,410 exec cells were the only place a
+    call could appear, and 0 for an MCU run whose transcripts hold 18 real calls.
+    """
+    from mcu_worldmodel import codex_backend as chassis
+    from mfm.backend import codex_turn as shared
+
+    f = tmp_path / "turn_0001.events.jsonl"
+    f.write_text(
+        # the system prompt describing the tool: NOT a call
+        '{"type":"response_item","payload":{"type":"message","content":'
+        '"`./tools/episodes.py --last 5` lists matching episodes"}}\n'
+        # codex 0.149, MCU
+        '{"type":"item.completed","item":{"type":"command_execution",'
+        '"command":"/usr/bin/bash -lc \\"./tools/episodes.py --last 8\\""}}\n'
+        # codex 0.153, KiCad code mode
+        '{"type":"response_item","payload":{"type":"custom_tool_call","name":"exec",'
+        '"input":"{\\"command\\":\\"./tools/episodes.py --tag stuck\\"}"}}\n'
+        # the older direct shape
+        '{"type":"response_item","payload":{"type":"function_call","name":"shell",'
+        '"arguments":"{\\"command\\":[\\"bash\\",\\"-lc\\",\\"./tools/episodes.py --near 1 2\\"]}"}}\n',
+        encoding="utf-8")
+    for mod in (shared, chassis):
+        n = mod.count_episodes_tool(f, mod._ROLLOUT_EPISODES_TOOL)
+        assert n == 3, f"{mod.__name__} counted {n}, expected 3 (one per call shape)"
+
+    # And the whole-file scanners agree, without counting the description.
+    assert shared.scan_rollout_full(f)["episodes_tool_calls"] == 3
+    assert chassis.scan_rollout(f)["episodes_tool_calls"] == 3
+
+
+def test_episodes_tool_falls_back_to_the_transcripts(tmp_path: Path):
+    """A codex home that did not survive the run (MCU's is node-local /var/tmp) leaves
+    no rollout to scan; the backend's own saved turn events still carry the calls."""
+    from mcu_worldmodel.codex_backend import CodexTurn
+
+    home = tmp_path / "home"
+    sid = "01a06fad-0685-71d1-afa7-ce20e9d9f3f2"
+    day = home / "sessions" / "2026" / "09" / "05"
+    day.mkdir(parents=True)
+    (day / f"rollout-x-{sid}.jsonl").write_text(
+        '{"type":"thread.started","thread_id":"%s"}\n' % sid, encoding="utf-8")
+    tdir = tmp_path / "codex_turns"
+    tdir.mkdir()
+    (tdir / "turn_0001.events.jsonl").write_text(
+        '{"type":"item.completed","item":{"type":"command_execution",'
+        '"command":"bash -lc ./tools/episodes.py --last 8"}}\n', encoding="utf-8")
+    ws = tmp_path / "ws"; ws.mkdir()
+    codex = CodexTurn(ws, model="gpt-5.6-sol", codex_home=home, transcript_dir=tdir)
+    codex.session_id = sid
+    assert codex.vision_audit()["episodes_tool_calls"] == 1

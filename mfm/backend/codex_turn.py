@@ -443,6 +443,36 @@ _TOOL_ERROR_KEYS = ("tool_errors", "patch_stale_target", "patch_dup_target", "at
 # episode store at all, separately from whether the score moved.
 _ROLLOUT_EPISODES_TOOL = re.compile(r"tools/episodes\.py")
 
+# A call to the MFM query tool, in every shape the CLIs record one in. The path alone is
+# not enough: the tool is DESCRIBED in AGENTS.md, which the rollout embeds verbatim as
+# the system prompt, so a bare path match counts the instructions rather than a call.
+# Requiring a tool-call record on the same line is what separates them, and the shapes
+# differ by CLI and by mode: codex 0.149 records shell work as `command_execution` or
+# `function_call`, 0.153 runs it inside a code-mode `exec` cell recorded as
+# `custom_tool_call`. Counting only the first two read 0 against a KiCad run whose
+# 1,410 exec cells were the only place a call could appear, and against an MCU run whose
+# saved transcripts show 18 real calls.
+_TOOL_CALL_MARKERS = ('"command_execution"', '"function_call"', '"custom_tool_call"',
+                      '"local_shell_call"')
+
+
+def is_tool_call_line(line: str) -> bool:
+    return any(m in line for m in _TOOL_CALL_MARKERS)
+
+
+def count_episodes_tool(path, pattern) -> int:
+    """Episode-tool calls in one JSONL file (a rollout or a saved turn transcript)."""
+    n = 0
+    try:
+        fh = open(path, encoding="utf-8", errors="replace")
+    except OSError:
+        return 0
+    with fh:
+        for line in fh:
+            if is_tool_call_line(line):
+                n += len(pattern.findall(line))
+    return n
+
 
 # The rollout's own record of a compaction having happened. `_COMPACTION_RE` scans the
 # per-turn event stream, which -- exactly as with view_image -- does not carry the event:
@@ -489,7 +519,7 @@ def scan_rollout_full(path: Path) -> dict[str, int]:
             out["patch_stale_target"] += len(_ROLLOUT_PATCH_STALE.findall(line))
             out["patch_dup_target"] += len(_ROLLOUT_PATCH_DUP.findall(line))
             out["attach_miss"] += len(_ROLLOUT_ATTACH_MISS.findall(line))
-            if '"command_execution"' in line or '"function_call"' in line:
+            if is_tool_call_line(line):
                 out["episodes_tool_calls"] += len(_ROLLOUT_EPISODES_TOOL.findall(line))
     out["turns_with_tool_error"] = 1 if out["tool_errors"] else 0
     return out
@@ -834,6 +864,8 @@ class CodexTurn(LocalServerGate):
         self._rollouts_scanned = 0
         self._last_rollouts: list[Path] = []
         self.episodes_tool_calls = 0
+        self._transcript_counts: dict[Path, int] = {}
+        self._transcript_mtimes: dict[Path, int] = {}
 
     def _result(self, artifact: str | None, message: str, *, ok: bool,
                 error: str | None, overflow: bool) -> dict[str, Any]:
@@ -1240,7 +1272,13 @@ class CodexTurn(LocalServerGate):
                     tool_errors[k] += counts.get(k, 0)
                 episodes_tool_calls += counts.get("episodes_tool_calls", 0)
             self._tool_error_counts = tool_errors
-            self.episodes_tool_calls = episodes_tool_calls
+            # The turn transcripts this backend writes itself are a second, independent
+            # source: they survive a node-local codex home the rollouts do not outlive,
+            # and they carry the shapes a future CLI may record instead. Whichever saw
+            # more is the count, so a format this scanner has not met can only
+            # under-report through one channel, never through both silently.
+            self.episodes_tool_calls = max(episodes_tool_calls,
+                                           self._transcript_episodes_tool_calls())
             self._rollouts_scanned = len(rollouts)
             # The stream can only under-report, never over-report, so the tripwire takes
             # whichever source saw more. Reported separately as well, because "the
@@ -1292,6 +1330,23 @@ class CodexTurn(LocalServerGate):
             "compactions_from_rollout": self.rollout_compactions,
             **merge_stats(self.stats),
         }
+
+    def _transcript_episodes_tool_calls(self) -> int:
+        """Episode-tool calls counted from this backend's own saved turn events."""
+        if not self.transcript_dir or not self.transcript_dir.exists():
+            return 0
+        total = 0
+        for path in sorted(self.transcript_dir.glob("turn_*.events.jsonl")):
+            try:
+                mtime = path.stat().st_mtime_ns
+            except OSError:
+                continue
+            if self._transcript_mtimes.get(path) != mtime:
+                self._transcript_counts[path] = count_episodes_tool(
+                    path, _ROLLOUT_EPISODES_TOOL)
+                self._transcript_mtimes[path] = mtime
+            total += self._transcript_counts[path]
+        return total
 
     def vision_audit(self) -> dict[str, Any]:
         """The MCU port's audit: its own key set, as `save_state` writes it into
