@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import stat
 import re
 import shutil
 from pathlib import Path
@@ -37,7 +38,29 @@ logger = logging.getLogger(__name__)
 SEPARATOR = "=" * 80
 
 # Written by the harness, not by the agent, and required for the turn to happen at all.
-_HARNESS_FILES = {"logs.txt", "AGENTS.md"}
+# Harness-written files an ablation view keeps: the log, the system prompt, and the
+# frame tool a benchmark may install beside the frames (`install_zoom_tool`).
+_HARNESS_FILES = {"logs.txt", "AGENTS.md", "tools/zoom.py"}
+
+_ZOOM_SRC = Path(__file__).with_name("tools") / "zoom.py"
+
+
+def install_zoom_tool(record_dir: Path) -> Path:
+    """Write `tools/zoom.py` into the record workspace, executable.
+
+    The KiCad PRO-LONG prompt has always told the model it can crop and magnify a
+    saved screenshot with `./tools/zoom.py`, and the sandbox provisions a `python` with
+    Pillow for exactly that -- but nothing ever wrote the file: every zoom attempt in
+    the measured runs failed with "No such file or directory" (12 of 12 in one run),
+    after which the model stopped trying to look at earlier screens at all. Both arms
+    get it, because both arms' prompts promise it.
+    """
+    dst = Path(record_dir) / "tools" / "zoom.py"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not dst.exists():
+        shutil.copyfile(_ZOOM_SRC, dst)
+        dst.chmod(dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return dst
 
 
 def _attachment_re(markers: Sequence[str]) -> re.Pattern[str]:

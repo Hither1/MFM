@@ -107,3 +107,32 @@ def test_kicad_plan_queue(tmp_path, fake_codex, monkeypatch):
     log = (tmp_path / "ws" / "logs.txt").read_text()
     assert "Turn 2 | Step 2/10 | Plan Step 2/3" in log
     assert agent.audit()["mfm"]["plan_queue"] is True
+
+
+def test_kicad_workspace_has_the_promised_zoom_tool(tmp_path, fake_codex, monkeypatch):
+    """Both KiCad arms' prompts tell the model about `./tools/zoom.py`; the file must
+    exist and work. It never did: every zoom attempt in the measured runs failed with
+    "No such file or directory", and the model then gave up looking at earlier
+    screens (2 frame re-opens in 1,410 shell commands on GPT-6)."""
+    import os
+    import subprocess
+    import sys
+
+    from gym_codex import memory_agents
+    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    for arm in ("prolong", "mfm"):
+        ws = tmp_path / arm
+        memory_agents.make_agent(
+            arm, workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,
+            transcript_dir=None, codex_home=str(tmp_path / "home"), session_turns=None,
+            base_url=None)
+        tool = ws / "tools" / "zoom.py"
+        assert tool.exists() and os.access(tool, os.X_OK), arm
+        from PIL import Image
+        frame = ws / "frame.png"
+        Image.new("RGB", (1920, 1080), (10, 20, 30)).save(frame)
+        out = ws / "zoom.png"
+        r = subprocess.run([sys.executable, str(tool), str(frame), "100", "200", "50", "25",
+                            str(out)], capture_output=True, text=True, cwd=ws)
+        assert r.returncode == 0, r.stderr
+        assert Image.open(out).size == (200, 100), arm

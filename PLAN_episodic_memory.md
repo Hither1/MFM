@@ -80,6 +80,37 @@ Fixes from the 2026-09-04 review (all pinned or covered by `tests/`):
   already counted; `session_max_turns` / `timeout` are explicit arguments from both
   purple agents.
 
+## Status: what the first KiCad waves showed (2026-09-05)
+
+Measured on the gpt-5.6-sol `_projdir` pair and the GPT-6 low pair (25 tasks each):
+
+- **The model reads the text log every turn and never reads the store.** PRO-LONG made
+  1,183 log reads in 1,186 turns on GPT-6, MFM 1,184; `tail -n 12..25 logs.txt` (744)
+  and `cat logs.txt` (430) dominate. The episode tool was called 0 times on GPT-6 and 2
+  on gpt-5.6; earlier screenshots were re-opened twice in 1,410 shell commands. The two
+  GPT-6 arms scored identically on all 25 tasks.
+- **Why the store has nothing to add within a task**: KiCad tasks are 9-110 turns in a
+  fresh per-task workspace; the screen changes every step (27 repeated screenshot hashes
+  in 1,247 episodes, all the initial/first-turn pair), `screen_unchanged` fired twice.
+  The index carries nothing the log's last 15 lines do not.
+- **`tools/zoom.py` was promised and never written** (both arms; the sandbox even
+  provisions a Pillow `python` for it). Every zoom attempt failed, then the model stopped
+  looking back. Fixed 2026-09-05: `mfm.memory.log.install_zoom_tool`, called by the KiCad
+  agent for both arms; baseline prompt, log and argv pins unchanged.
+- **The success rate is bounded by the grader, not memory.** Three exact-set checks
+  (library part names, (ref,pin) net sets, net names including KiCad's auto-generated
+  `Net-(D1-K)`); no design-from-scratch task has ever been solved by any arm; only
+  modify-existing tasks are solvable (5-7 of 10). Task 34877be3 asks for "LN271" while
+  its reference uses `LD271`; a6414tw4's reference is an empty netlist. The
+  `--kicad-project-hint` flag (EVAL_EXTRA) is what makes scratch tasks gradable at all;
+  the GPT-6 wave ran without it (15 tasks never reached the grader).
+- **Where memory could matter on KiCad: across tasks.** Median 7 turns per task
+  (122 of 1,222) are the same preamble -- dismiss the first-run and update dialogs,
+  create the project, find the save directory -- and the same GUI lessons recur (Escape
+  cancels a wire). Section 5's `carry` layer (a memory that persists across a run's
+  tasks) is the only MFM mechanism with a plausible effect here; it changes the
+  benchmark's task-independence assumption and needs a decision.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
