@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import math
 import os
 import sys
@@ -29,8 +30,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-def read_index(root: Path) -> list[dict[str, Any]]:
-    path = Path(root) / "index.jsonl"
+def read_index(root: Path, previous: bool = False) -> list[dict[str, Any]]:
+    """`previous=True`: the merged index of the tasks finished before this one
+    (`previous/index.jsonl`, written by the carry layer), whose paths already point
+    under `previous/<task>/`."""
+    path = Path(root) / ("previous" if previous else "") / "index.jsonl"
     if not path.exists():
         return []
     rows = []
@@ -183,11 +187,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tag")
     ap.add_argument("--action")
     ap.add_argument("--grep")
+    ap.add_argument("--previous", action="store_true",
+                    help="search the episodes of the tasks finished before this one")
+    ap.add_argument("--same-screen", metavar="PNG",
+                    help="episodes that faced exactly this screenshot (by content hash)")
     ap.add_argument("--sheet", help="write a contact sheet of the matching frames here")
     ap.add_argument("--json", action="store_true", help="one JSON object per line instead")
     args = ap.parse_args(argv)
     root = Path(args.root)
-    rows = read_index(root)
+    rows = read_index(root, previous=args.previous)
+    if args.same_screen:
+        try:
+            digest = hashlib.sha256(Path(args.same_screen).read_bytes()).hexdigest()
+        except OSError as e:
+            print(f"cannot read {args.same_screen}: {e}", file=sys.stderr)
+            return 2
+        rows = same_observation(rows, digest)
     if args.steps:
         rows = steps(rows, *args.steps)
     if args.near:

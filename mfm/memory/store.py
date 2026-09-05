@@ -142,6 +142,23 @@ class EpisodeStore(MemorySink):
         ep = self._new_episode(agent, obs, state, kind="episode", item=item)
         self._open = ep
 
+    def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
+        """Within this task: the earlier turns that faced this exact screen."""
+        digest = (obs.state or {}).get("png_hash")
+        if not digest:
+            return None
+        hits = [r for r in self.closed
+                if r.get("observation_hash") == digest and r.get("kind") != "initial"
+                and (r.get("first_step") or 0) < obs.step]
+        if not hits:
+            return None
+        lines = [f"step {r.get('first_step')}: {r.get('action_kind') or '-'}"
+                 + (f" -> {r['summary']}" if r.get("summary") else "")
+                 + (f" [{','.join(r['tags'])}]" if r.get("tags") else "")
+                 for r in hits[-3:]]
+        return ("[SEEN BEFORE] this exact screen appeared earlier in this task: "
+                + "; ".join(lines) + ".")
+
     def note(self, agent: "MemoryAgent", text: str) -> None:
         if self._open is not None:
             self._open["notes"].append(text)

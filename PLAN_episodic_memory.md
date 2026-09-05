@@ -111,6 +111,19 @@ Measured on the gpt-5.6-sol `_projdir` pair and the GPT-6 low pair (25 tasks eac
   tasks) is the only MFM mechanism with a plausible effect here; it changes the
   benchmark's task-independence assumption and needs a decision.
 
+**Decision (2026-09-05): memory may persist across a run's tasks.** Built as the carry
+rung (`mfm/memory/carry.py`, `CarrySink`): `previous/<task>/` holds every finished
+task's record (logs.txt, frames, episodes, index; hard links), `notes/` is the model's
+own directory copied in at task start and out at task end, `<out>/carry/manifest.json`
+is the task order. Two new KiCad arms, `prolong-carry` (the control: carry-over without
+structure) and `mfm-carry` (plus the merged `previous/index.jsonl`, `--previous` and
+`--same-screen` in the query tool, and a `[SEEN BEFORE]` line pushed into the turn prompt
+when the current screen matches an earlier episode, since the model does not pull). Both
+require `--concurrency 1`; task order is part of the arm and is reported. The per-task
+arms are unchanged (pins green). The ladder on KiCad is therefore
+prolong -> prolong-carry -> mfm-carry, with prolong vs mfm as the within-task control
+pair that is expected to tie.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
