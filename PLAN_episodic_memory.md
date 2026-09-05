@@ -124,6 +124,23 @@ arms are unchanged (pins green). The ladder on KiCad is therefore
 prolong -> prolong-carry -> mfm-carry, with prolong vs mfm as the within-task control
 pair that is expected to tie.
 
+**Re-scorable runs and a relaxed score (2026-09-05).** `run_eval` now saves what the
+grader reads (`<task>/kicad_project/*.kicad_sch|.kicad_pro|.net` and the netlist
+`kicad-cli` exports, `<task>/graded.net`) after the final step, so a nine-hour run can
+be re-scored offline under any grader. `gym_codex/kicad_rescore.py` reports a relaxed
+score beside the official one and never instead of it: symbol-style suffixes ignored
+(`R_US` = `R`), nets compared up to renumbering of interchangeable components, KiCad's
+auto-generated net names dropped. Every reference scores 1.0 against itself and against
+a style-variant copy of itself, where the official grader gives that copy 0.67 on 16 of
+the 25 tasks. `gym_codex/patch_kicad_tasks.py` re-applies the LN271 -> LD271 fix to the
+dataset cache (34877be3); a6414tw4 (empty reference netlist) is skipped with
+`--exclude-tasks`. Wave launched 2026-09-05 on GPT-6 low, codex 0.153, project-dir hint,
+24 tasks, one node per arm: `kicad_{prolong,mfm,plcarry,mfmcarry}_gpt6hint`
+(jobs 44622955, 44622961, 44622965, 44622968). Why ~9 h per arm: of the measured 8.9 h,
+~8.5 h is codex latency (1,180 calls, median 19 s) and 1.6 h environment steps; the plan
+queue does not shorten it (94% of turns are single-action batches) and only the
+per-task arms can be sharded with `--tasks`, so the carry arms stay sequential.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
