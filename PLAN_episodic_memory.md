@@ -154,9 +154,9 @@ Pre-existing defects found on the way, not fixed (not on the measured paths):
 `test_task_framing_matches_baseline` on a file removed in commit fb46ac9, so the four
 tests after it must be run by hand (they pass).
 
-Not done: `tools/zoom.py` output into the episode's `crops/`; the optional retrieval
-block in the turn prompt (off = absent); section 5. The MCU purple agent closes the store
-on the next `init`, so an episode killed by the launcher loses only its open entry.
+Not done: `tools/zoom.py` output into the episode's `crops/`; section 5. The retrieval
+block exists since 2026-09-05 (below), off by default. The MCU purple agent closes the
+store on the next `init`, so an episode killed by the launcher loses only its open entry.
 
 **Wave 1 is running (2026-09-04).** KiCad: `--agent mfm` as job 44469925, from a git
 worktree of the run checkout so the three arms already mid-run were not disturbed, with
@@ -177,6 +177,39 @@ which is why the wave was relaunched rather than patched in place.
 
 The MFM and PRO-LONG task orders differ within a KiCad run, so the arms must be compared
 on the task ids they both finished, not on whatever each got through.
+
+**lad1/lad2 (2026-09-05) and the retrieval block.** Diamond, 12,000 steps, from the
+`MCU-ladder` worktree: logbook 70 / 80, mfm 60 / 80 -- both lad2 arms 8/10, missing
+`iron_pickaxe` and `diamond`, no MFM effect. The model ran `tools/episodes.py` in 28% of
+its turns but almost only as `--last N`, which listed less than `tail logs.txt` (the
+index row has no note). Where the steps went, in every run: the "one plank short"
+wood/table/open-GUI loop (2,650 steps in lad2 mfm; the same loop after the logbook arm's
+death), a descent to Y=12 with no furnace and no torches (5,030 steps of `view was DARK
+throughout`), and a death whose drop was never recovered. Each is a repetition the model
+never saw as one thing, because it read the last few sections each turn.
+
+So the flag the plan reserved is now built: `mfm.memory.retrieve.recall_block` computes,
+from the rows the store already holds, (1) streaks -- actions that changed nothing
+(no `milestone`/`inventory_changed` tag; for movers, `stuck`) in their last >=3 calls,
+with the note the last one ended on and the step the same action last worked, dropped
+once the run is older than the last 30 rows; (2) the harness note that ended the last
+>=3 noted entries (one sentence, digits ignored) -- the dark descent is not a no-change
+loop, every entry banked cobblestone, but eight in a row ended on "The view was DARK
+throughout"; (3) what happened within 6 blocks of here, older than the six rows the
+model can see; (4) the entry that scored each milestone. On lad2 mfm's own index at
+step 2266 it reads "`craft` changed nothing in its last 23 calls ... `harvest_tree` ...
+18 calls ... It last changed something at step 563", and at 6104 "The same harness note
+ended the last 7 entries that carried one (since step 4164; strip_mine x3, dig_down x3,
+mine_forward x1)"; a chain is present in 25 of that run's 337 entries; 0.5-1.6 KB.
+`WorldModelAgent(retrieval=True)` inserts it into the mfm turn prompt between the
+present and the log pointer and adds one paragraph (`MFM_RETRIEVAL_NOTE`) to the
+contract; `worldmodel_purple_agent.py --retrieval`, `run-arm.sh --agent mfm --wm-extra
+--retrieval`. The logbook arm is untouched (its pins are green); the flag-off mfm arm
+differs from lad2's only in the CLI listing the first outcome note and in `_MOVERS`
+naming the real procedures (`go_to`, not `goto`, so movers now get the `stuck` tag).
+Pinned: `tests/test_pins_chassis.py::test_chassis_mfm_retrieval`, `tests/test_retrieve.py`.
+The lad3 pair is `mfm` against `mfm --retrieval`; the ladder worktree needs the MCU
+commits and `PYTHONPATH` at the MFM root, since the run venv's `mfm` is a frozen copy.
 
 ---
 

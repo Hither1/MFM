@@ -28,7 +28,7 @@ def _pov(step: int) -> np.ndarray:
     return frame
 
 
-def drive_chassis(root: Path, memory_mode: str, steps: int = 120):
+def drive_chassis(root: Path, memory_mode: str, steps: int = 120, **kw):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
     from mcu_worldmodel.selftest import FakeCodex, fake_info
@@ -43,7 +43,7 @@ def drive_chassis(root: Path, memory_mode: str, steps: int = 120):
     agent = WorldModelAgent(workspace=root / "ws", task_text="get a log, a table, an iron pickaxe",
                             ledger=MilestoneLedger(cfg, "t"), induction_every=10,
                             step_cap=50, memory_mode=memory_mode,
-                            platform_prompt="HOST REFERENCE")
+                            platform_prompt="HOST REFERENCE", **kw)
     script = [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5},
                                  {"action": {"attack": 1}, "repeat": 3}]},
@@ -144,6 +144,42 @@ def test_chassis_mfm_mode(tmp_path: Path):
     assert rep["memory_mode"] == "mfm" and rep["mfm"]["n"] == len(rows)
     check_pin("chassis_mfm_index.jsonl", _norm((ws / "index.jsonl").read_text(), tmp_path))
     check_pin("chassis_mfm_agents.md", _norm(agents_md, tmp_path))
+
+
+def test_chassis_mfm_retrieval(tmp_path: Path):
+    """`--retrieval`: the mfm arm with the [RECALL] block in its turn prompt. The log
+    and the actions are still the logbook arm's byte for byte; the contract gains the
+    paragraph that names the block; the block appears once the scripted chops (20
+    `attack x6` entries that change nothing) form a streak, and it is pinned."""
+    import pytest
+    from mcu_worldmodel.agent import WorldModelAgent
+    with pytest.raises(ValueError):
+        drive_chassis(tmp_path / "x", "logbook", retrieval=True)
+    agent, actions = drive_chassis(tmp_path, "mfm", retrieval=True)
+    ws = agent.memory.root
+    pinned_log = (Path(__file__).parent / "pins" / "chassis_logbook_logs.txt").read_text()
+    assert _norm((ws / "logs.txt").read_text(), tmp_path) == pinned_log
+    pinned_actions = (Path(__file__).parent / "pins" / "chassis_logbook_actions.json").read_text()
+    assert json.dumps([{k: (v.tolist() if hasattr(v, "tolist") else v) for k, v in a.items()}
+                       for a in actions], sort_keys=True) == pinned_actions
+    agents_md = (ws / "AGENTS.md").read_text()
+    base_md = (Path(__file__).parent / "pins" / "chassis_mfm_agents.md").read_text()
+    assert "[RECALL]" in agents_md and "[RECALL]" not in base_md
+    from mcu_worldmodel.episodes import MFM_RETRIEVAL_NOTE
+    assert _norm(agents_md, tmp_path).replace("\n\n" + MFM_RETRIEVAL_NOTE, "") == base_md
+    prompts = agent.codex.prompts
+    with_block = [p for p in prompts if "[RECALL]" in p]
+    assert with_block, "no turn prompt carried the block"
+    # The first prompts have no streak yet and read exactly as the flag-off arm's.
+    assert "[RECALL]" not in prompts[0]
+    last = with_block[-1]
+    assert "`attack` changed nothing in its last" in last
+    assert "It last changed something at step" in last     # the chop that mined the log
+    assert "Milestones so far" in last and "mine_log step" in last
+    assert last.index("[RECALL]") < last.index("Your memory is `./logs.txt`")
+    rep = agent.report()
+    assert rep["mfm"]["retrieval"] is True and rep["mfm"]["recalls"] == len(with_block)
+    check_pin("chassis_mfm_recall_prompt.txt", _norm(last, tmp_path))
 
 
 def test_chassis_vision_audit_survives_a_real_rollout(tmp_path: Path):

@@ -14,8 +14,9 @@ when it is missing.
     ./tools/episodes.py ... --sheet out.png   tile the matching episodes' frames
 
 Filters combine (AND). Each line: id, step range, tags, position, the action, the
-outcome summary, and the directory holding `observation/image.png`, `state/`,
-`action.json`, `outcome.json`.
+outcome summary, the first harness note the entry ended with (why it stopped, what it
+refused -- from `outcome.json`), and the directory holding `observation/image.png`,
+`state/`, `action.json`, `outcome.json`.
 """
 from __future__ import annotations
 
@@ -96,6 +97,40 @@ def grep(rows: list[dict], root: Path, text: str) -> list[dict]:
     return out
 
 
+def notes_of(root: Path | None, r: dict) -> list[str]:
+    """The harness notes in the episode's `outcome.json` ([] when there are none)."""
+    if root is None or not r.get("path"):
+        return []
+    p = Path(root) / r["path"] / "outcome.json"
+    try:
+        notes = json.loads(p.read_text(encoding="utf-8")).get("notes") or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [str(n) for n in notes]
+
+
+def first_note(root: Path | None, r: dict, limit: int = 220) -> str | None:
+    """The first harness note in the episode's `outcome.json`, one line, or None.
+
+    The index row's `summary` says what an entry changed; the note says why it ended
+    (`no trunk detected`, `a SCREEN is open`, `refused: ...`). Listing rows without it
+    told the model less than `tail logs.txt` did (lad2, 2026-09-05)."""
+    notes = notes_of(root, r)
+    if not notes:
+        return None
+    note = " ".join(notes[0].split())
+    return note if len(note) <= limit else note[: limit - 3].rstrip() + "..."
+
+
+def with_note(rows: Iterable[dict], root: Path | None) -> list[dict]:
+    """Rows with a `note` key added (when the episode ended with one)."""
+    out = []
+    for r in rows:
+        note = first_note(root, r)
+        out.append({**r, "note": note} if note else dict(r))
+    return out
+
+
 def describe(r: dict) -> str:
     span = (f"steps {r['first_step']}-{r['last_step']}"
             if r.get("first_step") is not None and r.get("last_step") is not None
@@ -103,8 +138,9 @@ def describe(r: dict) -> str:
     pos = (f" pos=({float(r['x']):.1f},{float(r['z']):.1f})"
            if r.get("x") is not None and r.get("z") is not None else "")
     tags = ",".join(r.get("tags") or []) or "-"
+    note = f"  note: {r['note']}" if r.get("note") else ""
     return (f"{r['id']}  {span}  tags={tags}{pos}  action={r.get('action_kind') or '-'}  "
-            f"{r.get('summary') or ''}  -> {r.get('path')}/")
+            f"{r.get('summary') or ''}{note}  -> {r.get('path')}/")
 
 
 def contact_sheet(rows: Iterable[dict], root: Path, out: Path, cols: int = 4,
@@ -164,6 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         rows = grep(rows, root, args.grep)
     if args.last is not None:
         rows = recent(rows, args.last)
+    rows = with_note(rows, root)
     for r in rows:
         print(json.dumps(r) if args.json else describe(r))
     if not rows:
