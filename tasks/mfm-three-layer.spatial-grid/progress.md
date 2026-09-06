@@ -160,3 +160,22 @@
   mine_ahead/aim_at_ore plan after 2234 stalled steps (since 4941).
 - 04:1x og7_mfm (8-turn, 320x180) launched from the merge worktree with the pit-climb code
   (feb65878+), seeds = 12 first-gen + og3 + og4 + og6 (`EXTRA_SEEDS`), ports 9097/9107.
+
+## 2026-09-07 04:3x -- the Astra-aligned protocol (user decisions)
+
+- User (after the comparison with wz1119/Codex-Minecraft-Gameplay and da03/astra-plays-gta):
+  GPT-6 is available -- use gpt-6-astra at reasoning effort high; the step budget may be
+  very long; set a wall-clock cap; plan approved ("立即开搞"). Memory mechanisms (mfm and
+  the baselines) must stay supported by whatever aligns.
+- What is borrowed, in order of expected impact: game-time budget (12k steps = 10 min of
+  game time; their diamond took a night), one session for the whole run (session-turns 0 +
+  compaction + 320x180 frames), the model, a look after every batch (short blind horizons),
+  a thin contract with model-held control (`hold`/`watch` on ground-truth conditions).
+  Not borrowed: pixel-compare checks (we have ground truth), real time, no memory.
+- og8_mfm launched from the merge worktree: gpt-6-astra high, 60k steps, session never
+  dropped, codex compaction at 100k tokens, 320x180, `--expect --frames --retrieval`, seeds
+  = 12 first-gen + og3/og4/og6, ports 9098/9108, CODEX_MAX_CALLS 20000, wall-clock cap 10h
+  (`logs/og8_mfm_wall.pid` -> stop_arm.py). Launcher gained COMPACT and WALL (3a64abd1).
+- Next slice: `--thin` contract (one page + references) with `hold(keys, ticks<=100)` and
+  `watch(until=<truth condition>, max_ticks)`; procedures stay available but optional;
+  only the lava guard and the hit reflex kept as hard reflexes. Orthogonal to memory mode.
