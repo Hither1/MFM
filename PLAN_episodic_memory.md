@@ -177,6 +177,26 @@ additions: `RECALL_NOTE` (mfm arms), `CARRY_RECALL_NOTE` (mfm-carry). Tests:
 `tests/test_recall.py`. Run: `kicad_mfmcarry2_gpt6hint` against the finished
 prolong-carry / mfm-carry.
 
+**Result of the recall run (`kicad_mfmcarry2_gpt6hint`, 2026-09-06).** Same 24 tasks, order,
+hint and CLI as the wave. Official / relaxed / model calls / wall:
+
+| arm | official | relaxed | steps | calls | wall |
+|---|---|---|---|---|---|
+| mfm-carry + recall | 0.375 | **0.597** | 1121 | **889** | **6.9 h** |
+| mfm-carry (2026-09-05) | 0.361 | 0.542 | 1105 | 1085 | 7.8 h |
+| prolong-carry | 0.375 | 0.556 | 1095 | 1095 | 7.8 h |
+| mfm | 0.375 | 0.569 | 1145 | 1110 | 7.8 h |
+| prolong | 0.389 | 0.528 | 1188 | 1188 | 8.2 h |
+
+Official score unchanged (one scratch task up one check); relaxed score the best of any
+arm, four scratch tasks up one check each (83490c3a, b7148878, c4baee36, ff6dfdde);
+18% fewer model calls and 12% less wall time at the same step count, because the plan
+queue was used for the first time on KiCad: at recalled screens the model queues the
+recalled chain as a multi-batch plan. Recall fired on ~40% of scratch-task prompts.
+The official ceiling is still the grader's naming conventions (no feedback reaches the
+model); the outcome-informed extension (reward + checks in the carried rows) remains the
+protocol decision.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
