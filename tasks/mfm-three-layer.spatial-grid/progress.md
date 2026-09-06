@@ -24,3 +24,16 @@
   green; chassis pins re-recorded for prompts/report keys/workspace (+grid.jsonl,
   +attach/events.png) and the recall prompt; logbook logs.txt and actions unchanged.
   MCU commit: see git log (spatial-grid).
+- Slice 2 DONE: harness -- `governor.check_plan` (CELL_STREAK_VETO 4 null entries of any label
+  at an 8-block cell, or STALL_STEPS 600 without a productive one -> a plan that neither moves
+  nor opens a screen is dropped for one no-op; SWITCH_STEPS 1200 adds "change the objective";
+  `_stall_hint` names the placed table/furnace with a walked route or the farthest walked cell
+  within 12 blocks). MFM options (mfm arm only, flags on worldmodel_purple_agent.py):
+  `--expect` (EXPECT line parsed from the briefing, echoed as [EXPECTED]/[OBSERVED] next turn,
+  MFM_EXPECT_NOTE in the contract), `--frames` (tools/zoom.py written for mfm, MFM_FRAMES_NOTE,
+  `frame=` pointers on lava/pour/death/water lines of [KNOWN SITES] via previous.frame_for),
+  `--corridors` (previous.corridors_from_log: runs of log sections at y<=14 with no damage/lava/
+  death, <=8 blocks apart, >=8 blocks long; merged; up to 3 nearest rendered as DRY CORRIDOR when
+  obsidian/diamond/iron is open; MFM_CORRIDOR_NOTE), `--frame-size WxH`. Tests:
+  tests/test_watchdog.py 8 green; pins: only chassis_logbook_report_keys moved (+watchdog);
+  logbook logs/actions unchanged (the fake's drift keeps its cells short of the streak).
