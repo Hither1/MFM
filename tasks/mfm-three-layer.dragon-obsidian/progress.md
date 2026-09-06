@@ -156,6 +156,10 @@
 - gen-4 (`ob4_mfm`) died at step 1413 to a zombie at y 26 during a stair_down (fightback dealt 0):
   the kit is gone, the run is spent.
 
+- s8 25/25 with the new bunker behaviour; committed MCU bcb009bb / MFM 16659cd. 01:05 LAUNCHED gen-5
+  `ob5_mfm` (half, 12k, ports 9078/9088, seeds 12 + ob1/ob1b/ob2/ob3) on bcb009bb, pid 44529.
+  obf2 (old reflex code) at step 5289: iron_ingot (obf1: 5973).
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
