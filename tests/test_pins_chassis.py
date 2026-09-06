@@ -245,6 +245,11 @@ def test_descent_guard_is_a_pure_rule():
     assert descent_guard(placed, here, {}, [{"procedure": "mine_forward", "args": {}}]) is None
     assert descent_guard(placed, here, {}, [{**dig[0], "leave_table": True}]) is None
     assert descent_guard([], here, {}, dig) is None
+    # "collect the table, then descend" in one plan is not refused; "descend, then mine" is
+    pick_then_dig = [{"procedure": "mine_ahead", "args": {"n": 20}}, dig[0]]
+    assert descent_guard(placed, {**here, "y": 68.0}, {}, pick_then_dig) is None
+    assert descent_guard(placed, {**here, "y": 68.0}, {}, [{"action": {"attack": 1}, "repeat": 20}, dig[0]]) is None
+    assert descent_guard(placed, {**here, "y": 68.0}, {}, [dig[0], pick_then_dig[0]]) is not None
     assert descent_guard([{**placed[0], "item": "furnace"}], here, {}, dig) is None
 
 
