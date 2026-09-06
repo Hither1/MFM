@@ -154,14 +154,14 @@ def test_scoop_tick_walks_back_and_presses_until_the_bucket_reads_water():
     agent._cur_pos["z"] = 0.5                     # within reach now
     a = tick(agent, st, mk)
     assert a.get("forward") is None and st["phase"] == "aim"
-    agent._cur_pos.update({"pitch": 35.2, "yaw": 0.0})      # atan((65.62-63.5)/3)
+    agent._cur_pos.update({"pitch": 29.8, "yaw": 0.0})      # atan((65.62-63.9)/3): the cell's top
     pressed = [tick(agent, st, mk) for _ in range(8)]
     assert any(p.get("use") == 1 for p in pressed) and st["presses"] >= 1
     agent._cur_inv["water_bucket"] = 1
     assert tick(agent, st, mk) is None
     assert any("back in the bucket" in n for n in agent.notes)
     # Budget spent: the note names the cell and the call to make by hand.
-    agent = _agent({"x": 0.5, "y": 64.0, "z": 0.5, "pitch": 35.2, "yaw": 0.0}, {"bucket": 1})
+    agent = _agent({"x": 0.5, "y": 64.0, "z": 0.5, "pitch": 29.8, "yaw": 0.0}, {"bucket": 1})
     st = {"cell": cell, "t": 0, "n": 12, "phase": "walk", "presses": 0, "base_wb": None,
           "hold": 0, "label": "make_obsidian"}
     _run(tick, agent, st, mk)
