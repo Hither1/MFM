@@ -243,6 +243,20 @@ def test_override_keys_inside_args_are_lifted():
     assert plan.entries[1]["why"] == "fresh face" and plan.entries[2]["why"] == "the trunk is centred now"
 
 
+def test_light_guard_is_a_pure_rule():
+    from mcu_worldmodel.episodes import light_guard
+    dig = [{"procedure": "dig_down", "args": {"n": 300, "until_y": 12}}]
+    here = {"x": 0.0, "y": 66.0, "z": 0.0}
+    note = light_guard(here, {"coal": 3, "stick": 2, "cobblestone": 9}, dig)
+    assert note and "y 12" in note and "you carry coal x3, stick x2" in note and "`\"unlit\"" in note
+    assert light_guard(here, {"torch": 1}, dig) is None
+    assert light_guard(here, {}, [{"procedure": "dig_down", "args": {"n": 10, "until_y": 60}}]) is None
+    assert light_guard({**here, "y": 30.0}, {}, [{"procedure": "dig_down", "args": {"n": 40}}])   # already below
+    assert light_guard(here, {}, [{**dig[0], "unlit": True}]) is None
+    assert light_guard(here, {}, [{"procedure": "strip_mine", "args": {"length": 200}}]) is None
+    assert "none of coal, sticks, logs or planks" in light_guard(here, {"dirt": 4}, dig)
+
+
 def test_descent_guard_is_a_pure_rule():
     from mcu_worldmodel.episodes import descent_guard
     placed = [{"item": "crafting_table", "id": "ep_000029", "step": 571, "x": -3005.0, "y": 68.0, "z": -5567.0}]
@@ -267,6 +281,8 @@ def test_descent_guard_is_a_pure_rule():
     assert descent_guard(placed, {**here, "y": 68.0}, {}, [{"action": {"attack": 1}, "repeat": 20}, dig[0]]) is None
     assert descent_guard(placed, {**here, "y": 68.0}, {}, [dig[0], pick_then_dig[0]]) is not None
     assert descent_guard([{**placed[0], "item": "furnace"}], here, {}, dig) is None
+    gone = descent_guard(placed, here, {}, dig, table_unopened=True)
+    assert gone and "could NOT be opened" in gone and "craft a new one" in gone and "Mine it" not in gone
 
 
 def test_chassis_vision_audit_survives_a_real_rollout(tmp_path: Path):
