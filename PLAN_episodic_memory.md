@@ -355,6 +355,22 @@ their own shaft; the chassis's fightback reflex arms only with a sword in the ho
 crafted the 2-cobblestone sword. A descent below y 55 with no sword is refused like the
 unlit one (override `unarmed: true`, cap 2, re-arms when a sword is carried).
 
+**lad7 (old detector): 70 and 60.** Both died once to a zombie in their shaft (lad7b after
+the light guard had made it craft torches), and both then lost thousands of steps to the
+harvest loop -- lad7b 43 spent-why refusals against a detector that could not see the
+trunk in front of it. **lad8, the first wave on the new chassis: logbook 80, mfm 70.** No
+deaths in the mfm run (it carried a stone sword and torches: both guards held); it was
+slower in the early game (wooden pickaxe 2475 vs 1098) and reached iron ore at 9166,
+where 12 refusals hit the `mine_ahead` entries that had just broken the ore: the drop was
+still on the floor, so no inventory changed, and "changed nothing" was wrong. Fixed
+(MCU 03a386b, MFM 6f262c5): the bridge tags an episode `broke` from its block events, the
+store accepts adapter tags on close, and `broke` counts as a change (mfm index pin
+re-recorded). A second detector pass from lad8's frames (MCU 10c7a51): a run's score is
+weighted by its darkness (spruce bark r 36-43 against dirt 58-83 and the placed table
+92-124, all inside the colour bands), and a trunk against a dirt cliff passes the flank
+test when the flank is brighter than the run -- corpus 61/92 -> 68/92, still 0 false
+trunks underground. lad9 = logbook + mfm on 10c7a51; lad10 will carry the `broke` tag.
+
 ---
 
 ## 0. What exists, and what is duplicated
