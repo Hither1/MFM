@@ -185,3 +185,7 @@
 - `--thin` + `watch` slice (MCU spatial-grid-merge; MFM tests/test_thin.py, pins re-recorded
   for the new procedure): the mfm contract goes 14,305 -> 4,767 words; references/
   {procedures,gui,skills,survival,control,more}.md hold the rest, read on demand.
+- 04:5x og9_mfm launched: og8's protocol (gpt-6-astra high, 60k, one session + compaction,
+  320x180, 10h cap, `--expect --frames --retrieval`) plus `--thin`; seeds = 12 first-gen +
+  og3/og4/og5/og6 (og8 has no og5: it started before og5 ended). Ports 9099/9109. A/B:
+  thin contract vs the full one, same model and budget.
