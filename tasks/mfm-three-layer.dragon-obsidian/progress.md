@@ -134,7 +134,17 @@
   stops it); mine_obsidian() walks the cell back into reach (<= 4.25 from the eye, 40 ticks max)
   instead of refusing. Tests 23/23. Stages s14_edge (lake in the next cell) + s12 rerun running.
 
+- Pour fix committed (MCU 54ed3c9f, MFM ed36971). Stage s12 rerun 11/11; stage s14 (lake at the lip,
+  `MCU/logs/stages/s14_run2`): backed off 1.5 blocks to 3.6, poured, scooped back in 10 presses,
+  OBSIDIAN BROKEN twice (192/194 ticks) -- the milestone event fires from the lip; the one red check
+  is the drop pickup (the sweep does not reach the lake cell; the portal's 10 obsidian will need a
+  safe pickup later). First s14 attempt had the avatar's hitbox over the lava at spawn (stage bug).
+- 23:35 LAUNCHED gen-4 `ob4_mfm` (half, 12k, ports 9076/9086) and `obf2_mfm` (full, 24k, ports
+  9077/9087), both on MCU 54ed3c9f, seeded with the 12 first-generation lives (six half runs + the
+  six diamond finders) plus ob1/ob1b/ob2/ob3 (obf2 also obf1). Polling monitors (60 s) on the
+  workspace logs replace the tail -F ones, which never matched.
+
 ## Next
 
-- Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or
-  the 24k full run seeded from the chain.
+- Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
+  end read scores/milestones, fix what they show, relaunch.
