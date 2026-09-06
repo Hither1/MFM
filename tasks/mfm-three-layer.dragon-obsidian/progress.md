@@ -195,3 +195,13 @@
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
   end read scores/milestones, fix what they show, relaunch.
+
+## 2026-09-07 01:46 all runs stopped on the user's request
+- Stopped `ob6_mfm` (step 10947, 13/24, no death, gathering iron for the bucket) and `obf3_mfm`
+  (relaunched 01:33 on ports 9081/9091 after 9090 was taken by another user; step ~2.6k, 6/24)
+  via `scripts/stop_arm.py --go`; own poll scripts killed. No partial scores.
+- Open question raised by the user: the seed pool mixes 12 lives from other arms (worldmodel/
+  logbook runs in MCU-AgentBeats) into the mfm chain; obf2's diamond site came from kdc3z
+  (logbook). Dedupe is code-side (`previous.py:107 life_key`). Whether the claim is "reuse any
+  previous record" or "mfm reuses its own memory" (clean chain p0 -> p1 ...) is the user's call.
+- Pushed: MCU 2eb053fb (hither), MFM 94c224e (origin).
