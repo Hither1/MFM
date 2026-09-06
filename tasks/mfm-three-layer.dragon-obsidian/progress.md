@@ -173,6 +173,14 @@
   10476, diamond 10818 (11/24 = 45.83, the record equalled), 4 ores by 11471; at 15079 heading to
   the table for the diamond pickaxe.
 
+- Scores so far, half task: ob1 25.0, ob1b/ob2/ob3 37.5, ob4 29.17, ob5 16.67 (no death, straight to
+  the lake). The half-task scorer credits NOTHING for the kit's ten milestones: the 37.5 runs died
+  and rebuilt from a log (banking mine_log..iron_pickaxe). Purple-side fix: the ledger no longer
+  marks the given ten as achieved; the checklist says the kit holds the item but the scorer wants
+  the event (MCU ce4d9404, MFM 73aba73). selftest.py's reflex checks still encode the old bunker
+  precedence -- to update. gen-6 stopped at step 197 and RELAUNCHED 02:55 on ce4d9404 (pid 19029,
+  ports 9079/9089, seeds 12 + ob1/ob1b/ob2/ob3/ob5).
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
