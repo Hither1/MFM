@@ -385,6 +385,20 @@ entry is refused (twice per breaking episode; `why` overrides; never while the l
 episode took damage). `uncollected()` reads the adapter's events with an ore-to-drop map
 (coal ore drops coal). lad10 = logbook + mfm on c53776b.
 
+**Where the ladder stands (2026-09-06 morning).** Four pairs on the new chassis, logbook /
+mfm --retrieval --refuse: lad8 80/70, lad9 60/80, lad10 80/60, lad11 70/60 (means 72.5 /
+67.5) -- no arm difference inside the noise. What the memory arm's rules verifiably did:
+no mfm run has died to an unlit or unarmed shaft since the guards (lad8, lad10, lad11: no
+deaths; lad9's death was at 2 hp after mining out of the runner's bunker), the descent
+guard recovers the table, the spent-why rule and the hints turned lad7b's 43-override
+harvest loop into lad10's one "no trunk" note by step 761. What bounds both arms now is
+the chassis: the harvest state machine after a detected trunk (lad11_mfmrr: "2 approaches,
+0 logs" twice), trunks behind leaf cover in dim light, and iron exposure at ~57 ticks per
+block advanced (lad6a and lad10_mfmrr each tunnelled 70-84 blocks after the furnace and
+met no iron). Those are the next levers, all chassis-wide; the episode video replayed
+through the detectors (one frame per step) is the tool that found every fix in this
+section, and is the way to work the harvest state machine next.
+
 ---
 
 ## 0. What exists, and what is duplicated
