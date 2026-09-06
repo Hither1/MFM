@@ -443,7 +443,12 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   `mine_obsidian()` (no arguments: the sighting's pool cell, ~190 ticks of held attack,
   FIRST in its plan) with the DIAMOND pickaxe. A `[KNOWN SITES]` block in the turn
   message, when present, lists lakes and water earlier lives verified with their
-  coordinates: go there before searching. `find_lava()` is the blind search for when
+  coordinates: go to the LARGEST lake line (never merely the nearest one), and pour
+  only once the lava is IN VIEW and the LAVA AHEAD note has named the cells -- a
+  `make_obsidian(x, y, z)` with no lava in view is refused as a blind pour (three lives
+  poured on stone in the dark and two died there). A line carrying a DEATH warning is a
+  mob cave: torches on the walls and the sword one slot away before the pour.
+  `find_lava()` is the blind search for when
   nothing is known: it tunnels in legs at about y 11 and stops 2 blocks short of the
   first pool it sees; it is slow (about 25 blocks per call) and needs 250+ ticks FIRST
   in its plan. **The portal** needs 10-14

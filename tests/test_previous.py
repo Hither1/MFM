@@ -113,6 +113,20 @@ Action 95 | Step 6000 | Plan Step 1/1 | 13/24 verified
     lake = pl.block(pos, {"water_bucket": 1}, unmet).splitlines()
     assert lake[1].startswith("- LAVA LAKE")
     assert pl.audit()["kinds"] == {"death": 1, "lava": 1, "ore": 1, "water": 1}
+    # A sighting made while the avatar was being hurt is the fire overlay, not a lake
+    # (ob1_mfm's "32%" at its own feet); a life that died beside a lake is a warning.
+    hurt_log = LOG.replace("[NOTE] LAVA AHEAD: 33%", "[NOTE] still taking damage -- health 12/20 "
+                           "at (-2991, 11, -5561).\n[NOTE] LAVA AHEAD: 33%")
+    make_life(tmp_path, "hurt", hurt_log)
+    pl3 = PreviousLives(tmp_path / "ws3")
+    pl3.seed([tmp_path / "hurt"])
+    assert "lava" not in pl3.audit()["kinds"]
+    near = LOG.replace("YOU DIED at (-2990, 11, -5560)", "YOU DIED at (-2993, 10, -5563)")
+    make_life(tmp_path, "near", near)
+    pl4 = PreviousLives(tmp_path / "ws4")
+    pl4.seed([tmp_path / "near"])
+    lake4 = pl4.block(pos, {"water_bucket": 1}, unmet).splitlines()[1]
+    assert lake4.startswith("- LAVA LAKE") and "WARNING: 1 previous life DIED within" in lake4
 
 
 def test_seed_links_the_record_and_chains_lives(tmp_path: Path):

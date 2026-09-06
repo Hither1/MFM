@@ -81,9 +81,19 @@ def test_obsidian_macros_default_to_the_sighting():
     s = next(a for a in acts if "_scoop" in a)
     r = MN.LAST_LAVA["rim"]
     assert tuple(s["_scoop"]["cell"]) == (r[0], r[1] + 1, r[2]) and s["_min"] == MN.SCOOP_MIN
-    # A pour by coordinates is a sighting too: mine_obsidian() then aims at that cell.
+    # A pour by coordinates with no lava in view and no sighting is blind: refused.
     MN.LAST_LAVA = None
     acts, note = MN.make_obsidian(None, info, x=-2992, y=10, z=-5561)
+    assert not acts and "would be blind" in note
+    # With lava in the frame it goes, and it is a sighting too: mine_obsidian() then
+    # aims at that cell.
+    lit = dict(info)
+    lit["pov"] = np.zeros((360, 640, 3), dtype=np.uint8)
+    lit["pov"][200:, :, 0] = 240
+    lit["pov"][200:, :, 1] = 120
+    lit["pov"][200:, :, 2] = 20
+    assert MN._lava_now(lit) >= MN.LAVA_SEEN_FRAC, MN._lava_now(lit)
+    acts, note = MN.make_obsidian(None, lit, x=-2992, y=10, z=-5561)
     assert acts and MN.LAST_LAVA["source"] == "pour" and MN.LAST_LAVA["pool"] == (-2992, 10, -5561)
     acts, note = MN.mine_obsidian(None, info)
     m = next(a for a in acts if "_mineobs" in a)
