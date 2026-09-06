@@ -160,6 +160,19 @@
   `ob5_mfm` (half, 12k, ports 9078/9088, seeds 12 + ob1/ob1b/ob2/ob3) on bcb009bb, pid 44529.
   obf2 (old reflex code) at step 5289: iron_ingot (obf1: 5973).
 
+- 2026-09-07 01:50-02:40, gen-5 at the 52% lake: the guard fired at 1% with the pool 8 blocks off,
+  make_obsidian() backed off and the pour was out of reach (x2); the third try poured at 3.2 from
+  the pool (rim (-2989, 10, -5562)), the scoop pressed 17x at 4.2 blocks for nothing, and
+  mine_obsidian() aimed at a re-sighted "pool" that was the poured rim (stone x3). Three fixes
+  (uncommitted until s12 rerun): the standoff tick walks UP to the 3.5-4.2 band when the sighting
+  was unclipped (measured), backs off only when clipped (stage s17, lake 8 ahead: 10/11, only the
+  drop pickup red); the scoop walks to 3.2 blocks and aims under the 0.875 surface; make_obsidian
+  records LAST_POUR and mine_obsidian() aims at the pour's pool cell (then the cell beyond, then
+  the rim) unless a newer sighting is another site. Tests 25/25.
+- obf2 (24k full): iron_pickaxe 9331, diamond ore at (-2972, 13, -5526) = kdc3z's recorded site at
+  10476, diamond 10818 (11/24 = 45.83, the record equalled), 4 ores by 11471; at 15079 heading to
+  the table for the diamond pickaxe.
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their

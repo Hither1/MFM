@@ -79,6 +79,7 @@ def test_obsidian_macros_default_to_the_sighting():
     keys = [k for a in acts for k in a if k.startswith("_") and k not in ("_cost", "_min")]
     assert "_useat" in keys and "_scoop" in keys and "_obsidiancheck" in keys
     assert keys[0] == "_backoff" and tuple(acts[0]["_backoff"]["pool"]) == MN.LAST_LAVA["pool"]
+    assert acts[0]["_backoff"]["approach"] == (not MN.LAST_LAVA["clipped"])
     s = next(a for a in acts if "_scoop" in a)
     r = MN.LAST_LAVA["rim"]
     assert tuple(s["_scoop"]["cell"]) == (r[0], r[1] + 1, r[2]) and s["_min"] == MN.SCOOP_MIN
@@ -99,7 +100,20 @@ def test_obsidian_macros_default_to_the_sighting():
     acts, note = MN.mine_obsidian(None, info)
     m = next(a for a in acts if "_mineobs" in a)
     assert tuple(m["_mineobs"]["cell"]) == (-2992, 10, -5561)
+    # A guard re-sighting AFTER the pour does not move the target: the pour's pool
+    # cell comes first, then the cell beyond it along the pour's bearing, then the rim.
+    cells = MN.lava_cells({**pos, "pitch": 30.0}, 0.0, 0.70)
+    MN.remember_lava(cells, 100, pos, "guard")
+    acts, note = MN.make_obsidian(None, lit)
+    pour_pool, pour_rim = MN.LAST_POUR["pool"], MN.LAST_POUR["rim"]
+    MN.remember_lava({"pool": pour_rim, "rim": (pour_rim[0], pour_rim[1], pour_rim[2] - 1),
+                      "dist": 2.0}, 120, pos, "guard")
+    acts, note = MN.mine_obsidian(None, info)
+    m = next(a for a in acts if "_mineobs" in a)
+    assert tuple(m["_mineobs"]["cell"]) == pour_pool and "the last pour's pool cell" in note
+    assert [tuple(c) for c in m["_mineobs"]["more"]][-1] == pour_rim
     MN.LAST_LAVA = None
+    MN.LAST_POUR = None
 
 
 def test_mineobs_tick_holds_the_aim_and_ends_on_the_statistic():
@@ -138,6 +152,16 @@ def test_mineobs_tick_holds_the_aim_and_ends_on_the_statistic():
     agent._other_breaks = 2.0
     assert tick(agent, st, mk) is None
     assert any("none was obsidian" in n for n in agent.notes)
+    # With candidates left, the third foreign break moves the aim to the next cell.
+    agent = _agent({"x": 0.5, "y": 64.0, "z": 0.5, "pitch": 42.2, "yaw": 0.0}, {})
+    st = {"cell": list(cell), "t": 0, "n": 300, "phase": "aim", "base_obs": None,
+          "base_inv": None, "base_breaks": None, "held": 0, "label": "mine_obsidian",
+          "more": [[0, 62, 4]]}
+    tick(agent, st, mk)
+    agent._log_breaks = 3.0
+    a = tick(agent, st, mk)
+    assert a is not None and st["cell"] == [0, 62, 4] and not st["more"]
+    assert any("trying the next cell of the pour, (0, 62, 4)" in n for n in agent.notes)
 
     # Out of reach: walks toward the cell first (the pour backed the avatar off);
     # a walk that never gets there ends with the note.
@@ -182,6 +206,19 @@ def test_backoff_faces_the_pool_and_walks_back():
           "label": "make_obsidian"}
     a = tick(agent, st, mk)
     assert "back" not in a and abs(a["camera"][1]) > 12
+    # A measured (unclipped) sighting 8 blocks off: the tick walks UP to the band.
+    agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}, {})
+    st = {"pool": [0, 11, 8], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
+          "approach": True, "label": "make_obsidian"}
+    a = tick(agent, st, mk)
+    assert a.get("forward") == 1 and "back" not in a
+    agent._cur_pos["z"] = 4.6                  # 3.9 from the pool centre: in the band
+    assert tick(agent, st, mk) is None
+    # A clipped sighting never walks up, even from far.
+    agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}, {})
+    st = {"pool": [0, 11, 8], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
+          "approach": False, "label": "make_obsidian"}
+    assert tick(agent, st, mk).get("back") == 1
     # A wall behind: eight stalled ticks end it with the note.
     agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}, {})
     st = {"pool": [0, 11, 2], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
@@ -205,17 +242,17 @@ def test_scoop_tick_walks_back_and_presses_until_the_bucket_reads_water():
     for _ in range(5):                            # no progress: the walk starts jumping
         a = tick(agent, st, mk)
     assert a.get("forward") == 1 and a.get("jump") == 1
-    agent._cur_pos["z"] = 0.5                     # within reach now
+    agent._cur_pos["z"] = 1.0                     # 3.1 from the cell's top: near enough
     a = tick(agent, st, mk)
     assert a.get("forward") is None and st["phase"] == "aim"
-    agent._cur_pos.update({"pitch": 29.8, "yaw": 0.0})      # atan((65.62-63.9)/3): the cell's top
+    agent._cur_pos.update({"pitch": 36.1, "yaw": 0.0})      # atan((65.62-63.8)/2.5)
     pressed = [tick(agent, st, mk) for _ in range(8)]
     assert any(p.get("use") == 1 for p in pressed) and st["presses"] >= 1
     agent._cur_inv["water_bucket"] = 1
     assert tick(agent, st, mk) is None
     assert any("back in the bucket" in n for n in agent.notes)
     # Budget spent: the note names the cell and the call to make by hand.
-    agent = _agent({"x": 0.5, "y": 64.0, "z": 0.5, "pitch": 29.8, "yaw": 0.0}, {"bucket": 1})
+    agent = _agent({"x": 0.5, "y": 64.0, "z": 1.0, "pitch": 36.1, "yaw": 0.0}, {"bucket": 1})
     st = {"cell": cell, "t": 0, "n": 12, "phase": "walk", "presses": 0, "base_wb": None,
           "hold": 0, "label": "make_obsidian"}
     _run(tick, agent, st, mk)
