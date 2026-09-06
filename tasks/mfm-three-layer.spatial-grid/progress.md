@@ -98,3 +98,13 @@
   blocked) -- the case the merged bunker slice addresses. It had read the carried logs
   itself (rg over previous/life_*/logs.txt, then sed of life_2/life_3 sections) and cited a
   lava pool near (-3049, 7, -5537) from them.
+- 04:05 sliver slice (harness, all arms; MCU spatial-grid-merge 019b91de, MFM 5ef3287): the
+  LAVA AHEAD advice under 8% of the lower view names a SLIVER, keeps its cells off the
+  no-argument pour's record (`lava_slivers` stat) and asks for a closer 8%+ sighting; at lake
+  size the pour sentence stands. tests/test_lava_note.py (2). og4 lost its water on the
+  sliver at (-2991, 11, -5561) and is bucket-less at y 10 with ~3000 steps left; og3 found no
+  drops at its death site and is rebuilding from cobblestone.
+- Next generation (when og3/og4 end): fast-forward `MFM-grid/MCU` to `spatial-grid-merge`
+  (bunker at the first hit, standoff/scoop aims, kit milestones open, workshop doctrine,
+  --sites off, sliver note), bump the MFM MCU pointer, relaunch og5 (single-turn) / og6
+  (8-turn, 320x180) with seeds = 12 first-gen + og3 + og4 (clean lives: no pushed sites).
