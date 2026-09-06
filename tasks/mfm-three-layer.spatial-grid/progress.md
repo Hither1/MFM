@@ -76,3 +76,25 @@
   sites), suites test_previous/pins/grid/watchdog/obsidian/retrieve/torch/seal green.
 - Launcher renamed `scripts/launch-og.sh` (ARM/GP/PP/STEPS/SESSION_TURNS/WM_EXTRA/OB_SEEDS);
   default seeds = 12 first-gen lives, `--expect --frames --retrieval`.
+- 03:10 og4 (step 5577-5657): LAVA AHEAD at 1% of the lower view ((-2991, 11, -5561), y 11);
+  the model poured at the rim from 0.3 blocks ("something behind blocks the way back"),
+  then `mine_obsidian` broke 3 blocks, none obsidian -- the ob1/ob1b failure (a sliver seen
+  from afar is flowing lava: cobblestone after the pour; only SOURCE blocks turn to obsidian).
+  The LAVA AHEAD note says "THIS IS THE LAVA THE OBSIDIAN NEEDS" at any fraction; the
+  sliver-vs-lake distinction (LAKE_FRAC 8%) lived only in the [KNOWN SITES] digest. Candidate
+  harness slice for the next generation: the note itself names a <8% sighting a sliver
+  (likely flowing) and a >=30% one a lake; not changed mid-run.
+- 03:40 merged dragon-obsidian into spatial-grid. MCU: hither/dragon-obsidian (bunker at the
+  first hit bcb009bb, standoff/scoop/mine_obsidian aims 52a452ef, kit milestones open ce4d9404,
+  carry-the-workshop doctrine 2eb053fb) merged cleanly in a scratch worktree
+  `Collab/MFM-grid-merge-mcu` on branch `spatial-grid-merge` (da93083e) -- NOT in the live
+  `MFM-grid/MCU`, which og3/og4 import from; fast-forward it when they end. MFM: origin/
+  dragon-obsidian merged in place (tests/test_seal.py, test_obsidian additions, pins); conftest
+  gained `MFM_MCU_ROOT` so the suite can run against another MCU checkout; pins re-recorded on
+  the merged MCU; 60 tests green (`MFM_MCU_ROOT=.../MFM-grid-merge-mcu`). The MCU submodule
+  pointer stays at c6bbf978 until the live worktree moves.
+- og3 died at step ~2700 to a zombie in its dark shaft at y 32->23 (health 10 -> 6 -> 2 while
+  the plan said "dig down to Y12"; the runner's counter-attack dealt 0 and the sprint back was
+  blocked) -- the case the merged bunker slice addresses. It had read the carried logs
+  itself (rg over previous/life_*/logs.txt, then sed of life_2/life_3 sections) and cited a
+  lava pool near (-3049, 7, -5537) from them.

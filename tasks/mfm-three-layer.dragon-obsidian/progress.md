@@ -144,7 +144,64 @@
   six diamond finders) plus ob1/ob1b/ob2/ob3 (obf2 also obf1). Polling monitors (60 s) on the
   workspace logs replace the tail -F ones, which never matched.
 
+- 2026-09-07 00:00-01:00, mob deaths (3 of the 4 relay runs): stage s15 (live zombie, dark tunnel):
+  the fight macro landed 1 swing for 15 hp taken ahead, found nothing behind; corpus: blind
+  fightback 3x / 0 damage, bunker 0 of 4 completed, flee 3x. Stage s16 (zombie behind the avatar at
+  its mining face): the old precedence (second hit -> fightback/flee) ran into the face, 20 -> 5 hp.
+  Change (uncommitted until s8 passes): BUNKER_HP 14 -> 17.5 (the first 3+ hit underground arms
+  the bunker), the bunker is never abandoned for further hits, bunker precedes fightback/flee; a
+  flee-then-seal reflex (two blocks across the passage) added as the no-pickaxe fallback
+  (tests/test_seal.py). s16 run 3: bunker capped under the hits, 20 -> 11 hp, no damage after
+  (`MCU/logs/stages/s16_seal_*` run3). s8 section E rewritten for the new behaviour; s8 running.
+- gen-4 (`ob4_mfm`) died at step 1413 to a zombie at y 26 during a stair_down (fightback dealt 0):
+  the kit is gone, the run is spent.
+
+- s8 25/25 with the new bunker behaviour; committed MCU bcb009bb / MFM 16659cd. 01:05 LAUNCHED gen-5
+  `ob5_mfm` (half, 12k, ports 9078/9088, seeds 12 + ob1/ob1b/ob2/ob3) on bcb009bb, pid 44529.
+  obf2 (old reflex code) at step 5289: iron_ingot (obf1: 5973).
+
+- 2026-09-07 01:50-02:40, gen-5 at the 52% lake: the guard fired at 1% with the pool 8 blocks off,
+  make_obsidian() backed off and the pour was out of reach (x2); the third try poured at 3.2 from
+  the pool (rim (-2989, 10, -5562)), the scoop pressed 17x at 4.2 blocks for nothing, and
+  mine_obsidian() aimed at a re-sighted "pool" that was the poured rim (stone x3). Three fixes
+  (uncommitted until s12 rerun): the standoff tick walks UP to the 3.5-4.2 band when the sighting
+  was unclipped (measured), backs off only when clipped (stage s17, lake 8 ahead: 10/11, only the
+  drop pickup red); the scoop walks to 3.2 blocks and aims under the 0.875 surface; make_obsidian
+  records LAST_POUR and mine_obsidian() aims at the pour's pool cell (then the cell beyond, then
+  the rim) unless a newer sighting is another site. Tests 25/25.
+- obf2 (24k full): iron_pickaxe 9331, diamond ore at (-2972, 13, -5526) = kdc3z's recorded site at
+  10476, diamond 10818 (11/24 = 45.83, the record equalled), 4 ores by 11471; at 15079 heading to
+  the table for the diamond pickaxe.
+
+- Scores so far, half task: ob1 25.0, ob1b/ob2/ob3 37.5, ob4 29.17, ob5 16.67 (no death, straight to
+  the lake). The half-task scorer credits NOTHING for the kit's ten milestones: the 37.5 runs died
+  and rebuilt from a log (banking mine_log..iron_pickaxe). Purple-side fix: the ledger no longer
+  marks the given ten as achieved; the checklist says the kit holds the item but the scorer wants
+  the event (MCU ce4d9404, MFM 73aba73). selftest.py's reflex checks still encode the old bunker
+  precedence -- to update. gen-6 stopped at step 197 and RELAUNCHED 02:55 on ce4d9404 (pid 19029,
+  ports 9079/9089, seeds 12 + ob1/ob1b/ob2/ob3/ob5).
+
+- obf2 (24k full, MCU 54ed3c9f, 17 seeds incl. the six diamond finders) FINISHED ~04:10: **54.17
+  (13/24)** -- the record 45.83 beaten. Timeline: mine_log 192, table 596, wooden_pickaxe 2107,
+  cobblestone 3196, stone_pickaxe 3656, furnace 3719, iron ore 4174, ingot 5129, iron_pickaxe 9330,
+  diamond ore 10476 at kdc3z's recorded site, diamond 10818, diamond_pickaxe 22035 (12k steps lost
+  to a vanished crafting table and one plank), flint_and_steel 22456. No death. Evidence:
+  `MCU/logs/obf2_mfm_result.json`, `MCU/output/obf2_mfm/episode_001/worldmodel_report.json`.
+- 04:15 LAUNCHED obf3 `obf3_mfm` (full, 24k, ports 9080/9090, latest code ce4d9404: bunker-first,
+  standoff approach, pour record, open-kit ledger; seeds 12 + ob1/ob1b/ob2/ob3/ob5 + obf1 + obf2),
+  pid 25343. The session process restarted around then; the ob6 monitor re-armed.
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
   end read scores/milestones, fix what they show, relaunch.
+
+## 2026-09-07 01:46 all runs stopped on the user's request
+- Stopped `ob6_mfm` (step 10947, 13/24, no death, gathering iron for the bucket) and `obf3_mfm`
+  (relaunched 01:33 on ports 9081/9091 after 9090 was taken by another user; step ~2.6k, 6/24)
+  via `scripts/stop_arm.py --go`; own poll scripts killed. No partial scores.
+- Open question raised by the user: the seed pool mixes 12 lives from other arms (worldmodel/
+  logbook runs in MCU-AgentBeats) into the mfm chain; obf2's diamond site came from kdc3z
+  (logbook). Dedupe is code-side (`previous.py:107 life_key`). Whether the claim is "reuse any
+  previous record" or "mfm reuses its own memory" (clean chain p0 -> p1 ...) is the user's call.
+- Pushed: MCU 2eb053fb (hither), MFM 94c224e (origin).

@@ -15,7 +15,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MCU = ROOT / "MCU"
+# MFM_MCU_ROOT: test another checkout of the MCU code (a merge worktree) without
+# touching the one a running arm imports from.
+MCU = Path(os.environ.get("MFM_MCU_ROOT", ROOT / "MCU"))
 KICAD = ROOT / "CUA-KiCad"
 PINS = ROOT / "tests" / "pins"
 FAKE_CODEX = ROOT / "tests" / "fake_codex.py"
