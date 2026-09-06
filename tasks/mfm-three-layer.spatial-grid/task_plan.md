@@ -26,16 +26,16 @@
   and S2c (pond escape) and drop the go_to rewrite.
 
 ## Slices
-- [ ] S1 `mcu_worldmodel/grid.py`: sparse cell map, per-tick fill (walked/floor, broken, placed +
+- [x] S1 `mcu_worldmodel/grid.py`: sparse cell map, per-tick fill (walked/floor, broken, placed +
       opening pose, water, lava, hazard, blocked), `memory/grid.jsonl` persisted, kept by the sweep.
-- [ ] S2a map-aware go_to: on block, route via walked cells (BFS) toward the target; note names the route.
-- [ ] S2b reopen by pose: use_until_gui(item=) first replays the pose that opened it.
-- [ ] S2c pond escape: the water refusal names a walked cell >= 8 blocks from water and walks there.
-- [ ] S2d `[MAP]` block in the turn message (5 lines: cell, routes to base/water/table, hazards).
-- [ ] S3 cross-life: dry corridors from previous lives' [STATE] trajectories into [KNOWN SITES].
-- [ ] S4 churn watchdog: plan-level null streak per cell, label-agnostic veto after 3 null entries of
+- [x] S2a map-aware go_to: on block, route via walked cells (BFS) toward the target; note names the route.
+- [x] S2b reopen by pose: use_until_gui(item=) first replays the pose that opened it.
+- [x] S2c pond escape: the water refusal names a walked cell >= 8 blocks from water and walks there.
+- [x] S2d `[MAP]` block in the turn message (5 lines: cell, routes to base/water/table, hazards).
+- [x] S3 cross-life (`--corridors`, mfm option): dry corridors from previous lives' [STATE] trajectories into [KNOWN SITES].
+- [x] S4 churn watchdog (harness) + `--expect` protocol (mfm option): plan-level null streak per cell, label-agnostic veto after 3 null entries of
       any label with no screen open, objective switch after 1200 null steps.
-- [ ] Stages s17_pond, s18_reopen, s19_detour; replay tool over the 148 logs; unit tests.
+- [~] Stages s17_pond, s18_reopen, s19_detour written (running); replay tool done (57-65% detours, 85-96% escapes); unit tests 59 green.
 - [ ] Half run on the map-aware code vs ob3/ob4.
 
 ## Decisions And Blockers
@@ -50,4 +50,4 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-Await the user's go on the slice order (S1+S2 first), then implement S1.
+Stages s17/s18/s19 green -> launch `og1_mfm` (half, 12k, ports 9091/9101, seeds = the 12 first-gen lives + ob1..ob6 + obf1..obf3, `--wm-extra "--expect --frames --corridors"`); then the session-turns A/B.

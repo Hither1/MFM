@@ -46,3 +46,10 @@
 - Stages written: s17_pond (walk to the rim, fill, refused dig -> escape along the trail, dig),
   s18_reopen (flat + the obf2 hole case, re-open by pose), s19_detour (L trail, 2-high wall,
   go_to detours and arrives).
+- Stage s18_reopen: 13/13 green (flat and the hole case: the replayed pose re-opens the table in
+  45 ticks after a 6-block walk away; `pose_reopens` 1 each). Stage s17_pond run 1: 9/10 (refusal,
+  escape along the trail in 33 ticks, 8+ blocks from the rim; the last dig failed only because the
+  stage never equipped the pickaxe -- fixed, rerunning). s19 running.
+- Stages green on the engine (MFM-grid/MCU/logs): s17_pond run 2 10/10 (`logs/stages/s17_pond_*`),
+  s18_reopen 13/13, s19_detour 8/8 (stalled 7.8 blocks short of D, detoured over 37 walked cells,
+  arrived in 162 ticks). Gate for the half run passed.
