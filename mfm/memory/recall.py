@@ -16,10 +16,14 @@ A row written with `EpisodeStore(recall=True)` carries
     dhash        64-bit difference hash of the frame the turn was decided on (hex)
     next_dhash   the same for the frame the episode closed on
 
-`match` finds earlier rows whose (perception, action) equal the previous turn's, and
-whose recorded next frame resembles the current one; `render` turns them into the
-`[RECALL]` block pushed into the turn prompt. Pure functions over index rows; PIL is
-optional (no hash, no image check).
+`match` finds earlier rows that repeated the previous turn's transition: the same
+action, and either a similar perception line with a compatible next frame, or frames
+near-identical both before and after (the model paraphrases the same dialog
+differently from task to task -- "an update prompt blocks the manager" / "the
+update-check dialog" -- while the dialog's frame hashes to the same bits; a canvas,
+conversely, hashes alike with one more part on it, which is what the text catches).
+`render` turns the hits into the `[RECALL]` block pushed into the turn prompt. Pure
+functions over index rows; PIL is optional (no hash, no image check).
 """
 from __future__ import annotations
 
@@ -42,7 +46,13 @@ _FILLER = {"the", "a", "an", "is", "are", "was", "were", "now", "still", "no", "
 #: How many bits two 64-bit difference hashes may differ by and still be "the same
 #: screen" once the transition text has already matched. Whole-frame hashes of KiCad
 #: dialogs over the same canvas differ by 0-3 bits; a different dialog by 8-20.
-SAME_SCREEN_BITS = 6
+SAME_SCREEN_BITS = 8
+#: Frames "near-identical" enough to stand in for the text: the situation frame and
+#: the outcome frame must both be this close.
+NEAR_SAME_BITS = 3
+#: Jaccard similarity of the content words of two perception lines to count as the
+#: same situation (with a compatible outcome frame).
+SIMILAR_TEXT = 0.5
 #: The image-only fallback (no transition match): near-identical frames only. Off by
 #: default: replayed over the 2026-09-05 mfm-carry run, a 64-bit whole-frame hash within
 #: 2 bits matched 64% of all turns (a canvas with one more part hashes like the canvas),
@@ -53,10 +63,35 @@ SCREEN_FALLBACK = False
 KEY_WORDS = 8
 
 
+_SENTENCE_END = re.compile(r"(?<=[.;!?])\s+")
+
+
+def first_sentence(text: str | None) -> str:
+    line = (text or "").strip().split("\n")[0]
+    return _SENTENCE_END.split(line, 1)[0]
+
+
+def content_words(text: str | None) -> frozenset[str]:
+    s = first_sentence(text).lower()
+    s = _QUOTES.sub("", s)
+    s = _REF.sub(" ref ", s)
+    s = _NUM.sub(" n ", s)
+    s = _NONALPHA.sub(" ", s)
+    return frozenset(t for t in s.split() if t not in _FILLER)
+
+
+def similarity(a: str | None, b: str | None) -> float:
+    """Jaccard similarity of the content words of two perception lines."""
+    wa, wb = content_words(a), content_words(b)
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+
 def norm_text(text: str | None, words: int = KEY_WORDS) -> str:
-    """A perception line reduced to its situation: refs and numbers abstracted away,
-    filler dropped, the first `words` content words."""
-    s = (text or "").strip().split("\n")[0].lower()
+    """A perception line reduced to its situation: the first sentence, refs and numbers
+    abstracted away, filler dropped, the first `words` content words."""
+    s = first_sentence(text).lower()
     s = _QUOTES.sub("", s)
     s = _REF.sub(" ref ", s)
     s = _NUM.sub(" n ", s)
@@ -134,30 +169,44 @@ def successor(rows: list[dict[str, Any]], row: dict[str, Any]) -> dict[str, Any]
     return None
 
 
+def transition_score(prev: dict[str, Any], cur_dhash: str | None, r: dict[str, Any], *,
+                     same_screen_bits: int = SAME_SCREEN_BITS) -> float | None:
+    """How well earlier row `r` repeats `prev`'s transition into the current frame:
+    None for no match, else a score (higher is better) for ranking."""
+    if norm_action(r.get("summary")) != norm_action(prev.get("summary")) or not r.get("effect"):
+        return None
+    sim = similarity(prev.get("perception"), r.get("perception"))
+    d_prev = hamming(prev.get("dhash"), r.get("dhash"))
+    d_next = hamming(cur_dhash, r.get("next_dhash"))
+    by_text = sim >= SIMILAR_TEXT and (d_next is None or d_next <= same_screen_bits)
+    by_image = (d_prev is not None and d_prev <= NEAR_SAME_BITS
+                and d_next is not None and d_next <= NEAR_SAME_BITS)
+    if not (by_text or by_image):
+        return None
+    return sim * 10 - (d_prev or 0) - (d_next or 0)
+
+
 def match(rows: Iterable[dict[str, Any]], prev: dict[str, Any] | None,
           cur_dhash: str | None, *, k: int = 3,
           same_screen_bits: int = SAME_SCREEN_BITS,
           screen_fallback: bool = SCREEN_FALLBACK) -> tuple[str, list[dict[str, Any]]]:
-    """Earlier rows that repeat the previous turn's transition, newest first.
+    """Earlier rows that repeat the previous turn's transition, best first.
 
-    Returns ("transition", hits) when (perception, action) of `prev` recurs and the
-    recorded next frame is within `same_screen_bits` of the current frame (or no hashes
-    are available); ("screen", hits) for the image-only fallback; ("", []) otherwise.
+    Returns ("transition", hits) when `prev`'s action recurs with a similar perception
+    and a compatible next frame, or with near-identical frames before and after
+    (`transition_score`); ("screen", hits) for the opt-in image-only fallback;
+    ("", []) otherwise.
     """
     rows = [r for r in rows if r.get("kind") == "episode" and r is not prev]
-    if prev is not None:
-        key = transition_key(prev)
-        if key is not None:
-            hits = []
-            for r in rows:
-                if transition_key(r) != key or not r.get("effect"):
-                    continue
-                d = hamming(cur_dhash, r.get("next_dhash"))
-                if d is not None and d > same_screen_bits:
-                    continue
-                hits.append(r)
-            if hits:
-                return "transition", hits[-k:][::-1]
+    if prev is not None and prev.get("summary"):
+        scored = []
+        for i, r in enumerate(rows):
+            sc = transition_score(prev, cur_dhash, r, same_screen_bits=same_screen_bits)
+            if sc is not None:
+                scored.append((sc, i, r))
+        if scored:
+            scored.sort(key=lambda t: (-t[0], -t[1]))       # best, then newest
+            return "transition", [r for _, _, r in scored[:k]]
     if cur_dhash and screen_fallback:
         hits = []
         for r in rows:
@@ -196,7 +245,7 @@ def render(kind: str, hits: list[dict[str, Any]], all_rows: list[dict[str, Any]]
         lines.append(chain)
     if kind == "transition":
         head = (f"[RECALL] the last turn's situation and action occurred before {scope} "
-                f"({len(hits)} shown, newest first); what followed then:")
+                f"({len(hits)} shown, best match first); what followed then:")
     else:
         head = f"[RECALL] a screen near-identical to this one occurred before {scope}:"
     return head + "\n" + "\n".join("  " + l for l in lines)

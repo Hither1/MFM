@@ -19,6 +19,11 @@ def test_norm_text_abstracts_refs_numbers_and_filler():
     assert rc.norm_text("The symbol chooser is open with its search field focused.") == \
         rc.norm_text("The symbol chooser is now open, with its search field focused; no errors appear.")
     assert rc.norm_text("") == ""
+    # The first sentence is the situation; the rest is commentary.
+    assert rc.norm_text("KiCad’s initial settings dialog is open with defaults selected. The task set is ready.") == \
+        rc.norm_text("KiCad's initial settings dialog is open with defaults selected.")
+    assert rc.similarity("The existing project is loaded; an update prompt blocks the manager.",
+                         "The existing project is loaded, with an update-check dialog in front.") >= 0.4
 
 
 def test_norm_action_keeps_keys_and_drops_coordinates_and_typed_text():
@@ -54,11 +59,16 @@ def test_match_prefers_the_transition_and_checks_the_next_frame():
     rows = [_row(1, "A", "The symbol chooser is open.", 'type("R")', "Results list R.", next_dhash="0" * 16),
             _row(2, "A", "Results list R.", "click(300,400)", "R placed on canvas."),
             _row(1, "B", "The symbol chooser is open.", 'type("C")', "Results list C.", next_dhash="f" * 16)]
-    prev = {"kind": "episode", "perception": "The symbol chooser is open.", "summary": 'type("LED")'}
+    prev = {"kind": "episode", "perception": "The symbol chooser is open.", "summary": 'type("LED")', "dhash": "0" * 16}
     kind, hits = rc.match(rows, prev, cur_dhash="0" * 16)
     assert kind == "transition" and [r["task"] for r in hits] == ["A"]      # B's next frame differs
     kind, hits = rc.match(rows, prev, cur_dhash=None)
-    assert kind == "transition" and [r["task"] for r in hits] == ["B", "A"]  # no image check: both, newest first
+    assert kind == "transition" and {r["task"] for r in hits} == {"A", "B"}  # no next-frame check: both
+    # A paraphrase with identical frames before and after still matches; a different
+    # action never does.
+    para = {"kind": "episode", "perception": "A chooser dialog for symbols is showing.", "summary": 'type("X")', "dhash": "0" * 16}
+    assert rc.match(rows, para, "0" * 16)[0] == "transition"
+    assert rc.match(rows, {**para, "summary": "key(a)"}, "0" * 16) == ("", [])
     note = rc.render(kind, hits, rows, "in an earlier task")
     assert note.startswith("[RECALL]") and 'previous/A step 1: at "The symbol chooser is open." you did type("R")' in note
     assert '-> "Results list R."; then click(300,400) -> "R placed on canvas."' in note
