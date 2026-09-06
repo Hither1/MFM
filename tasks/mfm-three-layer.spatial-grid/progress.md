@@ -189,3 +189,63 @@
   320x180, 10h cap, `--expect --frames --retrieval`) plus `--thin`; seeds = 12 first-gen +
   og3/og4/og5/og6 (og8 has no og5: it started before og5 ended). Ports 9099/9109. A/B:
   thin contract vs the full one, same model and budget.
+
+## 2026-09-07 05:0x -- og7 final, og8's death in its own shaft
+
+- og7 final (gpt-5.6, 8-turn, pit-climb code, seeds 12 first-gen + og3/og4/og6): score
+  54.17 = 13 milestones, `mine_diamond_ore` at step 8587 (historically 3% of from-scratch
+  runs, median step 11444; a `aim_at_ore` + `mine_ahead(ore_watch)` pair on a visible
+  vein at y 9); 0 deaths; never filled the bucket; churn 0.12; governor 45; goto 9 calls,
+  1 blocked, 1 detour. Equals og5/obf2's 54.17 (`logs/og7_mfm_result.json`,
+  compare.py on `output/og7_mfm/episode_001/memory/logs.txt`).
+- og8 (gpt-6-astra high, 60k) died at step 2603, y 9, 11 milestones, the kit dropped.
+  Evidence (`output/og8_mfm/episode_001/memory/{logs.txt,grid.jsonl}`): walked
+  (-3009, 12, -5569) at 2487 and (-3009, 11, -5569) at 2501 -- a vertical `dig_down`
+  shaft; the hit came at 2523 while a torch went up on the shaft wall (place_at y 13);
+  damage 4.5 per hit (a zombie on HARD) at steps 2523, 2543, 2563, 2583, 2603 -- exactly
+  every 20 ticks (a zombie's attack cooldown) at y 11, 10, 9, 9, 9. The bunker reflex dug
+  two blocks and reported "capped ... nothing can reach you in here" at 2563+; the hits
+  went on inside the capped hole: the zombie had fallen down the shaft INTO the cell and
+  the dig took it along. The model then opened the inventory to craft sticks (hit to 3),
+  planned `fight(diamond_sword)` -- the sword was in the main inventory, not the hotbar --
+  and died 7 ticks into the fight. s8_bunker's docstring already recorded "a zombie
+  (run 4) followed the avatar INTO the hole" as "the model's to run from"; the reflex
+  precedence armed the bunker on the first hit and never re-evaluated it ("not abandoned
+  for further hits"), so the flee/fightback branches written for the melee cadence
+  could not fire while a pickaxe and a block were in the hotbar.
+- Slice (MCU spatial-grid-merge, agent.py): a melee-cadence hit while the bunker digs
+  abandons it for the fightback with the best HOTBAR weapon (sword > axe > pickaxe,
+  `_weapon_slot`, full-charge swing period per class); the fightback turns its aim a
+  quarter after 16 ticks of swings that land nothing (`fightback_sweeps`); at the bottom
+  of the avatar's own shaft (`_in_shaft`: a walked cell straight above) it fights to the
+  end instead of handing over to the flee below CRITICAL_HP; a hit taken INSIDE a capped
+  hole within 600 ticks (`_in_hole`) arms the same desperate fightback, closing an open
+  screen first (`hole_fightbacks`). Notes name the weapon, the reason and the next step
+  ("close the shaft over your head FIRST"). Tests: tests/test_fightback.py (4) + the
+  reflex tests (38 passed). Stage s20_shaft (hard, a zombie WITH AI dropped down the
+  runner's own 4-block shaft; A: diamond sword in the hotbar, B: pickaxes only) running
+  from the merge worktree, `logs/stages/s20_shaft_0907_051153`.
+- og8 at step 5176 (11 milestones, recovering: mining cobblestone at y 61 for a furnace);
+  og9 at 3315 (12 milestones incl. iron_pickaxe, 0 deaths, heading for the pond).
+- s20_shaft, five runs: the hand-over worked from the first run, the blind fightback did
+  not -- 0-1 swings landed in 80 ticks and both rounds died at the fifth hit. Probes
+  (`/data get entity` in the chat overlay, avatar pos every 10 ticks): the push leaves the
+  two in opposite CORNERS of the 1x1 cell (avatar at (-.7, -.7) of it), every quarter
+  turn of the sweep 45 degrees off; `forward` into the wall auto-jumped the eye over the
+  mob's head (airborne at 3 of 5 probes). Fix: aim at the cell's centre from where the
+  avatar stands now on every empty sweep (else an eighth of a turn), no forward in a
+  cell; a shaft bottom with a sword fights at the FIRST hit; the bunker gives way the
+  moment its swings hit the mob (damage_dealt moved -- og6's "floor did not break").
+  Final run (`logs/stages/s20_shaft_0907_05xx`): A (sword) killed in 3 swings, 20 -> 8.8
+  hp; B (iron pickaxe, og8's hotbar) bunker intercepted at tick 26, killed, 20 -> 2 hp.
+  14 checks, 0 failed. MCU spatial-grid-merge 027b2cd9; tests/test_fightback.py (6).
+- User (05:2x): keep monitoring; the memory-reuse runs (og8, og9) end when they end, no
+  more of them; the next results are the new settings FROM SCRATCH (no memory).
+- 05:26 og10_mfm (full contract) and og11_mfm (`--thin`) launched from the live worktree
+  MFM-grid/MCU (fast-forwarded to 304bae53: thin/watch/compact, the launcher's new
+  `NO_SEEDS=1`): gpt-6-astra high, 60k steps, session-turns 0 + compaction, 320x180,
+  `--expect --frames --retrieval`, NO previous lives, 10h cap, ports 9100/9110 and
+  9101/9111. They run the code BEFORE the shaft-fight slice (027b2cd9 came after).
+- og9 at 5691: 13 milestones incl. mine_diamond_ore (the earliest diamond on record in
+  the chain: og7 8587, historical median 11444), 0 deaths, bucket filled. og8 at 7262:
+  11 milestones, rebuilding after the death.
