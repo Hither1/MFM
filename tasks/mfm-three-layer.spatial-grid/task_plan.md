@@ -1,5 +1,16 @@
 # Task Plan: spatial-grid
 
+> **Protocol (user, 2026-09-07 02:20): no previous-life memory outside MFM's own reuse.**
+> The harness-digested `[KNOWN SITES]` (sites, corridors, frame pointers) is not allowed;
+> memory reuse is the MFM carry only -- earlier lives' records linked under `previous/`
+> for the model to read (`grep`, `./tools/episodes.py --previous`). It is now the mfm
+> option `--sites` (default off, kept to reproduce the ob chain). The ob1..obf3 chain
+> ran with the pushed sites, so its lives are contaminated as seeds and its runs are not
+> a baseline: og1/og2 (launched 02:11/02:15 with sites+corridors and ob seeds) were
+> stopped at ~step 700 / ~200. Clean seeds = the 12 first-generation lives. Baseline for
+> the navigation claim = the historical half runs (no previous lives) in findings.md.
+
+
 ## Stable Anchor
 - Question: does a harness-maintained 3D cell map (built from exact positions and the runner's own
   events, no benchmark change) remove the navigation losses that eat the dragon budget: blind go_to,

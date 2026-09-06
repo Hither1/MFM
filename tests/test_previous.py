@@ -163,13 +163,42 @@ def test_mfm_sweep_keeps_previous(tmp_path: Path):
     assert "scratch.md" in removed and (mem.root / "previous" / "x").exists()
 
 
-def test_chassis_mfm_with_previous_lives(tmp_path: Path):
-    """The arm announces the carried lives in AGENTS.md and pushes the sites every
-    turn; the store rows the run writes itself are unchanged."""
+def test_chassis_mfm_carry_without_sites(tmp_path: Path):
+    """The MFM carry alone (no --sites): the lives' records -- the log, the episodes,
+    the index and whatever the model wrote -- are linked under previous/ and named in
+    AGENTS.md; nothing of them is pushed into a turn, and no site digest is written."""
     from test_pins_chassis import drive_chassis
 
     life = make_life(tmp_path, "parent")
+    (life / "locations").mkdir()
+    (life / "locations" / "water.md").write_text("pond at (-3013, 70, -5580)", encoding="utf-8")
+    (life / "tools").mkdir()
+    (life / "tools" / "episodes.py").write_text("machinery", encoding="utf-8")
     agent, actions = drive_chassis(tmp_path, "mfm", previous_lives=[life])
+    ws = agent.memory.root
+    contract = (ws / "AGENTS.md").read_text()
+    assert "`previous/life_<i>/`" in contract and "is yours to do" in contract
+    assert "[KNOWN SITES]" not in contract and "DRY CORRIDOR" not in contract
+    prev = ws / "previous" / "life_1"
+    assert (prev / "logs.txt").exists() and (prev / "index.jsonl").exists()
+    assert (prev / "locations" / "water.md").read_text() == "pond at (-3013, 70, -5580)"
+    assert not (prev / "AGENTS.md").exists() and not (prev / "tools").exists()
+    assert (ws / "previous" / "index.jsonl").exists()
+    assert not (ws / "previous" / "sites.json").exists()
+    turns = [p for p in agent.codex.prompts if "Your memory is" in p]
+    assert turns and not any("[KNOWN SITES]" in p for p in turns)
+    rep = agent.report()
+    assert rep["mfm"]["previous"]["lives"] == 1 and rep["mfm"]["previous"]["pushes"] == 0
+    assert rep["mfm_options"]["sites"] is False
+
+
+def test_chassis_mfm_with_previous_lives(tmp_path: Path):
+    """--sites: the arm announces the carried lives in AGENTS.md and pushes the sites
+    every turn; the store rows the run writes itself are unchanged."""
+    from test_pins_chassis import drive_chassis
+
+    life = make_life(tmp_path, "parent")
+    agent, actions = drive_chassis(tmp_path, "mfm", previous_lives=[life], sites=True)
     ws = agent.memory.root
     assert "`previous/life_<i>/`" in (ws / "AGENTS.md").read_text()
     assert (ws / "previous" / "life_1" / "logs.txt").exists()

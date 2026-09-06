@@ -53,3 +53,26 @@
 - Stages green on the engine (MFM-grid/MCU/logs): s17_pond run 2 10/10 (`logs/stages/s17_pond_*`),
   s18_reopen 13/13, s19_detour 8/8 (stalled 7.8 blocks short of D, detoured over 37 walked cells,
   arrived in 162 ticks). Gate for the half run passed.
+
+## 2026-09-07 02:11-02:40 -- og1/og2 launched, then stopped: protocol change
+
+- 02:11 `og1_mfm` (sites+corridors, 22 seeds incl. ob1..obf3) and 02:15 `og2_mfm` (same +
+  session-turns 8, 320x180) launched from MFM-grid/MCU. Before the stop og1 showed the
+  harness mechanisms in the wild: fill_bucket at the remembered pond (step ~600), the
+  refused dig queued the walk along its own trail (15 cells, "8+ blocks from every water
+  cell"), one blocked go_to detoured over 9 walked cells. `[MAP]`/`[RECENT]`/
+  `[EXPECTED]`/`[OBSERVED]` all present in the turn-2 codex prompt (rollout inspected).
+- 02:20 user: no previous-life memory except MFM's own reuse; the earlier mfm reuse was
+  contaminated. Both arms stopped with `scripts/stop_arm.py --go` (24/24 pids).
+- Slice 3 (this commit): `--sites` mfm option (default off) gates known_sites / corridors
+  / frame pointers / `previous/sites.json`; `--corridors` requires `--sites`. The carry
+  keeps linking the lives' records under `previous/` (widened from logs/index/episodes/grid
+  to the whole record minus machinery: `previous.NOT_CARRIED`), merged `previous/index.jsonl`
+  for `tools/episodes.py --previous`. Contract: MFM_PREVIOUS_NOTE rewritten as the carry
+  note (the model reads), MFM_SITES_NOTE / MFM_FRAMES_SITES_NOTE only with --sites, the
+  chain section's two [KNOWN SITES] sentences only with --sites (`prompts._with_sites`).
+  Pins re-recorded: logbook/mfm AGENTS.md lose those two inert sentences (logbook never
+  had the block); logs/actions pins unchanged. Tests: test_previous +1 (carry without
+  sites), suites test_previous/pins/grid/watchdog/obsidian/retrieve/torch/seal green.
+- Launcher renamed `scripts/launch-og.sh` (ARM/GP/PP/STEPS/SESSION_TURNS/WM_EXTRA/OB_SEEDS);
+  default seeds = 12 first-gen lives, `--expect --frames --retrieval`.

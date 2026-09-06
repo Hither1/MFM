@@ -72,3 +72,16 @@ Evidence: `MFM/MCU/output/ob*` (dragon-obsidian code, 2026-09-06) and `MCU-Agent
   so the thread cold-starts onto logs.txt; resumed threads read 40k/88k/147k/243k tokens for turns 1-4),
   one 640x360 PNG (77 KB) per turn, shell on (1.2-2.4 commands per turn, mostly grep logs.txt), past
   frames only via `view_image` by path; the mfm sweep keeps only `tools/episodes.py` (no zoom.py).
+
+## Contamination of the ob chain (2026-09-07)
+
+Every ob/obf life (ob1, ob1b, ob2, ob3, ob4, ob5, ob6, obf1, obf2, obf3) ran with the
+harness-pushed `[KNOWN SITES]` block (`MFM/MCU/logs/ob*_launch.log` seed lines; og1's
+turn-2 prompt showed the block with 3 water lines and 3 DRY CORRIDOR lines). Their
+`logs.txt` plans quote those coordinates ("Travel to (-3012, -5587), where a prior life
+successfully filled a bucket"), so as seeds they would hand the same coordinates on
+through the model's own text. Under the MFM-carry-only protocol they are excluded, and
+their water->lake legs are not a baseline for the map claim. Clean seeds: the 12
+first-generation lives (`MCU-AgentBeats/output/{hd12z,hd32z,hd39z,hd43z,hd41z}_wm_high,
+kd35z_lb_high, dm16/dm17_wm_high, kd14x_wm_high, kd31z_lb_high, kd6_wm_high,
+kdc3z_logbook_high}`), none of which was seeded.
