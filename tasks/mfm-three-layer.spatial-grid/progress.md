@@ -272,3 +272,14 @@
   when lava lies under it). tests/test_obsidian.py asserts the mark + the note; 74 pass.
 - og9 at ~12.4k: 12 obsidian mined, 11 placed -- building the portal frame at
   (-2991, 13..14, -5559); 15/24, 0 deaths.
+- 07:3x Lava-pool deaths (og10 at 8870, og11 at 10326, og8 #2 at 14349 -- all at the pool
+  just found, 4.0 hp per 10 ticks): og10's first hit (14% lava in the frame) armed the
+  BUNKER, which dug into the pool; og11's first hit got the 180-degree turn and the
+  runner's back-step walked it deeper (its own pour had emptied the bucket). Slice (MCU
+  spatial-grid-merge, s21_lava_escape): lava contact by its signature (a 4.0 loss with
+  any lava in view, or sunk 0.4+ below the dry trail cell beside it -- inside the pool the
+  frame reads 2%), no bunker with lava in view, the escape walks back toward the last
+  dry walked cell with the jump held (instead of a blind back-step). Stage: A (bucket)
+  one hit, doused, out, 20 hp; B (no bucket) two hits, out, 15 hp; 14 checks, 0 failed.
+  tests/test_lava_escape.py (3); 77 pass. Live MFM-grid/MCU fast-forwarded (og10/og11
+  still run the code they started with).
