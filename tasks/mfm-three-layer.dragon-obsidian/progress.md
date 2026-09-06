@@ -93,6 +93,20 @@
   --steps 24000`, ports 9074/9084, the same 8 seeds, run-arm launcher pid 28152
   (`MCU/logs/obf1_mfm_launch.pid`), monitor bigtdzp7j. Load 42/255 with two engines.
 
+- gen-2 (`ob2_mfm`): water filled by step ~800, diamond pickaxe, tunnelled 21 blocks in the dark to
+  the KNOWN SITES "nearest lake" = gen-1's tainted 32% sighting (the fire overlay of a burning
+  avatar read as lava) and its pour rim; poured on stone by coordinates at step 4436 (no lava in
+  view: frames ep_000054-58 are black with only the water flow), scoop 7 presses nothing,
+  mine_obsidian broke stone, then a mob took 4 + 10 health in 200 ticks and the bunker dig at y 9
+  ended in death at step 4697 with the diamond pickaxe lost. No obsidian. Monitors on the purple
+  log were blind (notes live only in the workspace logs.txt): re-armed on logs.txt.
+- Fixes for gen-3 (MCU a51313cf, MFM 3f7295e; tests 20/20; pins: only the doctrine paragraph):
+  blind pour by coordinates refused unless lava >= 1% of the lower view or a frame sighting is on
+  record; LAVA AHEAD lines in a section with damage notes are dropped by the extractor; lava/pour
+  lines carry a DEATH WARNING when a life died within 8 blocks; doctrine: largest lake, never the
+  nearest, pour only after LAVA AHEAD. 9-seed block preview: 52% lake first (2 deaths flagged),
+  the tainted line gone, pour rims out of the top 8.
+
 ## Next
 
 - Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or
