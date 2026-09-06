@@ -80,6 +80,34 @@ Fixes from the 2026-09-04 review (all pinned or covered by `tests/`):
   already counted; `session_max_turns` / `timeout` are explicit arguments from both
   purple agents.
 
+## Status: the VISTA baseline (2026-09-06)
+
+A third memory arm, VISTA (Han, Hu, Qiu, Wu, He; MIT 2026; joshhhhhan/VISTA @900aa33,
+MIT licence), ported as `mfm/vista/` with one adapter per benchmark. It is the
+counterpoint to both PRO-LONG and MFM: the *conversation* is the memory. One codex
+`app-server` thread drives the environment through dynamic tools and nothing else (no
+shell, no filesystem): `play` executes exactly one action -- one plan entry on MCU, one
+batch on KiCad -- and returns the objective result with the resulting frame steered into
+the thread; `inspect` / `read_pixels` read the lossless frame archive; `history` the
+record of every play; `GUIDE.md` / `WORKING.md` are the model's two notes; when the
+context fills, `save_compact_checkpoint` and a FRESH thread from the present, the last
+result, the recent history and the notes. Launch: `run-arm.sh --agent vista`
+(`worldmodel_purple_agent.py --memory vista`, the same chassis as logbook/mfm) and
+`run_eval.py --agent vista`.
+
+One addition to the upstream method: `thread_bytes_budget` (`--vista-thread-bytes`,
+4 MB base64 default). Frames here are 130-500 KB and codex re-sends every image on every
+call; the wire stalls near 5.5 MB long before a token-based compaction would fire, so
+the runner requests the same checkpoint handoff at the byte budget. The audit reports
+`checkpoint_reasons` so a run says which handoffs were the context and which the wire.
+
+Verified: the whole control plane against codex 0.153.4 without a model call
+(`--strict-config`, hook discovery and trust, `thread/start` with `dynamicTools`), and
+both adapters end to end on `tests/fake_appserver.py` (`tests/test_vista.py`, pinned;
+the old pins unchanged -- every vista path is gated on `self.vista`). Verified live too (2026-09-06, `python -m mfm.vista.smoke`: three plays, an
+inspect, a guide write; the model predicted before and read after every play). Section 8 gains one
+decision: a vista wave beside a logbook seed on the same chassis commit.
+
 ## Status: what the first KiCad waves showed (2026-09-05)
 
 Measured on the gpt-5.6-sol `_projdir` pair and the GPT-6 low pair (25 tasks each):
@@ -196,6 +224,17 @@ recalled chain as a multi-batch plan. Recall fired on ~40% of scratch-task promp
 The official ceiling is still the grader's naming conventions (no feedback reaches the
 model); the outcome-informed extension (reward + checks in the carried rows) remains the
 protocol decision.
+
+**Log-only PRO-LONG (2026-09-06).** The baseline's prompt says the workspace persists
+and invites the model to keep files there; on KiCad it kept a `plan.txt` in 20 of 24
+tasks and read it back every turn it wrote it -- a second memory channel beside the log.
+`prolong-logonly` (`EpisodeLog(log_only=True)`, `mfm/memory/log.py`): same log, frames,
+tools and resumed thread; the model's own files are taken back before every call and
+stashed under `<workspace>_record/scratch/<publish>/` for the analysis; the two prompt
+sentences that promised persistence are replaced (`_LOG_ONLY_SYSTEM_EDITS`,
+`_LOG_ONLY_FIRST_TURN_EDITS` in `gym_codex/prolong_agent.py`; each target asserted to
+occur once). Pinned baseline untouched (`tests/test_logonly.py`). Run:
+`kicad_pllogonly_gpt6hint` on GPT-6 low against prolong 0.389 / 1188 steps.
 
 ## Status (2026-09-04)
 
