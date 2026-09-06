@@ -231,6 +231,18 @@ def test_chassis_mfm_refusal(tmp_path: Path):
     assert chops and all(c["entry"].get("why") == "new trunk, closer" for c in chops[-3:])
 
 
+def test_override_keys_inside_args_are_lifted():
+    from mcu_worldmodel.actions import parse_actions
+    plan = parse_actions(json.dumps({"actions": [
+        {"procedure": "dig_down", "args": {"n": 20, "leave_table": True}},
+        {"procedure": "dig_down", "args": {"n": 20}, "why": "fresh face"},
+        {"action": {"attack": 1}, "repeat": 3, "why": "the trunk is centred now"}]}),
+        step_cap=400)
+    assert not [n for n in plan.notes if "bad arguments" in n], plan.notes
+    assert plan.entries[0]["leave_table"] is True and "leave_table" not in plan.entries[0]["args"]
+    assert plan.entries[1]["why"] == "fresh face" and plan.entries[2]["why"] == "the trunk is centred now"
+
+
 def test_descent_guard_is_a_pure_rule():
     from mcu_worldmodel.episodes import descent_guard
     placed = [{"item": "crafting_table", "id": "ep_000029", "step": 571, "x": -3005.0, "y": 68.0, "z": -5567.0}]
@@ -238,6 +250,10 @@ def test_descent_guard_is_a_pure_rule():
     dig = [{"procedure": "dig_down", "args": {"until_y": 12}}]
     note = descent_guard(placed, here, {"cobblestone": 20}, dig)
     assert note and "28 blocks ABOVE you" in note and "ep_000029" in note and "step 571" in note
+    assert "one block from where you stood, (-3005, 68, -5567)" in note      # no chassis cell known
+    cell = descent_guard(placed, here, {}, dig, placed_cells={"crafting_table": (-3006, 68, -5568)})
+    assert cell and "at about (-3006, 68, -5568) -- `use_until_gui(item=\"crafting_table\")` aims there" in cell
+    assert "(-3005, 68, -5567)" not in cell
     assert descent_guard(placed, here, {"crafting_table": 1}, dig) is None        # carried
     assert descent_guard(placed, {**here, "y": 62.0}, {}, [{"procedure": "dig_down", "args": {"n": 40}}]) is None   # within 8 blocks, no target
     beside = descent_guard(placed, {**here, "y": 68.0}, {}, dig)                   # standing at the table, aiming at Y=12

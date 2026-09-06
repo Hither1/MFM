@@ -102,6 +102,17 @@ def test_repeated_note_chain(tmp_path: Path):
     assert R.repeated_note(rows[:2], tmp_path) is None
 
 
+def test_openers_change_something_only_when_a_screen_opened():
+    rows = [_row(i, "use_until_gui", i * 50, i * 50 + 30) for i in range(1, 6)]
+    assert R.streaks(rows, ignore={"use_until_gui"}) == []          # bookkeeping when ignored
+    s = R.streaks(rows, openers={"use_until_gui"})
+    assert [x["kind"] for x in s] == ["use_until_gui"] and s[0]["n"] == 5
+    rows[2]["tags"] = ["gui"]                                      # the third one opened a screen
+    assert R.streaks(rows, openers={"use_until_gui"}) == []        # two failures since: no streak
+    s = R.streaks(rows, openers={"use_until_gui"}, min_len=2)
+    assert s[0]["n"] == 2 and s[0]["last_success"]["id"] == "ep_000003"
+
+
 def test_entries_that_never_ran_do_not_make_a_streak():
     # five deferred crafts (zero ticks, nothing changed) around one real harvest_tree failure
     rows = [_row(i, "craft", 100 + i, 100 + i) for i in range(1, 6)]

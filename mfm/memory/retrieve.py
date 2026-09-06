@@ -41,11 +41,18 @@ from mfm.memory.tools.episodes import (  # noqa: F401
 CHANGE_TAGS = frozenset({"milestone", "inventory_changed"})
 
 
-def changed(row: dict[str, Any], movers: Iterable[str] = ()) -> bool:
+def changed(row: dict[str, Any], movers: Iterable[str] = (),
+            openers: Iterable[str] = ()) -> bool:
     tags = set(row.get("tags") or [])
     if CHANGE_TAGS & tags:
         return True
-    return row.get("action_kind") in set(movers) and "stuck" not in tags
+    kind = row.get("action_kind")
+    if kind in set(openers):
+        # An entry whose job is to open a screen changed something iff one is open
+        # at its end. lad4 (2026-09-05) pressed `use_until_gui` at a table that was
+        # not there for 1,200 steps; as bookkeeping it was invisible.
+        return "gui" in tags
+    return kind in set(movers) and "stuck" not in tags
 
 
 def ran(row: dict[str, Any]) -> bool:
@@ -104,7 +111,7 @@ def _outcome_tail(row: dict[str, Any]) -> str:
 
 def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
             ignore: Iterable[str] = (), movers: Iterable[str] = (),
-            recent: int = 30) -> list[dict[str, Any]]:
+            openers: Iterable[str] = (), recent: int = 30) -> list[dict[str, Any]]:
     """Per action kind, the trailing run of episodes that changed nothing.
 
     Counted per kind, not per position in the log: the loop being surfaced is "this
@@ -114,7 +121,7 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
     run whose last call is older than the `recent` most recent rows is history, not a
     loop, and is not reported (three failed `stow_items` at step 3094 are not news at
     step 6700)."""
-    skip, movers = set(ignore), set(movers)
+    skip, movers, openers = set(ignore), set(movers), set(openers)
     stale_before = max(0, len(rows) - recent) if recent > 0 else 0
     by_kind: dict[str, list[dict[str, Any]]] = {}
     for i, r in enumerate(rows):
@@ -128,12 +135,12 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
             continue
         rs = [r for _, r in irs]
         n = 0
-        while n < len(rs) and not changed(rs[-1 - n], movers):
+        while n < len(rs) and not changed(rs[-1 - n], movers, openers):
             n += 1
         if n < min_len:
             continue
         run = rs[-n:]
-        success = next((r for r in reversed(rs[:-n]) if changed(r, movers)), None)
+        success = next((r for r in reversed(rs[:-n]) if changed(r, movers, openers)), None)
         out.append({"kind": kind, "n": n, "since_step": run[0].get("first_step"),
                     "spots": len({s for s in map(_spot, run) if s is not None}),
                     "last": run[-1], "last_success": success})
@@ -267,9 +274,9 @@ def milestone_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                  pos: tuple[float, float] | None = None, radius: float = 6.0,
                  streak_min: int = 3, ignore_kinds: Iterable[str] = (),
-                 movers: Iterable[str] = (), exclude_last: int = 6,
-                 streak_recent: int = 30, repeat_min: int = 3, max_streaks: int = 3,
-                 max_here: int = 3, max_milestones: int = 10) -> str:
+                 movers: Iterable[str] = (), openers: Iterable[str] = (),
+                 exclude_last: int = 6, streak_recent: int = 30, repeat_min: int = 3,
+                 max_streaks: int = 3, max_here: int = 3, max_milestones: int = 10) -> str:
     """The retrieval block for one turn, or "" when there is nothing to say.
 
     Three parts, each present only when it has content; every line names the episode
@@ -278,9 +285,9 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     root = Path(root) if root is not None else None
     lines: list[str] = []
 
-    movers = set(movers)
+    movers, openers = set(movers), set(openers)
     for s in streaks(rows, min_len=streak_min, ignore=ignore_kinds,
-                     movers=movers, recent=streak_recent)[:max_streaks]:
+                     movers=movers, openers=openers, recent=streak_recent)[:max_streaks]:
         lines.append("- " + streak_line(s, root))
 
     rep = repeated_note(rows, root, min_len=repeat_min, recent=streak_recent,
@@ -297,7 +304,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     here = here_before(rows, pos, radius=radius, exclude_last=exclude_last)
     if here:
         kinds = Counter(str(r.get("action_kind")) for r in here)
-        did = [r for r in here if changed(r, movers)]
+        did = [r for r in here if changed(r, movers, openers)]
         stuck = [r for r in here if "stuck" in (r.get("tags") or [])]
         first_step = min(r.get("first_step") or 0 for r in here)
         last_step = max(r.get("last_step") or 0 for r in here)
