@@ -136,8 +136,8 @@ procedure (below); it is the one way to shed junk here.
 - `fight_blaze(ticks=<budget, 40-400 (default 300)>, retreat_hp=<back off at this health (default 6)>, weapon=<item to fight with (default: your best sword)>)` -- Melee a BLAZE to death with the blaze detector (in the Nether the plain fight mistakes lava for its yellow): faces it, walks in under it when swings miss, pulses attack, verifies kill_entity.blaze; then collect_drops for the rod.  [A blaze in view (explore_nether's note, or scan_around), a sword carried, health above 10 -- it shoots fire from range.]
 - `enderman_pit()` -- Dig a 2-deep, 1x1 pit under your feet and look up at the rim: an enderman is three blocks tall and cannot hit what stands two blocks below its feet, while your sword reaches its legs. Then fight(label="enderman") from inside; after the kill, pillar_up(2) and collect_drops for the pearl.  [Solid ground (not over lava), a pickaxe carried, an enderman near (they wander the Nether's warped forests and the Overworld at night) but NOT yet angry -- look at it only from the pit.]
 - `find_lava(n=<tick budget, 250-1500 (default 600, about 27 blocks of tunnel)>, y=<level to search at (default 11)>, leg=<blocks per straight leg before the 90-degree turn (default 40)>)` -- Find the lava the obsidian needs. Takes a staircase down to about y 11 if you are above it, then tunnels in straight legs (turning 90 degrees after each), watching the lower view for lava the whole way. STOPS the moment lava comes into view, at least 2 blocks short of it, and the note names the pool's cell, the RIM cell to pour from and the exact `make_obsidian(x, y, z)` call -- so a sighting turns into obsidian in one more step. Says how many blocks it searched and where to go next when it finds nothing.  [Underground (it is meant for y <= 15), a pickaxe carried, no screen open; carry the water_bucket so the pour can follow at once (fetch_water/fill_bucket first if you do not).]
-- `make_obsidian(x=<rim block x>, y=<rim block y>, z=<rim block z>)` -- Turn lava into obsidian: pours a water bucket onto the TOP of the block at (x, y, z) -- a solid block at the edge of a lava pool -- waits for the flow to quench the lava sources, and scoops the water back. Then mine_obsidian each block.  [Carry a water_bucket; stand 2-3 blocks from the pool on its rim, the rim block within 4 blocks. Flowing lava turns to cobblestone, only SOURCE blocks (still lava) become obsidian.]
-- `mine_obsidian(x=<block x>, y=<block y>, z=<block z>, ticks=<budget (default 300)>)` -- Break the obsidian block at (x, y, z) with the diamond pickaxe (about 190 ticks) and sweep the drop; stops the moment `obsidian` lands in the inventory.  [A diamond pickaxe carried; the block within 4 blocks.]
+- `make_obsidian(x=<rim block x (optional: with no x, y, z the last sighting's rim is used)>, y=<rim block y>, z=<rim block z>)` -- Turn lava into obsidian: pours a water bucket onto the TOP of the block at (x, y, z) -- a solid block at the edge of a lava pool -- waits for the flow to quench the lava sources, and scoops the water back (walking back into reach if the flow pushed you). With no x, y, z it pours on the last sighting's rim (find_lava's stop, or a LAVA AHEAD note with the bucket carried). Then mine_obsidian().  [Carry a water_bucket; stand 2-3 blocks from the pool on its rim, the rim block within 4 blocks. Flowing lava turns to cobblestone, only SOURCE blocks (still lava) become obsidian.]
+- `mine_obsidian(x=<block x (optional: with no x, y, z the last sighting's pool cell)>, y=<block y>, z=<block z>, ticks=<budget, 240-400 (default 300)>)` -- Break the obsidian block at (x, y, z) with the diamond pickaxe: the aim is held on the block's centre every tick and the attack never released (about 190 ticks), stops the moment `mine_block obsidian` moves, then sweeps the drop. With no x, y, z it mines the last sighting's pool cell. Put it FIRST in its plan: it needs 240 ticks and is dropped whole when fewer are left.  [A diamond pickaxe carried; the block within 4 blocks.]
 - `build_portal_frame(item=<obsidian>, dist=<blocks ahead (2-3)>)` -- Place the 14-obsidian outline of a nether portal (4 wide x 5 high, corners included) standing on the ground `dist` blocks ahead of you, across your facing; every block verified; call again to fill what was refused.  [14 obsidian (10 is the minimum frame; this places the corners too so each block has a neighbour to build on); flat ground ahead; stand 2 blocks back from the line, facing it.]
 - `light_portal(dist=<the dist the frame was built with>)` -- Light the frame built by build_portal_frame from the same spot: flint_and_steel on the inside of its bottom row; checks the purple appears.  [Same position and facing as build_portal_frame; flint_and_steel carried.]
 - `enter_portal(dist=<the dist the frame was built with>, x=<portal cell x (optional)>, z=<portal cell z (optional)>)` -- Walk into the lit portal (the frame built from this spot, or the cell at x, z) and stand until the dimension changes; reports where you arrived.  [The portal is lit (light_portal's note). Takes ~4 s in the purple; the trip back is the same call from the other side.]
@@ -414,16 +414,24 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   The `pickup` event for the ingot is what the milestone counts -- take the output.
 - **After the iron pickaxe** the chain is diamond -> obsidian -> a lit portal -> the
   Nether, and every step has a macro: diamonds sit at y 5-12 in the same strips (a
-  diamond pickaxe is 3 diamonds + 2 sticks; a diamond sword 2 + 1); **obsidian** is
-  made where lava pools are (y <= 10, the orange light): `make_obsidian(x, y, z)` on a
-  rim block beside the pool pours a water bucket over it (bucket = 3 iron ingots,
-  filled at any water), then `mine_obsidian(x, y, z)` per block with the DIAMOND
-  pickaxe (~190 ticks each; any other tool destroys it). To FIND the pool in the first
-  place, call `find_lava()` once you are at y <= 15 with the water_bucket carried: it
-  tunnels in legs at about y 11 watching for lava, stops at least 2 blocks short of the
-  first pool it sees, and its [NOTE] names the rim cell and the exact
-  `make_obsidian(x, y, z)` call to follow it with -- do not walk closer to read the
-  coordinates yourself. **The portal** needs 10-14
+  diamond pickaxe is 3 diamonds + 2 sticks; a diamond sword 2 + 1). **The bucket comes
+  FIRST**: the moment you hold 3 spare iron ingots (right after the iron pickaxe, before
+  any descent for diamonds), craft the bucket and fill it at still water on the surface
+  (`fetch_water()` walks to the water it sees and fills it there), then carry the
+  water_bucket down; 43 second-half runs that descended first never came back up for
+  water. Never dig a shaft beside the water you filled at (it floods): walk 8 blocks
+  away first. **Obsidian** is made where lava LAKES are -- the open orange pools at
+  y <= 11, not a corridor: strip-mining at y 11-12 walks past them and the runner's
+  "LAVA AHEAD" [NOTE] names the pool cell and the rim cell the moment one fills the
+  lower view; with the water_bucket carried that sighting IS the plan: `make_obsidian()`
+  (no arguments: it pours on the sighting's rim and scoops the source back), then
+  `mine_obsidian()` (no arguments: the sighting's pool cell, ~190 ticks of held attack,
+  FIRST in its plan) with the DIAMOND pickaxe. A `[KNOWN SITES]` block in the turn
+  message, when present, lists lakes and water earlier lives verified with their
+  coordinates: go there before searching. `find_lava()` is the blind search for when
+  nothing is known: it tunnels in legs at about y 11 and stops 2 blocks short of the
+  first pool it sees; it is slow (about 25 blocks per call) and needs 250+ ticks FIRST
+  in its plan. **The portal** needs 10-14
   obsidian and flint_and_steel (1 iron + 1 flint from gravel): stand on flat ground
   with 4-8 cobblestone in the hotbar, `build_portal_frame()`, `light_portal()`,
   `enter_portal()`; the [NOTE] confirms the Nether. There, `netherrack` is the ground
