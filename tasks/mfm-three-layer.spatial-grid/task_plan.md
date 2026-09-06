@@ -72,11 +72,14 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-(2026-09-07 05:3x) Four arms in flight, all gpt-6-astra high, 60k steps, one session + compaction,
-320x180, 10h cap: og8 (full contract) and og9 (`--thin`) with the MFM carry (seeds 12 first-gen +
-og3..og6) from `MFM-grid-merge-mcu`; og10 (full) and og11 (`--thin`) FROM SCRATCH (`NO_SEEDS=1`)
-from `MFM-grid/MCU` (304bae53). User: let og8/og9 finish, launch no more memory-reuse runs; the
-next results are the from-scratch ones. On each exit: compare.py + toolcalls.py, record in
-progress.md; the read-out is thin vs full (og10 vs og11, og8 vs og9) and carry vs scratch
-(og8 vs og10, og9 vs og11) on milestones/steps, deaths, water->lava, churn, turns per 1k steps.
-The shaft-fight slice (027b2cd9) is in the live worktree for the next launches.
+(2026-09-07 07:5x) Six arms in flight, all gpt-6-astra high, 60k steps, one session + compaction,
+320x180, 10h cap. Memory carry (user: let them finish, launch no more): og8 (full) and og9
+(`--thin`) from `MFM-grid-merge-mcu`, caps ~14:35 / ~14:45. From scratch (`NO_SEEDS=1`): og10
+(full) / og11 (`--thin`) at 304bae53 (before the shaft-fight, obsidian-hole and lava-escape
+slices; both died at the pool), caps ~15:26; og12 (full) / og13 (`--thin`) at 421aa327 (all
+three slices in), launched 07:50, ports 9102/9112 and 9103/9113, caps ~17:50. On each exit:
+compare.py + toolcalls.py, record in progress.md. Read-outs: thin vs full (og8/og9, og10/og11,
+og12/og13), carry vs scratch (og8/og10, og9/og11), and pool-fix vs before (og12/og13 vs
+og10/og11: deaths at the pool, obsidian). Watch og9's portal frame: place_at cannot see where
+the block lands (17166: the block hit nearer stone), each miss ~350 ticks; if the frame is
+never completed, the next slice is a sightline/frame check on the harness side.

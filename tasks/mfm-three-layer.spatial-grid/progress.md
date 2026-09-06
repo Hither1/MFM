@@ -283,3 +283,33 @@
   one hit, doused, out, 20 hp; B (no bucket) two hits, out, 15 hp; 14 checks, 0 failed.
   tests/test_lava_escape.py (3); 77 pass. Live MFM-grid/MCU fast-forwarded (og10/og11
   still run the code they started with).
+- 07:4x og8 DIED a third time at step 18261, at the pool again (`logs.txt` 9040-9121): back
+  for the kit dropped at death #2 with no water bucket in the hotbar, `mine_forward` east
+  at y 15 fell four blocks to (-2987, 11, -5559) beside the lava, `bridge_forward` picked
+  the dropped bucket up (empty) and the pool took 4.0 per 10 ticks; the old code's escape
+  "only stepped you back 0.5 block(s)", the model strafed toward a remembered water cell
+  and died at 1 hp. Four of the day's five deaths are at the lava pool the run had just
+  found; all four ran code before 421aa327 (og8/og9 loaded agent.py at 027b2cd9 or
+  earlier, og10/og11 at 304bae53). og8: 3 deaths, 15/24, kit lost again.
+- og9 (thin, carry) at 17.4k: portal frame at z -5559, x -2991..-2988, y 11..15, 0 deaths.
+  Placements recorded (place_at notes): both sides x -2991 / -2988 at y 12-14, the bottom
+  (-2990, 11) (-2989, 11), the top (-2989, 15); (-2990, 15) never reported. Three
+  flint_and_steel tries at (-2990, 12) (below face) "no visible effect" at 17.2-17.4k --
+  the frame is not complete. Mechanism seen at 17166: `place_at(x=-2989, y=15, z=-5559,
+  face=above)` from (-2989.3, 13, -5555.6) reported "placed at (-2989, 15, -5559)" (the
+  note trusts use_item +1 / obsidian -1), but the block landed on the nearer stone the
+  ray hit first (the model later mined "the misplaced obsidian near (-2990, 14, -5557)",
+  290 ticks each way). The runner cannot see where a placed block lands; the portal frame
+  costs ~350 ticks per miss. og9 rate ~5.7k steps/h: the 10h wall cap (~14:45) binds
+  before the 60k budget.
+- og10 (full, scratch) at 23.3k: 12/24, last milestone at 4581 (iron_pickaxe), 14k steps
+  since the pool death rebuilding (chasing torches, 69 governor notes); og11 (thin,
+  scratch) at 14.9k: 13/24 (diamond ore at 8549), rebuilding a furnace + iron after the
+  death at 10326.
+- 07:50 og12_mfm (full) and og13_mfm (`--thin`) launched FROM SCRATCH from the live
+  MFM-grid/MCU at 421aa327 (shaft-fight, obsidian-hole, lava-escape, grid.above cap all
+  in): gpt-6-astra high, 60k, session-turns 0 + compaction, 320x180, `NO_SEEDS=1`, 10h cap
+  (~17:50), ports 9102/9112 and 9103/9113. Load 24/255 cores, 703 GB RAM free, `/` 9.8 GB
+  free (a codex home is ~150 MB). Purpose: the from-scratch read with the pool deaths
+  fixed (og10/og11 run the code before the fixes); starting now instead of at 15:26
+  saves the wall-clock cap eight hours.
