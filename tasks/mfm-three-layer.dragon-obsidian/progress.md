@@ -117,6 +117,23 @@
   ob2), code MCU c51bbd22 (blind-pour guard, tainted sightings dropped, death warnings, torches),
   run-arm launcher pid 27069, monitor on the workspace log.
 
+- gen-3 (`ob3_mfm`) FINISHED: 37.5, no obsidian. It went to the 52% lake as ranked (water at ~800,
+  torches planted, 1 per tunnel), the guard fired on a 2% sliver at the bottom of the view and put
+  the pool "at most 3 blocks off"; frames ep_000097/98 show the lava in the NEXT cell. make_obsidian()
+  poured from the lip (step 7610), the flow carried the avatar off the ledge, "tried to swim in
+  lava", dead at 7651 (frame ep_000099 shows obsidian formed in the lake). The rest of the run
+  rebuilt gear. Monitors did not wake this session (no notification arrived for ~10 h).
+- obf1 (24k full) FINISHED ~22:50: 37.5 (9/24): iron_ingot at 5973 but iron_pickaxe only at 16089
+  (10k steps lost to furnace GUI loops: "furnace_load: no screen is open" x9, ingots taken one by
+  one), then no diamond by 24k. Same score as the half runs; the record 45.83 not beaten.
+- Six previous lives mined diamond (dm16, dm17, kd6 at (-3059..-3061, 10-12, -5558); kd14x, kd31z at
+  (-2999..-3002, 9-12, -5567..-5571); kdc3z at (-2973, 13, -5526)); their block lists "ORE:
+  diamond_ore mined standing here" first when diamond is open -> seeds for the next full run.
+- Pour fix (uncommitted until the stages pass): make_obsidian() first backs the avatar off the pool
+  (`_backoff`: face the pool, walk back to >= 3.5 blocks from its cell and >= 1 block moved, wall
+  stops it); mine_obsidian() walks the cell back into reach (<= 4.25 from the eye, 40 ticks max)
+  instead of refusing. Tests 23/23. Stages s14_edge (lake in the next cell) + s12 rerun running.
+
 ## Next
 
 - Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or
