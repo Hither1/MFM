@@ -45,18 +45,19 @@ def churn(acts, W=15, thr=0.2):
     total = acts[-1]["step"] if acts else 0
     last_ms = max([a["step"] for a in acts if a["ms"]], default=0)
     return dict(total=total, churn_steps=steps, churn_frac=steps/total if total else 0, first=first, last_ms=last_ms, names=names, nacts=n, nchurn=sum(inwin))
-rows=[]
-allnames=collections.Counter()
-for p in sys.argv[1:]:
-    if not os.path.exists(p): continue
-    acts=parse(p)
-    if not acts or acts[-1]["step"]<3000: continue
-    r=churn(acts); r["run"]=os.path.basename(p.split('/episode_001')[0]); rows.append(r); allnames.update(r["names"])
-if len(rows)<=10:
-    print("run\ttotal\tchurn_steps\tchurn_frac\tchurn_starts\tlast_milestone\tchurn_actions/actions")
-    for r in rows: print(f"{r['run']}\t{r['total']}\t{r['churn_steps']}\t{r['churn_frac']:.2f}\t{r['first']}\t{r['last_ms']}\t{r['nchurn']}/{r['nacts']}")
-    for r in rows: print(r['run'], r['names'].most_common(6))
-else:
-    fr=[r['churn_frac'] for r in rows]; 
-    print(f"n={len(rows)} churn_frac med {st.median(fr):.2f} mean {st.mean(fr):.2f}; runs >30% churn: {sum(1 for f in fr if f>0.3)}; churn after last milestone: {sum(1 for r in rows if r['first'] and r['first']>=r['last_ms'])}/{sum(1 for r in rows if r['first'])}")
-    tot=sum(allnames.values()); print("top churn actions:", [(k, f"{v/tot:.0%}") for k,v in allnames.most_common(14)])
+if __name__ == "__main__":
+    rows=[]
+    allnames=collections.Counter()
+    for p in sys.argv[1:]:
+        if not os.path.exists(p): continue
+        acts=parse(p)
+        if not acts or acts[-1]["step"]<3000: continue
+        r=churn(acts); r["run"]=os.path.basename(p.split('/episode_001')[0]); rows.append(r); allnames.update(r["names"])
+    if len(rows)<=10:
+        print("run\ttotal\tchurn_steps\tchurn_frac\tchurn_starts\tlast_milestone\tchurn_actions/actions")
+        for r in rows: print(f"{r['run']}\t{r['total']}\t{r['churn_steps']}\t{r['churn_frac']:.2f}\t{r['first']}\t{r['last_ms']}\t{r['nchurn']}/{r['nacts']}")
+        for r in rows: print(r['run'], r['names'].most_common(6))
+    else:
+        fr=[r['churn_frac'] for r in rows]; 
+        print(f"n={len(rows)} churn_frac med {st.median(fr):.2f} mean {st.mean(fr):.2f}; runs >30% churn: {sum(1 for f in fr if f>0.3)}; churn after last milestone: {sum(1 for r in rows if r['first'] and r['first']>=r['last_ms'])}/{sum(1 for r in rows if r['first'])}")
+        tot=sum(allnames.values()); print("top churn actions:", [(k, f"{v/tot:.0%}") for k,v in allnames.most_common(14)])
