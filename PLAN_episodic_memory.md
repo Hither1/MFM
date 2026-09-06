@@ -371,6 +371,20 @@ weighted by its darkness (spruce bark r 36-43 against dirt 58-83 and the placed 
 test when the flank is brighter than the run -- corpus 61/92 -> 68/92, still 0 false
 trunks underground. lad9 = logbook + mfm on 10c7a51; lad10 will carry the `broke` tag.
 
+**Two more from lad8's record (MCU cd90a3a, c53776b).** The episode video (one frame per
+step) replayed through the detector showed every walk-in that ended "no trunk detected"
+had REACHED the trunk: bark filled 50-69% of the frame, the column search had no run,
+and eight nodet ticks later the re-aim missed six times facing bark. `harvest.FACE_FRAC`
+(0.33, via `vision.bark_fraction`) now treats a bark-filled frame as arrival: the
+approach keeps walking into it and the re-aim chops what the crosshair is on. And the
+iron frames: lad8_mfmrr broke five iron ore, picked up none (the drops lay in the dark
+cavity), and swung at the empty hole for 1,500 steps -- lad6b and lad7a did the same. The
+drop guard (rule 5 of `--refuse`): while the record shows `mine_block <ore>` without its
+pickup in the last 12 episodes, a plan with no collecting, moving, fighting or fleeing
+entry is refused (twice per breaking episode; `why` overrides; never while the last
+episode took damage). `uncollected()` reads the adapter's events with an ore-to-drop map
+(coal ore drops coal). lad10 = logbook + mfm on c53776b.
+
 ---
 
 ## 0. What exists, and what is duplicated
