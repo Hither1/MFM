@@ -64,6 +64,24 @@ def test_streak_without_any_success_says_so_and_ignores_bookkeeping():
     assert R.streaks(rows, min_len=5, ignore={"look_abs"}) == []
 
 
+def test_uncollected_reads_mine_and_pickup_events(tmp_path: Path):
+    rows = [_row(1, "mine_ahead", 100, 200, x=3, z=4), _row(2, "aim_at_ore", 200, 240),
+            _row(3, "mine_ahead", 240, 360, x=3, z=5)]
+    for r, ev in ((rows[0], ["mine_block iron_ore +1", "use_item stone_pickaxe +1", "pickup iron_ore +1"]),
+                  (rows[1], []), (rows[2], ["mine_block iron_ore +1", "mine_block iron_ore +1", "mine_block stone +1"])):
+        d = tmp_path / r["path"]; d.mkdir(parents=True, exist_ok=True)
+        (d / "outcome.json").write_text(json.dumps({"events": ev, "notes": []}))
+    drops = {"iron_ore": "iron_ore", "diamond_ore": "diamond", "coal_ore": "coal"}
+    got = R.uncollected(rows, tmp_path, drops)
+    assert len(got) == 1 and got[0]["item"] == "iron_ore" and got[0]["broke"] == 3 and got[0]["picked"] == 1
+    assert got[0]["row"]["id"] == "ep_000003"
+    assert R.uncollected(rows, tmp_path, {"diamond_ore": "diamond"}) == []
+    assert R.uncollected(rows, None, drops) == []
+    # coal ore drops coal, not the block (lad4: "mine_block coal_ore", "pickup coal")
+    (tmp_path / rows[1]["path"] / "outcome.json").write_text(json.dumps({"events": ["mine_block coal_ore +1", "pickup coal +1"], "notes": []}))
+    assert [d["item"] for d in R.uncollected(rows, tmp_path, drops)] == ["iron_ore"]
+
+
 def test_broke_tag_counts_as_a_change():
     # lad8 (2026-09-06): mine_ahead broke three iron ore, picked nothing up, and was
     # refused as a streak that "changed nothing".

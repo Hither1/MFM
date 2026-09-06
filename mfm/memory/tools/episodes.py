@@ -113,6 +113,19 @@ def notes_of(root: Path | None, r: dict) -> list[str]:
     return [str(n) for n in notes]
 
 
+def events_of(root: Path | None, r: dict) -> list[str]:
+    """The world events recorded in the episode's `outcome.json` -- the adapter's
+    strings, e.g. MCU's "mine_block iron_ore +1" / "pickup iron_ore +1" ([] when none)."""
+    if root is None or not r.get("path"):
+        return []
+    p = Path(root) / r["path"] / "outcome.json"
+    try:
+        events = json.loads(p.read_text(encoding="utf-8")).get("events") or []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [str(e) for e in events]
+
+
 def first_note(root: Path | None, r: dict, limit: int = 220) -> str | None:
     """The first harness note in the episode's `outcome.json`, one line, or None.
 

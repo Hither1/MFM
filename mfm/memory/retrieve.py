@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from mfm.memory.tools.episodes import (  # noqa: F401
-    describe, first_note, grep, near, notes_of, read_index, recent, same_action,
+    describe, events_of, first_note, grep, near, notes_of, read_index, recent, same_action,
     same_observation, steps, tagged,
 )
 
@@ -232,6 +232,42 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None,
     else:
         line += ". It has never changed anything."
     return line
+
+
+def uncollected(rows: list[dict[str, Any]], root: Path | str | None,
+                drops: dict[str, str], *, recent: int = 12) -> list[dict[str, Any]]:
+    """Blocks broken in the last `recent` episodes whose drops were never picked up:
+    [{item, broke, picked, row}] with the episode that broke them. `drops` maps the
+    block to what it drops ({"iron_ore": "iron_ore", "coal_ore": "coal"}); from the
+    adapter's events ("mine_block X +n", "pickup Y +n"). lad8_mfmrr (2026-09-06)
+    broke five iron ore and picked up none -- the drops lay in the dark cavity while
+    every later aim swung at the empty hole; lad6b and lad7a did the same with one."""
+    if root is None:
+        return []
+    root = Path(root)
+    eps = [r for r in rows if r.get("kind") == "episode"][-recent:]
+    broke: dict[str, tuple[int, dict]] = {}
+    picked: dict[str, int] = {}
+    for r in eps:
+        for e in events_of(root, r):
+            parts = e.split()
+            if len(parts) < 2:
+                continue
+            try:
+                n = int(parts[2].lstrip("+")) if len(parts) > 2 else 1
+            except ValueError:
+                n = 1
+            if parts[0] == "mine_block" and parts[1] in drops:
+                item = drops[parts[1]]
+                prev = broke.get(item, (0, r))
+                broke[item] = (prev[0] + n, r)
+            elif parts[0] == "pickup" and parts[1] in drops.values():
+                picked[parts[1]] = picked.get(parts[1], 0) + n
+    out = []
+    for item, (n, row) in broke.items():
+        if n > picked.get(item, 0):
+            out.append({"item": item, "broke": n, "picked": picked.get(item, 0), "row": row})
+    return out
 
 
 def override_of(root: Path | str | None, row: dict[str, Any]) -> str | None:

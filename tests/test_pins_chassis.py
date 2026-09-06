@@ -272,6 +272,26 @@ def test_light_guard_is_a_pure_rule():
     assert "none of coal, sticks, logs or planks" in light_guard(here, {"dirt": 4}, dig)
 
 
+def test_drop_guard_is_a_pure_rule():
+    from mcu_worldmodel.episodes import drop_guard
+    row = {"id": "ep_000343", "first_step": 9414, "x": -3001.0, "y": 14.0, "z": -5570.0, "path": "episodes/ep_000343"}
+    drops = [{"item": "iron_ore", "broke": 3, "picked": 0, "row": row}]
+    here = {"x": -3001.0, "y": 14.0, "z": -5566.0}
+    mine = [{"procedure": "aim_at_ore", "args": {}}, {"procedure": "mine_ahead", "args": {"n": 120}}]
+    note = drop_guard(drops, mine, here)
+    assert note and "3 iron_ore broke at step 9414 (ep_000343)" in note and "4 blocks from here" in note and "collect_drops" in note
+    assert drop_guard(drops, [{"procedure": "collect_drops", "args": {"ticks": 64}}] + mine, here) is None
+    assert drop_guard(drops, [{"procedure": "go_to", "args": {"x": -3001, "z": -5570}}], here) is None
+    assert drop_guard(drops, [{"action": {"forward": 1}, "repeat": 20}], here) is None
+    assert drop_guard(drops, [{**mine[0], "why": "the drop fell into lava"}, mine[1]], here) is None
+    assert drop_guard([], mine, here) is None
+    # lad7a: the ore broke seconds before a zombie arrived -- fighting and fleeing pass,
+    # and nothing is refused while the last episode took damage.
+    assert drop_guard(drops, [{"action": {"attack": 1}, "repeat": 40}], here) is None
+    assert drop_guard(drops, [{"procedure": "pillar_up", "args": {"n": 3}}], here) is None
+    assert drop_guard(drops, mine, here, in_danger=True) is None
+
+
 def test_sword_guard_is_a_pure_rule():
     from mcu_worldmodel.episodes import sword_guard
     dig = [{"procedure": "dig_down", "args": {"n": 300, "until_y": 12}}]
