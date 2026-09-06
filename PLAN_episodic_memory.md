@@ -310,6 +310,35 @@ refused, none of lad4's four-torch ones. The descent guard now says "craft a new
 when the record shows the placed table could not be opened since placement. Pinned:
 `test_light_guard_is_a_pure_rule`. lad6a/lad6b = `mfm --retrieval --refuse`, two seeds.
 
+**lad6 (2026-09-05 night): 60 and 70 (truncated).** lad6a had the furnace by 3503 and crafted
+torches before descending with no refusal at all, then tunnelled 84 blocks in 5,770 ticks
+at y 11-29 and met no iron (the chassis mine cycle: ~57 ticks per block advanced). lad6b
+sat in the plank loop until 3900, recovered to 7/10, and the Minecraft process died at
+step 8419 (first such crash in the ladder). Fixed from lad6b (MCU a5cc225, 7957bfc):
+streak staleness now counts streak-eligible rows, not raw rows (39 rows of bookkeeping
+had aged an eight-call loop out of the window); a `why` that ran and changed nothing is
+spent, and the next `why` on that streak is refused twice with the claim quoted
+(`burned_override`); streak notes say where the action last worked and how far that is;
+and `hint_for` adds what the harness knows about a procedure's failure.
+
+**The plank loop was a vision bug (2026-09-06, MCU 4aa167c -- a CHASSIS change).** The
+recorded harvest_tree first frames across lad2-lad7b: 92 ended "no trunk detected", 5
+gained a log. In the model's own view the spruce trunk was there each time (lad7b
+ep_000192: a full-height trunk one block left of the crosshair). Shadowed spruce bark
+has r median 33-42 and (r-b)/r ~0.70, outside `find_tree_trunk`'s bands (r >= 35, rb <
+0.75), and a trunk at arm's reach is 30-50% of the frame, which the scene cap and the
+130-px run cap called terrain. Bands widened (r >= 24, rb < 0.85) and a near mode added
+(full-height run, one non-bark flank, green beside): first-frame detections 38/92 ->
+61/92, the 5 successes kept, 0 false trunks on 122 underground frames, selftest 820/820,
+MFM pins unchanged. Every arm gets this, so the lad2 logbook = 80 no longer stands as
+the baseline: lad8 runs a logbook seed beside the mfm one.
+
+**The sword guard (MCU fa63d71).** lad5 (twice), lad7a and lad7b died to a melee mob in
+their own shaft; the chassis's fightback reflex arms only with a sword in the hotbar
+(without one it sprints, and a 1-wide tunnel has nowhere to sprint), and no run had
+crafted the 2-cobblestone sword. A descent below y 55 with no sword is refused like the
+unlit one (override `unarmed: true`, cap 2, re-arms when a sword is carried).
+
 ---
 
 ## 0. What exists, and what is duplicated
