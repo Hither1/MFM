@@ -83,7 +83,7 @@
   (-2986, 11, -5556), 33% lake, gen-1's 32% sighting (-2992, 9, -5561), 10%, then the pour rim
   (now "beside a lake" because of that 32% sighting 1 block away), ore, sliver, deaths.
 - gen-2 LAUNCHED 11:47: `ob2_mfm`, `--agent mfm --task ender_dragon_half --steps 12000`, ports
-  9073/9083, 8 seeds (six lives + ob1_mfm + ob1b_mfm), run-arm launcher pid 39933
+  9073/9083, 8 seeds (six lives + ob1_mfm + ob1b_mfm), first attempt died at the engine reset (TypeError bytes-like/None, 11:46, logs `ob2_mfm_fail1146_*`); relaunched 11:52, run-arm launcher pid 58188
   (`MCU/logs/ob2_mfm_launch.pid`), logs `MCU/logs/ob2_mfm_*.log`; monitor bu6shv106.
 
 ## Next
