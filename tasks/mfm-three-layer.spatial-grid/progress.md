@@ -179,3 +179,9 @@
 - Next slice: `--thin` contract (one page + references) with `hold(keys, ticks<=100)` and
   `watch(until=<truth condition>, max_ticks)`; procedures stay available but optional;
   only the lava guard and the hit reflex kept as hard reflexes. Orthogonal to memory mode.
+- og5 final (score 54.17 = 13 milestones, last at 7175 -- the kit re-made plus diamond gear;
+  0 deaths; never filled the bucket; churn 0.03; grid 336 walked / 10 blocked; goto 8 calls,
+  6 blocked, 5 detours; watchdog 2). Equals obf2's 54.17 record, on the half task.
+- `--thin` + `watch` slice (MCU spatial-grid-merge; MFM tests/test_thin.py, pins re-recorded
+  for the new procedure): the mfm contract goes 14,305 -> 4,767 words; references/
+  {procedures,gui,skills,survival,control,more}.md hold the rest, read on demand.
