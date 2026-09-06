@@ -38,7 +38,11 @@ from mfm.memory.tools.episodes import (  # noqa: F401
 #: alone does not count -- walking in a circle is the failure mode being surfaced --
 #: except for the kinds the caller names in `movers`, whose point is to move: for
 #: those, not being tagged `stuck` is the change.
-CHANGE_TAGS = frozenset({"milestone", "inventory_changed"})
+#: `broke`: the MCU adapter's tag for a block-breaking event (mine_block, craft_item,
+#: pickup) -- an ore broken and not yet picked up changes no inventory, and lad8
+#: (2026-09-06) refused the `mine_ahead` that had just broken three iron ore as a
+#: streak that "changed nothing".
+CHANGE_TAGS = frozenset({"milestone", "inventory_changed", "broke"})
 
 
 def changed(row: dict[str, Any], movers: Iterable[str] = (),

@@ -64,6 +64,15 @@ def test_streak_without_any_success_says_so_and_ignores_bookkeeping():
     assert R.streaks(rows, min_len=5, ignore={"look_abs"}) == []
 
 
+def test_broke_tag_counts_as_a_change():
+    # lad8 (2026-09-06): mine_ahead broke three iron ore, picked nothing up, and was
+    # refused as a streak that "changed nothing".
+    rows = [_row(i, "mine_ahead", i * 100, i * 100 + 80) for i in range(1, 7)]
+    assert [s["kind"] for s in R.streaks(rows, min_len=5)] == ["mine_ahead"]
+    rows[-1]["tags"] = ["broke", "note"]
+    assert R.changed(rows[-1]) and R.streaks(rows, min_len=5) == []
+
+
 def test_stale_streak_is_history_not_a_loop():
     rows = [_row(i, "stow_items", i * 10, i * 10 + 1) for i in range(1, 4)]
     rows += [_row(10 + i, "strip_mine", 100 + i * 10, 105 + i * 10, tags=["inventory_changed"])

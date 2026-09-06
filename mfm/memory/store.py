@@ -32,7 +32,7 @@ import shutil
 import stat
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
 from mfm.memory import recall as R
 from mfm.memory.sink import MemorySink
@@ -222,9 +222,13 @@ class EpisodeStore(MemorySink):
         else:
             self._pending_notes.append(text)
 
-    def close(self, agent: "MemoryAgent", **outcome: Any) -> None:
+    def close(self, agent: "MemoryAgent", *, tags: Iterable[str] = (), **outcome: Any) -> None:
+        """`tags`: extra tags the adapter derives from what it alone can see (MCU: `broke`
+        from the tick's block events -- an ore broken and not yet picked up changes no
+        inventory, and lad8 refused the entry that broke it as "changed nothing")."""
         if self._open is not None:
-            self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome)
+            self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome,
+                        extra_tags=tuple(tags))
 
     def publish(self, agent: "MemoryAgent", visible: Path, window: int | None,
                 stateless: bool, current: str | None) -> None:
@@ -328,7 +332,8 @@ class EpisodeStore(MemorySink):
                 "dhash": self._dhash(obs.attachment) if item is not None else None}
 
     def _close(self, agent: "MemoryAgent", *, flushed: bool, last_step: int,
-               extra: dict[str, Any] | None = None, closing: str | None = None) -> None:
+               extra: dict[str, Any] | None = None, closing: str | None = None,
+               extra_tags: tuple[str, ...] = ()) -> None:
         """`closing`: the frame the episode closes on (the observation after its last
         tick), hashed as `next_dhash` under recall. `agent._obs` is not yet that
         observation when `observe` runs, which is why it is passed in."""
@@ -341,6 +346,9 @@ class EpisodeStore(MemorySink):
             outcome, tags, summary = agent.episode_outcome(
                 ep["entry"], ep["first_state"], ep["last_state"], ep["notes"], flushed)
             tags = list(tags)
+            for t in extra_tags:
+                if t not in tags:
+                    tags.append(t)
             if ep["notes"] and "note" not in tags:
                 tags.append("note")
             if flushed:
