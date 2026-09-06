@@ -284,3 +284,45 @@ def test_grid_file_is_kept_by_the_sweep_and_carried(tmp_path: Path):
     removed = m.sweep_foreign()
     assert "scratch.md" in removed and (m.root / "grid.jsonl").exists()
     assert "grid.jsonl" not in NOT_CARRIED
+
+
+def test_above_finds_the_rim_of_a_hole():
+    g = Grid()
+    _walk(g, [(x, 69, 0) for x in range(0, 6)])       # the trail on the surface
+    _walk(g, [(6, 64, 0), (7, 64, 0)], step0=50)       # then the floor of a hole
+    assert g.above(_pos(7.5, 64, 0.5)) == ((5, 69, 0), 5)
+    assert g.above(_pos(2.5, 69, 0.5)) is None         # on the surface: nothing higher
+    assert g.above(_pos(40.5, 64, 0.5)) is None        # far from every walked cell
+
+
+def test_goto_stall_in_a_hole_queues_the_climb(tmp_path: Path, monkeypatch):
+    from mcu_worldmodel import macros_world
+    from mcu_worldmodel.agent import WorldModelAgent as A
+    g = Grid()
+    _walk(g, [(x, 69, 0) for x in range(0, 6)])
+    _walk(g, [(6, 64, 0), (7, 64, 0)], step0=50)
+    ag = _agent(g, _pos(7.5, 64, 0.5, yaw=90), tmp_path)
+    ag.cursor = None
+    ag._cur_info = {}
+    ag._queue_pit_climb = lambda gt, p, up: A._queue_pit_climb(ag, gt, p, up)
+    monkeypatch.setattr(macros_world, "pillar_up",
+                        lambda cur, info, n=3, item=None: ([{"_pillar": {"target": n}}], "ok"))
+    gt = {"x": 0.5, "z": 0.5, "within": 1.0, "remaining": 100, "stuck": 3}
+    ag.queue.append(({"_goto": gt}, 0))
+    assert ag._goto_stalled(gt, ag._cur_pos, _mk) is None          # the stalled walk ends
+    assert gt["pit_climbed"] and ag.cursor_stats["pit_climbs"] == 1
+    assert [list(e[0])[0] for e in ag.queue] == ["_goto", "_pillar", "_goto"]
+    assert ag.queue[1][0]["_pillar"]["target"] == 5 and ag.queue[2][0]["_goto"]["pit_climbed"]
+    assert any("5 blocks below the cell (5, 69, 0)" in n and "pillar_up(5)" in n for n in ag.notes)
+    # once climbed, a second stall of the re-queued walk falls through to the plain note
+    gt2 = ag.queue[2][0]["_goto"]
+    ag.queue.clear(); ag.notes.clear()
+    assert ag._goto_stalled(gt2, ag._cur_pos, _mk) is None
+    assert not ag.queue and any("is blocked at" in n for n in ag.notes)
+    # no block to place: the note says so, nothing queued
+    monkeypatch.setattr(macros_world, "pillar_up",
+                        lambda cur, info, n=3, item=None: ([], "pillar_up: you carry no placeable block."))
+    gt3 = {"x": 0.5, "z": 0.5, "within": 1.0, "remaining": 100, "stuck": 3}
+    ag.queue.clear(); ag.notes.clear()
+    assert ag._goto_stalled(gt3, ag._cur_pos, _mk) is None
+    assert not ag.queue and any("no placeable block" in n and "stair_up" in n for n in ag.notes)
