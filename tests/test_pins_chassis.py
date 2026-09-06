@@ -248,6 +248,15 @@ def test_override_keys_inside_args_are_lifted():
     assert plan.entries[1]["why"] == "fresh face" and plan.entries[2]["why"] == "the trunk is centred now"
 
 
+def test_hint_for_a_streak_names_what_the_procedure_cannot():
+    from mcu_worldmodel.episodes import hint_for
+    # lad6b (2026-09-05): 21 harvest_tree calls, bark filling half the frame each time.
+    h = hint_for("harvest_tree", "harvest_tree: no trunk detected (6 frames). Turn toward visible LEAVES")
+    assert h.startswith(" ") and "too WIDE" in h and "chop_tree(until_logs=1)" in h and "step back 3 blocks" in h
+    assert "close_inventory()" in hint_for("harvest_tree", "harvest_tree stopped at once: a SCREEN is open")
+    assert hint_for("harvest_tree", None) == "" and hint_for("attack", "no trunk detected") == ""
+
+
 def test_light_guard_is_a_pure_rule():
     from mcu_worldmodel.episodes import light_guard
     dig = [{"procedure": "dig_down", "args": {"n": 300, "until_y": 12}}]
