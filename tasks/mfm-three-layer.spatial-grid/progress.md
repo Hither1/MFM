@@ -140,3 +140,16 @@
   == spatial-grid-merge; MFM pointer 5fd9294): single-turn, 640x360, seeds = 12 first-gen +
   og3 + og4, ports 9095/9105. og6 (8-turn, 320x180, seeds +og4) running since 03:28 from the
   merge worktree.
+- Pit slice (harness; MCU spatial-grid-merge feb65878, MFM 91f0199): `scripts/pitstalls.py`
+  over 208 runs -- 431 of 1,387 go_to blocked notes (31%, 144 runs) were made standing
+  1.5+ blocks below the avatar's own recent trail. og5 sat at y 63-64 under its y 69 trail
+  from step 552 (three stalled go_to, the detour "stalled too", governor tabu at 2/3).
+  `grid.above` finds the rim cell (walked, within 6 blocks, 2+ higher); `_goto_stalled`
+  queues `pillar_up(rise)` and the same go_to again once (`pit_climbs` stat) or, without
+  blocks, says so. tests/test_grid.py +2. Not in the live worktree yet (og5 runs from it).
+- og6 died at step ~7290 at (-3050, 10, -5554), y 12, 11/24 (score-relevant kit milestones
+  banked early): under attack the merged bunker reflex "dig two down, cap" did not break the
+  floor ("still at y 12") while the diamond pickaxe was swinging (use_item events); the
+  model then believed itself sheltered and ran mine_forward(380); health 11 -> 7 -> 2 -> dead.
+  Evidence for the dragon-obsidian seal slice (bcb009bb): the bunker dig fails under
+  knockback / on that floor and the fallback flee came too late.
