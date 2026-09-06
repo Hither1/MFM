@@ -52,3 +52,23 @@ Evidence: `MFM/MCU/output/ob*` (dragon-obsidian code, 2026-09-06) and `MCU-Agent
 - Views vs milestones (historical, thirds by view rate): wm diamond 5.6 -> 7.3, wm full 6.9 -> 7.3,
   lb reversed (7.5 -> 4.8, 7.6 -> 7.3): confounded, no usable effect. lad3's retrieval block scored 90
   vs 60-70 but no briefing cited it (PLAN_episodic_memory.md:247-252).
+
+## VISTA (github.com/joshhhhhan/VISTA, MIT, ARC-AGI-3 harness) vs our chassis (read 2026-09-07)
+
+- One thread per game (Codex app-server `thread/start`, or Claude Code `--session-id`/`--resume`); every
+  frame after `play` is steered into the thread as a native image (`turn/steer` with a base64 PNG and a
+  `<current_visual turn= frame= frame_count=>` label). Frames are 64x64 cells upscaled x8/x16 nearest with
+  darkened grid lines (a few KB). Tools: `play`, `inspect` (<=16 views by turn/frame/region, crops upscaled
+  to 1024 nearest, a required `question`), `read_pixels` (exact colours), `history` (objective records),
+  read/write GUIDE.md (<=64 KB) and WORKING.md (<=16 KB). Shell and file tools are OFF (`shell_tool=false`,
+  Claude `--tools ""` + `mcp__game__*` only).
+- Prompt is four sentences; the protocol line: "Before each `play`, briefly state what you expect to see.
+  Afterward, briefly state all visible changes, expected or not."
+- Compaction: Codex `model_auto_compact_token_limit` = window - 72k (272k -> 200k), a forced
+  `save_compact_checkpoint` (working memory required), then a fresh thread with the environment record
+  (current observation JSON, last action result, level history), the notes, and the current image.
+  Claude: 90% of 1M, 600-image cap. No tool-usage statistics or ablations are published.
+- Ours: `--session-turns 1` (codex_backend.py:59-70 sets the compaction limit ABOVE the window on purpose
+  so the thread cold-starts onto logs.txt; resumed threads read 40k/88k/147k/243k tokens for turns 1-4),
+  one 640x360 PNG (77 KB) per turn, shell on (1.2-2.4 commands per turn, mostly grep logs.txt), past
+  frames only via `view_image` by path; the mfm sweep keeps only `tools/episodes.py` (no zoom.py).
