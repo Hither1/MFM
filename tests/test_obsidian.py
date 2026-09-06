@@ -78,6 +78,7 @@ def test_obsidian_macros_default_to_the_sighting():
     acts, note = MN.make_obsidian(None, info)
     keys = [k for a in acts for k in a if k.startswith("_") and k not in ("_cost", "_min")]
     assert "_useat" in keys and "_scoop" in keys and "_obsidiancheck" in keys
+    assert keys[0] == "_backoff" and tuple(acts[0]["_backoff"]["pool"]) == MN.LAST_LAVA["pool"]
     s = next(a for a in acts if "_scoop" in a)
     r = MN.LAST_LAVA["rim"]
     assert tuple(s["_scoop"]["cell"]) == (r[0], r[1] + 1, r[2]) and s["_min"] == MN.SCOOP_MIN
@@ -138,12 +139,55 @@ def test_mineobs_tick_holds_the_aim_and_ends_on_the_statistic():
     assert tick(agent, st, mk) is None
     assert any("none was obsidian" in n for n in agent.notes)
 
-    # Out of reach: says so instead of swinging at air.
+    # Out of reach: walks toward the cell first (the pour backed the avatar off);
+    # a walk that never gets there ends with the note.
     agent = _agent({"x": 0.5, "y": 64.0, "z": -6.0, "pitch": 0.0, "yaw": 0.0}, {})
     st = {"cell": list(cell), "t": 0, "n": 300, "phase": "aim", "base_obs": None,
           "base_inv": None, "base_breaks": None, "held": 0, "label": "mine_obsidian"}
-    assert tick(agent, st, lambda **kw: {"camera": [0.0, 0.0], **kw}) is None
-    assert any("out of reach" in n for n in agent.notes)
+    a = tick(agent, st, mk)
+    assert a.get("forward") == 1 and st["t"] == 0
+    for _ in range(5):
+        a = tick(agent, st, mk)
+    assert a.get("forward") == 1 and a.get("jump") == 1          # stalled: jumping
+    agent._cur_pos["z"] = 0.5                                     # 4.05 from the eye now
+    a = tick(agent, st, mk)
+    assert "forward" not in a and st["phase"] == "aim"
+    agent = _agent({"x": 0.5, "y": 64.0, "z": -6.0, "pitch": 0.0, "yaw": 0.0}, {})
+    st = {"cell": list(cell), "t": 0, "n": 300, "phase": "aim", "base_obs": None,
+          "base_inv": None, "base_breaks": None, "held": 0, "label": "mine_obsidian"}
+    for _ in range(MN.MINEOBS_WALK_TICKS + 1):
+        a = tick(agent, st, mk)
+    assert a is None and any("out of reach" in n for n in agent.notes)
+
+
+def test_backoff_faces_the_pool_and_walks_back():
+    from mcu_worldmodel import macros_nether as MN
+
+    tick = MN.macros.TICKS["_backoff"]
+    mk = lambda **kw: {"camera": [0.0, 0.0], **kw}
+    # Pool 2 blocks ahead (+z), facing it: back until 3.5 from it and 1 block moved.
+    agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}, {})
+    st = {"pool": [0, 11, 2], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
+          "label": "make_obsidian"}
+    a = tick(agent, st, mk)
+    assert a.get("back") == 1
+    agent._cur_pos["z"] = -0.2                 # 2.7 from the pool centre: not yet
+    assert tick(agent, st, mk).get("back") == 1
+    agent._cur_pos["z"] = -1.2                 # 3.7 from the pool, 1.7 moved: done
+    assert tick(agent, st, mk) is None
+    assert any("backed off 1.7 blocks" in n for n in agent.notes)
+    # Facing away from the pool: turns first, no step.
+    agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 180.0}, {})
+    st = {"pool": [0, 11, 2], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
+          "label": "make_obsidian"}
+    a = tick(agent, st, mk)
+    assert "back" not in a and abs(a["camera"][1]) > 12
+    # A wall behind: eight stalled ticks end it with the note.
+    agent = _agent({"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}, {})
+    st = {"pool": [0, 11, 2], "t": 0, "n": 60, "start": None, "last": None, "stall": 0,
+          "label": "make_obsidian"}
+    out = [tick(agent, st, mk) for _ in range(20)]
+    assert None in out and any("blocks the way back" in n for n in agent.notes)
 
 
 def test_scoop_tick_walks_back_and_presses_until_the_bucket_reads_water():
