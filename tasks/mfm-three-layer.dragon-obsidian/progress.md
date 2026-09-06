@@ -181,6 +181,16 @@
   precedence -- to update. gen-6 stopped at step 197 and RELAUNCHED 02:55 on ce4d9404 (pid 19029,
   ports 9079/9089, seeds 12 + ob1/ob1b/ob2/ob3/ob5).
 
+- obf2 (24k full, MCU 54ed3c9f, 17 seeds incl. the six diamond finders) FINISHED ~04:10: **54.17
+  (13/24)** -- the record 45.83 beaten. Timeline: mine_log 192, table 596, wooden_pickaxe 2107,
+  cobblestone 3196, stone_pickaxe 3656, furnace 3719, iron ore 4174, ingot 5129, iron_pickaxe 9330,
+  diamond ore 10476 at kdc3z's recorded site, diamond 10818, diamond_pickaxe 22035 (12k steps lost
+  to a vanished crafting table and one plank), flint_and_steel 22456. No death. Evidence:
+  `MCU/logs/obf2_mfm_result.json`, `MCU/output/obf2_mfm/episode_001/worldmodel_report.json`.
+- 04:15 LAUNCHED obf3 `obf3_mfm` (full, 24k, ports 9080/9090, latest code ce4d9404: bunker-first,
+  standoff approach, pour record, open-kit ledger; seeds 12 + ob1/ob1b/ob2/ob3/ob5 + obf1 + obf2),
+  pid 25343. The session process restarted around then; the ob6 monitor re-armed.
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their

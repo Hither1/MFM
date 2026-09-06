@@ -36,3 +36,13 @@ Evidence root: `Collab/MCU-AgentBeats/output/<arm>/episode_001/{memory/logs.txt,
   (centre hits the flow); verified on the engine (s12: 1 press).
 - A melee mob at y 10 killed gen-1b with everything carried (health 5 -> 1 in one turn; the bunker
   dig was interrupted). Deaths cost the chain a whole life; no fix attempted (out of scope).
+
+## Full task, 24k, seeded with diamond finders (2026-09-07, confidence: high)
+
+- obf2 scored 54.17 (13/24) vs the 45.83 record: the `[KNOWN SITES]` ore lines took it to a
+  previous life's diamond site 1.1k steps after the iron pickaxe (79 earlier full runs found diamond
+  twice). The remaining budget went to crafting logistics (a lost crafting table, no planks
+  underground: 12k steps between diamond and diamond_pickaxe) -- the next lever for the full task is
+  carrying a table and planks down, not the obsidian chain.
+- Half task: the scorer credits none of the kit's ten milestones; runs that died and rebuilt scored
+  higher than the one that went straight for the lake. The ledger now leaves them open (ce4d9404).
