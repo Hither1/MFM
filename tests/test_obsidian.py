@@ -81,6 +81,13 @@ def test_obsidian_macros_default_to_the_sighting():
     s = next(a for a in acts if "_scoop" in a)
     r = MN.LAST_LAVA["rim"]
     assert tuple(s["_scoop"]["cell"]) == (r[0], r[1] + 1, r[2]) and s["_min"] == MN.SCOOP_MIN
+    # A pour by coordinates is a sighting too: mine_obsidian() then aims at that cell.
+    MN.LAST_LAVA = None
+    acts, note = MN.make_obsidian(None, info, x=-2992, y=10, z=-5561)
+    assert acts and MN.LAST_LAVA["source"] == "pour" and MN.LAST_LAVA["pool"] == (-2992, 10, -5561)
+    acts, note = MN.mine_obsidian(None, info)
+    m = next(a for a in acts if "_mineobs" in a)
+    assert tuple(m["_mineobs"]["cell"]) == (-2992, 10, -5561)
     MN.LAST_LAVA = None
 
 
@@ -141,6 +148,9 @@ def test_scoop_tick_walks_back_and_presses_until_the_bucket_reads_water():
     mk = lambda **kw: {"camera": [0.0, 0.0], **kw}
     a = tick(agent, st, mk)
     assert a.get("forward") == 1 and st["phase"] == "walk"
+    for _ in range(5):                            # no progress: the walk starts jumping
+        a = tick(agent, st, mk)
+    assert a.get("forward") == 1 and a.get("jump") == 1
     agent._cur_pos["z"] = 0.5                     # within reach now
     a = tick(agent, st, mk)
     assert a.get("forward") is None and st["phase"] == "aim"
