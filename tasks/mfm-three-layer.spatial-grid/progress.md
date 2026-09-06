@@ -37,3 +37,12 @@
   obsidian/diamond/iron is open; MFM_CORRIDOR_NOTE), `--frame-size WxH`. Tests:
   tests/test_watchdog.py 8 green; pins: only chassis_logbook_report_keys moved (+watchdog);
   logbook logs/actions unchanged (the fake's drift keeps its cells short of the streak).
+- Replay (tools/grid_replay.py, trail interpolated between per-action positions = a lower
+  bound): ob chain 13 runs: 120 blocked go_to, detour available 69 (57%); water refusals 28,
+  escape available 27 (96%). Historical half 43 runs: 110 blocked, 72 detours (65%); 41
+  refusals, 35 escapes (85%). Historical full/diamond 202 runs: 1148 blocked, 744 detours (65%).
+  Gate (>= 50%) passed: S2a stays in the main line.
+- Grid edges now only join cells <= 2 apart (a death/portal jump is not a walk).
+- Stages written: s17_pond (walk to the rim, fill, refused dig -> escape along the trail, dig),
+  s18_reopen (flat + the obf2 hole case, re-open by pose), s19_detour (L trail, 2-high wall,
+  go_to detours and arrives).
