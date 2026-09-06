@@ -289,6 +289,27 @@ through for every arm (no pinned plan uses them). Pinned: `test_chassis_mfm_refu
 `test_descent_guard_is_a_pure_rule`, `test_left_behind_tracks_placements_and_pickups`,
 `test_entries_that_never_ran_do_not_make_a_streak`. lad4 = `mfm --retrieval --refuse`.
 
+**lad4 / lad5 (2026-09-05): 90 and 60 on the same arm.** lad4 got the iron pickaxe at
+8632 (lad3: 11954); its two refusals were both the descent guard, and the model recovered
+the table, crafted, then descended with `leave_table: true`. Three bugs from those two
+refusals were fixed (MCU 832a362): the note quoted the standing position as the table
+cell; `leave_table` inside `args` failed the procedure check (override keys are now
+lifted out of `args`); GUI openers were on the ignore list, so an open-nothing loop was
+invisible (an opener is changed iff the episode has the `gui` tag). lad5 on the fixed
+rules died twice to mobs in its own unlit shaft (y 52, y 27), with no torch either time,
+and spent 500 steps trying to reach a table its own aimed open had already failed on.
+Twenty-plus points between identical arms means single runs cannot be read: waves are now
+two seeds.
+
+**The light guard (MCU 112a8f5, MFM 1adc21e):** a `dig_down`/`stair_down` that ends or
+starts below y 55 with no torch carried is refused (`light_guard` in
+`mcu_worldmodel/episodes.py`; override `unlit: true`; at most twice, re-armed once a
+torch is carried); the note gives the recipe and what the inventory holds towards it.
+Replayed over every recorded descent in lad2-lad5: all of lad2/lad3/lad5's dark descents
+refused, none of lad4's four-torch ones. The descent guard now says "craft a new one"
+when the record shows the placed table could not be opened since placement. Pinned:
+`test_light_guard_is_a_pure_rule`. lad6a/lad6b = `mfm --retrieval --refuse`, two seeds.
+
 ---
 
 ## 0. What exists, and what is duplicated
