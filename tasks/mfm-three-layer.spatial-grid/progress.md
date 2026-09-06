@@ -129,3 +129,14 @@
   9096/9106, output under `MFM-grid-merge-mcu/output/og6_mfm`) with seeds = 12 first-gen +
   og4 (og3 still running, so not a seed for og6); og5 follows from the live worktree after
   og3 ends, seeded with og3 + og4.
+- og3 final (score 41.67; 11999 steps; 13/24 ledger, 1 death): fill 1353, fill->descent-8
+  1163, fill->LAVA AHEAD 7083, churn 0.05; grid 297 walked / 4 blocked / 21 water / 6
+  hazard cells; goto 10 calls, 4 blocked, 1 detour; watchdog 0; recall block 76/77 turns.
+  Scoring: og3 (41.67) outscored og4 (25.0, the obsidian arm) because after its death it
+  re-made the kit's milestones (wooden/stone pickaxe, table, furnace...) and the half-task
+  scorer credits only what happens in the run -- the finding behind dragon-obsidian's
+  ce4d9404/2eb053fb, now merged (og6 banked 9 kit milestones in its first ~1500 steps).
+- 03:37 og5_mfm launched from the fast-forwarded live worktree (MCU c45367f8 = spatial-grid
+  == spatial-grid-merge; MFM pointer 5fd9294): single-turn, 640x360, seeds = 12 first-gen +
+  og3 + og4, ports 9095/9105. og6 (8-turn, 320x180, seeds +og4) running since 03:28 from the
+  merge worktree.
