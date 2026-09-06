@@ -42,7 +42,13 @@ def test_streak_names_the_run_its_note_and_the_last_success(tmp_path: Path):
     assert block.startswith("[RECALL]")
     assert "`harvest_tree` changed nothing in its last 3 calls (since step 300, 3 spots" in block
     assert 'ep_000006, steps 700-800): "harvest_tree: no trunk detected (6 frames)' in block
-    assert "It last changed something at step 10 (ep_000001: harvest_tree(logs=4))." in block
+    assert "It last changed something at step 10 (ep_000001: harvest_tree(logs=4)) at (" in block
+    # ... and where that was, from where the agent stands, so it is somewhere to go.
+    x, z = rows[1]["x"], rows[1]["z"]
+    assert R._where(rows[1], (x + 10.0, z - 5.0)) == f" at ({x:.0f}, {rows[1]['y']:.0f}, {z:.0f}), 11 blocks from here (10 west and 5 south)"
+    assert R._where(rows[1], (x, z)) == f" at ({x:.0f}, {rows[1]['y']:.0f}, {z:.0f}), where you stand"
+    assert R._where({"x": None, "z": 3}, (0, 0)) == ""
+    assert R._where(rows[1], None).endswith(")")
     # Two failures are not a streak, and the changed entries are not one either.
     assert "`craft`" not in block and "dirt_pickup" not in block
     assert "Here before" not in block          # nothing near (100, 100)

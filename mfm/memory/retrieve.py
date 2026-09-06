@@ -198,10 +198,15 @@ def repeated_note(rows: list[dict[str, Any]], root: Path | str | None, *, min_le
     return best
 
 
-def streak_line(s: dict[str, Any], root: Path | str | None = None) -> str:
+def streak_line(s: dict[str, Any], root: Path | str | None = None,
+                pos: dict | tuple | None = None) -> str:
     """One streak as a sentence: the run, the note it last ended on, the last time
-    the same action changed something. Used by the recall block and, under the
-    refusal flag, as the reason an entry of that kind is refused."""
+    the same action changed something -- and where, with the distance from `pos`,
+    because "it worked at step 17" is a fact and "it worked 14 blocks north-west of
+    here" is somewhere to go (lad6b, 2026-09-05: refused `harvest_tree` eight calls
+    into the plank loop, overrode with "a trunk is directly ahead", and it was not).
+    Used by the recall block and, under the refusal flag, as the reason an entry of
+    that kind is refused."""
     root = Path(root) if root is not None else None
     last = s["last"]
     line = (f"`{s['kind']}` changed nothing in its last {s['n']} calls "
@@ -214,10 +219,37 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None) -> str:
     ok = s["last_success"]
     if ok is not None:
         line += (f". It last changed something at step {ok.get('first_step')} "
-                 f"({ok['id']}: {_action(ok)}).")
+                 f"({ok['id']}: {_action(ok)}){_where(ok, pos)}.")
     else:
         line += ". It has never changed anything."
     return line
+
+
+def _where(row: dict[str, Any], pos: dict | tuple | None) -> str:
+    """" at (x, y, z), N blocks E and M blocks S of here" for a row with a position."""
+    if row.get("x") is None or row.get("z") is None:
+        return ""
+    x, z = float(row["x"]), float(row["z"])
+    y = row.get("y")
+    at = f" at ({x:.0f}, {float(y):.0f}, {z:.0f})" if y is not None else f" at (x {x:.0f}, z {z:.0f})"
+    if pos is None:
+        return at
+    if isinstance(pos, dict):
+        px, pz = pos.get("x"), pos.get("z")
+    else:
+        px, pz = pos[0], pos[-1]
+    if px is None or pz is None:
+        return at
+    dx, dz = x - float(px), z - float(pz)
+    dist = (dx * dx + dz * dz) ** 0.5
+    if dist < 1.5:
+        return at + ", where you stand"
+    parts = []
+    if abs(dx) >= 1:
+        parts.append(f"{abs(dx):.0f} {'east' if dx > 0 else 'west'}")
+    if abs(dz) >= 1:
+        parts.append(f"{abs(dz):.0f} {'south' if dz > 0 else 'north'}")
+    return at + f", {dist:.0f} blocks from here ({' and '.join(parts)})"
 
 
 def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
@@ -288,7 +320,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     movers, openers = set(movers), set(openers)
     for s in streaks(rows, min_len=streak_min, ignore=ignore_kinds,
                      movers=movers, openers=openers, recent=streak_recent)[:max_streaks]:
-        lines.append("- " + streak_line(s, root))
+        lines.append("- " + streak_line(s, root, pos))
 
     rep = repeated_note(rows, root, min_len=repeat_min, recent=streak_recent,
                         ignore=ignore_kinds)

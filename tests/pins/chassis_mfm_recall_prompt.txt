@@ -16,7 +16,7 @@ GUI open: False
 [CURSOR] no screen open
 
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
-- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3).
+- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3) at (2, 64, 2), 33 blocks from here (33 west).
 - Milestones so far, with the entry that scored each: mine_log step 5 (ep_000002: {"attack":1} x3); crafting_table step 8 (ep_000003: dig_down(n=4)).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
