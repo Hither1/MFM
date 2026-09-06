@@ -141,6 +141,26 @@ dataset cache (34877be3); a6414tw4 (empty reference netlist) is skipped with
 queue does not shorten it (94% of turns are single-action batches) and only the
 per-task arms can be sharded with `--tasks`, so the carry arms stay sequential.
 
+**Result of the hinted GPT-6 wave (2026-09-06).** 24 tasks, codex 0.153, project-dir hint,
+one node per arm, no errors. Official mean / relaxed mean (`gym_codex/kicad_rescore.py`,
+which reproduces the official score exactly from the saved grader inputs):
+
+| arm | official | relaxed | modify (10) off / rel / steps | scratch (14) off / rel / steps | wall |
+|---|---|---|---|---|---|
+| direct GPT-6 low | 0.194 | 0.222 | 0.467 / 0.533 / 109 | 0.000 / 0.000 / 50 | 7.1 h |
+| prolong | 0.389 | 0.528 | 0.733 / 0.800 / 19 | 0.143 / 0.333 / 71 | 8.2 h |
+| mfm | 0.375 | 0.569 | 0.667 / 0.800 / 20 | 0.167 / 0.405 / 68 | 7.8 h |
+| prolong-carry | 0.375 | 0.556 | 0.667 / 0.800 / 17 | 0.167 / 0.381 / 66 | 7.8 h |
+| mfm-carry | 0.361 | 0.542 | 0.667 / 0.800 / 18 | 0.143 / 0.357 / 66 | 7.8 h |
+
+Reading: the log (prolong) roughly doubles the memoryless baseline and cuts steps on the
+modify tasks by 5x; the four memory arms are a tie, every difference between them being a
+single grader check flipping on a single task (a symbol-style variant, one component
+value). Transcript scan: `logs.txt` is read on every turn in every arm; the episode store
+is queried once in ~2,000 mfm turns; the carry arms read `notes/` ~8x per task and
+`previous/` 4-7 times per run; `[SEEN BEFORE]` fired twice. Carry-over is consulted and
+does not change decisions. The direct GPT-5.6-high baseline runs ~70 min/task.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
