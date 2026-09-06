@@ -34,6 +34,7 @@ from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mfm.memory import recall as R
 from mfm.memory.sink import MemorySink
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,8 +62,17 @@ def _link(src: Path, dst: Path) -> None:
 
 
 class EpisodeStore(MemorySink):
-    def __init__(self, root: Path | str) -> None:
+    """`recall=True` (the KiCad MFM arms since 2026-09-06) adds to every row what the
+    model said it saw (`perception`), meant (`intent`) and caused (`effect`, filled in
+    from the next turn's perception), plus perceptual hashes of the frame the turn was
+    decided on and the frame it closed on; and replaces the exact-hash "seen before"
+    line with the transition recall of `mfm.memory.recall`. Off, the store is
+    byte-identical to what the MCU ladder runs on."""
+
+    def __init__(self, root: Path | str, *, recall: bool = False) -> None:
         self.root = Path(root)
+        self.recall = recall
+        self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
         self.index_path = self.root / "index.jsonl"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -120,16 +130,57 @@ class EpisodeStore(MemorySink):
         ep["last_step"] = obs.step
         ep["ticks_seen"] += 1
         if ep["ticks_seen"] >= ep["ticks"]:
-            self._close(agent, flushed=False, last_step=obs.step)
+            self._close(agent, flushed=False, last_step=obs.step, closing=obs.attachment)
 
     def refill(self, agent: "MemoryAgent", obs: "Observation") -> None:
         if self._open is not None:
             # Closed here, at the step the turn runs on, rather than when the next entry
             # opens: the ticks between (a failed turn's default actions) are not its.
-            self._close(agent, flushed=True, last_step=obs.step)
+            self._close(agent, flushed=True, last_step=obs.step, closing=obs.attachment)
 
     def plan(self, agent: "MemoryAgent", plan: "Plan") -> None:
         self._plan = {"turn": agent.codex.calls, "briefing": plan.briefing, "plan": plan.think}
+        if self.recall:
+            perception, intent = R.perception_and_intent(plan.think)
+            self._plan["perception"], self._plan["intent"] = perception, intent
+            self._link_effect(agent, perception)
+
+    def _link_effect(self, agent: "MemoryAgent", perception: str) -> None:
+        """The lossless link the index lacked: the episode that closed on the frame
+        this turn was decided on gets this turn's perception as its `effect`."""
+        obs = agent._obs
+        if not perception or obs is None or not self.closed:
+            return
+        row = self.closed[-1]
+        if row.get("kind") != "episode" or row.get("effect") or row.get("last_step") != obs.step:
+            return
+        row["effect"] = perception
+        self._rewrite_index()
+
+    def _rewrite_index(self) -> None:
+        tmp = self.index_path.with_suffix(".jsonl.tmp")
+        tmp.write_text("".join(json.dumps(r, sort_keys=True, default=str) + "\n" for r in self.closed),
+                       encoding="utf-8")
+        os.replace(tmp, self.index_path)
+
+    def _dhash(self, attachment: str | None) -> str | None:
+        if not self.recall or not attachment or Path(attachment).is_absolute():
+            return None
+        if attachment not in self._dhash_at:
+            self._dhash_at[attachment] = R.dhash_file(self.root / attachment)
+            if len(self._dhash_at) > 64:
+                for k in list(self._dhash_at)[:-32]:
+                    del self._dhash_at[k]
+        return self._dhash_at[attachment]
+
+    def previous_row(self, obs: "Observation") -> dict[str, Any] | None:
+        """The episode that just closed on this observation: the previous turn."""
+        if not self.closed:
+            return None
+        row = self.closed[-1]
+        if row.get("kind") == "episode" and row.get("last_step") == obs.step:
+            return row
+        return None
 
     def act(self, agent: "MemoryAgent", item: dict[str, Any]) -> None:
         if item.get("tick", 1) != 1:
@@ -138,13 +189,18 @@ class EpisodeStore(MemorySink):
         assert obs is not None
         if self._open is not None:
             # The previous entry did not run to its last tick: the plan was flushed.
-            self._close(agent, flushed=True, last_step=obs.step)
+            self._close(agent, flushed=True, last_step=obs.step, closing=obs.attachment)
         state = self._state(agent, obs)
         ep = self._new_episode(agent, obs, state, kind="episode", item=item)
         self._open = ep
 
     def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
-        """Within this task: the earlier turns that faced this exact screen."""
+        """Within this task: the earlier turns that faced this exact screen, or (recall
+        on) the earlier turns that repeated the previous turn's transition."""
+        if self.recall:
+            prev = self.previous_row(obs)
+            rows = [r for r in self.closed if r is not prev]
+            return R.recall_note(rows, prev, self._dhash(obs.attachment), "in this task")
         digest = (obs.state or {}).get("png_hash")
         if not digest:
             return None
@@ -215,8 +271,13 @@ class EpisodeStore(MemorySink):
         _link(self.root / "tools" / "episodes.py", Path(visible) / "tools" / "episodes.py")
 
     def audit(self, agent: "MemoryAgent") -> dict[str, Any]:
-        return {"n": self.n_closed, "tags": dict(self.tags),
-                "episodes_tool_calls": getattr(agent.codex, "episodes_tool_calls", None)}
+        out = {"n": self.n_closed, "tags": dict(self.tags),
+               "episodes_tool_calls": getattr(agent.codex, "episodes_tool_calls", None)}
+        if self.recall:
+            reps = R.repeated_transitions(self.closed)
+            out["recall"] = {"effects_linked": sum(1 for r in self.closed if r.get("effect")),
+                             "repeated_transitions": sum(c - 1 for c in reps.values() if c > 1)}
+        return out
 
     # -- mechanics ---------------------------------------------------------------
 
@@ -261,10 +322,16 @@ class EpisodeStore(MemorySink):
                 # The log-relative frame the episode opened on (what `publish` keys on);
                 # an absolute path is a caller's scratch file, not a name in the log.
                 "attachment": (obs.attachment if obs.attachment
-                               and not Path(obs.attachment).is_absolute() else None)}
+                               and not Path(obs.attachment).is_absolute() else None),
+                "perception": self._plan.get("perception") if (self.recall and item is not None) else None,
+                "intent": self._plan.get("intent") if (self.recall and item is not None) else None,
+                "dhash": self._dhash(obs.attachment) if item is not None else None}
 
     def _close(self, agent: "MemoryAgent", *, flushed: bool, last_step: int,
-               extra: dict[str, Any] | None = None) -> None:
+               extra: dict[str, Any] | None = None, closing: str | None = None) -> None:
+        """`closing`: the frame the episode closes on (the observation after its last
+        tick), hashed as `next_dhash` under recall. `agent._obs` is not yet that
+        observation when `observe` runs, which is why it is passed in."""
         ep = self._open
         assert ep is not None
         self._open = None
@@ -288,6 +355,10 @@ class EpisodeStore(MemorySink):
                "observation_hash": ep["observation_hash"],
                "attachment": ep["attachment"],
                **agent.episode_index_fields(ep["first_state"], ep["last_state"])}
+        if self.recall:
+            row.update({"perception": ep.get("perception"), "intent": ep.get("intent"),
+                        "effect": None, "dhash": ep.get("dhash"),
+                        "next_dhash": self._dhash(closing) if ep["kind"] == "episode" else None})
         with self.index_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
         self.closed.append(row)

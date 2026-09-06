@@ -143,8 +143,10 @@ def describe(r: dict) -> str:
            if r.get("x") is not None and r.get("z") is not None else "")
     tags = ",".join(r.get("tags") or []) or "-"
     note = f"  note: {r['note']}" if r.get("note") else ""
+    seen = f"  saw: {r['perception']}" if r.get("perception") else ""
+    effect = f"  effect: {r['effect']}" if r.get("effect") else ""
     return (f"{r['id']}  {span}  tags={tags}{pos}  action={r.get('action_kind') or '-'}  "
-            f"{r.get('summary') or ''}{note}  -> {r.get('path')}/")
+            f"{r.get('summary') or ''}{seen}{effect}{note}  -> {r.get('path')}/")
 
 
 def contact_sheet(rows: Iterable[dict], root: Path, out: Path, cols: int = 4,

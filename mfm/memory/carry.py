@@ -36,7 +36,10 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from mfm.memory import recall as R
+from mfm.memory.consolidate import situations, to_markdown
 from mfm.memory.sink import MemorySink
+from mfm.memory.store import EpisodeStore
 
 if TYPE_CHECKING:  # pragma: no cover
     from mfm.agent.base import MemoryAgent, Observation
@@ -61,6 +64,14 @@ CARRY_STORE_NOTE = """\
 `./tools/episodes.py --previous ...` queries it with the same flags, and \
 `./tools/episodes.py --same-screen frames/<step>.png` (add `--previous` to search the \
 earlier tasks) lists the turns that faced that exact screen and what they did next."""
+
+CARRY_RECALL_NOTE = """\
+`previous/situations.md` is the finished tasks' turns folded by what you said you were \
+looking at: for each recurring situation, the actions taken there, how often, and what \
+each led to. Read it before the first action. When the situation and action of your \
+last turn occurred in an earlier task, the turn prompt carries a `[RECALL]` block with \
+what followed then, two steps ahead: if it matches what you intend, queue those steps \
+as one plan instead of rediscovering them one screenshot at a time."""
 
 
 def _link_tree(src: Path, dst: Path, skip: frozenset[str] = frozenset()) -> int:
@@ -118,9 +129,16 @@ class CarrySink(MemorySink):
                  else "This is the first task of the sequence: `previous/` is empty and "
                       "`notes/` holds nothing yet.")
         note = CARRY_NOTE.format(count=count)
-        if any(s is not self and hasattr(s, "closed") for s in agent.sinks):
+        store = self._store(agent)
+        if store is not None:
             note += "\n\n" + CARRY_STORE_NOTE
+            if store.recall:
+                note += "\n\n" + CARRY_RECALL_NOTE
         return note
+
+    @staticmethod
+    def _store(agent: "MemoryAgent") -> EpisodeStore | None:
+        return next((s for s in agent.sinks if isinstance(s, EpisodeStore)), None)
 
     def initial(self, agent: "MemoryAgent", obs: "Observation") -> None:
         self.seed()
@@ -157,6 +175,10 @@ class CarrySink(MemorySink):
             prev_dir.mkdir(parents=True, exist_ok=True)
             (prev_dir / "index.jsonl").write_text(
                 "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
+            if any(r.get("perception") for r in rows):
+                # Consolidation: the episodic rows folded into the situation table.
+                (prev_dir / "situations.md").write_text(to_markdown(situations(rows)),
+                                                        encoding="utf-8")
         self.previous_rows = rows
         notes_in = self.record / "notes"
         notes_in.mkdir(exist_ok=True)
@@ -168,8 +190,16 @@ class CarrySink(MemorySink):
                     shutil.copyfile(p, target)
 
     def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
-        """The seen-before line across tasks: the model does not pull, so the harness
-        pushes the one fact the store can establish for free."""
+        """Across tasks: the model does not pull, so the harness pushes. With the
+        store's recall on, the earlier tasks' turns that repeated the previous turn's
+        transition (mfm.memory.recall); otherwise the exact-hash seen-before line."""
+        store = self._store(agent)
+        if store is not None and store.recall:
+            if not self.previous_rows:
+                return None
+            prev = store.previous_row(obs)
+            return R.recall_note(self.previous_rows, prev, store._dhash(obs.attachment),
+                                 "in an earlier task")
         digest = (obs.state or {}).get("png_hash")
         if not digest or not self.previous_rows:
             return None
@@ -209,6 +239,9 @@ class CarrySink(MemorySink):
         os.replace(tmp, self.manifest_path)
 
     def audit(self) -> dict[str, Any]:
-        return {"previous_tasks": len(self.prior()), "files_linked": self.seeded,
-                "previous_episodes": len(self.previous_rows),
-                "notes_files": sum(1 for p in (self.root / "notes").rglob("*") if p.is_file())}
+        out = {"previous_tasks": len(self.prior()), "files_linked": self.seeded,
+               "previous_episodes": len(self.previous_rows),
+               "notes_files": sum(1 for p in (self.root / "notes").rglob("*") if p.is_file())}
+        if any(r.get("perception") for r in self.previous_rows):
+            out["situations"] = sum(1 for g in situations(self.previous_rows) if g["n"] >= 2)
+        return out

@@ -51,7 +51,7 @@ def test_prolong_carry_links_records_and_persists_notes(tmp_path, fake_codex, mo
     assert [m["task_id"] for m in json.loads((tmp_path / "out" / "carry" / "manifest.json").read_text())] == ["A", "B"]
 
 
-def test_mfm_carry_merges_the_index_and_pushes_seen_before(tmp_path, fake_codex, monkeypatch):
+def test_mfm_carry_merges_the_index_and_pushes_recall(tmp_path, fake_codex, monkeypatch):
     a, ws_a = _agent(tmp_path, "mfm-carry", "A", monkeypatch)
     R.drive_kicad(a, fake_codex)
     a.finish(1.0, None)
@@ -75,8 +75,13 @@ def test_mfm_carry_merges_the_index_and_pushes_seen_before(tmp_path, fake_codex,
     out = subprocess.run([sys.executable, str(tool), "--previous", "--same-screen", str(frame)],
                          capture_output=True, text=True, cwd=ws_b)
     assert out.returncode == 0 and "previous/A/" in out.stdout, out.stderr
+    # Task B repeats task A's transitions (the same scripted replies), so the recall
+    # of the MFM arms (perception + action of the last turn, mfm.memory.recall) fires
+    # from the second turn on, pointing at task A's rows.
     prompts = [c["prompt"] for c in fake_codex.recorded()]
-    pushed = [p for p in prompts if "[SEEN BEFORE] this exact screen appeared in earlier tasks" in p]
-    assert pushed, "no seen-before line reached a turn prompt"
-    assert "previous/A step" in pushed[0]
+    pushed = [p for p in prompts if "[RECALL] the last turn's situation and action occurred before in an earlier task" in p]
+    assert pushed, "no recall block reached a turn prompt"
+    assert 'previous/A step 1: at "Placing the resistor." you did click(500,500); type("R1") -> "second batch"' in pushed[0]
+    assert all(r.get("effect") for r in rows if r["kind"] == "episode" and r["first_step"] < 3)
+    assert (ws_b / "previous" / "situations.md").exists()
     assert b.audit()["carry"]["previous_episodes"] == len(rows)
