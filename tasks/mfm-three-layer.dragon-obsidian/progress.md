@@ -86,6 +86,13 @@
   9073/9083, 8 seeds (six lives + ob1_mfm + ob1b_mfm), first attempt died at the engine reset (TypeError bytes-like/None, 11:46, logs `ob2_mfm_fail1146_*`); relaunched 11:52, run-arm launcher pid 58188
   (`MCU/logs/ob2_mfm_launch.pid`), logs `MCU/logs/ob2_mfm_*.log`; monitor bu6shv106.
 
+- User (12:10): asleep; keep iterating for the highest dragon score, purple side only (no change to
+  the benchmark's green/I-O/scoring layer). Branches pushed by the user: hither/dragon-obsidian
+  (MCU 92fb2a06), origin/dragon-obsidian (MFM 11eaf49).
+- full 24k run LAUNCHED 12:23 in parallel with gen-2: `obf1_mfm`, `--agent mfm --task ender_dragon
+  --steps 24000`, ports 9074/9084, the same 8 seeds, run-arm launcher pid 28152
+  (`MCU/logs/obf1_mfm_launch.pid`), monitor bigtdzp7j. Load 42/255 with two engines.
+
 ## Next
 
 - Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or

@@ -15,7 +15,8 @@
   (MFM and its `MCU` submodule = worktree of MCU-AgentBeats at `MFM/MCU`).
 - Non-goals: no hand-written coordinates or facts (only what previous runs recorded); no change to
   the worldmodel/direct/logbook arms' measured behaviour beyond the shared macro fixes and the
-  doctrine paragraph (pins re-recorded with the diff named); no Nether/End work.
+  doctrine paragraph (pins re-recorded with the diff named); no Nether/End work; NO change to the benchmark layer (green agent, observation/action
+  interface, scoring, task configs, milestone tracking) -- purple side only (user, 2026-09-06 night).
 
 ## Current Cycle
 
@@ -83,6 +84,7 @@
 | where to run | local node; watch CPU/mem/disk | user message |
 | branch | `dragon-obsidian` in MFM and MCU | user message |
 | MCU checkout | worktree of MCU-AgentBeats at `MFM/MCU` (submodule path), based on hither/mfm-three-layer + cherry-picks c1da5101 b5599690 | git log |
+| overnight | user asleep: keep iterating autonomously toward the highest dragon score; purple side only; commit each slice, pushes left for the user | user message 2026-09-06 |
 | pytest | run venv lacks pytest; shim copied from la-rna-bb (py3.11) into scratchpad `pytest_shim` | this session |
 
 ## Verification Contract
