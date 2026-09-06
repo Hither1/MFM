@@ -259,3 +259,16 @@
   `mine_obsidian(x=-2990, y=11, z=-5560)` succeeded at 8675. Both pit-climb false
   positives (og8 "54 blocks below", og9 "44 blocks below" the shaft mouth) came from
   grid.above before c9566fd8's max_rise cap; og8 re-made iron_pickaxe (13/24).
+- 06:0x og8 (full contract, gpt-6, MFM carry) banked `mine_obsidian` at step 12884 (15/24)
+  at the same pool og9 used (the carry: og4's pour was recorded there), mined 6, and DIED
+  a second time at 14349: `mine_obsidian` emptied (-2988, 11, -5559) at the rim, the lava
+  guard stopped the plan (27%), and the next turn's `go_to` west crossed that cell inside
+  the guard's 150-tick cooldown -- fell onto the lava under it, 4 hp per 10 ticks, doused
+  at 1 hp, dead with 5 obsidian and the kit (`output/og8_mfm/.../logs.txt` 7674-7744).
+  Slice (MCU spatial-grid-merge, after c9566fd8): the guard re-checks every new action
+  (cooldown only within the stopped action; deliberate lava macros exempt); the mined
+  obsidian cell goes on the grid as lava and the note says to fill it from the rim
+  (`place_at(x, y, z, cobblestone)`); the post-break drop sweep is gone (the drop burns
+  when lava lies under it). tests/test_obsidian.py asserts the mark + the note; 74 pass.
+- og9 at ~12.4k: 12 obsidian mined, 11 placed -- building the portal frame at
+  (-2991, 13..14, -5559); 15/24, 0 deaths.

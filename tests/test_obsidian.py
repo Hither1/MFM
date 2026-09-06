@@ -13,12 +13,14 @@ import numpy as np
 def _agent(pos, inv, stats=None):
     """A stub with what the ticks read and write."""
     notes: list[str] = []
+    marks: list = []                 # grid.mark_lava calls
     st = dict(stats or {})
 
     def stat_now(event, obj):
         return float(st.get(f"{event}.{obj}", 0.0))
 
     return SimpleNamespace(
+        grid=SimpleNamespace(mark_lava=lambda *a, **kw: marks.append(a)), marks=marks,
         _gui_open=False, _cur_pos=dict(pos), _cur_inv=dict(inv), _log_breaks=0.0,
         _other_breaks=0.0, cursor_stats={}, step=100, stat_now=stat_now,
         memory=SimpleNamespace(add_note=notes.append), notes=notes, stats=st,
@@ -135,8 +137,10 @@ def test_mineobs_tick_holds_the_aim_and_ends_on_the_statistic():
         assert a["attack"] == 1
     agent.stats["mine_block.obsidian"] = 1.0
     assert tick(agent, st, lambda **kw: {"camera": [0.0, 0.0], **kw}) is None
-    assert any("OBSIDIAN BROKEN at (0, 62, 3)" in n for n in agent.notes)
+    assert any("OBSIDIAN BROKEN at (0, 62, 3)" in n and "HOLE over the pool" in n
+               and 'place_at(x=0, y=62, z=3, item="cobblestone"' in n for n in agent.notes)
     assert agent.cursor_stats["obsidian_mined"] == 1
+    assert agent.grid.mark_lava and agent.marks[-1][1] == (0, 62, 3)     # on the map as lava
 
     # The rim in front breaks first: the swing goes on (re-aimed); the third foreign
     # block ends it with the diagnosis.
