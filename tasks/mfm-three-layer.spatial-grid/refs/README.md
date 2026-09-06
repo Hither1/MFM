@@ -1,0 +1,1 @@
+Copies of wz1119/Codex-Minecraft-Gameplay (Apache-2.0), fetched 2026-09-07: agents/skills/minecraft-gameplay/SKILL.md and references/{commands,sequences}.md. The thin contract's **Loop** section is adapted from SKILL.md's "Plan and act" / "Inspect and recover".

@@ -12,6 +12,8 @@ def test_thin_contract_and_references(tmp_path: Path):
     ws = agent.memory.root
     short = (ws / "AGENTS.md").read_text()
     assert "**Procedures**" in short and "**Response format**" in short
+    assert "**Loop.** Every turn: observe, plan, act, verify." in short
+    assert short.index("**Task**") < short.index("**Loop.**") < short.index("**Procedures**")
     assert "**References.**" in short and "`references/skills.md`" in short
     assert "**Skills by situation" not in short and "Crafting is ONE call" not in short
     assert "**Survival**" not in short and "control reference" not in short.split("**References.**")[0]
@@ -37,6 +39,7 @@ def test_thin_split_is_a_partition():
             "**Oddity**: o\n\n# The benchmark's own control reference\nctl\n")
     short, refs = prompts.thin_split(full)
     assert short.startswith("**Task**") and "**Procedures**" in short and "**References.**" in short
+    assert "**Loop.**" in short
     assert set(refs) == {"procedures.md", "gui.md", "skills.md", "more.md", "control.md"}
     assert refs["control.md"].startswith("# The benchmark's own control reference")
     assert refs["more.md"].startswith("**Oddity**")
