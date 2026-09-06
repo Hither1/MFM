@@ -61,4 +61,4 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-Stages s17/s18/s19 green -> launch `og1_mfm` (half, 12k, ports 9091/9101, seeds = the 12 first-gen lives + ob1..ob6 + obf1..obf3, `--wm-extra "--expect --frames --corridors"`); then the session-turns A/B.
+og3_mfm (9093/9103) and og4_mfm (9094/9104, 8-turn sessions, 320x180) run the clean protocol (MFM carry only, seeds = 12 first-gen lives, `--expect --frames --retrieval`, launched 02:33). When they end: fast-forward `MFM-grid/MCU` to `spatial-grid-merge`, bump the MFM MCU pointer, relaunch og5/og6 seeded from the 12 first-gen lives + og3 + og4, and run `scripts/compare.py` against the historical half runs (water->descent, water->lava, churn, detours/escapes/re-opens).
