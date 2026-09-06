@@ -95,6 +95,23 @@ def test_block_orders_by_what_the_chain_needs(tmp_path: Path):
     done = pl.block(pos, {"water_bucket": 1}, {"kill_blaze"}).splitlines()
     assert done[1].startswith("- ORE")
     assert pl.block(None, {}, set()) != ""
+    # A 3% sighting is a sliver, ranked after lakes; a pour rim with no lake beside it
+    # says so (ob1/ob1b tunnelled to one and poured on stone).
+    sliver_log = LOG.replace("33% of the lower view", "3% of the lower view") + f"""{SEP}
+Action 95 | Step 6000 | Plan Step 1/1 | 13/24 verified
+
+[ACTION] make_obsidian(x=-2991,y=10,z=-5558) -> 270 ticks
+[STATE] pos=(-2991.40, 11.00, -5561.20) pitch=8 yaw=0 moved=0.00
+[NOTE] make_obsidian: done at the rim (-2991, 10, -5558) -- every lava SOURCE the water touched is obsidian now.
+"""
+    make_life(tmp_path, "sliver", sliver_log)
+    pl2 = PreviousLives(tmp_path / "ws2")
+    pl2.seed([tmp_path / "sliver"])
+    wet2 = pl2.block(pos, {"water_bucket": 1}, unmet).splitlines()
+    assert wet2[1].startswith("- LAVA SLIVER (not a lake: 3%")
+    assert any(l.startswith("- POUR RIM, UNVERIFIED") for l in wet2)
+    lake = pl.block(pos, {"water_bucket": 1}, unmet).splitlines()
+    assert lake[1].startswith("- LAVA LAKE")
     assert pl.audit()["kinds"] == {"death": 1, "lava": 1, "ore": 1, "water": 1}
 
 
