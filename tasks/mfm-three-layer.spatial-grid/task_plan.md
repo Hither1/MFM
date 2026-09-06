@@ -10,6 +10,17 @@
 > stopped at ~step 700 / ~200. Clean seeds = the 12 first-generation lives. Baseline for
 > the navigation claim = the historical half runs (no previous lives) in findings.md.
 
+> **Phase 2 (user, 2026-09-07 04:35): the Astra-aligned protocol.** After comparing with
+> wz1119/Codex-Minecraft-Gameplay and da03/astra-plays-gta: gpt-6-astra at effort high, a long
+> step budget with a wall-clock cap, one session for the run (session-turns 0 + compaction,
+> 320x180), memory modes kept. Question: which of their advantages carry -- budget, one
+> context, the model, a thin contract with model-held control (`--thin`, `watch`)? Arms:
+> og8 (full contract) vs og9 (`--thin`), both 60k steps / 10h / same seeds (og9 also has
+> og5). Read-outs per compare.py: milestones and their steps, deaths, water->lava, churn,
+> turns per 1k steps, references/ reads (codex_turns), watch calls. Gen-2 on gpt-5.6:
+> og5 54.17 (13, no death), og6 45.83 (11, 1 death), og7 running.
+
+
 
 ## Stable Anchor
 - Question: does a harness-maintained 3D cell map (built from exact positions and the runner's own
