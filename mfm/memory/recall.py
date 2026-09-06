@@ -43,8 +43,13 @@ _FILLER = {"the", "a", "an", "is", "are", "was", "were", "now", "still", "no", "
 #: screen" once the transition text has already matched. Whole-frame hashes of KiCad
 #: dialogs over the same canvas differ by 0-3 bits; a different dialog by 8-20.
 SAME_SCREEN_BITS = 6
-#: The image-only fallback (no transition match): near-identical frames only.
+#: The image-only fallback (no transition match): near-identical frames only. Off by
+#: default: replayed over the 2026-09-05 mfm-carry run, a 64-bit whole-frame hash within
+#: 2 bits matched 64% of all turns (a canvas with one more part hashes like the canvas),
+#: while the transition route fired on 9% and its suggested next action was the one the
+#: model then took in 33 of 74 cases.
 NEAR_EXACT_BITS = 2
+SCREEN_FALLBACK = False
 KEY_WORDS = 8
 
 
@@ -131,7 +136,8 @@ def successor(rows: list[dict[str, Any]], row: dict[str, Any]) -> dict[str, Any]
 
 def match(rows: Iterable[dict[str, Any]], prev: dict[str, Any] | None,
           cur_dhash: str | None, *, k: int = 3,
-          same_screen_bits: int = SAME_SCREEN_BITS) -> tuple[str, list[dict[str, Any]]]:
+          same_screen_bits: int = SAME_SCREEN_BITS,
+          screen_fallback: bool = SCREEN_FALLBACK) -> tuple[str, list[dict[str, Any]]]:
     """Earlier rows that repeat the previous turn's transition, newest first.
 
     Returns ("transition", hits) when (perception, action) of `prev` recurs and the
@@ -152,7 +158,7 @@ def match(rows: Iterable[dict[str, Any]], prev: dict[str, Any] | None,
                 hits.append(r)
             if hits:
                 return "transition", hits[-k:][::-1]
-    if cur_dhash:
+    if cur_dhash and screen_fallback:
         hits = []
         for r in rows:
             d = hamming(cur_dhash, r.get("dhash"))

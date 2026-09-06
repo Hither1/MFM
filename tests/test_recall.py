@@ -62,10 +62,12 @@ def test_match_prefers_the_transition_and_checks_the_next_frame():
     note = rc.render(kind, hits, rows, "in an earlier task")
     assert note.startswith("[RECALL]") and 'previous/A step 1: at "The symbol chooser is open." you did type("R")' in note
     assert '-> "Results list R."; then click(300,400) -> "R placed on canvas."' in note
-    # Image-only fallback when the transition is new.
-    kind, hits = rc.match(rows, {"kind": "episode", "perception": "Never seen", "summary": "key(x)"}, "0" * 16)
+    # Image-only fallback when the transition is new: opt-in (too loose on KiCad canvases).
+    unseen = {"kind": "episode", "perception": "Never seen", "summary": "key(x)"}
+    assert rc.match(rows, unseen, "0" * 16) == ("", [])
+    kind, hits = rc.match(rows, unseen, "0" * 16, screen_fallback=True)
     assert kind == "screen" and len(hits) == 3
-    assert rc.match(rows, None, "f" * 15 + "0") == ("", [])
+    assert rc.match(rows, None, "f" * 15 + "0", screen_fallback=True) == ("", [])
 
 
 def test_situations_table_and_markdown():
@@ -156,13 +158,13 @@ def test_recall_within_a_task_links_effects_and_pushes_the_chain(tmp_path, fake_
                                               "The results list shows Device:R.", "R1 sits on the canvas."]
     assert all(r["dhash"] and r["next_dhash"] for r in eps[:4])
     assert eps[0]["intent"] == "Open the chooser."
-    # Turn 5 (screen = the chooser again, after key(a) at "R1 sits on the canvas"): no
-    # earlier transition matches ("blank schematic" != "R1 sits"), but the frame is the
-    # chooser frame of turn 2 -> the image fallback. Turn 6: "chooser + type" recurred
-    # (turn 2 -> results), and the frame matches -> the transition chain.
+    # Turn 5 (the chooser again, after key(a) at "R1 sits on the canvas"): no earlier
+    # transition matches ("blank schematic" != "R1 sits") and the image-only fallback is
+    # off -> nothing pushed. Turn 6: "chooser + type" recurred (turn 2 -> results), and
+    # the frame matches turn 2's closing frame -> the transition chain.
     prompts = [c["prompt"] for c in json.loads(R._dump_calls(fake_codex, tmp_path))]
     assert "[RECALL]" not in prompts[1]
-    assert "[RECALL] a screen near-identical to this one occurred before in this task" in prompts[4]
+    assert "[RECALL]" not in prompts[4]
     assert "[RECALL] the last turn's situation and action occurred before in this task" in prompts[5]
     assert 'step 2: at "The symbol chooser is open with its search field focused." you did type("R") -> "The results list shows Device:R."; then click(100,100) -> "R1 sits on the canvas."' in prompts[5]
     audit = agent.audit()["mfm"]

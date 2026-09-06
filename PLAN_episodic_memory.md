@@ -161,6 +161,22 @@ is queried once in ~2,000 mfm turns; the carry arms read `notes/` ~8x per task a
 `previous/` 4-7 times per run; `[SEEN BEFORE]` fired twice. Carry-over is consulted and
 does not change decisions. The direct GPT-5.6-high baseline runs ~70 min/task.
 
+**Recall and consolidation (2026-09-06).** Trajectory findings of the hinted wave: the
+store's index was lossless at the file level and lossy at the index (a row = raw action
+string + exact screenshot hash; nothing of what the model saw, meant or caused); no links
+between modalities beyond exact hash, which matched twice in 24 tasks, while a whole-frame
+perceptual hash alone matched half of all frames and conflated dialogs; no consolidation.
+Built, behind `EpisodeStore(recall=True)` (KiCad `mfm` and `mfm-carry` only; MCU arms
+byte-identical): rows carry `perception` (first plan line), `intent`, `effect` (the next
+turn's perception, linked back when it arrives), `dhash`/`next_dhash`;
+`mfm.memory.recall` matches the previous turn's (perception, action) against earlier rows
+within the task and across carried tasks, confirms with the next-frame hash, and pushes a
+`[RECALL]` block (what followed, two steps ahead) into the turn prompt;
+`mfm.memory.consolidate` folds the carried rows into `previous/situations.md`. Prompt
+additions: `RECALL_NOTE` (mfm arms), `CARRY_RECALL_NOTE` (mfm-carry). Tests:
+`tests/test_recall.py`. Run: `kicad_mfmcarry2_gpt6hint` against the finished
+prolong-carry / mfm-carry.
+
 ## Status (2026-09-04)
 
 Steps 1-4 of section 6 are implemented and green; section 5 (optional layers) and the
