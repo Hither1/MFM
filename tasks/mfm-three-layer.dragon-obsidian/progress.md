@@ -144,6 +144,18 @@
   six diamond finders) plus ob1/ob1b/ob2/ob3 (obf2 also obf1). Polling monitors (60 s) on the
   workspace logs replace the tail -F ones, which never matched.
 
+- 2026-09-07 00:00-01:00, mob deaths (3 of the 4 relay runs): stage s15 (live zombie, dark tunnel):
+  the fight macro landed 1 swing for 15 hp taken ahead, found nothing behind; corpus: blind
+  fightback 3x / 0 damage, bunker 0 of 4 completed, flee 3x. Stage s16 (zombie behind the avatar at
+  its mining face): the old precedence (second hit -> fightback/flee) ran into the face, 20 -> 5 hp.
+  Change (uncommitted until s8 passes): BUNKER_HP 14 -> 17.5 (the first 3+ hit underground arms
+  the bunker), the bunker is never abandoned for further hits, bunker precedes fightback/flee; a
+  flee-then-seal reflex (two blocks across the passage) added as the no-pickaxe fallback
+  (tests/test_seal.py). s16 run 3: bunker capped under the hits, 20 -> 11 hp, no damage after
+  (`MCU/logs/stages/s16_seal_*` run3). s8 section E rewritten for the new behaviour; s8 running.
+- gen-4 (`ob4_mfm`) died at step 1413 to a zombie at y 26 during a stair_down (fightback dealt 0):
+  the kit is gone, the run is spent.
+
 ## Next
 
 - Watch gen-4 (obsidian from the lip?) and obf2 (diamond via the seeded sites, then the lake); on their
