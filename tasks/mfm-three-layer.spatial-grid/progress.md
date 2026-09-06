@@ -153,3 +153,10 @@
   model then believed itself sheltered and ran mine_forward(380); health 11 -> 7 -> 2 -> dead.
   Evidence for the dragon-obsidian seal slice (bcb009bb): the bunker dig fails under
   knockback / on that floor and the fallback flee came too late.
+- og6 final (score 45.83 = 11 milestones, the last at step 1442 -- the kit re-made under the
+  doctrine; 1 death at step ~7290; never filled the bucket; churn 0.10; grid 511 walked / 44
+  water cells; goto 6 calls, 5 blocked, 0 detours; watchdog 1). og5 at 8330: 13 milestones
+  (last 7175), no water yet, 0 deaths, churn 0.00, 4 detours; the watchdog dropped a
+  mine_ahead/aim_at_ore plan after 2234 stalled steps (since 4941).
+- 04:1x og7_mfm (8-turn, 320x180) launched from the merge worktree with the pit-climb code
+  (feb65878+), seeds = 12 first-gen + og3 + og4 + og6 (`EXTRA_SEEDS`), ports 9097/9107.
