@@ -249,3 +249,13 @@
 - og9 at 5691: 13 milestones incl. mine_diamond_ore (the earliest diamond on record in
   the chain: og7 8587, historical median 11444), 0 deaths, bucket filled. og8 at 7262:
   11 milestones, rebuilding after the death.
+- 05:5x og9 (thin, gpt-6-astra high, MFM carry) banked `mine_obsidian` at step 8675 --
+  15/24, 0 deaths: the second obsidian in the chain (og4 at 11883) and a half-task record
+  (62.5 if it ended now; 54.17 before). Sequence: 10% lava seen at (-2992, 11, -5559)
+  ~step 6000 with the bucket in hand; `make_obsidian()` interrupted by lava damage (the
+  douse spent the bucket); `mine_obsidian` at (-2992, 10, -5560) found nothing (governor
+  stall 92 steps); flint_and_steel crafted (14/24 at 7889); bucket refilled twice at the
+  spot, two hand pours ("pour onto the lip's top, let it spread, recover the source");
+  `mine_obsidian(x=-2990, y=11, z=-5560)` succeeded at 8675. Both pit-climb false
+  positives (og8 "54 blocks below", og9 "44 blocks below" the shaft mouth) came from
+  grid.above before c9566fd8's max_rise cap; og8 re-made iron_pickaxe (13/24).
