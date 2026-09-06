@@ -85,3 +85,12 @@ their water->lake legs are not a baseline for the map claim. Clean seeds: the 12
 first-generation lives (`MCU-AgentBeats/output/{hd12z,hd32z,hd39z,hd43z,hd41z}_wm_high,
 kd35z_lb_high, dm16/dm17_wm_high, kd14x_wm_high, kd31z_lb_high, kd6_wm_high,
 kdc3z_logbook_high}`), none of which was seeded.
+
+## First obsidian (2026-09-07, og4_mfm)
+
+`mine_obsidian` verified at step 11883 of the 12k half task under the MFM-carry-only
+protocol (`MFM-grid/MCU/output/og4_mfm/episode_001/memory/logs.txt`, Action 149). The pour
+(step 5596, rim (-2992, 10, -5562), 1% sighting) made obsidian; the model mined stone at
+the estimated cell, lost the water later, and found the obsidian cell 6,300 steps after the
+pour with `mine_ahead` from a bridge. The merged `52a452ef` (mine_obsidian aims at the
+pour's own cells) and the sliver/repeat notes target exactly that gap.

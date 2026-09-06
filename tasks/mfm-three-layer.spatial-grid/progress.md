@@ -108,3 +108,13 @@
   (bunker at the first hit, standoff/scoop aims, kit milestones open, workshop doctrine,
   --sites off, sliver note), bump the MFM MCU pointer, relaunch og5 (single-turn) / og6
   (8-turn, 320x180) with seeds = 12 first-gen + og3 + og4 (clean lives: no pushed sites).
+- 04:5x **og4_mfm banked `mine_obsidian` (14/24) at step 11883** -- the milestone no dragon run
+  reached in 148 historical runs, and the ob1..obf3 chain never did on the half task. Clean
+  protocol: no pushed sites, seeds = 12 first-gen lives, `--expect --frames --retrieval`,
+  8-turn sessions, 320x180 frames. Route: fill at the pond (step 844), the trail escape, dig
+  to y 11, a 1% sliver at (-2991, 11, -5561) (step 5577), pour at its rim (the water was
+  scooped back, then lost later at (-2992, 10, -5559)), `mine_obsidian` on the wrong cell,
+  ~6000 steps of tunnelling around the spot (three more LAVA AHEAD stops there, an 8%
+  reading), then `look_at` + `mine_ahead(280)` on `(-2992, 10, -5556)` from a bridge: three
+  stone blocks, then `mine_block obsidian +1`. So the sliver held at least one source and the
+  first pour did make obsidian; finding the cell cost 6,300 steps.
