@@ -118,3 +118,14 @@
   reading), then `look_at` + `mine_ahead(280)` on `(-2992, 10, -5556)` from a bridge: three
   stone blocks, then `mine_block obsidian +1`. So the sliver held at least one source and the
   first pour did make obsidian; finding the cell cost 6,300 steps.
+- og4 final (result.json score 25.0; 11999 steps; 4 milestones, last at 11883; 0 deaths):
+  fill 844, fill->descent-8 414 steps (historical half-run median 612), fill->LAVA AHEAD
+  4540, churn 0.11 (historical median 0.21); grid 179 walked / 7 blocked / 16 water / 3
+  lava cells; goto 16 calls, 6 blocked, 2 detours (1 arrived); water escape 1; watchdog
+  plan stalls 18, governor nudges 15; lava flagged 5; recall block on 97 of 98 act turns;
+  previous: 12 lives, 0 pushes. og3 at 11335: 13/24, 1 death, fill 1353, fill->descent 1163,
+  fill->lava 7083, churn 0.05.
+- og6_mfm (8-turn, 320x180) launched from the merge worktree (`MFM_ROOT=MFM-grid`, ports
+  9096/9106, output under `MFM-grid-merge-mcu/output/og6_mfm`) with seeds = 12 first-gen +
+  og4 (og3 still running, so not a seed for og6); og5 follows from the live worktree after
+  og3 ends, seeded with og3 + og4.
