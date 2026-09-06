@@ -34,3 +34,21 @@ Evidence: `MFM/MCU/output/ob*` (dragon-obsidian code, 2026-09-06) and `MCU-Agent
    (equip_hotbar, close_inventory, craft, use_until_gui, gui_click, cursor_to_*, raw).
 7. Deaths (ob1b, ob2, ob4: melee mobs in dark tunnels; ob3: lava at the lip) are the concurrent
    session's flee-and-seal slice on `dragon-obsidian`; not this track.
+
+## Image / episodic memory use (2026-09-07, from worldmodel_report.json `codex.*` and the codex rollouts)
+
+- Every turn attaches the current frame (frames_attached = turns). Past frames are seen only through
+  `view_image`, which the events stream does not record; the rollout audit counts it.
+- mfm chain: view_image per run ob1 17, ob1b 2, ob2 10, ob3 1, obf1 6, ob4 2, obf2 8 (0.02-0.18 per turn);
+  `tools/episodes.py` in 16-46% of turns, mostly `--last N --json` (text); `--sheet` 1-10 per run, viewed
+  about 1:1; ONE view of a previous life's frame in the whole chain (ob1b, the 52% lake). `[RECALL]`
+  (`--retrieval`, text streaks) was off in every run (mfm.recalls = 0).
+- Historical arms (views per turn, median): worldmodel 0.37 (38 per run), wmlite 0.33, logbook 0.14,
+  direct 0; plus zoom.py 2333 (wm) / 440 (lb) calls. The mfm arm looks 2-10x less than wm did.
+- What the views did: correct stall diagnoses (flow pushed the avatar; bucket still selected during the
+  dig; crosshair through an underwater gap; furnace one block above the remembered cell; blockage opens
+  into the pond), always after several null turns. Never used before a decision (ob2 went to the tainted
+  32% sighting without opening its frame; ob3 poured from the lip without opening ep_000097/98).
+- Views vs milestones (historical, thirds by view rate): wm diamond 5.6 -> 7.3, wm full 6.9 -> 7.3,
+  lb reversed (7.5 -> 4.8, 7.6 -> 7.3): confounded, no usable effect. lad3's retrieval block scored 90
+  vs 60-70 but no briefing cited it (PLAN_episodic_memory.md:247-252).
