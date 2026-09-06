@@ -36,7 +36,57 @@
 - Engine: stage s5 running in the background (`MCU/logs/stages/s5_nether.log`); stage
   `s12_obsidian.py` written (floor-level lake, guard sighting, no-argument calls), not yet run.
 
+- Engine: s12_obsidian 11/11 green (guard sighting at 4 ticks, make_obsidian() 171 ticks with the
+  scoop back in 1 press, mine_obsidian() 193 ticks -> mine_block obsidian +1, neighbour by
+  coordinates 196 ticks, plan-cap rule). s5 rerun: pour and mine green (the mine broke the rim
+  in front, then the obsidian, 225 ticks); the two Nether-leg checks failed on a death in the
+  Nether during `mine netherrack` -- files untouched by this work, not investigated.
+- Commits: MCU 74def4ec (dragon-obsidian), MFM ed3c1fe (dragon-obsidian, submodule pointer,
+  tests, pins, tasks).
+- gen-1 LAUNCHED 2026-09-06 ~09:50 local: `ob1_mfm`, `--agent mfm --task ender_dragon_half
+  --steps 12000`, ports 9071/9081, seeds hd12z/hd32z/hd39z/hd43z/hd41z/kd35z_lb (6 lives),
+  detached via setsid (launcher pid in `MCU/logs/ob1_mfm_launch.pid`, run-arm pid 24610).
+  Logs `MCU/logs/ob1_mfm_{green,purple,client}.log`, result `MCU/logs/ob1_mfm_result.json`,
+  workspace `MCU/output/ob1_mfm/episode_001/`. Monitor task bc4xpylgf watches the purple log.
+
+- gen-1 at step ~6000: bucket crafted, water filled at the known pond, descended to y 8-9,
+  tunnelled 30 blocks to the KNOWN SITES pour rim (-2992, 10, -5561) and poured (step 5972);
+  the flow pushed it 9 blocks back, the scoop's walk stalled at a one-block step (no jump), and
+  mine_obsidian() was refused because a pour by coordinates set no LAST_LAVA. Both fixed:
+  MCU ed6073ba / MFM c0a36db (explicit pour = sighting; scoop walk jumps after 4 stalled ticks).
+- gen-1b LAUNCHED 10:05: `ob1b_mfm`, same seeds/budget, ports 9072/9082, fixed code, run-arm
+  pid 10297; monitor bor5v0v3c. gen-1 (old code) runs on as the control.
+
+- Both gen-1 and gen-1b were led by the KNOWN SITES "POUR RIM" line (life 1's 3% sighting) to
+  (-2992, 10, -5561): poured, stone underneath. gen-1b's second pour: 20 scoop presses at the
+  source's centre scooped nothing (the ray met flowing water first) while the model's own
+  use_at at the top face worked once. Fixes committed for gen-2: slivers (<8%) de-ranked and
+  labelled, pour rims verified only by a lake within 6 blocks, water behind lava once carried,
+  scoop reach = use_at's 4.4, scoop aims at the source cell's top (MCU 0d80aa6e + top-aim
+  commit; MFM ab53018, b8e6f34). gen-1 at step 10.1k still at the sliver; gen-1b at 5.8k
+  heading for the 52% lake (-2986, 11, -5556).
+
+- gen-1 (`ob1_mfm`, control, old code) FINISHED 10:43: score 25.0 (6/24 beyond the 10 given:
+  diamond, diamond_pickaxe, diamond_sword), no obsidian. It lost its water at the sliver pour,
+  later stood in lava at (-2992, 9, -5561) (32% sighting, 8 damage), used an empty bucket on
+  it, and spent 5 mine_obsidian calls on stone cells (3 foreign breaks each, "none was obsidian").
+- gen-1b (`ob1b_mfm`, ed6073ba code) FINISHED 10:55: score 37.5 (9/24), no obsidian. Two pours
+  on the sliver rim (scoop 0 and 20 presses, nothing back), find_lava 0 blocks in 341 ticks,
+  then KILLED by a melee mob at (-2988, 10, -5560) step 5951 (health 5 -> 1 -> dead, bunker
+  failed); recovered the drop, spent the rest on a new dig; never reached the 52% lake.
+  Evidence: `MCU/logs/ob1{,b}_mfm_result.json`, `MCU/output/ob1{,b}_mfm/episode_001/{memory/logs.txt,worldmodel_report.json}`.
+- s12_obsidian rerun on the latest code (top-aim scoop): 11/11, scoop back in 1 press / 2 ticks
+  (`MCU/logs/stages/s12_obsidian_0906_114307`).
+- Bug found while previewing gen-2's block: lives carried under a seed's `previous/` were
+  re-linked as new lives (8 seeds -> 20 lives, 5162 files). Fixed: dedupe by sha1(logs.txt)
+  (MCU 92fb2a06); 8 seeds -> 8 lives, 46 sites. Block order with water carried: 52% lake
+  (-2986, 11, -5556), 33% lake, gen-1's 32% sighting (-2992, 9, -5561), 10%, then the pour rim
+  (now "beside a lake" because of that 32% sighting 1 block away), ore, sliver, deaths.
+- gen-2 LAUNCHED 11:47: `ob2_mfm`, `--agent mfm --task ender_dragon_half --steps 12000`, ports
+  9073/9083, 8 seeds (six lives + ob1_mfm + ob1b_mfm), run-arm launcher pid 39933
+  (`MCU/logs/ob2_mfm_launch.pid`), logs `MCU/logs/ob2_mfm_*.log`; monitor bu6shv106.
+
 ## Next
 
-- s5 result -> s12 run -> fix what they show -> commit MCU + MFM slices.
-- gen-1 launch: `--agent mfm --task ender_dragon_half --steps 12000 --seed-memory <5 dirs>`.
+- Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or
+  the 24k full run seeded from the chain.

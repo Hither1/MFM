@@ -25,3 +25,14 @@ Evidence root: `Collab/MCU-AgentBeats/output/<arm>/episode_001/{memory/logs.txt,
 7. **Engine stage s5** verified pour+mine only on a 3x3 pool sunk one level, from a fixed rim; no
    stage covers a floor-level lake, the flow's push, or a guard-originated sighting.
 8. Runs cost ~1-3 h per 12k steps locally (50-300 codex calls); green does not cap long-task steps.
+
+## gen-1 / gen-1b (2026-09-06, confidence: high, evidence in progress.md)
+
+- The `[KNOWN SITES]` block IS acted on: both runs went straight to the top-ranked line. That makes the
+  ranking the lever: a 3% sliver's pour rim sent both to a stone rim over a lava pocket. Slivers now rank
+  after lakes and pour rims need a lake sighting within 6 blocks.
+- Water is the bottleneck after a failed pour: without the scoop back the run has no second pour and
+  `make_obsidian` refuses ("you carry no water_bucket"). The scoop's ray must meet the source cell's top
+  (centre hits the flow); verified on the engine (s12: 1 press).
+- A melee mob at y 10 killed gen-1b with everything carried (health 5 -> 1 in one turn; the bunker
+  dig was interrupted). Deaths cost the chain a whole life; no fix attempted (out of scope).

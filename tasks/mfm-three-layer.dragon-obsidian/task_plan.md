@@ -27,8 +27,9 @@
 - Main uncertainty: whether the model acts on a `[KNOWN SITES]` block (lad3 showed narration
   is weakly read) and whether the pour/mine macros survive a real lake (only a 3x3 sunk pool was
   ever staged).
-- Next decisive experiment: gen-1 half-task mfm run seeded from the existing half runs' logs
-  (hd12z, hd39z, hd32z, hd43z, hd41z), after the macro fixes pass the engine stage.
+- Next decisive experiment: gen-2 (`ob2_mfm`) half-task mfm run on the fixed code (sliver de-ranked,
+  scoop top-aim, lives deduped) seeded from the six lives plus gen-1 and gen-1b: does it go to the
+  52% lake and does the pour/scoop/mine chain hold there?
 - Expected pass/fail signal: `mine_obsidian` fires (pass); or the run reaches the lake and the pour
   or mine fails again (mechanics still wrong); or never reaches the lake (sites block not acted on).
 - Fallback: seed gen-2 from gen-1 plus the same logs; if the model ignores the block, turn the
@@ -61,15 +62,16 @@
 - [x] B. Carry for mfm: `--seed-memory` (repeatable) links previous lives under `previous/`, merged `previous/index.jsonl`, `previous` kept by the sweep; `[KNOWN SITES]` block from previous records (index rows + logs.txt notes) pushed into the turn prompt.
 - [x] C. Doctrine: bucket right after the iron pickaxe, fill before the descent, lakes not corridors, known sites first.
 - [x] D. Launcher: `CODEX_BIN` default `~/ccr/bin/codex`, `PYTHONPATH` to the MFM root, `--seed-memory` passthrough, `--steps 24000` for full runs.
-- [~] E. Tests: unit green (10), pins re-recorded; engine s5 (pour ok, mine fixed to swing through the rim), s12 running.
-- **Status:** in_progress
-- **Evidence:** none yet
+- [x] E. Tests: unit green (10), pins re-recorded; engine s5 pour/mine green, s12 11/11 (rerun on the final code 11:43).
+- **Status:** complete
+- **Evidence:** progress.md 2026-09-06; `MCU/logs/stages/s12_obsidian_0906_114307`
 
 ### Phase 3: Run and interpret
-- [ ] gen-1 half-task mfm run (seeded from existing half logs) -> mine_obsidian?
-- [ ] gen-2/3 as needed; then full 24k seeded run.
-- **Status:** pending
-- **Evidence:** none
+- [x] gen-1 / gen-1b half-task runs: no obsidian (25.0 / 37.5); sliver rim misled both, scoop and death (progress.md).
+- [ ] gen-2 (`ob2_mfm`, launched 11:47) -> mine_obsidian?
+- [ ] gen-3 as needed; then full 24k seeded run.
+- **Status:** in_progress
+- **Evidence:** `MCU/logs/ob1_mfm_result.json`, `MCU/logs/ob1b_mfm_result.json`
 
 ## Decisions And Blockers
 
@@ -91,4 +93,4 @@
 
 ## Next Action
 
-Read the s12 engine stage result (`MFM/MCU/logs/stages/s12_obsidian.log`); if green, rerun s5, commit both repos, launch gen-1 (`ob1_mfm`, half task, 12k steps, 6 seed lives).
+Watch gen-2 (`ob2_mfm`, monitor bu6shv106): confirm `[previous] 8 live(s)` in the purple log; act on lake/pour/scoop/mine/death events; on completion read milestones and decide gen-3 vs the 24k full run.
