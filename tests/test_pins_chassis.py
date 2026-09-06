@@ -239,12 +239,13 @@ def test_chassis_mfm_refusal(tmp_path: Path):
 def test_override_keys_inside_args_are_lifted():
     from mcu_worldmodel.actions import parse_actions
     plan = parse_actions(json.dumps({"actions": [
-        {"procedure": "dig_down", "args": {"n": 20, "leave_table": True}},
+        {"procedure": "dig_down", "args": {"n": 20, "leave_table": True, "unarmed": True}},
         {"procedure": "dig_down", "args": {"n": 20}, "why": "fresh face"},
         {"action": {"attack": 1}, "repeat": 3, "why": "the trunk is centred now"}]}),
         step_cap=400)
     assert not [n for n in plan.notes if "bad arguments" in n], plan.notes
     assert plan.entries[0]["leave_table"] is True and "leave_table" not in plan.entries[0]["args"]
+    assert plan.entries[0]["unarmed"] is True and "unarmed" not in plan.entries[0]["args"]
     assert plan.entries[1]["why"] == "fresh face" and plan.entries[2]["why"] == "the trunk is centred now"
 
 
@@ -269,6 +270,19 @@ def test_light_guard_is_a_pure_rule():
     assert light_guard(here, {}, [{**dig[0], "unlit": True}]) is None
     assert light_guard(here, {}, [{"procedure": "strip_mine", "args": {"length": 200}}]) is None
     assert "none of coal, sticks, logs or planks" in light_guard(here, {"dirt": 4}, dig)
+
+
+def test_sword_guard_is_a_pure_rule():
+    from mcu_worldmodel.episodes import sword_guard
+    dig = [{"procedure": "dig_down", "args": {"n": 300, "until_y": 12}}]
+    here = {"x": 0.0, "y": 66.0, "z": 0.0}
+    note = sword_guard(here, {"cobblestone": 25, "stick": 3, "torch": 4}, dig)
+    assert note and "y 12" in note and "you carry cobblestone x25, stick x3" in note and "`\"unarmed\"" in note
+    assert sword_guard(here, {"stone_sword": 1}, dig) is None
+    assert sword_guard(here, {"wooden_sword": 1, "torch": 0}, dig) is None
+    assert sword_guard(here, {}, [{"procedure": "dig_down", "args": {"n": 10, "until_y": 60}}]) is None
+    assert sword_guard(here, {}, [{**dig[0], "unarmed": True}]) is None
+    assert "no cobblestone or sticks yet" in sword_guard(here, {"dirt": 4}, dig)
 
 
 def test_descent_guard_is_a_pure_rule():
