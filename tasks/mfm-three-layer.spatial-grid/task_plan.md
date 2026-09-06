@@ -72,4 +72,11 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-og3_mfm (9093/9103) and og4_mfm (9094/9104, 8-turn sessions, 320x180) run the clean protocol (MFM carry only, seeds = 12 first-gen lives, `--expect --frames --retrieval`, launched 02:33). When they end: fast-forward `MFM-grid/MCU` to `spatial-grid-merge`, bump the MFM MCU pointer, relaunch og5/og6 seeded from the 12 first-gen lives + og3 + og4, and run `scripts/compare.py` against the historical half runs (water->descent, water->lava, churn, detours/escapes/re-opens).
+(2026-09-07 05:3x) Four arms in flight, all gpt-6-astra high, 60k steps, one session + compaction,
+320x180, 10h cap: og8 (full contract) and og9 (`--thin`) with the MFM carry (seeds 12 first-gen +
+og3..og6) from `MFM-grid-merge-mcu`; og10 (full) and og11 (`--thin`) FROM SCRATCH (`NO_SEEDS=1`)
+from `MFM-grid/MCU` (304bae53). User: let og8/og9 finish, launch no more memory-reuse runs; the
+next results are the from-scratch ones. On each exit: compare.py + toolcalls.py, record in
+progress.md; the read-out is thin vs full (og10 vs og11, og8 vs og9) and carry vs scratch
+(og8 vs og10, og9 vs og11) on milestones/steps, deaths, water->lava, churn, turns per 1k steps.
+The shaft-fight slice (027b2cd9) is in the live worktree for the next launches.
