@@ -41,3 +41,16 @@ def test_a_lake_keeps_the_pour_sentence(monkeypatch):
     text, marks, remembered, stats = _advice(monkeypatch, 0.35)
     assert text.startswith("THIS IS THE LAVA THE OBSIDIAN NEEDS") and "SLIVER" not in text
     assert len(remembered) == 1 and len(marks) == 1 and "lava_slivers" not in stats
+
+
+def test_the_second_stop_at_one_spot_says_so():
+    from mcu_worldmodel.agent import WorldModelAgent as A
+
+    ns = SimpleNamespace(_lava_stops={}, cursor_stats={})
+    here = {"x": -2984.3, "y": 5.0, "z": -5567.6}
+    assert A._lava_repeat_clause(ns, here) == ""
+    second = A._lava_repeat_clause(ns, {"x": -2984.9, "y": 5.4, "z": -5567.9})   # same 3-block cell
+    assert "REPEAT: this is the 2nd plan" in second and "do not target this spot again" in second
+    assert "3rd plan" in A._lava_repeat_clause(ns, here)
+    assert A._lava_repeat_clause(ns, {"x": -2960.0, "y": 5.0, "z": -5567.6}) == ""   # elsewhere
+    assert ns.cursor_stats["lava_repeat_stops"] == 2
