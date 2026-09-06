@@ -71,6 +71,13 @@ def test_stale_streak_is_history_not_a_loop():
     assert R.streaks(rows) == []                       # the run ended 40 rows ago
     assert [s["kind"] for s in R.streaks(rows, recent=0)] == ["stow_items"]
     assert R.recall_block(rows) == ""
+    # Bookkeeping and never-ran entries do not age a run: 40 rows of equip / open /
+    # deferred craft / close after the run leave it a loop (lad6b's plank loop).
+    rows = [_row(i, "harvest_tree", i * 10, i * 10 + 5) for i in range(1, 6)]
+    rows += [_row(10 + i, ["equip_hotbar", "open_inventory", "craft", "close_inventory"][i % 4],
+                  100 + i * 10, 100 + i * 10 + (0 if i % 4 == 2 else 1)) for i in range(40)]
+    assert [s["kind"] for s in R.streaks(rows, min_len=5,
+                                         ignore={"equip_hotbar", "open_inventory", "close_inventory"})] == ["harvest_tree"]
 
 
 def test_movers_count_arriving_as_a_change():

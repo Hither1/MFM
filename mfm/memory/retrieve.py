@@ -118,17 +118,22 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
     action has not worked in its last nine calls" while other entries in between (a
     craft, a pickup of dirt) did change something. Kinds in `ignore` are bookkeeping
     (look, equip, open/close a screen) whose "no change" is their normal outcome. A
-    run whose last call is older than the `recent` most recent rows is history, not a
-    loop, and is not reported (three failed `stow_items` at step 3094 are not news at
-    step 6700)."""
+    run whose last call is older than the `recent` most recent COUNTED rows -- the ones
+    that could be part of a streak, so bookkeeping and never-ran entries do not age it
+    -- is history, not a loop, and is not reported (three failed `stow_items` at step
+    3094 are not news at step 6700). lad6b (2026-09-05): 39 rows of equip / open /
+    deferred craft / close between two `harvest_tree` calls made an eight-call plank
+    loop "stale" by the raw count, and its second refusal never came."""
     skip, movers, openers = set(ignore), set(movers), set(openers)
-    stale_before = max(0, len(rows) - recent) if recent > 0 else 0
     by_kind: dict[str, list[dict[str, Any]]] = {}
-    for i, r in enumerate(rows):
+    counted = 0
+    for r in rows:
         k = r.get("action_kind")
         if r.get("kind") != "episode" or not k or k in skip or not ran(r):
             continue
-        by_kind.setdefault(k, []).append((i, r))
+        by_kind.setdefault(k, []).append((counted, r))
+        counted += 1
+    stale_before = max(0, counted - recent) if recent > 0 else 0
     out = []
     for kind, irs in by_kind.items():
         if irs[-1][0] < stale_before:
@@ -143,7 +148,7 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
         success = next((r for r in reversed(rs[:-n]) if changed(r, movers, openers)), None)
         out.append({"kind": kind, "n": n, "since_step": run[0].get("first_step"),
                     "spots": len({s for s in map(_spot, run) if s is not None}),
-                    "last": run[-1], "last_success": success})
+                    "last": run[-1], "last_success": success, "rows": run})
     # The longest first; ties by recency of the run's last episode.
     out.sort(key=lambda s: (-s["n"], -(s["last"].get("last_step") or 0)))
     return out
@@ -223,6 +228,31 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None,
     else:
         line += ". It has never changed anything."
     return line
+
+
+def override_of(root: Path | str | None, row: dict[str, Any]) -> str | None:
+    """The `why` the agent put on this episode's entry to run it past a refusal, from
+    its action.json; None when there was none (or the file is not there)."""
+    if root is None or not row.get("path"):
+        return None
+    try:
+        a = json.loads((Path(root) / row["path"] / "action.json").read_text())
+    except (OSError, ValueError):
+        return None
+    entry = a.get("entry") if isinstance(a.get("entry"), dict) else a
+    why = entry.get("why")
+    return str(why) if why else None
+
+
+def burned_override(root: Path | str | None, run: list[dict[str, Any]]) -> tuple[dict, str] | None:
+    """The most recent episode in a streak's run that the agent ran past a refusal
+    with a `why`, and what it said -- it ran, and changed nothing, so the claim is
+    spent (lad6b, 2026-09-05: "a spruce trunk is directly ahead", 300 ticks, none)."""
+    for r in reversed(run):
+        why = override_of(root, r)
+        if why:
+            return r, why
+    return None
 
 
 def _where(row: dict[str, Any], pos: dict | tuple | None) -> str:

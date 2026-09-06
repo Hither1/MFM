@@ -222,9 +222,14 @@ def test_chassis_mfm_refusal(tmp_path: Path):
     agent2, _ = drive_chassis(tmp_path / "b", "mfm", refusal=True,
                               script=_chop_script(why="new trunk, closer"))
     ws2 = agent2.memory.root
-    assert "harness: refused" not in (ws2 / "logs.txt").read_text()
+    log2 = (ws2 / "logs.txt").read_text()
+    # The first `why` runs; it changes nothing, so it is spent: the next `why` on the
+    # streak is refused (twice, quoting it), then the one after runs and burns in turn.
+    burned = [ln for ln in log2.splitlines() if "harness: refused `attack` again" in ln]
+    assert burned and 'with "new trunk, closer"; it ran' in burned[0] and "changed nothing since" in burned[0]
+    assert "harness: refused `attack` --" not in log2                 # never the plain streak refusal
     rep2 = agent2.report()
-    assert rep2["mfm"]["refusals"] == {} and rep2["mfm"]["overrides"] > 5
+    assert set(rep2["mfm"]["refusals"]) == {"burned_why"} and rep2["mfm"]["overrides"] > 5
     chops = [json.loads((ws2 / r["path"] / "action.json").read_text())
              for r in (json.loads(l) for l in (ws2 / "index.jsonl").read_text().splitlines() if l)
              if r.get("action_kind") == "attack"]
