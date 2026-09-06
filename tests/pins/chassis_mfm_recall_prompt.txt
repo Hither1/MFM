@@ -15,6 +15,17 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+- step 103 {"attack":1} x6: moved 1.8, descended 1.0
+- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
+- step 115 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
+
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
 - `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3).
 - Milestones so far, with the entry that scored each: mine_log step 5 (ep_000002: {"attack":1} x3); crafting_table step 8 (ep_000003: dig_down(n=4)).

@@ -1,3 +1,5 @@
+attach/events.png
 attach/frame.png
 ws/AGENTS.md
+ws/grid.jsonl
 ws/logs.txt

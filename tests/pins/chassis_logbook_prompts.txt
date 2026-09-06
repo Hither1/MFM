@@ -36,6 +36,13 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 5 {"forward":1} x5: moved 0.0
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (3, 64, 2); 3 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -59,6 +66,14 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 5 {"forward":1} x5: moved 0.0
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (10, 63, 2); 10 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -79,6 +94,15 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 5 {"forward":1} x5: moved 0.0
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (13, 62, 2); 13 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
@@ -101,6 +125,16 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 5 {"forward":1} x5: moved 0.0
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+- step 48 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (15, 62, 2); 15 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -121,6 +155,17 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 5 {"forward":1} x5: moved 0.0
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+- step 48 {"attack":1} x6: moved 1.8
+- step 54 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (17, 62, 2); 17 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
@@ -143,6 +188,17 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 8 {"attack":1} x3: moved 0.9, inv oak_log +1, events MILESTONE mine_log verified; mine_block oak_log +1
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+- step 48 {"attack":1} x6: moved 1.8
+- step 54 {"attack":1} x6: moved 1.8
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (19, 61, 2); 19 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -163,6 +219,17 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 30 dig_down(n=4) -> 44 ticks: moved 6.6, descended 1.0, inv crafting_table +1, events MILESTONE crafting_table verified; craft_item crafting_table +1
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+- step 48 {"attack":1} x6: moved 1.8
+- step 54 {"attack":1} x6: moved 1.8
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+- step 66 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (20, 61, 2); 20 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
@@ -185,6 +252,17 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 42 {"forward":1,"jump":1} x12: moved 3.6, descended 1.0, inv crafting_table -1
+- step 48 {"attack":1} x6: moved 1.8
+- step 54 {"attack":1} x6: moved 1.8
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+- step 66 {"attack":1} x6: moved 1.8
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (22, 61, 2); 22 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -205,6 +283,20 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 48 {"attack":1} x6: moved 1.8
+- step 54 {"attack":1} x6: moved 1.8
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+- step 66 {"attack":1} x6: moved 1.8
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (28, 60, 2); 28 cells walked this life (a route over them is walkable again).
+- DANGER within 8 blocks: damage at (23, 61, 2) (3 hp so far, step 75).
+
+Attached second image: a 2x2 sheet -- top-left the current view, then the frames at this turn's events (hit (step 75)).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
@@ -227,6 +319,18 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 54 {"attack":1} x6: moved 1.8
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+- step 66 {"attack":1} x6: moved 1.8
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (30, 60, 2); 30 cells walked this life (a route over them is walkable again).
+- DANGER within 8 blocks: damage at (23, 61, 2) (3 hp so far, step 75).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -247,6 +351,18 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
+- step 66 {"attack":1} x6: moved 1.8
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+- step 103 {"attack":1} x6: moved 1.8, descended 1.0
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (31, 59, 2); 31 cells walked this life (a route over them is walkable again).
+- DANGER within 8 blocks: damage at (23, 61, 2) (3 hp so far, step 75).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
@@ -269,6 +385,17 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+[RECENT] the last entries that finished, from the harness's record:
+- step 66 {"attack":1} x6: moved 1.8
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+- step 103 {"attack":1} x6: moved 1.8, descended 1.0
+- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (33, 59, 2); 33 cells walked this life (a route over them is walkable again).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.
@@ -289,6 +416,17 @@ Held: unknown
 Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+- step 103 {"attack":1} x6: moved 1.8, descended 1.0
+- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
+- step 115 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
