@@ -107,6 +107,16 @@
   nearest, pour only after LAVA AHEAD. 9-seed block preview: 52% lake first (2 deaths flagged),
   the tainted line gone, pour rims out of the top 8.
 
+- gen-2 FINISHED ~12:45: score 37.5 (9/24), no obsidian (`MCU/logs/ob2_mfm_result.json`).
+- Torch slice (MCU c51bbd22, MFM 2107531): mine_forward/strip_mine plant a torch every 8 blocks
+  below y 50 when one is in the hotbar (select, place on the floor behind via use_step, tool back,
+  face the heading). Stage s13 (`MCU/logs/stages/s13_torch_0906_123954`): 1 torch planted in a
+  400-tick strip_mine (8 blocks), tool back, 8 cycles; my two threshold checks assumed 12+ blocks
+  per 400 ticks and were corrected to the engine's rate. Unit tests 22/22, pins unchanged.
+- gen-3 LAUNCHED 12:47: `ob3_mfm`, half task 12k, ports 9075/9085, 9 seeds (six + ob1 + ob1b +
+  ob2), code MCU c51bbd22 (blind-pour guard, tainted sightings dropped, death warnings, torches),
+  run-arm launcher pid 27069, monitor on the workspace log.
+
 ## Next
 
 - Watch gen-2 to its end; if it reaches the 52% lake, read the pour/scoop/mine notes; then gen-3 or
