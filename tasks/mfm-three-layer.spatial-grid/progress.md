@@ -676,3 +676,10 @@
   pattern the judge found in og21 turns 59/63/71/75). Hand labels redone on the correct plans: 27 ok,
   2 should_have_looked (re-open the table by pose; walk to the noted pond), 1 should_have_used_memory
   (another jump after RECALL's never-changed warning). v2 run in flight.
+- Judge v2 (og21, 30 turns, gpt-5.6-sol high, 04:25): 23/30 agreement with the hand labels; labels ok 20,
+  should_have_used_memory 5, should_have_looked 3, stale_rederivation 2. Of the 7 disagreements, 3 are the
+  judge being right (turn 103: recovering a placed table/furnace without its frame; 79 and 115: the briefing
+  restated the prompt's numbers wrongly after grepping the log) and 4 are one RECALL artifact: 1-tick raw
+  `forward` nudges inside plans register "moved 0.0", so the streak line reads "forward changed nothing in its
+  last 34 calls ... never changed anything" while the avatar walks fine. Adjusted agreement ~26/30: usable as a
+  flagger with a human pass. Fix queued: short raw movement entries leave the streak statistic.
