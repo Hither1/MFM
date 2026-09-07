@@ -41,3 +41,16 @@ gravel, walk_one/short/block, level_tunnel, pillar_one, place_table, place_wall_
 water_descend...), 1232 actions of ~13 steps each; health 2/20 since ~15.6k with no food;
 saw a lava fall (mine/cave_lava.png) but never poured on it -- 11k steps without a
 milestone. Cap 23:25; compare with og16 (15/24 at 41.8k, 2 deaths) at the cap.
+
+## Final 2026-09-07 23:26 (wall cap)
+og18: 17233 steps in 10 h (1.7k/h), 13/24 (flint_and_steel at 5727, then 11.5k steps
+without a milestone), 0 deaths, health 2/20 for the last ~1.6k steps. Own harness: 24
+scripts under mine/procedures/, 356 calls (report), 943 [ACTION] entries -- watch 309,
+gui_click 88, walk_short 66, cursor_to_slot 66, cursor_to_cell 62, level_tunnel 60,
+gui_right_click 50, step_up 40; 391 codex turns, 2.3 commands/turn, episodes.py in 3%.
+Against og16 (thin, all built-ins, same code otherwise): og16 15/24 at 41.8k with 2
+deaths; og18 reached flint 25k steps earlier than og16 (5727 vs 31383) but never got a
+bucket to lava: the kit phase and the GUI are learnable from the frame + state text,
+the lava-to-obsidian phase was not reached in 10 h at its pace (its walks are one block
+at a time). Read: human-play is not a losing setting on milestones per step up to flint;
+the wall clock is (1.7k steps/h vs og16's 4.3k).

@@ -575,3 +575,9 @@
   og20's has the reflex note; og20 wrote mine/digest.md in its FIRST turn ("read
   programmatically": iron at (-3010, 47, -5597), the flooded lava pocket at z -5679, the
   diamond ore at (-3066, 11, -5667), which of og14's scripts to reuse and which not).
+- 23:26 og18 (human-play) at the cap: 17.2k, 13/24, 0 deaths, 24 own scripts / 356 calls,
+  1.7k steps/h; flint at 5727 (og16: 31383) but never a bucket to lava -- see
+  tasks/mfm-three-layer.human-play/task_plan.md. og19 mined iron at 1933 (og16 2577,
+  og14 3267, og15 3318) at (-2997, 55, -5566), a spot of its own 12 blocks from spawn,
+  not a recorded vein; its mine/digest.md ("read programmatically from all 23 previous
+  logs") + mine/prior_evidence.json were written in turn 1. og20 11/24 at 1050.
