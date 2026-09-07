@@ -721,3 +721,8 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   the ob/obf arms ran at the purple default effort (medium: run-arm.sh passes no --reasoning-effort).
 - `stats/runs.csv` gained the 14 rows + 17 scoreboard-only rows (og3-og7, og10/og11/og13, og23/og24, ob1-ob6,
   obf3); the top-level README got the dated mfm-era box. Upload: `hf upload` from the staging dir (user's word).
+- 06:08-06:28 UPLOADED on the user's word ("你整理好以后上传到 .../MCUData"): `hf upload` of mfm-era/ (30 commits,
+  2.23 GB transferred, last commit de2145c4), then README.md (f323fbf4) and stats/runs.csv (dd84cc41). Verified with
+  HfApi.list_repo_tree: 9,191 files / 2.42 GB under mfm-era/ on HF = the local staging; README box present; 32 mfm_era
+  rows in stats/runs.csv. Before upload the scoreboard rows of og3/og4 and ob1-ob5 were re-read from the evaluator's
+  result.json (their reports pre-credited the kit at step 0: report 13/24 vs evaluator 25.0-41.67).
