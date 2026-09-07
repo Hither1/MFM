@@ -406,3 +406,10 @@
   ticks later is stopped again. 88 tests pass. The stage s23 run at 10:28 had shown the
   same window on the shaft guard (its second stop landed on the second column because
   the first was still in the +1 window) -- the shaft guard shipped with `<= last`.
+- 10:41 og12 (full, scratch, 421aa327) banked flint_and_steel at ~21.8k (14/24, 0 deaths),
+  15.7k steps after mine_obsidian at 6134 -- the 12:30 stagnation rule lapses; it has the
+  obsidian and the lighter, the portal is next. og13 (thin) also 14/24 with 9 obsidian.
+- 10:5x USER RULE CHANGE: runs are no longer stopped for lack of progress -- every arm
+  runs to its wall-clock cap (10h) and is stopped there by the launcher's watchdog only.
+  og8/og9 (stopped 10:10 under the earlier rule) stay stopped: a purple process cannot
+  resume a life mid-episode, their scores are banked.

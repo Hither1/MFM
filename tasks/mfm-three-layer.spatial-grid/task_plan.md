@@ -74,8 +74,8 @@
 ## Next Action
 (2026-09-07 10:40) Five arms in flight (progress.md 10:10): og10/og11 (304bae53, caps 15:26),
 og12/og13 (421aa327, caps 17:50), og14 (ed34754c, thin + atoms + own, cap 19:30). og8/og9
-stopped 10:10 under the no-progress rule (15/24, 16/24 banked). og12 rule: no new milestone
-by 12:30 -> stop. On each exit: compare.py + toolcalls.py (codex_turns dirs), record in
+stopped 10:10 under the then no-progress rule (15/24, 16/24 banked). Rule since 10:5x: NO
+stagnation stops, every arm runs to its 10h cap (the launcher's watchdog stops it). On each exit: compare.py + toolcalls.py (codex_turns dirs), record in
 progress.md. Read-outs open: thin vs full (og10/og11, og12/og13), pool-fix vs before
 (og12/og13 vs og10/og11), self-harness vs fixed library (og14 vs og13).
 Code: the SHAFT AHEAD guard is committed on spatial-grid-merge (progress.md 10:35) and NOT
