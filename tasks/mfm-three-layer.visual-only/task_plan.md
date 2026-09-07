@@ -68,3 +68,5 @@ milestones per step and per hour vs og16; deaths; how often the model opens fram
 (view_image / tools/episodes.py per turn, toolcalls.py) vs og16's event-sheet regime; image
 tokens per turn (codex usage); the kinds of notes it acts on. Strict V1 (no `craft` by name,
 no `watch` sensor) stays a follow-up if the user wants it purer.
+Known leak in og17 (runs 6ae8a227): the episode index summary line carries `moved N.N`
+(fixed in b7aab369 for the next arm); the turn prompt and logs.txt are clean.
