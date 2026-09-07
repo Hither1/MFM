@@ -663,3 +663,6 @@
 - og23_mfm (ports 9127/9137): og22's flags + memory v2 + `--seed-mine`; og24_mfm (9128/9138): og23 + `--minimal`.
   Both 60k steps, 10 h wall, seeds = the 25 lives under previous/. Launcher: scripts/launch_og23_og24.sh.
 - Monitor restarted with og23/og24 (poll_arms2.sh). og21 14/24 (mine_obsidian at 12,913).
+- 04:01 check (turn 2): og23 AGENTS.md 4,304 words (thin) / og24 2,371 words (minimal, references/own.md present);
+  both turn-2 prompts carry [EXPECTED] with frame citations and a [WORKING] block (both models wrote
+  mine/working.md in turn 1); og23's first briefing: "Prior-life routes and hazards are now digested." No tracebacks.
