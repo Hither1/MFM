@@ -483,3 +483,17 @@
   and never saw it again -- the only fortress sighting in all runs. MCU e13fe9be,
   tests/test_nether_bearing.py, 98 pass. n=1 evidence; the walk itself is the proven
   explore walker, only the heading is new.
+- 12:45 og12 (full, scratch, 421aa327) LIT THE PORTAL AND ENTERED THE NETHER: netherrack at
+  30305 (15/24), 0 deaths -- the first post-fix arm to reach the Nether alive (og13 got
+  there at 18.7k and died at 18818). Now at (-328, 38, -682) in the Nether placing
+  netherrack against a cliff shelf. og14 (self-harness) wrote a second procedure at 10:26:
+  `gravel_cycle.py` -- the gravel re-break trick (place a carried gravel, mine it, walk
+  over the drop) with guards on the pose and the held item, called 22 times (111 ticks
+  each) after "worked twice by hand (7295-7362, 7362-7429)"; its notes: 34 gravel breaks,
+  all returned gravel, NO flint. Empirical flint rate across runs checked next.
+- 12:50 flint per gravel break, from `[EVENT] mine_block gravel` and `[INV] flint +`:
+  og8 1/94, og9 1/2, og10 3/29, og11 7/24, og12 3/28, og13 1/21, og14 0/34 -- pooled
+  16/232 = 6.9% (vanilla 10%; the 95% band for n=232 at p=0.1 is ~6-14%, so the sim's
+  rate is consistent with 10% and og8's 1/94 and og14's 0/34 are the unlucky tails).
+  The contract's "about 1 block in 10" and the new re-break line stand; og14's
+  gravel_cycle (34 breaks, no flint) is variance, not a broken mechanic.

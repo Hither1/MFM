@@ -73,6 +73,7 @@ def test_chassis_visual_only(tmp_path: Path):
             assert set(d) <= {"step", "gui_open", "goals", "verified"}
         rows = [json.loads(l) for l in (root / "index.jsonl").read_text().splitlines() if l.strip()]
         assert rows and all(r.get("x") is None and r.get("z") is None for r in rows)
+        assert all("moved" not in str(r.get("summary", "")) for r in rows)
         r = agent.report()
         assert r["visual_only"] is True and r.get("atoms") is None
     finally:
