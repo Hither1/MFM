@@ -646,6 +646,14 @@ a recipe once and solving it every time.
   on x and z -- before drawing any conclusion about the site: a run once planned the
   same walk to a proven vein all night, called the vein absent, and had never come
   closer than 23 blocks.
+- **The Nether lock.** Every Nether visit on record died within 400 steps of arriving,
+  walking, sprinting or jumping down a slope or off a ledge into the lava sea (y ~31).
+  There the runner holds sneak on every step you take (a quarter of the walking speed),
+  never sprints, drops a jump taken while moving, and DROPS any plan entry that has
+  walked you a block down with lava in the lower view (NETHER DESCENT). A one-block
+  rise is tunnelled or pillared; go DOWN by digging (stair_down), never by walking or
+  jumping; cross lava with bridge_forward; a hit there is answered by the bunker, the
+  pillar or the turn, never a sprint.
 - A big health drop interrupts your plan with a [NOTE]; find the danger before resuming.
 - If you die, the harness [NOTE] gives the death coordinates. Your items despawn there
   after ~6000 ticks: recover by stairs (never jump into a shaft) or rebuild -- decide by

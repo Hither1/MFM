@@ -521,3 +521,57 @@
   /datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes/ (user: not in /tmp);
   future launches set MCU_CODEX_ROOT there. No leftover codex processes from our arms
   (the other codex processes on the node belong to other sessions).
+- 2026-09-07 22:1x-23:1x (new session; user: "继续监控当前正在进行的实验；根据系统性问题（下界）改tick
+  反射；对于自己写harness的，可以告诉它或者建议它可以写什么（例如反射）；同时开始记忆reuse的线，但是
+  不要用harness消化记忆，而是让模型自己消化记忆"). FINAL read-outs at the wall caps (compare.py):
+  og16 (thin, scratch, all guards, 6f79b0e6): 43.4k steps, 15/24, obsidian at 41835 (flint
+  31383, mine_diamond_ore 7192 after losing the kit), 2 deaths -- #1 at 3179 underground
+  (y 30): a melee mob, the bunker's cap did not place ("a melee mob is coming down with
+  you"), the fightback dealt 0 hp, 11 -> 6 -> 2 -> dead; #2 at 7263 at y 10: aim_at_ore's
+  30-tick walk toward the speckles FELL 4 blocks into a hole beside lava, the bucket was in
+  the inventory but not the hotbar so the escape only stepped it back 0.8 block, burned.
+  og17 (thin + visual-only, 640x360): 20.4k steps in 10 h (2.0k/h -- 1953 actions, 10
+  steps each), 15/24, 0 deaths, flint 10368, obsidian 18259, six obsidian mined and the
+  lighter in hand when the cap hit (the portal was next). og18 (human-play, 640x360, cap
+  23:25): 16.6k steps, 13/24 (flint 5727), 0 deaths, 22 own scripts (break_*, walk_*,
+  level_tunnel, pillar_one, water_descend...), 1232 actions of ~13 steps, health 2/20 since
+  ~15.6k, never found lava to pour on (mine/cave_lava.png exists) -- 11k steps at 13/24.
+  og15 (self-harness, seeded with og14's life): 3.4k, 12/24, 0 deaths; turn 1 read
+  previous/life_1 (22 previous/ commands in 21 turns) and wrote "Prior-life evidence" into
+  mine/notes.md by itself; two new scripts (descend_north_step, clear_north_step), og14's
+  seven stay under previous/life_1/mine/ (not copied into mine/).
+- 22:3x-23:1x NETHER SLICE (the user's "systematic problems (the Nether)"; every Nether visit
+  on record -- og9 x2, og12, og13 -- died within 400 steps of arriving, walking, sprinting or
+  jumping down a slope or off a ledge into the lava sea at y ~31: og12's last keys were
+  forward+sprint+jump from y 36 to 28 with LAVA AHEAD already in its notes). MCU
+  spatial-grid-merge c972f3af, live MFM-grid/MCU fast-forwarded:
+  1. `agent._nether_lock`: in the Nether every plan action that moves gets sneak, loses
+     sprint and a moving jump (pillar_up's vertical jump stays); the runner's reflex ticks
+     are untouched; one NETHER LOCK note per visit; the flee reflex never sprints there.
+  2. `agent._nether_descent_guard`: every 4th tick the lower view's lava share is sampled;
+     a plan entry that has walked the avatar 0.9+ blocks below its start with lava in view
+     is dropped with a NETHER DESCENT note (dug descents and the runner's escapes exempt).
+     explore_nether re-bases its budget under the lock (18 ticks/block).
+  3. The contract's survival text carries the lock (pins re-recorded: the diff is that
+     paragraph alone).
+  MEASURED (stage runs 22:4x-23:1x, s25 + a per-tick trace): sneaking does NOT reliably
+  hold an edge in this engine -- forward+sneak stopped 0.29 over a 1-block step and held
+  150 ticks, but fell over a 6-block edge (+0.4) and fell at once when the step under the
+  overhang was dug out (the bridge macro's 2026-09-03 note said the same) -- so the note
+  promises the pace (0.063 blocks/tick, a quarter of a walk: four times the ticks per
+  block for the sampled guards) and the descent guard, never "you cannot step off".
+  Tests: tests/test_nether_lock.py (6). Stage s25_nether_lock: 9 checks, 0 failed (the
+  crept walk, one note, the played descent dropped within 8 ticks with the note, pillar_up
+  rises, the Overworld control covers 5+ blocks in 30 ticks). NOT changed: the lava guard's
+  y <= 40 gate (with the sea visible from most of the Nether it would stop every walk).
+  Second death cluster left open (not the Nether): underground melee with a failed bunker
+  cap and a 0-hp fightback (og16 #1, og13 #2, og11 #2).
+- 23:0x LAUNCHED og19_mfm (tasks/mfm-three-layer.memory-reuse: thin + own + the digest note
+  + the Nether lock; 23 previous lives -- the 12 first-gen + og3 og4 og12 og13 og14 +
+  og8 og9 og16 og17; gpt-6-astra high, 320x180, 60k, 10h cap ~09:03; ports 9123/9133) and
+  og20_mfm (tasks/mfm-three-layer.self-harness: og15's settings + `--own-reflexes`, seeded
+  with og14's life; ports 9124/9134; cap ~09:05). Both verified: no Traceback, the purple
+  args carry the flags, og19's contract has the digest note and 23 lives under previous/,
+  og20's has the reflex note; og20 wrote mine/digest.md in its FIRST turn ("read
+  programmatically": iron at (-3010, 47, -5597), the flooded lava pocket at z -5679, the
+  diamond ore at (-3066, 11, -5667), which of og14's scripts to reuse and which not).

@@ -33,3 +33,11 @@ called, first-sentence notes, report flag), mfm required. Full list: 102 pass.
 ## Next Action
 Launch og18; watch the first hour: does it craft through the GUI primitives, does it write
 scripts, do the raw walks work; at the cap compare with og16.
+
+## Status 2026-09-07 23:0x
+og18 at 16.6k steps (1.8k/h): 13/24 (flint_and_steel at 5727, its best-in-class kit
+phase), 0 deaths, 22 own scripts under mine/procedures/ (break_stone/log/leaf/ore/soil/
+gravel, walk_one/short/block, level_tunnel, pillar_one, place_table, place_wall_torch,
+water_descend...), 1232 actions of ~13 steps each; health 2/20 since ~15.6k with no food;
+saw a lava fall (mine/cave_lava.png) but never poured on it -- 11k steps without a
+milestone. Cap 23:25; compare with og16 (15/24 at 41.8k, 2 deaths) at the cap.

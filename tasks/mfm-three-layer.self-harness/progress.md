@@ -45,3 +45,25 @@
   A first launch at 21:46 (ports 9121/9131) missed `--reasoning-effort high` (medium by
   default); stopped by pid after 4 minutes, its output and codex home set aside as
   `og15_mfm.medium-abort`, its stale wall watchdog (pid 17409) killed by pid.
+- 2026-09-07 23:0x og15 at 3.4k: 12/24 (mine_iron_ore 3318), 0 deaths; turn 1 read og14's
+  life by itself (22 previous/ commands; "Prior-life evidence, NOT live results" in
+  mine/notes.md, incl. og14's lava pocket and diamond site); it writes NEW scripts
+  (descend_north_step, clear_north_step) rather than copying og14's seven from
+  previous/life_1/mine/ (they are not in its mine/). Runs to ~07:49.
+- 23:0x og20_mfm LAUNCHED (MCU c972f3af): og15's settings + `--own-reflexes` -- the user's
+  "tell the self-harness arm what it can write, e.g. reflexes": `mine/reflexes/<name>.py`
+  runs every 4 ticks on the live state (+ lava_frac, health_prev, pos_prev, entry,
+  queue_len, runner_reflex), prints nothing or one `{stop, note, actions}`; 40-tick
+  cooldown, off after 3 failures until edited, at most 4; the contract's added paragraph
+  names the four things that killed earlier runs (lava while walking/digging, a 4+ block
+  drop, health falling with no lava, any Nether walk with lava in view) as the reflexes
+  to write first; the runner's guards stay on. Also the digest note (own + previous):
+  the model's first act is its own mine/digest.md. Seeded with og14's life only (og15's
+  pair: the difference is the reflex hook + the two contract paragraphs + the Nether
+  lock). Verified 23:05: no Traceback, flags on the purple, mine/digest.md written in
+  turn 1 (og14's verified places and each script's assumptions), mine/reflexes/ empty so
+  far. Read-outs: `cursor_stats` own_reflex_runs / fires / failures, `[REFLEX` notes,
+  the scripts under mine/reflexes/, milestones per step vs og15. Tests:
+  tests/test_own_reflex.py (3); stage s26_own_reflex 6/6 (a halt reflex stops a raw
+  walk 2-4 blocks out with its note and runs its own watch; a broken one is switched
+  off after three failures; the turn message lists both).
