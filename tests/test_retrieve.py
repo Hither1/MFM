@@ -133,7 +133,9 @@ def test_here_before_excludes_the_visible_tail_and_cites_what_changed():
     rows += [_row(10 + i, "walk", 100 + i, 101 + i, x=5, z=5) for i in range(6)]  # the tail
     block = R.recall_block(rows, pos=(5.0, 5.0), streak_min=99)
     assert "Here before (within 6 blocks): 3 episodes, steps 10-40: dig_down x2, craft x1; 1 changed something, 2 stuck." in block
-    assert "ep_000002 step 20: craft(item=planks,count=1) -> moved 0.0, inv {'planks': 4}" in block
+    # since 2026-09-08 the cite carries a bearing from `pos` ("ep_000002 step 20, 3 blocks N: ...")
+    assert "ep_000002 step 20, " in block
+    assert "craft(item=planks,count=1) -> moved 0.0, inv {'planks': 4}" in block
     assert "walk" not in block
     assert R.here_before(rows, (50.0, 50.0)) == []
     assert R.recall_block(rows, pos=None, streak_min=99) == ""
@@ -144,7 +146,8 @@ def test_milestone_recipe_index():
                  summary='[ACTION] {"attack":1} x110 -> 110 ticks: moved 0.0, inv {\'spruce_log\': 1}, milestone [\'mine_log\']'),
             _row(2, "craft", 562, 562, tags=["milestone", "inventory_changed"],
                  summary="[ACTION] craft(item=crafting_table,count=1) -> 1 ticks: moved 0.0, inv {'crafting_table': 1}, milestone ['crafting_table']")]
-    block = R.recall_block(rows)
+    assert "Milestones so far" not in R.recall_block(rows)      # off by default (2026-09-08)
+    block = R.recall_block(rows, max_milestones=10)
     assert ("- Milestones so far, with the entry that scored each: mine_log step 300 "
             '(ep_000001: {"attack":1} x110); crafting_table step 562 '
             "(ep_000002: craft(item=crafting_table,count=1))." in block)

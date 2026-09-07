@@ -12,6 +12,10 @@ when it is missing.
     ./tools/episodes.py --tag stuck           episodes carrying a tag
     ./tools/episodes.py --grep "spruce_log"   episodes whose files mention the text
     ./tools/episodes.py ... --sheet out.png   tile the matching episodes' frames
+    ./tools/episodes.py --then-now ep_000123 --q "is this the ledge I poured from?"
+                                              that episode's frame beside the current
+                                              view, as then_now.png (recognition check)
+    ./tools/episodes.py ... --q "<question>"  say what the look is for (kept in the log)
 
 Filters combine (AND). Each line: id, step range, tags, position, the action, the
 outcome summary, the first harness note the entry ended with (why it stopped, what it
@@ -177,6 +181,50 @@ def contact_sheet(rows: Iterable[dict], root: Path, out: Path, cols: int = 4,
     return out
 
 
+def then_now(root: Path, then: str, now: str | None, out: Path,
+             rows: list[dict] | None = None) -> tuple[Path, str]:
+    """Write the remembered frame (`then`: an episode id or a frame path) beside the
+    current view (`now`: a path; default the attached frame the harness keeps at
+    ../attach/frame.png) as one image with labels. Returns (out, caption).
+
+    The check VISTA's inspect makes side by side: is the place in front of me the
+    place the record describes? og14-og22 walked to remembered places by coordinate
+    and never compared (analysis/memory-usage.md)."""
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError as exc:  # pragma: no cover
+        raise SystemExit("--then-now needs PIL, which this interpreter lacks") from exc
+    root = Path(root)
+    rows = rows if rows is not None else read_index(root) + read_index(root, previous=True)
+    row = next((r for r in rows if r.get("id") == then), None)
+    if row is not None:
+        then_path = root / str(row.get("image") or f"{row.get('path')}/observation/image.png")
+        label = (f"THEN {row['id']} step {row.get('first_step')}"
+                 + (f" at ({float(row['x']):.0f},{float(row['z']):.0f})"
+                    if row.get("x") is not None and row.get("z") is not None else ""))
+    else:
+        then_path = Path(then) if Path(then).is_absolute() else root / then
+        label = f"THEN {then}"
+    if not then_path.exists():
+        raise SystemExit(f"no frame for {then!r}: not an episode id in the index and not a file")
+    now_path = Path(now) if now else (root.resolve().parent / "attach" / "frame.png")
+    if not now_path.exists():
+        raise SystemExit(f"no current view at {now_path}; pass --now <png>")
+    a = Image.open(then_path).convert("RGB")
+    b = Image.open(now_path).convert("RGB")
+    h = 360
+    a = a.resize((max(1, round(a.width * h / a.height)), h))
+    b = b.resize((max(1, round(b.width * h / b.height)), h))
+    canvas = Image.new("RGB", (a.width + b.width + 8, h + 18), (0, 0, 0))
+    canvas.paste(a, (0, 18)); canvas.paste(b, (a.width + 8, 18))
+    d = ImageDraw.Draw(canvas)
+    d.text((2, 2), label, fill=(255, 255, 0))
+    d.text((a.width + 10, 2), "NOW (the attached view)", fill=(255, 255, 0))
+    out = Path(out)
+    canvas.save(out)
+    return out, label
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="workspace holding index.jsonl and episodes/")
@@ -193,8 +241,20 @@ def main(argv: list[str] | None = None) -> int:
                     help="episodes that faced exactly this screenshot (by content hash)")
     ap.add_argument("--sheet", help="write a contact sheet of the matching frames here")
     ap.add_argument("--json", action="store_true", help="one JSON object per line instead")
+    ap.add_argument("--then-now", metavar="EP_OR_PNG",
+                    help="write that episode's frame beside the current view (then_now.png)")
+    ap.add_argument("--now", metavar="PNG", help="the current view for --then-now "
+                    "(default: the attached frame, ../attach/frame.png)")
+    ap.add_argument("--out", default="then_now.png", help="output of --then-now")
+    ap.add_argument("--q", metavar="QUESTION",
+                    help="what this look is meant to answer; printed back so the record keeps it")
     args = ap.parse_args(argv)
     root = Path(args.root)
+    if args.then_now:
+        out, label = then_now(root, args.then_now, args.now, Path(args.out))
+        q = args.q or "(no --q given: what question does this look answer?)"
+        print(f"wrote {out}: {label} | NOW. Q: {q}. View it with view_image.")
+        return 0
     rows = read_index(root, previous=args.previous)
     if args.same_screen:
         try:
@@ -222,7 +282,9 @@ def main(argv: list[str] | None = None) -> int:
         print("(no matching episodes)", file=sys.stderr)
     if args.sheet:
         contact_sheet(rows, root, Path(args.sheet))
-        print(f"sheet: {args.sheet}", file=sys.stderr)
+        print(f"sheet: {args.sheet}" + (f"  Q: {args.q}" if args.q else ""), file=sys.stderr)
+    elif args.q:
+        print(f"Q: {args.q}", file=sys.stderr)
     return 0
 
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 import json
+import math
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
@@ -231,6 +232,26 @@ def _frame(row: dict[str, Any]) -> str:
     return f"episodes/{rid}/observation/image.png" if rid else ""
 
 
+def bearing(pos: tuple[float, float] | None, row: dict[str, Any]) -> str:
+    """Where a cited episode lies from `pos`: "4 blocks NE", "here" under a block.
+    Minecraft axes: +x east, +z south. og14-og22 re-targeted a recalled place 0 times
+    in 30 sampled turns (analysis/recall-usage.md): a citation without a direction is
+    a fact, not a move."""
+    try:
+        x, z = float(row["x"]), float(row["z"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    if pos is None:
+        return ""
+    dx, dz = x - pos[0], z - pos[1]
+    d = (dx * dx + dz * dz) ** 0.5
+    if d < 1.0:
+        return "here"
+    ang = (math.degrees(math.atan2(dx, -dz)) + 360.0) % 360.0     # 0 = north (-z)
+    names = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    return f"{d:.0f} blocks {names[int((ang + 22.5) // 45) % 8]}"
+
+
 def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
                 radius: float = 6.0, exclude_last: int = 6) -> list[dict[str, Any]]:
     """Episodes that started within `radius` of `pos`, older than the `exclude_last`
@@ -287,7 +308,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                  streak_min: int = 3, ignore_kinds: Iterable[str] = (),
                  movers: Iterable[str] = (), openers: Iterable[str] = (),
                  exclude_last: int = 6, streak_recent: int = 30, repeat_min: int = 3,
-                 max_streaks: int = 3, max_here: int = 3, max_milestones: int = 10) -> str:
+                 max_streaks: int = 3, max_here: int = 3, max_milestones: int = 0) -> str:
     """The retrieval block for one turn, or "" when there is nothing to say.
 
     Three parts, each present only when it has content; every line names the episode
@@ -325,12 +346,16 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                 f"{kinds_txt}; {len(did)} changed something, {len(stuck)} stuck.")
         cite = did[-max_here:] if did else stuck[-max_here:]
         for r in cite:
-            line += (f"\n    {r['id']} step {r.get('first_step')}: {_action(r)} -> "
+            where = bearing(pos, r)
+            line += (f"\n    {r['id']} step {r.get('first_step')}"
+                     + (f", {where}" if where else "") + f": {_action(r)} -> "
                      f"{_outcome_tail(r) or 'no change'}"
                      + (f" (frame: {_frame(r)})" if _frame(r) else ""))
         lines.append(line)
 
-    ms = milestone_rows(rows)
+    # The milestone line is off by default since 2026-09-08: it repeated the ledger in
+    # [STATE] every turn (recall-usage.md case 7) and was never acted on.
+    ms = milestone_rows(rows) if max_milestones > 0 else []
     if ms:
         shown = ms[-max_milestones:]
         items = [f"{_milestone_name(r)} step {r.get('first_step')} "

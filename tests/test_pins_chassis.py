@@ -178,7 +178,7 @@ def test_chassis_mfm_retrieval(tmp_path: Path):
     last = with_block[-1]
     assert "`attack` changed nothing in its last" in last
     assert "It last changed something at step" in last     # the chop that mined the log
-    assert "Milestones so far" in last and "mine_log step" in last
+    assert "Milestones so far" not in last          # the ledger is in [STATE]; dropped 2026-09-08
     assert last.index("[RECALL]") < last.index("Your memory is `./logs.txt`")
     rep = agent.report()
     assert rep["mfm"]["retrieval"] is True and rep["mfm"]["recalls"] == len(with_block)

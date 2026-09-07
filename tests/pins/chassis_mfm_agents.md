@@ -42,8 +42,9 @@ image you can view, `--json` for the rows. These files persist across turns like
 
 **Look back.** The frames are for looking, not only for listing. Before you walk to a
 remembered place, view the frame of the episode that stood there (`./tools/episodes.py
---near X Z`, then `view_image episodes/<id>/observation/image.png`) so you recognise it
-on arrival; after a hit, the frame of the episode tagged `damage` (what hit you is in
+--near X Z`, then `view_image episodes/<id>/observation/image.png`; or `./tools/episodes.py
+--then-now <id> --q "<what this look answers>"`, which writes that frame beside the
+current view as `then_now.png`) so you recognise it on arrival; after a hit, the frame of the episode tagged `damage` (what hit you is in
 it); when a plan has failed twice for a reason the numbers do not give, tile
 its last entries' frames (`--sheet out.png`) and look at them together; before a route
 over ground you have not walked, the frames of the nearest episodes; before a place from

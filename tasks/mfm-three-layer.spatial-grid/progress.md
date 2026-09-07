@@ -636,3 +636,20 @@
   phase bottlenecks go to the model via examples + meta hints, not harness code.
 - Build order: (2) frames into decisions, (3) session checkpoint, skills examples, (6) distiller
   pass, (8) minimal contract, (1) metrics parsers [worker], launch og23/og24, then the judge.
+
+## 2026-09-08 04:xx — memory v2 built (items 2, 3, 6, 8 + skill examples); og15 15/24, og19 obsidian
+
+- MCU fdafe37a (spatial-grid-merge, live MFM-grid/MCU ff'd): [OBSERVED] frame citations + visible-change
+  wording; RECALL bearings, milestone line off; `--then-now`/`--q`; mine/working.md as [WORKING];
+  skills: death_sheet.py, known_hazards.py, working memory, death forensics, budget section;
+  mcu_worldmodel/distill.py + scripts/distill.{py,sh}; `--minimal`; `--seed-mine`.
+- MFM-grid: retrieve.bearing(), then_now() in the episodes tool, tests/test_memory_v2.py (6 tests);
+  chassis subset (13 files) green; pins chassis_mfm_agents.md / chassis_mfm_recall_prompt.txt re-recorded.
+- Distiller workspace smoke (og14+og15 seeds): 2 lives, 11,243 files linked in 51 s on data3 (`output/distill_smoke`);
+  the tool's `--previous --grep` over 2,800 episodes exceeds 120 s -- the prompt says grep the logs.
+- Metrics kit (worker, branch metrics-kit -> merged): match_rate / recall_retarget / repeat_deaths /
+  procedure_reuse + analysis/metrics-kit-baseline.md. Headline: RECALL cited 0.1 world coordinates per
+  turn (re-targeting was bounded by the input, now fixed by bearings); 11 of 19 deaths within 8 blocks
+  of a hazard the same life had recorded; 6 of 59 own procedures inherited by name.
+- Arms: og15 15/24 (mine_diamond_ore at 17,022); og19 14/24 (mine_obsidian at 16,933); og22's starter
+  reflex `fell` fired at 6,064 (first own-reflex firing on record).

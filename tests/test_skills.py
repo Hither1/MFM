@@ -30,7 +30,7 @@ def test_write_skills_and_starters(tmp_path: Path):
     from mcu_worldmodel import skills
 
     written = skills.write_skills(tmp_path)
-    assert {"skills/memory/SKILL.md", "skills/procedures/SKILL.md", "skills/reflexes/SKILL.md",
+    assert {"skills/memory/SKILL.md", "skills/procedures/SKILL.md", "skills/reflexes/SKILL.md", "skills/reflexes/scripts/known_hazards.py", "skills/memory/scripts/death_sheet.py",
             "skills/harness/SKILL.md", "skills/procedures/scripts/stair_step.py",
             "skills/procedures/scripts/torch_wall.py", "skills/memory/scripts/where_was.py",
             "mine/reflexes/lava_ahead.py", "mine/reflexes/fell.py", "mine/reflexes/hit.py",

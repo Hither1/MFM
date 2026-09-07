@@ -128,7 +128,8 @@ def test_expect_option_echoes_the_line_against_the_record(tmp_path: Path):
     assert "[EXPECTED]" not in prompts[0]
     second = next(p for p in prompts[1:] if "[EXPECTED]" in p)
     assert "[EXPECTED] moved about 1 block east" in second
-    assert "[OBSERVED] by the harness for that plan:" in second
+    assert "[OBSERVED] by the harness for that plan (each entry with the frame it started from):" in second
+    assert "one visible change" in second          # VISTA's observe step, 2026-09-08
     assert "forward" in second.split("[OBSERVED]")[1].split("Begin your briefing")[0]
     assert "OBSERVED vs EXPECTED" in second
     # a briefing without the line is said so
