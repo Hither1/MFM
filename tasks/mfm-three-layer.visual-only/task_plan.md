@@ -1,4 +1,4 @@
-# Task plan: a visual-input-only setting (proposal, 2026-09-07 12:10)
+# Task plan: a visual-input-only setting (2026-09-07)
 
 User (11:5x, before sleeping): "我觉得我们还可以尝试只有 visual input 的 settings". Not launched:
 the variants below are materially different arms; the user picks one.
@@ -44,3 +44,27 @@ image token cost first (the frames are attached every turn).
 ## Open question for the user
 Which variant, and is the HUD-in-frame acceptable as the only source of health/food/
 inventory (V1), or should inventory text stay (V2)?
+
+## Decision and implementation (12:2x, user asleep, "自主推进")
+The user's second and third messages settled the variant: the point is to make vision
+load-bearing and to align with wz1119/Codex-Minecraft-Gameplay (screenshot observation,
+bounded key/mouse input, checked sequences, NO coordinates), and "事件帧不给" -- no event
+sheet is pushed, the model must query the frames in its memory itself. Implemented as
+`--visual-only` (MCU spatial-grid-merge, the commit after 6f79b0e6; mcu_worldmodel/visual.py):
+the turn prompt carries no [STATE]/vitals/inventory/hotbar/cursor/[GRID], no [MAP], no
+retrieval block, no event sheet, only the ledger, the budget, the [RECENT] outcomes without
+distances and the notes; logs.txt has no [STATE]/[GUI]/[CURSOR]/[INV]; notes are scrubbed
+of coordinates and headings ("a spot near you"); episodes' state.json/index.jsonl carry no
+position, inventory or vitals; no grid.jsonl in the workspace; the procedure set is the
+atoms minus the five that take a coordinate (go_to, look_at, look_abs, place_at, use_at).
+The runner keeps every number for its own reflexes and guards. Frames 640x360 (the HUD
+must read). tests/test_visual.py (4); 96 pass.
+
+## Arm
+og17_mfm: thin + `--visual-only`, from scratch, gpt-6-astra high, 60k, session-turns 0 +
+compaction, `--frame-size 640x360`, ports 9106/9116, 10h cap, from MFM-grid-merge-mcu.
+Control: og16 (thin, 320x180, the same code otherwise, launched 11:59). Read-outs:
+milestones per step and per hour vs og16; deaths; how often the model opens frames itself
+(view_image / tools/episodes.py per turn, toolcalls.py) vs og16's event-sheet regime; image
+tokens per turn (codex usage); the kinds of notes it acts on. Strict V1 (no `craft` by name,
+no `watch` sensor) stays a follow-up if the user wants it purer.

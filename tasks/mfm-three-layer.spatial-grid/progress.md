@@ -464,3 +464,7 @@
   Phase costs (A): kit 182-1021 steps; diamond_sword -> obsidian median 12.4k (og12
   5.9k, og10 34.9k with a death); lava sighting -> first obsidian: og9 1.7k, og12 2.1k,
   og13 7.6k (item 1), og10 26.3k (death + rebuild).
+- 12:2x og16_mfm launched 11:59 from MFM-grid-merge-mcu at 6f79b0e6 (thin, scratch, all new
+  guards; ports 9105/9115; cap ~21:59): og13's twin on the new code. og17_mfm (thin +
+  `--visual-only`, 640x360, ports 9106/9116) launched next -- see
+  tasks/mfm-three-layer.visual-only/task_plan.md. Nether audit F in findings-0907/.
