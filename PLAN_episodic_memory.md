@@ -108,6 +108,51 @@ the old pins unchanged -- every vista path is gated on `self.vista`). Verified l
 inspect, a guide write; the model predicted before and read after every play). Section 8 gains one
 decision: a vista wave beside a logbook seed on the same chassis commit.
 
+## Status: the arc-code baseline (2026-09-06)
+
+A fourth memory arm, arc-code (jerber/arc-code @6b33c1f, MIT), ported as `mfm/arc/` with
+an MCU adapter (`mcu_worldmodel/arc.py`, `--memory arc`). It is the counterpoint on the
+other side of MFM from VISTA: the *workspace* is the memory, and the model builds
+whatever machinery it wants inside it. One long coding-agent session -- `codex exec`, or
+`claude -p` with `--arc-agent claude` -- runs in the workspace with a shell, a
+filesystem and six tools, and its only way to touch the world is `./act do ENTRY ...`,
+which plays a batch of plan entries and prints back the log sections they produced.
+`./act status` is the present, `./act view` names the current frame. The chassis's own
+`logs.txt` is the actuator's log; `notes.md` and any script the model writes persist
+(nothing is swept, unlike the logbook arm). A session that exits before the budget is
+spent is replaced by a fresh one told to recover from `notes.md` and `logs.txt`.
+
+Upstream is three files (PROMPT.md, act.py, run.py) and the claim that none of them
+knows the game: on ARC-AGI-3's 25 public games Opus 5 scored 30.2 model-only and 96.2
+through this harness, writing 269 throwaway programs on the way. `mfm/arc/prompt.py`
+carries PROMPT.md sentence for sentence with its ARC nouns replaced (the substitutions
+are listed in the module); the brief above it -- what this environment is, what `./act`
+accepts, the log's section format -- is the benchmark's, as upstream's ARC.md is.
+
+Two departures from upstream, both forced by the inversion: upstream's agent drives the
+game and the actuator holds the session, while here the benchmark's server drives the
+clock, so `./act do` blocks in a file mailbox (`mfm/arc/mailbox.py`) on the same
+`ActionChannel` rendezvous the vista arm uses; and upstream's boards are text inside the
+log, while a Minecraft frame is a PNG, so each section names its file and the model
+looks at it with its own image tool.
+
+Verified: end to end on `tests/fake_arc_agent.py` (`tests/test_arc.py`, pinned -- the
+brief, every `./act` answer, the log; the other arms' pins unchanged, every arc path is
+gated on `self.arc`), and live against real codex (`python -m mfm.arc.smoke`, 2026-09-06:
+the session read the brief, ran `./act status`, played batches through the actuator,
+looked at a frame, wrote `notes.md`, and the governor's streak refusal reached it as
+actuator output).
+
+One finding this port turned up, which is not about arc-code: **`codex exec` reads
+`AGENTS.md` only to `project_doc_max_bytes`, 32 KiB by default**, and the chassis brief
+is ~80 KB. Measured on codex 0.149 against a lad8 rollout: the model saw the first 32 KB
+and nothing past it -- so every codex-exec arm on this ladder (logbook, mfm, direct,
+worldmodel) has been running without the procedures reference, the survival rules or the
+benchmark's own control reference, while the vista arm (which passes the same text as
+`developerInstructions`) saw all of it. The arc arm passes
+`-c project_doc_max_bytes=262144`. Fixing it for the other arms is a chassis change that
+re-baselines the ladder, and is not made here.
+
 ## Status: what the first KiCad waves showed (2026-09-05)
 
 Measured on the gpt-5.6-sol `_projdir` pair and the GPT-6 low pair (25 tasks each):
