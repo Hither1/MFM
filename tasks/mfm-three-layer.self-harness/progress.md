@@ -84,3 +84,11 @@
   Status of the others at 00:13: og15 5.6k 12/24; og19 4.4k 12/24, 1 death (a cave fight
   at y 30: fight(diamond_sword) took it 11 -> 0 in 160 ticks, the flee came at 0 hp --
   the underground-melee cluster's 4th case); og20 3.6k 12/24, no reflex written yet.
+- 2026-09-08 00:5x og22_mfm LAUNCHED (user: "试一下 gpt5.6 sol xhigh，看一下模型水平有没有影响"):
+  og21's setting exactly (thin + atoms + own + own-reflexes + no-harness-reflexes + skills,
+  seeded with og14's life) with `--model gpt-5.6-sol --reasoning-effort xhigh` -- the
+  model-level pair to og21 (gpt-6-astra high). Ports 9126/9136, cap ~10:5x. Verified: no
+  Traceback, the purple logs model=gpt-5.6-sol, flags on the args, skills/ (4) and the
+  four starters in the workspace. Read-outs against og21: milestones per step and per
+  hour, deaths, the workshop turn (digest, copied scripts), scripts and reflexes written,
+  codex turn wall clock (xhigh may be slower per turn).
