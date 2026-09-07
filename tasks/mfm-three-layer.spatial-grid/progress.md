@@ -702,3 +702,22 @@ monitor stopped. Final state at the stop:
 
 og23/og24 ran ~44 min (kit phase only); their memory-v2 read-outs (match rate, memory looks, recall re-targets) need a
 longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.sh once the budget allows.
+
+## 2026-09-08 -- the mfm-era trajectories staged for HF (Ced-Collab/MCUData)
+
+- User (mid-morning): "把目前有代表性的或者分数高的轨迹总结一下，我准备上传 ... agent自己写的相关的代码啥的也可以
+  作为轨迹的一部分"; then "你整理好以后上传到 https://huggingface.co/datasets/Ced-Collab/MCUData/tree/main".
+- `scripts/stage_hf_mfm_era.py` builds `MCU-AgentBeats/output/hf_staging/mfm-era/`: 14 runs (obf2 54.17 full-task
+  record, obf1; og9 16/24 half-task record, og8 repeat-death exemplar, og19 23-life carry; og12/og16 from scratch;
+  og14/og15/og20/og21/og22 self-harness ladder; og17 visual-only; og18 human-play) + `lineage/og23_distill/` +
+  `agent-code/INDEX.md` (every mine/ file with call counts). Per run: provenance.json, trajectory/episode_001
+  (episodes/ packed as one `episodes.tar`; previous/life_* replaced by LINEAGE.json), slimmed codex rollouts
+  (compaction snapshots + base64 frames out: 200-500 MB -> ~20 MB), launcher logs, evaluator mp4 where flushed
+  (og12, og22, obf1, obf2). Anonymised (<MCU>/<MFM>/<CODEX_HOMES>/<HOME>/user); leak grep = 0 files. 2.42 GB,
+  9,190 files (the unpacked tree would have been ~65k files against the repo's 100k budget).
+- README caveats recorded: the half task credits only milestones triggered in the episode (compare by the
+  beyond-kit timeline); obf1/obf2 ran with --sites/--corridors; og15/og19-og22 were stopped 04:36 mid-run.
+- Facts settled while staging: og14 reached mine_obsidian at 15505 (earlier notes had it short of obsidian);
+  the ob/obf arms ran at the purple default effort (medium: run-arm.sh passes no --reasoning-effort).
+- `stats/runs.csv` gained the 14 rows + 17 scoreboard-only rows (og3-og7, og10/og11/og13, og23/og24, ob1-ob6,
+  obf3); the top-level README got the dated mfm-era box. Upload: `hf upload` from the staging dir (user's word).
