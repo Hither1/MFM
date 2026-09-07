@@ -393,3 +393,16 @@
   go_to re-issued as the first entry within 150 ticks is not re-checked -- candidate.
   The live MFM-grid/MCU is NOT fast-forwarded while five arms run from it; ff before
   the og15 launch (only agent.py/grid.py change, both loaded at start).
+- 10:45 SLICE: the lava guard's cooldown (MCU spatial-grid-merge, the commit after
+  a71e86cc; tests/test_lava_cooldown.py). og8's death #2 re-read: LAVA AHEAD (27%)
+  fired during Action 617 `mine_obsidian` (action_num 616 while it ran); the next plan's
+  FIRST entry, Action 618 `go_to(x=-2989, z=-5558.5, within=0.2, n=30)` at step 14294,
+  ran with action_num 617, inside `same_action = action_num <= last + 1`, and the guard
+  stayed silent while the walk crossed the cell the obsidian had come out of (douse at
+  14348, dead at 14349 with 5 obsidian). action_num advances when the stopped entry
+  closes, so `+ 1` covered exactly the next plan's first entry -- the comment beside it
+  claimed the opposite. Fix: `<= last` (the same entry only). The test replays og8's
+  sequence: stop at 616, the refilled same entry stays quiet, the go_to at 617 eight
+  ticks later is stopped again. 88 tests pass. The stage s23 run at 10:28 had shown the
+  same window on the shaft guard (its second stop landed on the second column because
+  the first was still in the +1 window) -- the shaft guard shipped with `<= last`.
