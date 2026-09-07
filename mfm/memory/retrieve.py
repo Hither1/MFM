@@ -217,7 +217,18 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None) -> str:
                  f"({ok['id']}: {_action(ok)}).")
     else:
         line += ". It has never changed anything."
+    if _frame(last):
+        line += f" Frame: {_frame(last)}"
     return line
+
+
+def _frame(row: dict[str, Any]) -> str:
+    """The frame path of a row (the index's `image`, else the conventional path)."""
+    img = row.get("image")
+    if img:
+        return str(img)
+    rid = row.get("id")
+    return f"episodes/{rid}/observation/image.png" if rid else ""
 
 
 def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
@@ -315,7 +326,8 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
         cite = did[-max_here:] if did else stuck[-max_here:]
         for r in cite:
             line += (f"\n    {r['id']} step {r.get('first_step')}: {_action(r)} -> "
-                     f"{_outcome_tail(r) or 'no change'}")
+                     f"{_outcome_tail(r) or 'no change'}"
+                     + (f" (frame: {_frame(r)})" if _frame(r) else ""))
         lines.append(line)
 
     ms = milestone_rows(rows)
@@ -329,7 +341,9 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     if not lines:
         return ""
     return ("[RECALL] computed from episodes/ by the harness -- what you did, not "
-            "advice:\n" + "\n".join(lines))
+            "advice:\n" + "\n".join(lines)
+            + "\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
+              "what you will see there.)")
 
 
 def _milestone_name(row: dict[str, Any]) -> str:

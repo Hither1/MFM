@@ -581,3 +581,21 @@
   og14 3267, og15 3318) at (-2997, 55, -5566), a spot of its own 12 blocks from spawn,
   not a recorded vein; its mine/digest.md ("read programmatically from all 23 previous
   logs") + mine/prior_evidence.json were written in turn 1. og20 11/24 at 1050.
+- 2026-09-08 01:5x VISUAL-MEMORY TEXT (user: the old analysis -- the mfm prompt describes
+  frames as furniture, never names view_image, never asks to look -- "还存不存在"; then
+  "文字层面要整体修"). Measured first (scripts/vision_use.py over the codex rollouts, the
+  only place view_image calls are recorded): og14 163 calls (138 zooms of the current
+  view, 12 this life's episode frames, 7 mine/), og15 29 (21 / 3 / 3 previous-life
+  frames), og18 43 (23 / 11), og19 65 (57 / 6), og20 6, og21 9, og22 10 -- all zooms of
+  the current view or the attached sheet. The model looks, but almost never BACK; the
+  contract listed no image tool (logbook tool line verbatim), named view_image once as
+  zoom.py's consumer, [RECALL] cited ids without frames. Fixed across settings (MCU
+  spatial-grid-merge, live fast-forwarded; MFM mfm/memory/retrieve.py): the mfm tool
+  line names view_image and what it opens (zoom.py only with --frames); MFM_MEMORY_NOTE
+  gains **Look back.** (before a walk to a remembered place; after a hit; after two
+  failures of one plan; before unwalked ground; before an earlier life's place, with
+  the episodes.py query for each); the retrieval note, the turn prompt's hint, the human
+  contract and the memory skill name the command; recall_block cites each entry's frame
+  path and closes with "view_image the cited frame". Pins re-recorded (logbook pin
+  unchanged). tests/test_vision_prompt.py (3). Applies to the next launches; the five
+  running arms keep their contracts.

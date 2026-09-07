@@ -40,12 +40,22 @@ one per line with their paths; add `--sheet out.png` to tile their frames into o
 image you can view, `--json` for the rows. These files persist across turns like
 `logs.txt`; they are harness-written and immutable.
 
+**Look back.** The frames are for looking, not only for listing. Before you walk to a
+remembered place, view the frame of the episode that stood there (`./tools/episodes.py
+--near X Z`, then `view_image episodes/<id>/observation/image.png`) so you recognise it
+on arrival; after a hit, the frame of the episode tagged `damage` (what hit you is in
+it); when a plan has failed twice for a reason the numbers do not give, tile
+its last entries' frames (`--sheet out.png`) and look at them together; before a route
+over ground you have not walked, the frames of the nearest episodes; before a place from
+an earlier life, that life's frame of it (`--previous --near X Z`). The log knows where;
+the frame knows what.
+
 Any other file or directory you create in `./` is removed when your turn ends; the
 current view is attached to this call, and the earlier views are the episodes' images.
 Whatever you will want to find again goes in your briefing and [PLAN], which the
 harness writes into the log and into the episode.
 
-**Tools**: Read, Bash, Grep, Glob to read the log; Write to create `actions.json`, which
+**Tools**: Read, Bash, Grep, Glob to read the log and the episode index; `view_image <png>` to LOOK at a frame -- the attached view, any episode's `observation/image.png` (this life's or an earlier life's under `previous/`), a sheet from `--sheet`; Write to create `actions.json`, which
 is **deleted before your turn starts**. Create it; do not edit it. An edit is an update
 to a file that is not there, it is rejected, and you spend the retry -- 77% of turns in
 one run were paying for this.
