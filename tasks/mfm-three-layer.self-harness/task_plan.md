@@ -129,3 +129,28 @@ does it call the carried scripts (own_calls by name, `[OWN]` block) or rewrite t
 does it get past 15/24 (the portal). At the cap: compare.py og14 vs og15, own stats from
 the report, toolcalls.py; move the codex home is already on data3. Then decide phase 2
 (between-lives distillation) on that evidence.
+
+## S7: the three-layer skill package (2026-09-08 00:xx, user)
+User (00:1x-00:3x): let the model write all three layers itself; the harness gives META
+hints per layer -- memory (USE our multimodal memory), skills (macro-level advice, not
+recipes), reflexes (meta-level, plus example scripts) -- packed as a skill the way
+wz1119/Codex-Minecraft-Gameplay packs its play instructions. Implemented (MCU
+spatial-grid-merge, `mcu_worldmodel/skills.py`):
+- `--skills`: `skills/{memory,procedures,reflexes,harness}/SKILL.md` (frontmatter +
+  doctrine; no world facts) with `scripts/` examples (stair_step.py, torch_wall.py,
+  where_was.py), harness-written, kept by the sweep; the contract's tail gains a
+  **Skills.** paragraph. With `--own-reflexes` the four starter reflexes are installed
+  under `mine/reflexes/` (lava_ahead, fell, hit, starving), active from the first tick,
+  the model's to edit or retire (`_name.py`).
+- `--no-harness-reflexes`: the runner's guards, escapes, governor and nudges are off
+  (as in human-play) while the atoms, the thin references and the mfm memory stay; the
+  survival reference becomes `_SURVIVAL_OWN` ("the runner does not act for you").
+- The memory skill names the workshop turn (turn 1 of a life: digest, copy scripts and
+  reflexes, one no-op plan), when to open a frame, and the previous-lives queries.
+Arm: og21_mfm = og15/og20's settings + `--own-reflexes --no-harness-reflexes --skills`,
+seeded with og14's life (the third arm of the og15/og20/og21 set). Read-outs: milestones
+per step and per hour vs og15/og20; deaths (no harness floor); reflex fires and which
+starters it kept, edited or retired; scripts written and their grain (ticks per call,
+calls per script); whether turn 1 was a workshop turn (files changed, no-op plan).
+Tests: tests/test_skills.py (5). Stage s27_starters (guards off, starters on: a walk
+toward lava stopped by lava_ahead, a 6-block drop noted by fell).

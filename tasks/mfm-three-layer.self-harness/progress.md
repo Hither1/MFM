@@ -67,3 +67,20 @@
   tests/test_own_reflex.py (3); stage s26_own_reflex 6/6 (a halt reflex stops a raw
   walk 2-4 blocks out with its note and runs its own watch; a broken one is switched
   off after three failures; the turn message lists both).
+- 2026-09-08 00:13 og21_mfm LAUNCHED (MCU d505367c, live MFM-grid/MCU fast-forwarded): og20's
+  settings + `--no-harness-reflexes --skills` -- the user's three-layer direction (00:0x:
+  the memory layer USES our multimodal memory; the skill and reflex layers get meta-level
+  advice; example scripts; all packed as a skill the way wz1119 packs its play
+  instructions). skills/{memory,procedures,reflexes,harness}/SKILL.md + scripts written
+  once per life; the four starter reflexes (lava_ahead, fell, hit, starving) installed
+  under mine/reflexes/ and active from tick 1; the runner's guards, escapes, governor and
+  nudges OFF; survival.md says so. Seeded with og14's life (the third of og15/og20/og21).
+  Ports 9125/9135, cap ~10:13. Verified: no Traceback, flags on the purple, skills/ (4)
+  and mine/reflexes/ (4) in the workspace, the contract carries Skills + reflexes + digest.
+  Stage s27_starters 8/8 (guards off: fell notes a 6-block drop at the 2-blocks-in-4-ticks
+  window; lava_ahead stops a walk 3 blocks short of a lava basin at y 30 with its 1.5%
+  band -- the 4% first draft let the walk reach the basin, and a burn's flames read as
+  lava, so the drop test runs first). Tests: tests/test_skills.py (5).
+  Status of the others at 00:13: og15 5.6k 12/24; og19 4.4k 12/24, 1 death (a cave fight
+  at y 30: fight(diamond_sword) took it 11 -> 0 in 160 ticks, the flee came at 0 hp --
+  the underground-melee cluster's 4th case); og20 3.6k 12/24, no reflex written yet.
