@@ -683,3 +683,22 @@
   `forward` nudges inside plans register "moved 0.0", so the streak line reads "forward changed nothing in its
   last 34 calls ... never changed anything" while the avatar walks fine. Adjusted agreement ~26/30: usable as a
   flagger with a human pass. Fix queued: short raw movement entries leave the streak statistic.
+
+## 2026-09-08 04:36 — all seven arms stopped (user: API cost)
+
+`scripts/stop_arm.py --go og15_mfm og19_mfm og20_mfm og21_mfm og22_mfm og23_mfm og24_mfm` (one PermissionError mid-way on a pid
+that had already exited; the dry run afterwards found no wrapper left, ports 9121-9138 free), wall watchdogs killed by pid,
+monitor stopped. Final state at the stop:
+
+| Arm | Steps | Milestones (last) | Deaths | Reflex fires |
+|---|---|---|---|---|
+| og15 | 21546 | 15/24 (mine_diamond_ore) | 0 | 0 |
+| og19 | 22783 | 14/24 (mine_obsidian) | 2 | 0 |
+| og20 | 16885 | 13/24 (flint_and_steel) | 0 | 0 |
+| og21 | 15232 | 14/24 (mine_obsidian) | 0 | 0 |
+| og22 | 9334 | 12/24 (mine_iron_ore) | 0 | 5 |
+| og23 | 1028 | 11/24 (mine_cobblestone) | 0 | 0 |
+| og24 | 1649 | 11/24 (iron_ingot) | 0 | 3 |
+
+og23/og24 ran ~44 min (kit phase only); their memory-v2 read-outs (match rate, memory looks, recall re-targets) need a
+longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.sh once the budget allows.
