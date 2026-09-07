@@ -628,3 +628,11 @@
   lava, recovered the water, mined one obsidian from the ledge with the diamond pickaxe; the EXPECT
   line before it predicted `mine_block obsidian +1, progress 14/24` and matched. First mine_obsidian
   in an mfm arm; the dragon-obsidian anchor lists it as never reached in 148 earlier runs. Still running.
+
+## 2026-09-08 03:3x — memory v2 plan frozen (items 1,2,3,6,8; 4/5/7 as skill examples only)
+
+- `analysis/SYNTHESIS.md` (checked) and `plan-memory-v2.md` hold the evidence and the plan; the user
+  chose items 1, 2, 3, 6, 8, "build all, then run", and that hazard avoidance / death forensics /
+  phase bottlenecks go to the model via examples + meta hints, not harness code.
+- Build order: (2) frames into decisions, (3) session checkpoint, skills examples, (6) distiller
+  pass, (8) minimal contract, (1) metrics parsers [worker], launch og23/og24, then the judge.

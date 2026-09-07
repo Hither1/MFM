@@ -31,3 +31,12 @@ Item 7 is its own track; 8 last.
 Decisions assumed unless the user objects: within-life hazard cells are a runner reflex (allowed);
 cross-life hazards reach the runner only through the model's own reflex file; the distiller is the
 same model family as the player, its cost counted in the arm's budget.
+
+## Decision 2026-09-08 03:3x (user)
+
+Do items 1, 2, 3, 6, 8; build them all, then launch (not one arm per change). Items 4, 5, 7 are
+NOT harness work: the model writes them itself; the harness only supplies examples and meta-level
+hints in the skills package (hazard-memory reflex template, death-forensics example, phase-bottleneck
+hint with the data). Arms after the build: og23 = og21 setting + (2)(3)(6) + the new skill examples on
+gpt-5.6-sol xhigh; og24 = og23 + (8) minimal prompt. Item 1's parsers run before launch; the judge
+calibration runs while the arms run.
