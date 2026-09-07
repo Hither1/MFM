@@ -599,3 +599,28 @@
   path and closes with "view_image the cited frame". Pins re-recorded (logbook pin
   unchanged). tests/test_vision_prompt.py (3). Applies to the next launches; the five
   running arms keep their contracts.
+
+## 2026-09-08 02:xx — references read: VISTA + arXiv 2606.00579; frames-note gate removed
+
+- User handed over https://github.com/joshhhhhan/VISTA (Han, Hu, Qiu, Wu, He, Aug 2026; ARC-AGI-3,
+  Opus 5.0 RHAE 100) and arXiv 2606.00579v1 (Chen et al., "Sandboxed Coding Agents are Competitive
+  Omni-modal Task Solvers"). Notes in memory `visual-harness-references.md`.
+- Mapping: our `--expect` IS VISTA's expect/observe protocol (episodes.py MFM_EXPECT_NOTE cites it; all
+  og14+ arms ran it: og14 1539 EXPECT lines / 426 compare lines, og21 377/97, og22 123/72 so far).
+  Difference: VISTA's OBSERVED is "all visible changes" (the frame); ours is the harness record
+  (moved/descended/inv/events/note) with no frame pointer, so a mismatch never leads to a look.
+- Found and fixed a contradiction: MFM_FRAMES_NOTE said "open the frame only when the [STATE]/[NOTE]
+  lines cannot answer it" -- a text-first gate against the Look-back doctrine (13d96ba0) and the
+  paper's "insufficient exploration of modal content" mode. Now: name the question, then look; one
+  look costs one image. MCU 0b76c648 (spatial-grid-merge; live MFM-grid/MCU ff'd). Tests: pins_chassis,
+  vision_prompt, visual, thin, skills pass.
+- Paper Finding 4 (log-driven self-distillation 76.7 > calibration self-iteration 73.0 > human-written
+  skills 70.5 > none 61.4 on OmniGAIA) backs the model-digests-its-own-traces line; their distiller is a
+  SEPARATE agent pass over raw logs between runs, ours is the player at life start (og19/og20/og21).
+- Candidates (not done): (a) `[OBSERVED]` entries carry the frame path of the episode where the entry
+  ended, so a surprise has a one-step look; (b) an offline distiller pass by the model between lives
+  (previous lives' logs + episodes -> mine/digest.md + candidate procedures/reflexes) as the
+  memory-reuse comparison to in-life digest.
+- Arms at 02:04 CST, all alive: og15 12448 steps 13/24 (flint_and_steel); og19 13578 13/24
+  (mine_diamond_ore, 2 deaths); og20 9279 12/24; og21 5171 11/24; og22 3652 12/24 (mine_iron_ore, a
+  diamond_sword already at 3626 -- the gpt-5.6-sol pair is ahead of og21 at equal steps).
