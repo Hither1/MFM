@@ -624,3 +624,7 @@
 - Arms at 02:04 CST, all alive: og15 12448 steps 13/24 (flint_and_steel); og19 13578 13/24
   (mine_diamond_ore, 2 deaths); og20 9279 12/24; og21 5171 11/24; og22 3652 12/24 (mine_iron_ore, a
   diamond_sword already at 3626 -- the gpt-5.6-sol pair is ahead of og21 at equal steps).
+- **og15 banked `mine_obsidian` (14/24) at step 13251** (logs.txt:10830): placed a water bucket on
+  lava, recovered the water, mined one obsidian from the ledge with the diamond pickaxe; the EXPECT
+  line before it predicted `mine_block obsidian +1, progress 14/24` and matched. First mine_obsidian
+  in an mfm arm; the dragon-obsidian anchor lists it as never reached in 148 earlier runs. Still running.
