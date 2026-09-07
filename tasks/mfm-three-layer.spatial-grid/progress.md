@@ -468,3 +468,18 @@
   guards; ports 9105/9115; cap ~21:59): og13's twin on the new code. og17_mfm (thin +
   `--visual-only`, 640x360, ports 9106/9116) launched next -- see
   tasks/mfm-three-layer.visual-only/task_plan.md. Nether audit F in findings-0907/.
+- 12:35 og16/og17 FAILED TO START at 11:59/12:14: launched from MFM-grid-merge-mcu without
+  MFM_ROOT, run-arm.sh put `$ROOT/..` (= Collab) on PYTHONPATH and the purple died at
+  import (`No module named 'mfm'`); the green server of the first og16 start outlived its
+  wrapper on 9105 (killed by pid 52621 after checking its cwd). Relaunched with
+  MFM_ROOT=.../MFM-grid: og17 (thin + `--visual-only`, 640x360) 12:16 on 9106/9116, og16
+  (thin, 320x180) 12:17 on 9107/9117; both verified (no Traceback, first Action written,
+  og17's contract has the visual section and no go_to/look_abs, its log no [STATE]/[INV],
+  no grid.jsonl; og16's skills.md has the gravel line). Caps ~22:16 / ~22:17.
+- 12:40 SLICE from audit F (Nether): `explore_nether(bearing=<yaw>)` walks along a yaw
+  instead of an axis with the same tunnelling/bridging, and the FORTRESS IN VIEW note
+  now says to call it (it said "travel/go_to toward it"): og9 at 17727 saw nether brick
+  at 1% on bearing 61, turned, tunnelled 1.2 blocks with mine_forward, stalled, went west
+  and never saw it again -- the only fortress sighting in all runs. MCU e13fe9be,
+  tests/test_nether_bearing.py, 98 pass. n=1 evidence; the walk itself is the proven
+  explore walker, only the heading is new.
