@@ -121,7 +121,10 @@ log-driven self-distillation of skills from execution traces: OmniGAIA 61.4 -> 7
 
 ## Next Action
 
-(2026-09-07 08:3x) Implement S1-S4 on `spatial-grid-merge` (tests + stage), fast-forward
-the live `MFM-grid/MCU`, launch og14 (ports 9104/9114) around midday; og13 is the control.
-Keep monitoring og8..og13; on each exit run compare.py and record in the spatial-grid
-progress.md. og15 after og14's cap (~23:00).
+(2026-09-07 09:30) og14_mfm launched: thin + `--atoms --own`, from scratch (`NO_SEEDS=1`),
+gpt-6-astra high, 60k, session-turns 0 + compaction, 320x180, ports 9104/9114, 10h cap
+(~19:30), from the live MFM-grid/MCU at ed34754c. Control: og13 (thin, fixed library,
+scratch, 07:50, cap ~17:50). Watch: the first own script (mine/procedures/), its call
+count, milestones per step vs og13, deaths, the RAW/look share. At the caps: compare.py
+on both, plus `own_calls`/`own_failures` from the report and the [OWN] blocks. Then og15
+seeded with og14's life only (S6).
