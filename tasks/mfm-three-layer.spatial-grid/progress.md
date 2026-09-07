@@ -355,3 +355,41 @@
   9 obsidian in hand at (-2959, 11, -5641)), 0 deaths, 6.8k/h; og14 (thin+atoms+own)
   1.8k, 11/24, 3.1k/h (see the self-harness progress). Rule for og12: if it has no new
   milestone by 12:30 (about 30k steps) it is stopped under the same user rule.
+- 10:20 og10's two deaths (8870 and 35834) are the SAME pool cell (-2957, 9..10, -5511)
+  and the same mechanism on the pre-fix code (304bae53): the lava hit armed the bunker,
+  "the dig met lava", 4 damage per interruption down to death, the kit lost both times
+  (the second time 660 steps after mine_obsidian at 35170). Pool-fix read-out so far:
+  pre-fix scratch arms og10/og11 3 pool deaths between them; post-fix og12/og13 0 deaths
+  at 18.8k / 15.1k steps, both past the pool with obsidian.
+- 10:35 SLICE: the SHAFT AHEAD guard (MCU spatial-grid-merge, next commit after
+  ed34754c; tests/test_shaft.py, stage s23_shaft_ahead). Mechanism of og9's death #2,
+  re-read from the log: at 19233 a stair_down from (-3004.6, 69, -5576.3) facing north
+  ended at (-3004.6, 67.5, -5579.7); mine_forward(100) then broke the wall into the
+  y 9..67 shaft dug at steps 3955-4663 at (-3005, -5581) one block north, the avatar
+  walked into the column and fell 58 blocks (YOU DIED at (-3005, 9, -5581)). og9's
+  grid.jsonl holds that column as 59 walked levels (a second one, (-2999, -5566), 54
+  levels); dm4_wmv9 died the same way earlier (agent.py's death note). Slice:
+  `Grid.drop_ahead(cell)` = a column of CONSECUTIVE walked levels whose top is the cell
+  or the one under it, 4+ deep, last walked downward (a pillar_up or a shaft pillared
+  out of is walked upward last: solid; a staircase is one level per column; a fall
+  records no intermediate levels). `agent._shaft_guard` runs in observe beside the lava
+  guard: candidate cells along the last tick's motion out to a jump's reach at that
+  speed (1..5 blocks, sp x 14) and along the facing at 1 and 2 blocks when the queued
+  action holds forward/back; on a hit it drops the plan, ends a flee/fightback, marks
+  the hazard for [MAP] and notes SHAFT AHEAD with the levels, the dig steps and the fall
+  (hp, FATAL at 23+). Once per column and plan entry; nothing when no plan and no moving
+  reflex runs; a teleport (>1 block a tick) is ignored.
+  Stage s23 (a 1x2 hole 9 deep through a lit platform): first run, 5 of 7 FAILED and
+  taught three things -- the go_to servo sprint-jumps (0.35/tick; it cleared the hole
+  in the control and a 1-block lookahead fired in mid-air), the cooldown keyed by cell
+  fired 3x on one walk, and SNEAK + FORWARD WALKED OFF THE EDGE (the avatar ended at
+  y 78.9 in the hole): sneaking does not hold an edge in this simulator, so the guard
+  has no sneak exemption and the note says so. Second run after the rework: control
+  (raw forward, map blank) fell 9 blocks (took 6 damage); guarded go_to stopped on the
+  platform in 13 ticks with one note; raw forward from 0.8 block off the edge stopped;
+  sneak + forward stopped: 7 checks, 0 failed. Unit tests: 87 pass (84 + 3).
+  Observation, not changed: the lava guard's cooldown `action_num <= last + 1` covers
+  the NEXT plan's first entry (action_num advances when the stopped entry closes), so a
+  go_to re-issued as the first entry within 150 ticks is not re-checked -- candidate.
+  The live MFM-grid/MCU is NOT fast-forwarded while five arms run from it; ff before
+  the og15 launch (only agent.py/grid.py change, both loaded at start).

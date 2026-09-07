@@ -72,16 +72,14 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-(2026-09-07 10:15) Five arms in flight, all gpt-6-astra high, 60k steps, one session +
-compaction, 320x180, 10h cap. og8 (full, carry) and og9 (thin, carry) were STOPPED at 10:10
-under the user's rule (very long without progress: >12k steps since the last milestone, 3
-deaths, kit lost) with their scores banked: 15/24 and 16/24 (progress.md 10:10). From scratch
-(`NO_SEEDS=1`): og10 (full) / og11 (`--thin`) at 304bae53, caps 15:26; og12 (full) / og13
-(`--thin`) at 421aa327, caps 17:50; og14 (thin + `--atoms --own`, the self-harness task) at
-ed34754c, cap 19:30. og12 rule: no new milestone by 12:30 -> stop it. On each exit: compare.py
-+ toolcalls.py (codex_turns dirs), record in progress.md. Read-outs still open: thin vs full
-(og10/og11, og12/og13), pool-fix vs before (og12/og13 vs og10/og11: deaths at the pool,
-obsidian step), self-harness vs fixed library (og14 vs og13, the self-harness task_plan).
-Candidate slice from og9's death #2 (fell into its own shaft): mark dig_down shaft mouths as
-hazard cells so go_to detours; and the portal-frame sightline check (place_at cannot see where
-the block lands, ~350 ticks per miss).
+(2026-09-07 10:40) Five arms in flight (progress.md 10:10): og10/og11 (304bae53, caps 15:26),
+og12/og13 (421aa327, caps 17:50), og14 (ed34754c, thin + atoms + own, cap 19:30). og8/og9
+stopped 10:10 under the no-progress rule (15/24, 16/24 banked). og12 rule: no new milestone
+by 12:30 -> stop. On each exit: compare.py + toolcalls.py (codex_turns dirs), record in
+progress.md. Read-outs open: thin vs full (og10/og11, og12/og13), pool-fix vs before
+(og12/og13 vs og10/og11), self-harness vs fixed library (og14 vs og13).
+Code: the SHAFT AHEAD guard is committed on spatial-grid-merge (progress.md 10:35) and NOT
+yet in the live MFM-grid/MCU: before the next launch (og15 = og14's settings seeded with
+og14's life only, after 19:30) `git -C MFM-grid/MCU merge --ff-only spatial-grid-merge`, bump
+the submodule pointer, then launch. Candidates: the lava guard's `+ 1` cooldown window; the
+portal-frame sightline check (place_at cannot see where the block lands, ~350 ticks a miss).
