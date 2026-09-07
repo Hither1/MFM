@@ -431,3 +431,36 @@
   Pool-fix read-out so far: pre-fix scratch arms 4 pool deaths (og10 x3, og11 #1),
   post-fix 0 at the pool in 45k combined steps. The Nether is the next death cluster:
   og9 x2 and og13 x1, all falls into holes/lava on Nether terrain, none at the pool.
+- 12:00 AUDIT (user 11:4x: "look at the existing problems and improve the systematic
+  ones"). Four read-only tracks in `findings-0907/` (A phase costs + scripts/phases.py,
+  B flint/bucket, C obsidian->Nether, D falls/Nether) plus E wall clock (mine). What
+  held up as SYSTEMATIC, with the evidence, and what was done (MCU 6f79b0e6, tests 92):
+  1. Lava REPEAT clause sent a bucket-carrier away from its pool: og13 stops at 5764
+     (2%) and 5820 (4%) at (-2998, 12, -5554), the second with "tunnel away ... do not
+     target this spot again"; it obeyed and searched 7.6k steps for another pool
+     (obsidian at 13358). og12 took obsidian at 6134 from the SAME pool ((-2996, 11,
+     -5553), five sliver stops) by ignoring the clause. 17 of 21 lava stops before the
+     first obsidian across og8-og13 are slivers (<10%). FIX: with the bucket and the
+     obsidian open, a sighting that grew since the last stop in the cell says CLOSER.
+  2. Flint: og12 15.5k steps between obsidian and flint_and_steel, og11 11k, og6/og14
+     never found gravel (B). The contract had the 1-in-10 rate but not that gravel can
+     be placed and broken again, nor where it lies. FIX: one contract sentence.
+  3. Mid-air cells on the map: og13's 13-block fall (18768) recorded cells at y 39-49;
+     grid.above() (min_rise 2..max_rise 8) took the y 39 one for a rim, the stall branch
+     queued pillar_up(2) at the bottom of a 13-block hole (D). FIX: grid.observe skips a
+     tick that drops faster than 0.3 blocks (free fall after ~1.7 blocks); standing
+     ticks always record.
+  4. Unplanned falls: og13 18768 (13 blocks, then 9 more on a jump, dead), og9 26888
+     (20 blocks into Nether lava, dead); the plan kept running after each (D: 9 Nether
+     falls, 3 deaths; 89 Overworld falls, 0 deaths). FIX: _fall_guard drops the plan
+     on landing after a 4+ block free fall with a FELL note (Nether clause). Stage s24.
+  NOT systematic / not changed: A's "governor refusals are the bottleneck" (a count,
+  not a cause; the refusals are the symptom of stalls already handled); C's "portal
+  frame never placed" for og12 (it holds 7-8 obsidian, still mining -- no stall); the
+  portal-frame miss (og9, one miss, ~350 ticks; og13 10/10). E: wall clock per turn is
+  the same for every contract (57-67 s), steps/h differ only by ticks per plan (full
+  129-167, thin 87-120, atoms 49); the model's first command each turn re-reads the
+  last plan's log sections -- a prompt change for og15+, not now.
+  Phase costs (A): kit 182-1021 steps; diamond_sword -> obsidian median 12.4k (og12
+  5.9k, og10 34.9k with a death); lava sighting -> first obsidian: og9 1.7k, og12 2.1k,
+  og13 7.6k (item 1), og10 26.3k (death + rebuild).

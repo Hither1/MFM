@@ -197,7 +197,7 @@ GUI open: False
 - step 60 {"attack":1} x6: moved 1.8, descended 1.0, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 48). A 
 
 [MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
-- You stand in cell (19, 61, 2); 19 cells walked this life (a route over them is walkable again).
+- You stand in cell (19, 61, 2); 18 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.

@@ -402,7 +402,10 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   beyond one stack. Never bank junk in a furnace or place it block by block for room.
 - **Cheap milestones off the main chain**, when your list has them: `flint_and_steel`
   is 1 iron ingot + 1 flint in the 2x2 grid, and flint drops from GRAVEL (about 1
-  block in 10, any tool: aim at a gravel bank, `mine_until(item="flint")`) -- bank it
+  block in 10, any tool: aim at a gravel bank, `mine_until(item="flint")`). Gravel
+  you carry can be PLACED and broken again -- every break is a fresh 1-in-10 roll,
+  so 3-4 gravel blocks re-broken a few times give the flint without a search; gravel
+  lies in pockets underground, in river beds and on beaches. Bank flint_and_steel
   with the first spare ingot rather than after the diamond chain.
 - **The furnace runs while you mine.** Smelting takes ~200 ticks per item whether you
   watch it or not: load ALL banked ore and enough fuel in ONE visit, walk away to keep

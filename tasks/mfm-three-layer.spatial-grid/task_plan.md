@@ -72,14 +72,15 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-(2026-09-07 10:40) Five arms in flight (progress.md 10:10): og10/og11 (304bae53, caps 15:26),
-og12/og13 (421aa327, caps 17:50), og14 (ed34754c, thin + atoms + own, cap 19:30). og8/og9
-stopped 10:10 under the then no-progress rule (15/24, 16/24 banked). Rule since 10:5x: NO
-stagnation stops, every arm runs to its 10h cap (the launcher's watchdog stops it). On each exit: compare.py + toolcalls.py (codex_turns dirs), record in
-progress.md. Read-outs open: thin vs full (og10/og11, og12/og13), pool-fix vs before
-(og12/og13 vs og10/og11), self-harness vs fixed library (og14 vs og13).
-Code: the SHAFT AHEAD guard is committed on spatial-grid-merge (progress.md 10:35) and NOT
-yet in the live MFM-grid/MCU: before the next launch (og15 = og14's settings seeded with
-og14's life only, after 19:30) `git -C MFM-grid/MCU merge --ff-only spatial-grid-merge`, bump
-the submodule pointer, then launch. Candidates: the lava guard's `+ 1` cooldown window; the
-portal-frame sightline check (place_at cannot see where the block lands, ~350 ticks a miss).
+(2026-09-07 12:05, user asleep, autonomous) Five arms in flight to their 10h caps: og10/og11
+(304bae53, 15:26), og12/og13 (421aa327, 17:50), og14 (ed34754c, thin + atoms + own, 19:30).
+No stagnation stops (user rule 10:5x). MCU spatial-grid-merge 6f79b0e6 = ed34754c + SHAFT AHEAD
+guard + lava-guard cooldown + lava CLOSER clause + gravel line + mid-air cells + FELL guard
+(progress.md 10:35, 10:45, 12:00); tests 92. Launch og16_mfm NOW from MFM-grid-merge-mcu
+(thin, fixed library, from scratch, ports 9105/9115, 10h): the first arm with the new guards,
+og13's twin otherwise. At each cap: compare.py + toolcalls.py, record. After og14's cap
+(19:30): ff the live MFM-grid/MCU to 6f79b0e6, bump the submodule, launch og15 = og14's
+settings seeded with og14's life only (the self-harness task_plan S6). Read-outs: thin vs full
+(og10/og11, og12/og13), pool-fix (og12/og13 vs og10/og11), guards (og16 vs og13: deaths,
+falls, lava stops, steps to obsidian), self-harness (og14 vs og13). Candidates: the turn
+prompt carrying the last plan's log sections (E), the portal-frame placement check (C).

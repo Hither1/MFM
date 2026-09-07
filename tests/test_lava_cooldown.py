@@ -22,7 +22,7 @@ def _ns(action_num):
         action_num=action_num, cursor_stats={}, _reflex=None, structured=False, notes=notes,
         _keep_event_frame=lambda *a: None, _encode_pov=lambda *a: None,
         memory=SimpleNamespace(save_frame=lambda *a, **k: None, add_note=notes.append),
-        _lava_advice=lambda pos: "advice.", _lava_repeat_clause=lambda pos: "")
+        _lava_advice=lambda pos: "advice.", _lava_repeat_clause=lambda pos, frac=0.0: "")
 
 
 def _pos(x, z):
@@ -50,3 +50,20 @@ def test_the_next_entry_is_guarded_again(monkeypatch):
     A._lava_guard(ns, 14296, _pos(-2989.2, -5558.5))
     assert ns.cursor_stats["lava_flagged"] == 2 and ns.queue == []
     assert ns._last_lava_action == 617
+
+
+def test_repeat_clause_yields_to_a_growing_sighting_with_the_bucket():
+    from mcu_worldmodel.agent import WorldModelAgent as A
+
+    ns = SimpleNamespace(_lava_stops={}, cursor_stats={}, _cur_inv={"water_bucket": 1},
+                         _obsidian_unmet=lambda: True)
+    pos = {"x": -2998.0, "y": 12.0, "z": -5554.0}
+    assert A._lava_repeat_clause(ns, pos, 0.02) == ""                 # og13 step 5764
+    c = A._lava_repeat_clause(ns, pos, 0.04)                           # step 5820: it grew
+    assert c.startswith(" CLOSER") and "GREW from 2% to 4%" in c and "do not turn away" in c
+    assert ns.cursor_stats == {"lava_closer": 1}
+    r = A._lava_repeat_clause(ns, pos, 0.04)                           # the same sliver again
+    assert r.startswith(" REPEAT") and "3rd plan" in r and ns.cursor_stats["lava_repeat_stops"] == 1
+    ns2 = SimpleNamespace(_lava_stops={}, cursor_stats={}, _cur_inv={}, _obsidian_unmet=lambda: True)
+    A._lava_repeat_clause(ns2, pos, 0.02)
+    assert A._lava_repeat_clause(ns2, pos, 0.30).startswith(" REPEAT")   # no bucket: leave
