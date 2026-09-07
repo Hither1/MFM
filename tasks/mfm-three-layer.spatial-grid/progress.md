@@ -413,3 +413,21 @@
   runs to its wall-clock cap (10h) and is stopped there by the launcher's watchdog only.
   og8/og9 (stopped 10:10 under the earlier rule) stay stopped: a purple process cannot
   resume a life mid-episode, their scores are banked.
+- 11:35 status. og10 (full, pre-fix) 46.5k, 15/24, death #3 at 45621 at the SAME pool
+  (-2962, 10, -5512), the old bunker dug into lava again ("no water bucket in your
+  hotbar, so it only stepped you back 1.1 block"); rebuilding tools. og11 (thin, pre-fix)
+  28.8k, 14/24, death #2 at 27469 on the surface at (-2982, 64, -5667) DURING
+  `craft(furnace)` with the screen open: no damage note at all in the 147 ticks (og8 has
+  3 damage notes with a GUI open, so health is observed there) -- an instant kill, most
+  likely a creeper at the freshly placed table; the kit lost: 2 diamonds, the iron
+  pickaxe, flint_and_steel, 82 cobblestone. og12 (full, post-fix) 26.8k, 14/24, 0
+  deaths, mining beside the water at the pool (-2955, 10, -5513): the portal is next.
+  og13 (thin, post-fix) 19.0k, 14/24: it built the portal and ENTERED THE NETHER by
+  ~18.7k (og9 needed 17.5k with a carried life), then died at 18818: go_to at y 50 walked
+  into a 13-block hole (y 37, "a hole the walk cannot climb"), LAVA AHEAD 45%, it pressed
+  forward+jump+use and fell further to y 28, a melee mob followed it down, the bunker
+  cap failed, the fightback dealt 0, dead with the kit; now chopping spruce at spawn.
+  og14 (thin+atoms+own) 5.2k, 12/24 (mine_iron_ore 3267), 0 deaths, ~3k steps/h.
+  Pool-fix read-out so far: pre-fix scratch arms 4 pool deaths (og10 x3, og11 #1),
+  post-fix 0 at the pool in 45k combined steps. The Nether is the next death cluster:
+  og9 x2 and og13 x1, all falls into holes/lava on Nether terrain, none at the pool.
