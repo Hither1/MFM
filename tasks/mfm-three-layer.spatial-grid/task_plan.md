@@ -72,14 +72,16 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-(2026-09-07 07:5x) Six arms in flight, all gpt-6-astra high, 60k steps, one session + compaction,
-320x180, 10h cap. Memory carry (user: let them finish, launch no more): og8 (full) and og9
-(`--thin`) from `MFM-grid-merge-mcu`, caps ~14:35 / ~14:45. From scratch (`NO_SEEDS=1`): og10
-(full) / og11 (`--thin`) at 304bae53 (before the shaft-fight, obsidian-hole and lava-escape
-slices; both died at the pool), caps ~15:26; og12 (full) / og13 (`--thin`) at 421aa327 (all
-three slices in), launched 07:50, ports 9102/9112 and 9103/9113, caps ~17:50. On each exit:
-compare.py + toolcalls.py, record in progress.md. Read-outs: thin vs full (og8/og9, og10/og11,
-og12/og13), carry vs scratch (og8/og10, og9/og11), and pool-fix vs before (og12/og13 vs
-og10/og11: deaths at the pool, obsidian). Watch og9's portal frame: place_at cannot see where
-the block lands (17166: the block hit nearer stone), each miss ~350 ticks; if the frame is
-never completed, the next slice is a sightline/frame check on the harness side.
+(2026-09-07 10:15) Five arms in flight, all gpt-6-astra high, 60k steps, one session +
+compaction, 320x180, 10h cap. og8 (full, carry) and og9 (thin, carry) were STOPPED at 10:10
+under the user's rule (very long without progress: >12k steps since the last milestone, 3
+deaths, kit lost) with their scores banked: 15/24 and 16/24 (progress.md 10:10). From scratch
+(`NO_SEEDS=1`): og10 (full) / og11 (`--thin`) at 304bae53, caps 15:26; og12 (full) / og13
+(`--thin`) at 421aa327, caps 17:50; og14 (thin + `--atoms --own`, the self-harness task) at
+ed34754c, cap 19:30. og12 rule: no new milestone by 12:30 -> stop it. On each exit: compare.py
++ toolcalls.py (codex_turns dirs), record in progress.md. Read-outs still open: thin vs full
+(og10/og11, og12/og13), pool-fix vs before (og12/og13 vs og10/og11: deaths at the pool,
+obsidian step), self-harness vs fixed library (og14 vs og13, the self-harness task_plan).
+Candidate slice from og9's death #2 (fell into its own shaft): mark dig_down shaft mouths as
+hazard cells so go_to detours; and the portal-frame sightline check (place_at cannot see where
+the block lands, ~350 ticks per miss).

@@ -329,3 +329,29 @@
   8675, og4 11883, og8 12884) -- 0 deaths, one douse at the pool (the lava escape
   fired, no bunker); og13 (thin, scratch, 421aa327) 11.6k 13/24 (flint_and_steel) 0
   deaths. Both post-fix arms are alive past the pool.
+- 10:10 og8 and og9 STOPPED (user rule 10:0x: a run that has gone very long without
+  progress may be stopped; `stop_arm.py --go`, 26 of 26 pids, the two wall watchdogs
+  killed by pid). Final numbers (compare.py, worldmodel_report.json):
+  og8 (full, carry): 34.4k steps, 15/24 (last: mine_obsidian 12884), 3 deaths (2603,
+  14349, 18261); the 5 obsidian mined at 12.9-14.1k were lost at death #2 (obsidian -5 at
+  14349) and none was mined in the 20k steps since -- the run was still at the pool at
+  34.2k "building three walls around a water basin ... storing water will free the bucket
+  for collecting lava to cast the portal". toolcalls: 266 turns, 3.0 commands/turn,
+  episodes.py in 15% of turns, previous/ 39 commands, image items 0.
+  og9 (thin, carry): 30.2k steps, 16/24 (last: netherrack 17714, the record), 3 deaths
+  (17976 Nether lava lake + bunker; 19286 its own first-life shaft; 26939 fell to y 30.8
+  tunnelling into a Nether cliff, "the lost kit fell into lava"); respawned empty at 26939
+  and by 29.7k had rebuilt only a wooden + stone pickaxe, a stone sword and a table,
+  chopping trees at (-3032, 65, -5591) stuck in leaves. toolcalls: 251 turns, 3.5
+  commands/turn, episodes.py 22%, previous/ 48, image items 0.
+  Carry pair, final: thin 16/24 (obsidian at 8675) vs full 15/24 (obsidian at 12884),
+  both 3 deaths, steps/h 5.6k vs 6.3k.
+- 10:10 status of the five arms left: og10 (full, scratch, 304bae53) 38.2k, 15/24
+  (mine_obsidian at 35170, then death #2 at 35834), 8.3k steps/h, cap 15:26; og11 (thin,
+  scratch, 304bae53) 24.9k, 14/24 (flint_and_steel 22274), 1 death, 5.4k/h; og12 (full,
+  scratch, 421aa327) 18.8k, 13/24, no milestone in the 12.7k steps since mine_obsidian at
+  6134 (no flint_and_steel: walking the river banks south of spawn for gravel), 0 deaths,
+  8.4k/h, cap 17:50; og13 (thin, scratch, 421aa327) 15.1k, 14/24 (mine_obsidian 13358,
+  9 obsidian in hand at (-2959, 11, -5641)), 0 deaths, 6.8k/h; og14 (thin+atoms+own)
+  1.8k, 11/24, 3.1k/h (see the self-harness progress). Rule for og12: if it has no new
+  milestone by 12:30 (about 30k steps) it is stopped under the same user rule.

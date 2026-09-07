@@ -121,10 +121,11 @@ log-driven self-distillation of skills from execution traces: OmniGAIA 61.4 -> 7
 
 ## Next Action
 
-(2026-09-07 09:30) og14_mfm launched: thin + `--atoms --own`, from scratch (`NO_SEEDS=1`),
-gpt-6-astra high, 60k, session-turns 0 + compaction, 320x180, ports 9104/9114, 10h cap
-(~19:30), from the live MFM-grid/MCU at ed34754c. Control: og13 (thin, fixed library,
-scratch, 07:50, cap ~17:50). Watch: the first own script (mine/procedures/), its call
-count, milestones per step vs og13, deaths, the RAW/look share. At the caps: compare.py
-on both, plus `own_calls`/`own_failures` from the report and the [OWN] blocks. Then og15
-seeded with og14's life only (S6).
+(2026-09-07 10:15) og14_mfm in flight (thin + `--atoms --own`, from scratch, gpt-6-astra high,
+60k, session-turns 0 + compaction, 320x180, ports 9104/9114, 10h cap ~19:30, live MFM-grid/MCU
+at ed34754c). Control: og13 (thin, fixed library, scratch, 07:50, cap ~17:50). First own
+script seen at 10:07 (north_stair.py, progress.md 10:10). Watch: further scripts and their
+call/failure counts, milestones per step vs og13, deaths, the RAW/look share, and the
+steps/h gap (3.1k vs 6.8k: at this rate og14 reaches ~30k steps by the cap; the read-out is
+per step). At the caps: compare.py on both, `own_calls`/`own_failures` from the report and the
+[OWN] blocks. Then og15 seeded with og14's life only (S6).
