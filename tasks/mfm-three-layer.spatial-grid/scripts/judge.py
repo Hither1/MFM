@@ -33,24 +33,44 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _kit import ROOTS, episode_dir  # noqa: E402
 
 LABELS = ("looked_when_needed", "should_have_looked", "should_have_used_memory",
-          "re_tested_known", "ok")
+          "re_tested_known", "stale_rederivation", "ok")
 HDR = re.compile(r"^Action (\d+) \| Step (\d+)", re.M)
 
 PROMPT = """\
 You judge ONE turn of an agent playing Minecraft through a filesystem memory (a log, an
 episode store with one frame per plan entry, earlier lives under previous/, its own
 files under mine/). You see: the tail of the prompt it was given, the shell commands it
-ran (view_image = it opened a frame), and the briefing and plan it wrote. Decide which
-ONE label fits and cite the evidence in one sentence.
+ran (view_image = it opened a frame), and the briefing and plan it wrote in reply. Pick
+the ONE label that fits and cite the evidence in one sentence.
 
-Labels: {labels}
+Labels, with the bar each must clear:
+- ok: a plain continuation. The default. A matched or nearly matched EXPECT, a plan that
+  moves on sensibly, a coordinate quoted from memory -- all ok. When in doubt, ok.
+- looked_when_needed: the commands contain a view_image of an episode or previous frame
+  (not a zoom of the current view) AND the plan uses what it showed.
+- should_have_looked: NO such view_image, and one of these concrete triggers: (a) the
+  plan's success depends on RECOGNISING a place -- re-opening a placed table/furnace,
+  returning to a pour rim or a pool, arriving at a remembered site -- not merely walking
+  in its direction; (b) OBSERVED vs EXPECTED disagree for a reason the OBSERVED numbers
+  do not give (moved 0.0 with no note, a fall, an unexplained stop), and the plan repeats
+  the attempt; (c) a hit or a death this turn; (d) the third failure of the same plan.
+  A small numeric mismatch (one block short, one item fewer) with the plan adjusting is
+  NOT a trigger.
+- should_have_used_memory: the plan searches for, or re-derives from scratch, something
+  the prompt or a file it could grep plainly holds -- a RECALL line, [WORKING], the
+  digest/GUIDE -- e.g. exploring for water while RECALL cites the fill spot 6 blocks
+  away; or the plan's MAIN step is an action type RECALL says has never changed anything.
+  A RECALL streak line about a minor action (a `watch`, a one-tick `forward`) inside a
+  longer plan does not count.
+- re_tested_known: the plan's main step re-does something already credited or verified
+  in [OBSERVED]/[RECALL]/[STATE] (re-crafting a banked item, re-checking a recipe or a
+  GUI fact it already confirmed). Make sure the plan you judge is the NEW plan, not the
+  one whose outcome [OBSERVED] reports.
+- stale_rederivation: the briefing restates numbers the prompt already gave (position,
+  inventory delta) and gets them wrong after grepping the log instead of reading the
+  prompt -- the plan may still be fine.
 
-Rules: `should_have_looked` needs a concrete trigger in the prompt (a cited frame, a
-remembered place it walks to, an EXPECT that failed, a hit, ground it never walked) and
-no view_image of an episode/previous frame in the commands. `should_have_used_memory`
-needs the answer to be visibly in the prompt or in a file it could have grepped (a
-RECALL line, [WORKING], a digest) while the plan searches or re-derives. `ok` when the
-turn is a plain continuation. Answer with one JSON object only:
+Answer with one JSON object only:
 {{"label": "<one of the labels>", "reason": "<one sentence with the evidence>"}}
 
 === PROMPT TAIL (last 3500 chars) ===
@@ -96,7 +116,7 @@ def plan_after(log: str, step: int) -> str:
     """The [PLAN]/EXPECT lines of the first action section at or after `step`."""
     ms = list(HDR.finditer(log))
     for i, m in enumerate(ms):
-        if int(m.group(2)) >= step:
+        if int(m.group(2)) > step:      # the section AT `step` closed the previous plan
             end = ms[i + 1].start() if i + 1 < len(ms) else len(log)
             sec = log[m.start():end]
             keep = [ln for ln in sec.splitlines() if ln.startswith(("[PLAN]", "EXPECT", "OBSERVED"))]
