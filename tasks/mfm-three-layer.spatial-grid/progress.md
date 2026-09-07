@@ -653,3 +653,13 @@
   of a hazard the same life had recorded; 6 of 59 own procedures inherited by name.
 - Arms: og15 15/24 (mine_diamond_ore at 17,022); og19 14/24 (mine_obsidian at 16,933); og22's starter
   reflex `fell` fired at 6,064 (first own-reflex firing on record).
+
+## 2026-09-08 03:5x — distiller pass done; og23/og24 launched
+
+- Distiller (`output/og23_distill`, gpt-5.6-sol xhigh, 25 lives = og19's 23 + og15 + og18): 1,106 s, 142+
+  commands, GUIDE.md 87 lines (verified places with life/step/frame, 19 deaths each with a rule, phase ladder
+  per life), frames.md 11 landmarks, 17 procedures copied under their names (og18's set), reflexes/known_hazards.py.
+  Report: `output/og23_distill/distill_report.json`. Fix: codex -o path made absolute (MCU 4b72c3d5).
+- og23_mfm (ports 9127/9137): og22's flags + memory v2 + `--seed-mine`; og24_mfm (9128/9138): og23 + `--minimal`.
+  Both 60k steps, 10 h wall, seeds = the 25 lives under previous/. Launcher: scripts/launch_og23_og24.sh.
+- Monitor restarted with og23/og24 (poll_arms2.sh). og21 14/24 (mine_obsidian at 12,913).
