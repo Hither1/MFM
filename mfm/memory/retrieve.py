@@ -42,12 +42,41 @@ from mfm.memory.tools.episodes import (  # noqa: F401
 CHANGE_TAGS = frozenset({"milestone", "inventory_changed"})
 
 
+_MOVE_KEYS = frozenset({"forward", "back", "left", "right", "jump", "sneak", "sprint"})
+RAW_NUDGE_TICKS = 8
+
+
+def raw_move(row: dict[str, Any]) -> bool:
+    """A raw held-movement entry (`forward`, `forward+jump`, ...): its kind is the
+    joined key set, nothing else."""
+    parts = set(str(row.get("action_kind") or "").split("+"))
+    return bool(parts) and parts <= _MOVE_KEYS
+
+
+def moved_of(row: dict[str, Any]) -> float | None:
+    m = re.search(r"moved (\d+(?:\.\d+)?)", str(row.get("summary") or ""))
+    return float(m.group(1)) if m else None
+
+
+def raw_nudge(row: dict[str, Any]) -> bool:
+    """A raw movement shorter than RAW_NUDGE_TICKS: a one-tick `forward` to square up
+    before a dig. og21's RECALL read "forward changed nothing in its last 34 calls ...
+    never changed anything" while the avatar walked fine: every nudge moved 0.1 and
+    counted as a failure (judge calibration, 2026-09-08). Nudges are not in the streak
+    statistic at all."""
+    return raw_move(row) and ((row.get("last_step") or 0) - (row.get("first_step") or 0)) < RAW_NUDGE_TICKS
+
+
 def changed(row: dict[str, Any], movers: Iterable[str] = (),
             openers: Iterable[str] = ()) -> bool:
     tags = set(row.get("tags") or [])
     if CHANGE_TAGS & tags:
         return True
     kind = row.get("action_kind")
+    if raw_move(row):
+        # A held walk changed something iff it moved: the summary's `moved` is the fact.
+        mv = moved_of(row)
+        return mv is not None and mv >= 0.5 and "stuck" not in tags
     if kind in set(openers):
         # An entry whose job is to open a screen changed something iff one is open
         # at its end. lad4 (2026-09-05) pressed `use_until_gui` at a table that was
@@ -127,7 +156,7 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
     by_kind: dict[str, list[dict[str, Any]]] = {}
     for i, r in enumerate(rows):
         k = r.get("action_kind")
-        if r.get("kind") != "episode" or not k or k in skip or not ran(r):
+        if r.get("kind") != "episode" or not k or k in skip or not ran(r) or raw_nudge(r):
             continue
         by_kind.setdefault(k, []).append((i, r))
     out = []

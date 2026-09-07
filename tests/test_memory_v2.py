@@ -141,3 +141,22 @@ def test_expect_block_cites_the_entrys_frame(tmp_path: Path):
     second = next(p for p in agent.codex.prompts[1:] if "[EXPECTED]" in p)
     observed = second.split("[OBSERVED]")[1].split("Begin your briefing")[0]
     assert "frame: episodes/ep_" in observed, observed
+
+
+def test_raw_nudges_leave_the_streak_statistic_and_a_real_walk_counts_as_change():
+    from mfm.memory import retrieve as R
+    def row(i, kind, a, b, summary, tags=()):
+        return {"id": f"ep_{i:06d}", "kind": "episode", "action_kind": kind, "first_step": a,
+                "last_step": b, "x": 0.0, "z": 0.0, "tags": list(tags), "summary": summary}
+    nudges = [row(i, "forward", 10 * i, 10 * i + 1, '[ACTION] {"forward":1} x1 -> 1 ticks: moved 0.1')
+              for i in range(1, 8)]
+    assert all(R.raw_nudge(r) for r in nudges)
+    assert R.streaks(nudges, min_len=3) == []                      # not a loop, a habit
+    walks = [row(10 + i, "forward", 100 + 30 * i, 120 + 30 * i,
+                 '[ACTION] {"forward":1} x20 -> 20 ticks: moved 0.0') for i in range(4)]
+    s = R.streaks(walks, min_len=3)
+    assert s and s[0]["kind"] == "forward" and s[0]["n"] == 4      # four held walks that went nowhere
+    good = row(20, "forward+sprint", 300, 330, '[ACTION] {"forward":1,"sprint":1} x30 -> 30 ticks: moved 4.2')
+    assert R.changed(good) and not R.raw_nudge(good)
+    stuck = row(21, "forward", 400, 420, '[ACTION] {"forward":1} x20 -> 20 ticks: moved 0.0', tags=["stuck"])
+    assert not R.changed(stuck)
