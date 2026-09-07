@@ -38,9 +38,11 @@ logger = logging.getLogger(__name__)
 SEPARATOR = "=" * 80
 
 # Written by the harness, not by the agent, and required for the turn to happen at all.
-# Harness-written files an ablation view keeps: the log, the system prompt, and the
-# frame tool a benchmark may install beside the frames (`install_zoom_tool`).
-_HARNESS_FILES = {"logs.txt", "AGENTS.md", "tools/zoom.py"}
+# Harness-written files an ablation view keeps: the log, the system prompt, the frame
+# tool a benchmark may install beside the frames (`install_zoom_tool`), and the netlist
+# read-back a benchmark may refresh from the environment (`netlist.txt`; KiCad's
+# `--netlist-readback`). Naming a file here costs nothing while no arm writes it.
+_HARNESS_FILES = {"logs.txt", "AGENTS.md", "tools/zoom.py", "netlist.txt"}
 
 _ZOOM_SRC = Path(__file__).with_name("tools") / "zoom.py"
 

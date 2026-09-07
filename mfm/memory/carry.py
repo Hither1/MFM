@@ -65,6 +65,17 @@ CARRY_STORE_NOTE = """\
 `./tools/episodes.py --same-screen frames/<step>.png` (add `--previous` to search the \
 earlier tasks) lists the turns that faced that exact screen and what they did next."""
 
+CARRY_OUTCOMES_NOTE = """\
+`previous/outcomes.md` is what the evaluator scored each finished task, with the task \
+text: the mean of three exact comparisons of your saved netlist against a reference \
+(the components with their values and library parts, the nets as sets of pins, and the \
+net names), so 1.00 is all three and 0.00 is none. You are not told which check failed \
+or what the reference held, and this task's score does not exist yet. It is the only \
+outside word on whether what you believed at the end was true: a task you finished \
+confident and scored 0.00 on means the belief was wrong, not that the task was hard. \
+Read it with `notes/` before the first action, and when you write notes at the end, \
+write down what the scores support and mark what you are only assuming."""
+
 CARRY_RECALL_NOTE = """\
 `previous/situations.md` is the finished tasks' turns folded by what you said you were \
 looking at: for each recurring situation, the actions taken there, how often, and what \
@@ -96,10 +107,16 @@ def _link_tree(src: Path, dst: Path, skip: frozenset[str] = frozenset()) -> int:
 
 
 class CarrySink(MemorySink):
-    def __init__(self, root: Path | str, task_id: str, record_dir: Path | str) -> None:
+    def __init__(self, root: Path | str, task_id: str, record_dir: Path | str,
+                 outcomes: bool = False) -> None:
         self.root = Path(root)
         self.task_id = str(task_id)
         self.record = Path(record_dir)
+        # The outcome signal (`--carry-outcomes`): the finished tasks' scores, written
+        # into the workspace as `previous/outcomes.md`. Off by default, because it is a
+        # protocol decision and not a memory mechanism: without it the carried notes are
+        # the model's own belief about what worked, never checked against anything.
+        self.outcomes = bool(outcomes)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "notes").mkdir(exist_ok=True)
         self.manifest_path = self.root / "manifest.json"
@@ -129,6 +146,8 @@ class CarrySink(MemorySink):
                  else "This is the first task of the sequence: `previous/` is empty and "
                       "`notes/` holds nothing yet.")
         note = CARRY_NOTE.format(count=count)
+        if self.outcomes and n:
+            note += "\n\n" + CARRY_OUTCOMES_NOTE
         store = self._store(agent)
         if store is not None:
             note += "\n\n" + CARRY_STORE_NOTE
@@ -180,6 +199,8 @@ class CarrySink(MemorySink):
                 (prev_dir / "situations.md").write_text(to_markdown(situations(rows)),
                                                         encoding="utf-8")
         self.previous_rows = rows
+        if self.outcomes:
+            self._write_outcomes(prev_dir)
         notes_in = self.record / "notes"
         notes_in.mkdir(exist_ok=True)
         for p in (self.root / "notes").rglob("*"):
@@ -188,6 +209,39 @@ class CarrySink(MemorySink):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if not target.exists():
                     shutil.copyfile(p, target)
+
+    def _write_outcomes(self, prev_dir: Path) -> None:
+        """`previous/outcomes.md`: each finished task's score with its task text.
+
+        The score is the manifest's, recorded by `register` when that task closed. The
+        task text is read back out of the carried log's `[TASK]` line, so a row says
+        what was asked as well as what it came to.
+        """
+        prior = self.prior()
+        if not prior:
+            return
+        lines = ["# How the finished tasks scored", "",
+                 "The evaluator's score for each task finished before this one, oldest "
+                 "first. 1.00 is every check matched; 0.00 is none of them. Which check "
+                 "failed, and what the reference held, are not shown.", ""]
+        for m in prior:
+            task = ""
+            log = prev_dir / m["task_id"] / "logs.txt"
+            if log.exists():
+                for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+                    if line.startswith("[TASK]"):
+                        task = line[len("[TASK]"):].strip()
+                        break
+            reward = m.get("reward")
+            score = "not scored" if reward is None else f"{float(reward):.2f}"
+            lines.append(f"## {m['task_id']} -- {score}")
+            if m.get("error"):
+                lines.append(f"(the run errored: {m['error']})")
+            if task:
+                lines.append(task)
+            lines.append("")
+        prev_dir.mkdir(parents=True, exist_ok=True)
+        (prev_dir / "outcomes.md").write_text("\n".join(lines), encoding="utf-8")
 
     def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
         """Across tasks: the model does not pull, so the harness pushes. With the
@@ -244,4 +298,8 @@ class CarrySink(MemorySink):
                "notes_files": sum(1 for p in (self.root / "notes").rglob("*") if p.is_file())}
         if any(r.get("perception") for r in self.previous_rows):
             out["situations"] = sum(1 for g in situations(self.previous_rows) if g["n"] >= 2)
+        if self.outcomes:
+            # Only when the arm has it: the audit keys of an arm that does not carry
+            # outcomes must not move (tests/test_carry.py pins them).
+            out["outcomes"] = True
         return out
