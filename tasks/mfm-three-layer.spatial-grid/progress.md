@@ -313,3 +313,19 @@
   free (a codex home is ~150 MB). Purpose: the from-scratch read with the pool deaths
   fixed (og10/og11 run the code before the fixes); starting now instead of at 15:26
   saves the wall-clock cap eight hours.
+- 09:2x og9 (thin, carry) lit the portal and entered the Nether at step ~17.5k (16/24,
+  netherrack at 17.8k), then DIED twice: (1) at a Nether lava lake (-389, 26, -688): the
+  model tried to bridge over the lake ("hold jump while placing cobblestone"), the lava
+  hit armed the BUNKER (pre-421aa327 code), which dug into the lava -- "the cap did not
+  place (the dig met lava)", 4 hp per 10 ticks, dead with the kit; (2) after the respawn,
+  walking to the recorded tree at (-3004, -5576) it fell down its OWN first-life shaft to
+  (-3005, 9, -5581) and died on landing. The shaft mouth is a walked column in the grid
+  but not a hazard cell: `go_to` does not detour around it (candidate slice: mark
+  dig_down mouths as hazard for walks). og9 went back through the portal at 25.6k with
+  a rebuilt kit (2 deaths, 16/24).
+- 09:25 status: og8 32.2k 15/24 3 deaths; og9 25.6k 16/24 2 deaths; og10 34.5k 14/24
+  (flint_and_steel) 1 death; og11 22.0k 13/24 1 death; og12 (full, scratch, 421aa327)
+  14.7k 13/24 with mine_obsidian at step 6134 -- the EARLIEST obsidian on record (og9
+  8675, og4 11883, og8 12884) -- 0 deaths, one douse at the pool (the lava escape
+  fired, no bunker); og13 (thin, scratch, 421aa327) 11.6k 13/24 (flint_and_steel) 0
+  deaths. Both post-fix arms are alive past the pool.
