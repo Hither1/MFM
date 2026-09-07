@@ -666,3 +666,13 @@
 - 04:01 check (turn 2): og23 AGENTS.md 4,304 words (thin) / og24 2,371 words (minimal, references/own.md present);
   both turn-2 prompts carry [EXPECTED] with frame citations and a [WORKING] block (both models wrote
   mine/working.md in turn 1); og23's first briefing: "Prior-life routes and hazards are now digested." No tracebacks.
+- 04:2x correction: the monitor's milestone count was a loose grep; og24's EXPECT lines quote "[EVENT] MILESTONE x
+  verified", so it read 17/24 where the log has 11 events. Anchored (`^\[EVENT\] MILESTONE`) from now on
+  (poll_arms3.sh). Kit phase, real numbers: og24 11/24 at step 1,115 (iron_ingot), og23 9/24 at 683
+  (diamond_sword), og22 11/24 at 1,315, og21 10/24 at 991 -- og24 is on the fast side, not off the chart.
+- Judge v1 (before the plan_after fix) judged the PREVIOUS turn's plan: 7/30 agreement, 15 "should_have_looked".
+  Fixed (section after the step), rules tightened (concrete triggers; "when in doubt, ok"; new label
+  stale_rederivation for briefings that grep the log and restate the prompt's numbers wrongly -- a real
+  pattern the judge found in og21 turns 59/63/71/75). Hand labels redone on the correct plans: 27 ok,
+  2 should_have_looked (re-open the table by pose; walk to the noted pond), 1 should_have_used_memory
+  (another jump after RECALL's never-changed warning). v2 run in flight.
