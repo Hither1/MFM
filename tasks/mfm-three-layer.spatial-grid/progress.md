@@ -497,3 +497,27 @@
   rate is consistent with 10% and og8's 1/94 and og14's 0/34 are the unlucky tails).
   The contract's "about 1 block in 10" and the new re-break line stand; og14's
   gravel_cycle (34 breaks, no flint) is variance, not a broken mechanic.
+- 12:55 status. og12 DIED in the Nether at 30505 (200 steps after netherrack): at (-328, 36,
+  -682) LAVA AHEAD 24%, then y 31, 29, 28 -- it slid down a slope into the lava sea and
+  burned (5 -> 1 hp), kit lost; respawned, 15/24 banked. og13 died a second time at 24675
+  at (-3017, 30, -5570), a zombie fight underground with a stone sword (16 -> 7 -> 3 hp
+  in one entry), 14/24. og16 (new guards): FELL guard fired at step 2530 (5 blocks, plan
+  dropped, no damage note), 11/24 at 2.9k, 0 deaths. og17 (visual-only): 10/24 at 991
+  steps, 0 deaths; 23 turns, 0 view_image, 3 episodes.py calls so far (still in the kit
+  phase). og10 15/24 at 53.6k (trying to board a boat), og11 14/24 at 32.8k, og14 12/24
+  at 9.1k. All three Nether entries so far (og9 x2, og13, og12) died within 300-400 steps
+  of arriving, all at lava: the lava sea at y ~31 is the next systematic problem.
+- 13:12 og10-og13 STOPPED on the user's word (their read-outs are in; the compute goes to
+  the new settings). Final (compare.py / toolcalls): og10 (full, pre-fix) 54.7k, 15/24,
+  3 deaths, 347 turns; og11 (thin, pre-fix) 35.0k, 14/24, 2 deaths, 400 turns; og12 (full,
+  post-fix) 33.9k, 15/24 (netherrack 30305), 1 death (the Nether lava sea, 30505), 249
+  turns; og13 (thin, post-fix) 27.8k, 14/24, 2 deaths (Nether 18818, zombie 24675), 251
+  turns. Pairs: thin vs full on milestones per step -- og11 14 @35k vs og10 15 @55k (og11
+  reached 14 at 22.3k, og10 at 28.1k); og13 14 @13.4k vs og12 14 @21.6k, but og12 got to
+  15 (the Nether) and og13 died twice; thin faster to each milestone, full survived
+  longer. Pool-fix: pre-fix 4 pool deaths in 2 arms, post-fix 0 at the pool in 2 arms
+  (their 3 deaths: Nether lava x2, a zombie). Steps/turn: og10 158, og11 87, og12 136,
+  og13 111 (E-wallclock). Codex homes of all finished arms moved from /var/tmp to
+  /datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes/ (user: not in /tmp);
+  future launches set MCU_CODEX_ROOT there. No leftover codex processes from our arms
+  (the other codex processes on the node belong to other sessions).

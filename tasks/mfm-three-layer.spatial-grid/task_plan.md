@@ -72,18 +72,13 @@
 - replay: `MCU/.venv/bin/python tools/grid_replay.py <logs.txt>...`
 
 ## Next Action
-(2026-09-07 12:40, user asleep, autonomous) Seven arms to their 10h caps: og10/og11 (304bae53,
-15:26), og12/og13 (421aa327, 17:50), og14 (ed34754c, thin+atoms+own, 19:30), og16 (thin,
-6f79b0e6 code, all new guards, 9107/9117, ~22:17), og17 (thin + `--visual-only` 640x360,
-6ae8a227, 9106/9116, ~22:16; tasks/mfm-three-layer.visual-only). MCU spatial-grid-merge
-e13fe9be (= ed34754c + shaft guard + lava cooldown + CLOSER + gravel + mid-air cells + FELL
-guard + visual-only + explore_nether bearing); MFM spatial-grid 9b575ae; 98 tests. Launches
-from MFM-grid-merge-mcu need MFM_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid.
-At each cap: compare.py + toolcalls.py (codex_turns dirs), record. After og14's cap (19:30):
-ff the live MFM-grid/MCU to e13fe9be, bump the submodule, launch og15 = og14's settings seeded
-with og14's life only (self-harness S6). Read-outs: thin vs full (og10/og11, og12/og13),
-pool-fix (og12/og13 vs og10/og11), guards (og16 vs og13: deaths, falls, lava stops, steps to
-obsidian), self-harness (og14 vs og13), visual-only (og17 vs og16: milestones/step and /hour,
-deaths, frames opened per turn, image tokens). Candidates: the turn prompt carrying the last
-plan's log sections (E); the Nether portal return route (F, Problem C); the portal-frame
-placement check (C). Pushes wait for the user (MCU hither ed34754c.., MFM origin 7da1357..).
+(2026-09-07 13:20) Three arms in flight: og14 (thin+atoms+own, 19:30), og16 (thin, all new
+guards, ~22:17), og17 (thin + visual-only 640x360, ~22:16); og10-og13 stopped 13:12 with their
+read-outs recorded (progress.md 13:12). Next build: the `--human-play` mode (user 13:0x: keep
+the memory mechanism, frame-only input plus the task ledger/budget/death line, no built-in
+procedures except the GUI cursor primitives and `watch`, no harness notes or reflexes, the
+model composes raw keys into its own scripts) -> og18. Launches: MFM_ROOT=.../MFM-grid and
+MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes. After og14's
+cap: ff the live MFM-grid/MCU, launch og15 (og14's life as the seed). Next systematic fix
+after the human-play mode: the Nether lava sea (all four Nether entries died at lava within
+400 steps; the lava guard samples only below y 40 and the Nether surface sits at y 30-50).
