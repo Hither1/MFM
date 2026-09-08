@@ -789,3 +789,18 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   runtime-home; harness_reflexes=False skills=True minimal=True; AGENTS.md 2,002 words, full task, no previous/,
   "none is installed for you"; mine/reflexes empty. Turn 1 at 11:12:42. Load spiked to 34 during the engine start.
 - At launch time of1 (turn 150, 18.8k steps) and of2 (turn 41, ~6.6k steps) were both at 6/24 (furnace), no iron yet.
+
+## 2026-09-08 12:38 -- memory-reuse chain armed (the user, before sleeping: "如果跑完了，就跑各自的memory reuse，让模型自己处理memory而不是用harness处理memory")
+- Head-to-head at 12:35: of3 9/24 (iron_pickaxe @ 6,243, 12:23), of2 9/24 (iron_pickaxe @ 12,883, 12:35),
+  of1 8/24 (iron_ingot @ 22,218; at 30k steps still stuck at health 2/20 in a water shaft at y43 since ~24.6k,
+  no death). Iron-ore steps: of3 5,325 / of2 11,787 / of1 21,733; records kdc3z 6,490 / kd14x 7,905 for the pickaxe.
+- Reuse = the MFM carry alone: `scripts/launch_ofr.sh N` launches `ofNr_mfm` with ofN's flags and model,
+  `EXTRA_ONLY=1 EXTRA_SEEDS=output/ofN_mfm/episode_001/memory` (previous/life_1 hard-linked, the model's
+  workshop turn reads it; no --sites, no --seed-mine/distiller). Ports of1r 9124/9134, of2r 9125/9135,
+  of3r 9126/9136; WALL=8h. Checks: run-arm.sh --dry-run prints the seed line; PreviousLives.seed on of1's
+  live memory linked 2,657 files, "no sites pushed"; the minimal contract adds the previous/ clause when lives exist
+  (prompts.py:1397) and the skills package's workshop-turn doctrine (skills.py:316).
+- `scripts/chain_ofr.sh N` waits for logs/ofN_mfm_launch.pid to exit (the wall stop; wall-stopped arms write no
+  _result.json -- og15/og23/og24 have none, scores come from the purple log's [milestone] lines / worldmodel_report.json),
+  sleeps 90 s, then runs launch_ofr.sh. Watchers detached 12:38: pids 37334 (of1, wall ~16:32), 37336 (of2, ~18:05),
+  37335 (of3, ~19:11); logs/ofNr_mfm_chain.log. Nothing else is launched.
