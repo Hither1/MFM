@@ -762,3 +762,20 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   task "Starting from nothing, defeat the Ender Dragon", no previous/ mention, `mine_ahead` example, "none is installed
   for you"; `mine/reflexes/` empty, five examples under `skills/reflexes/scripts/`; own.md "guards are OFF in this run";
   toml task_category=ender_dragon max_steps=100000. Turn 1 at 08:33:55 (images=1); leaves being mined by 08:35.
+
+## 2026-09-08 10:05 -- of2 LAUNCHED: head-to-head of of1 on gpt-6-astra medium (the user's ask)
+
+- Same FLAGS as of1 except `--model gpt-6-astra --reasoning-effort medium`; ports 9122/9132; STEPS=100000 WALL=8h
+  (watchdog 40648 -> ~18:05); launch pid 40635, purple 40779; `launch_of2.sh` (MFM-grid 79679af).
+- Account: the user asked for "~/.codex-eval". `~/.codex-eval/auth.json` is a symlink to `~/.codex/runtime-home/auth.json`
+  = ChatGPT-plan login, account 7631363f (jl17319@nyu.edu, pro). `~/.codex/auth.json` is a DIFFERENT plan login
+  (8a17dd5d, guoruihan.sansi@gmail.com, pro). Both wrappers relink the arm home's auth.json to their own account
+  (`link_or_replace` replaces a symlink that points elsewhere), so the plan-wrapper probe silently ran on 8a17dd5d.
+  Fix: CODEX_BIN = the raw binary `~/.nvm/versions/node/v22.18.0/bin/codex`, MCU_CODEX_AUTH = runtime-home/auth.json;
+  the purple backend exports CODEX_HOME=<arm home> itself (codex_backend.py:756). Probes: PROBE_OK on 7631363f,
+  14-19 s per call (wrapper 25 s); every call logs `failed to refresh available models: timeout waiting for child
+  process` once -- harmless, the wrapper path has it too.
+- Checks at 10:06: 0 tracebacks; purple env CODEX_BIN=raw binary, MCU_CODEX_AUTH=runtime-home; arm home auth.json ->
+  runtime-home/auth.json; the turn-1 codex child is `node .../bin/codex exec --json ...` under the purple; AGENTS.md
+  2,002 words, full task text, no previous/, "none is installed for you"; mine/reflexes empty. Turn 1 at 10:06:20.
+- Both arms share the node: load ~11 on 255 cores; each arm has one engine (java mcprec) + Xvfb.
