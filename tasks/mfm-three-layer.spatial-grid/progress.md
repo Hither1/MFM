@@ -902,3 +902,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 02:54 **of3r mine_obsidian @ 32,685 -- 15/24**, 0 deaths, 7h40 in (wall 07:13). of1r died twice more at the pond
   (02:13 skeleton at 2/20 health, 02:24 charging the same skeleton with the diamond sword after recovering its
   drops) -- 3 deaths, 13/24, no food in 73k steps. of2r rebuilding at y11 after its obsidian death, 13/24.
+
+## 2026-09-09 04:40 -- morning discussion recorded; gen-3 plan written (no launches)
+- 04:14 status: of1r 13/24 4 deaths (go_to blocked near old shaft); of2r 13/24 1 death (46.9k, y11, 0 torches);
+  of3r 15/24 0 deaths (36.6k; 80 min on the portal: 345 plans since mine_obsidian, top plans repeated 11-17x,
+  10 obsidian placed into an invalid frame, 7 mined back; viewed ep1890/1896/1907 to diagnose). Walls 05:10/06:08/07:13.
+- Findings for the user's four questions: --sites vs carry-only (previous.py docstring); the wz1119 SKILL.md is a
+  desktop-control skill (process rules, no world knowledge); our skills never reached codex's catalog (of3r rollout has
+  no `### Available skills` list; codex home skills/ = .system only); AGENTS.md re-injected each turn says only
+  "read all four in your first turn"; [RECALL] is atom-grain and noisy (hotbar.6 "61 calls changed nothing").
+- User decisions: SESSION_TURNS=1; codex-native skills; AGENTS.md gets the wz1119 rules + world knowledge; one
+  ranked plan -> `plan-gen3.md` (P0 closeout, P1 method, P2 bugs, P3 arms A/B/C with pre-registered read-outs).

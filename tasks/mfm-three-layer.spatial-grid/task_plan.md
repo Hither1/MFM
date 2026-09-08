@@ -1,5 +1,11 @@
 # Task Plan: spatial-grid
 
+> **Phase 3 (user, 2026-09-09 04:40): generation 3 of the carry-only chain** -- `SESSION_TURNS=1`
+> (the MFM is the only continuity), codex-native skills (ours never reached the catalog),
+> AGENTS.md with Routines + wz1119 process rules + version-matched world knowledge, MFM as
+> the long-term store, neutral bug fixes, then gen-3 arms A/B/C. Full ranked plan:
+> `plan-gen3.md`. Gen-2 result: of3r 15/24 (62.5) carry-only, the full-task record.
+
 > **Protocol (user, 2026-09-07 02:20): no previous-life memory outside MFM's own reuse.**
 > The harness-digested `[KNOWN SITES]` (sites, corridors, frame pointers) is not allowed;
 > memory reuse is the MFM carry only -- earlier lives' records linked under `previous/`
