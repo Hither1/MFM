@@ -913,3 +913,27 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   "read all four in your first turn"; [RECALL] is atom-grain and noisy (hotbar.6 "61 calls changed nothing").
 - User decisions: SESSION_TURNS=1; codex-native skills; AGENTS.md gets the wz1119 rules + world knowledge; one
   ranked plan -> `plan-gen3.md` (P0 closeout, P1 method, P2 bugs, P3 arms A/B/C with pre-registered read-outs).
+
+## 2026-09-09 05:10-05:35 -- of1r ended at its wall; P1/P2 implementation slice
+- of1r stopped 05:10 (wall): 84,400 steps, 690 act turns, 13/24 (54.17), 4 deaths, 96 compactions in its rollout.
+  mine/: digest.md 19 lines, notes.md 3, procedures deep_stair_step / horizontal_tunnel_step / safe_stair_step.
+- 05:03 smoke (raw codex, gpt-5.6-sol low, scratch CODEX_HOME): under `--ignore-user-config` codex 0.147 lists
+  `$CODEX_HOME/skills/*` AND `<cwd>/.agents/skills/*` in the session's `## Skills` catalog (a bare `skills/` is not a
+  root); trigger rule "task clearly matches a skill's description -> use it that turn, not carried across turns".
+- MCU 1ac1c7f7 (spatial-grid-merge, pushed): gen-3 minimal contract (Routines, Rules of play from the wz1119 skill,
+  Improve yourself, digest beside working, context-does-not-persist note, compact procedure index -> 12.6 KB carried /
+  11.2 KB scratch); skills.py: trigger descriptions, skills/minecraft (1.16-style rules, no places), skills/mining
+  (search doctrine), hit.py "source unknown", burning.py + drowning.py, `.agents/skills` catalog synced every turn
+  (skills/ + mine/skills/); agent.py: [DIGEST] block (2000 chars), 40-line working.md rule visible, reflex state
+  fire_frac/water_frac, pit climb queues the pillar and STOPS the plan (no go_to from the pillar top), atoms-aware
+  cut-short hint. MFM-grid 5940cb4: tests/test_gen3_contract.py (13 tests pass incl. test_memory_v2, pytest now in
+  merge-mcu/.venv).
+- Not done in P2: GUI settle (no harness note found for the models' "stale slot" complaint -- their own words in
+  working.md; nothing to change without a reproduction); entities (not in the observation; green-layer); compaction
+  counter (moot under session-turns 1).
+- Worker (worktree MFM-grid-wk-recall, branch spatial-grid-recall): plan-grain RECALL in mfm/memory/retrieve.py,
+  `--ores`/`--y-profile` in the episodes tool, stall.py / memory_use.py / selfimprove.py. Running.
+- 05:3x smoke launch g3smoke_mfm from merge-mcu (ports 9127/9137, gpt-6 high, SESSION_TURNS=1, seed of3, STEPS=600,
+  WALL=30m): does the catalog show, does the carried contract render, what does a fresh-session turn cost.
+- scripts/launch_g3.sh written (not run): of{N}g_mfm seeded with of{N}r (carries gen 1 too), SESSION_TURNS=1,
+  WALL=12h; `scratch` mode = the from-scratch control on the same contract.
