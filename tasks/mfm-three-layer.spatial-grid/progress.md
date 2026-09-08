@@ -977,3 +977,13 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - User: "现在第二代的都延长2h" -- of3r is the only gen-2 arm still running: watchdog 4345 (07:13) killed by pid,
   new watchdog 4806 fires 09:13 (`sleep 9189; stop_arm.py --go of3r_mfm`). of1r/of2r already ended.
 - Gen 3 (of1g/of2g/of3g via launch_g3.sh, seeds of{N}r) waits for of3r to stop, then MFM-grid/MCU ff -> 3a63e24a.
+
+## 2026-09-09 06:42-06:48 -- long-session smoke: the gen-3 mechanisms hold on a resumed thread
+- User: maybe not SESSION_TURNS=1; test that the changes hold with long sessions. Raw-codex two-turn smoke
+  (gpt-5.6-sol low, scratch CODEX_HOME, workspace .agents/skills): turn 1 fresh -> "WS-ECHO"; between turns a
+  skill `late-echo` was added under .agents/skills and AGENTS.md's secret word changed APPLE -> PLUM; turn 2 via
+  `codex exec resume <id>` -> "LATE-ECHO WS-ECHO", rollout holds PLUM (2) and late-echo (2), "Available skills" x5.
+  So codex 0.147 re-scans the skill roots AND re-reads AGENTS.md on every turn of a resumed session: the native
+  catalog (incl. mine/skills written mid-life), the Routines and the per-turn [WORKING]/[DIGEST]/[RECALL] all work
+  under SESSION_TURNS=0+COMPACT exactly as under 1. SESSION_TURNS=1 buys only the "MFM is the sole continuity"
+  framing. launch_g3.sh now takes SESSION_TURNS (0 -> COMPACT=1; N; default 1) from the environment.

@@ -8,10 +8,15 @@
 #   bash launch_g3.sh 1          # of1g_mfm  9130/9140  gpt-5.6-sol high (API key), seeds of1+of1r
 #   bash launch_g3.sh 3 scratch  # of3s_mfm  9131/9141  the from-scratch control (no seeds), same contract
 # Run from MFM-grid/MCU AFTER it is fast-forwarded to the gen-3 MCU commit and no arm is
-# running there. WALL=12h by default (WALL env overrides).
+# running there. WALL=12h by default (WALL env overrides). SESSION_TURNS (default 1 = a fresh
+# codex thread every turn) can be overridden: SESSION_TURNS=0 means one thread for the life
+# and turns COMPACT on (codex compacts instead of cold-starting); SESSION_TURNS=10 means a
+# fresh thread every 10 turns (about the observed compaction cadence of gen 2).
 set -euo pipefail
 N="${1:?usage: launch_g3.sh <1|2|3> [scratch]}"
 MODE="${2:-reuse}"
+ST="${SESSION_TURNS:-1}"
+CM=0; [ "$ST" = "0" ] && CM=1
 cd /datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU
 export MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes
 BASE="--expect --frames --retrieval --no-event-sheet --frame-size 320x180 --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
@@ -26,12 +31,12 @@ case "$N" in
 esac
 git -C . merge-base --is-ancestor 1ac1c7f7 HEAD || { echo "MFM-grid/MCU is not at the gen-3 code (needs 1ac1c7f7)" >&2; exit 1; }
 if [ "$MODE" = "scratch" ]; then
-  TASK=ender_dragon ARM="of${N}s_mfm" GP=$((GP+3)) PP=$((PP+3)) STEPS=100000 SESSION_TURNS=1 WALL="${WALL:-12h}" \
+  TASK=ender_dragon ARM="of${N}s_mfm" GP=$((GP+3)) PP=$((PP+3)) STEPS=100000 SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-12h}" \
     NO_SEEDS=1 WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
 else
   SEED="$PWD/output/of${N}r_mfm/episode_001/memory"
   [ -f "$SEED/logs.txt" ] || { echo "seed $SEED has no logs.txt" >&2; exit 1; }
   [ -d "$SEED/previous/life_1" ] || { echo "seed $SEED carries no life_1 (gen 1 missing)" >&2; exit 1; }
-  TASK=ender_dragon ARM="of${N}g_mfm" GP="$GP" PP="$PP" STEPS=100000 SESSION_TURNS=1 WALL="${WALL:-12h}" \
+  TASK=ender_dragon ARM="of${N}g_mfm" GP="$GP" PP="$PP" STEPS=100000 SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-12h}" \
     EXTRA_ONLY=1 EXTRA_SEEDS="$SEED" WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
 fi
