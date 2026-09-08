@@ -971,3 +971,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
     CUA-KiCad/gym_codex is absent. Whole suite now: all pass, 9 skipped, 0 failed. Real fix: check the
     submodule out from a host with access (`git submodule update --init CUA-KiCad`).
 - MCU 121d500a -> (this) ; MFM-grid tests: test_gen3_contract +2 (rollout compactions; GUI settle + station).
+
+## 2026-09-09 06:32-06:38 -- of3r enters the Nether (16/24); wall extended +2h (user)
+- 06:32 of3r netherrack @41,584 -> 16/24 (66.7): the portal lit, the Nether entered. First of this track's lives.
+- User: "现在第二代的都延长2h" -- of3r is the only gen-2 arm still running: watchdog 4345 (07:13) killed by pid,
+  new watchdog 4806 fires 09:13 (`sleep 9189; stop_arm.py --go of3r_mfm`). of1r/of2r already ended.
+- Gen 3 (of1g/of2g/of3g via launch_g3.sh, seeds of{N}r) waits for of3r to stop, then MFM-grid/MCU ff -> 3a63e24a.
