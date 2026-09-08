@@ -869,3 +869,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - The user (awake, 22:5x) asked to extend the walls: all three +4h. Old watchdogs killed by pid (6511, 64648,
   50450), new ones sleep to 12h after launch: of1r pid 2893 -> 05:10, of2r 3080 -> 06:08, of3r 4345 -> 07:13
   (logs/<arm>_wall.pid rewritten; setsid forks, so the pid was resolved from ps, not $!).
+
+## 2026-09-09 00:09 -- of2r mine_obsidian @ 31,911 (13/24): the first obsidian on the FULL task
+- of2r (gpt-6 medium, own-life carry, no sites): poured its water bucket on lava, scooped it back, mined the
+  exposed obsidian with the diamond pickaxe. 13/24 ties obf2's count (which had --sites and stopped at
+  flint_and_steel); no full-task run ever mined obsidian before. of3r 13/24 (diamond_sword @ 18,403) hunting
+  lava at y9; of1r 11/24 (diamond @ 56,546). All 0 deaths since the extension.
