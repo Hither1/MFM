@@ -875,3 +875,6 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   exposed obsidian with the diamond pickaxe. 13/24 ties obf2's count (which had --sites and stopped at
   flint_and_steel); no full-task run ever mined obsidian before. of3r 13/24 (diamond_sword @ 18,403) hunting
   lava at y9; of1r 11/24 (diamond @ 56,546). All 0 deaths since the extension.
+- 00:18 of2r died at (-3007, 8, -5680), step ~32,270: trapped under the obsidian cap it had made, burning in the
+  lava/water mix; its own `hit` reflex read the burn as a mob and cut the escape plan. Everything (diamond
+  pickaxe, diamonds, bucket, 336 cobble) dropped at the lava. 13/24 stands.
