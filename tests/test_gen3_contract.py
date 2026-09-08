@@ -157,3 +157,45 @@ def test_cut_short_hint_names_tools_that_exist_in_this_run():
     from mcu_worldmodel.agent import _cut_short_hint
     assert "mine_ahead" in _cut_short_hint(True) and "mine_forward" not in _cut_short_hint(True)
     assert "mine_forward/strip_mine/stair_down" in _cut_short_hint(False)
+
+
+def test_compactions_are_counted_from_the_rollout(tmp_path: Path):
+    """codex 0.147 writes `{"type":"compacted"}` records into the session rollout and nothing
+    into the `exec --json` stream; the stream counter read 0 against rollouts holding 28-96."""
+    from mcu_worldmodel import codex_backend as cb
+    roll = tmp_path / "rollout-2026-09-09T00-00-00-abc.jsonl"
+    lines = ['{"timestamp":"t","type":"session_meta","payload":{}}',
+             '{"timestamp":"t","type":"compacted","payload":{"message":"summary"}}',
+             '{"timestamp":"t","type":"response_item","payload":{"type":"message"}}',
+             '{"timestamp":"t","type":"compacted","payload":{"message":"summary 2"}}',
+             '{"timestamp":"t","type":"compacted","payload":{}}']
+    roll.write_text("\n".join(lines) + "\n")
+    counts = cb.scan_rollout(roll)
+    assert counts["compactions"] == 3 and counts["view_image_calls"] == 0
+    assert cb.scan_rollout(tmp_path / "missing.jsonl")["compactions"] == 0
+
+
+def test_gui_open_settles_and_a_mined_station_leaves_the_map():
+    """The frame trails isGuiOpen: the open loop idles GUI_OPEN_SETTLE ticks after the flag
+    flips; a crafting_table or furnace mined back up is dropped from the placed records."""
+    from types import SimpleNamespace
+    from mcu_worldmodel.agent import WorldModelAgent, GUI_OPEN_SETTLE
+    from mcu_worldmodel import gui
+
+    def mk_act(**kw):
+        return {"action": kw or {"noop": 1}}
+    fake = SimpleNamespace(_gui_open=True)
+    og = {"attempts": 3, "t": 0}
+    idle = [WorldModelAgent._opengui_tick(fake, og, mk_act) for _ in range(GUI_OPEN_SETTLE)]
+    assert all(a == {"action": {"noop": 1}} for a in idle) and GUI_OPEN_SETTLE >= 2
+    assert WorldModelAgent._opengui_tick(fake, og, mk_act) is None       # then the entry ends
+    fake._gui_open = False
+    assert WorldModelAgent._opengui_tick(fake, {"attempts": 3, "t": 0}, mk_act) == {"action": {"inventory": 1}}
+    assert gui.CRAFT_SETTLE >= 6
+    notes = []
+    ag = SimpleNamespace(_placed={"furnace": (1, 64, 2)}, grid=SimpleNamespace(placed={"furnace": {"cell": (1, 64, 2)}}),
+                         memory=SimpleNamespace(add_note=notes.append))
+    WorldModelAgent._station_picked_up(ag, "furnace", 28914)
+    assert ag._placed == {} and ag.grid.placed == {} and "mined your furnace back up at step 28914" in notes[0]
+    WorldModelAgent._station_picked_up(ag, "crafting_table", 1)         # nothing placed: silent
+    assert len(notes) == 1

@@ -953,3 +953,21 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   note names the digest), test_skills (six skills, burning/drowning). Whole suite: only the 8 environment failures
   remain (gym_codex / CUA-KiCad submodule missing: test_carry x2, kicad pins x6), identical on unmodified HEAD.
 - of2r 05:29 diamond_sword 15/24 (@50,492). Walls: of2r 06:08, of3r 07:13 (monitors armed).
+
+## 2026-09-09 06:08-06:35 -- of2r ended; P2 completed on the user's five points
+- of2r stopped 06:08:51 (wall): 52,433 steps, 15/24 (diamond_sword @50,492), 1 death. of3r 15/24, wall 07:13.
+- User (06:1x): fix the compaction counter anyway; GUI settle is to be fixed; look at the stale slot/station
+  carefully; a test script; resolve the environment failures.
+  * Compactions: scan_rollout counts `"type":"compacted"`; report = max(stream, rollout) + both parts (MCU).
+  * GUI: the frame trails isGuiOpen by 1-2 ticks -> `_opengui_tick` idles GUI_OPEN_SETTLE=3 after the flag;
+    `gui.CRAFT_SETTLE` 2->6 so the next craft's leftovers precheck (macros_gui.py:653, reads slot occupancy
+    from the frame) stops seeing emptied cells as busy (5 false refusals in six lives, models' own watch(12)).
+  * Stale station: the [MAP]/stall-hint/use_until_gui placed record was never dropped when the model mined its
+    table/furnace back up (of3 "map furnace placement STALE" for 10k steps) -> `_station_picked_up` pops
+    `_placed` and `grid.placed` on the mine_block event, with a note.
+  * scripts/run_tests.sh (whole suite or --core; picks merge-mcu's venv; prints MCU commit).
+  * Environment: CUA-KiCad (gym_codex) is a private submodule this host cannot clone (SSH denied; Collab/MFM's
+    copy is an empty dir) -> conftest skips test_carry + the ::test_kicad* pins with the reason when
+    CUA-KiCad/gym_codex is absent. Whole suite now: all pass, 9 skipped, 0 failed. Real fix: check the
+    submodule out from a host with access (`git submodule update --init CUA-KiCad`).
+- MCU 121d500a -> (this) ; MFM-grid tests: test_gen3_contract +2 (rollout compactions; GUI settle + station).

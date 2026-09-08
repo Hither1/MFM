@@ -89,17 +89,17 @@ Evidence behind the two reversals:
 
 ## P2 -- harness bugs, neutral to the science (each with one V1 test)
 
-- [ ] agent.py:1991 cut-short note names mine_forward/strip_mine/stair_down, absent in
+- [x] agent.py:1991 cut-short note names mine_forward/strip_mine/stair_down, absent in
       atoms mode (300-400 per gpt-6 life): name the atoms or say nothing.
-- [ ] skills.py:92 `hit` reflex text "a mob is at you" -> "damage source unknown: fire?
+- [x] skills.py:92 `hit` reflex text "a mob is at you" -> "damage source unknown: fire?
       air? mob?"; add drowning and burning example scripts; water-on-fire in survival.md.
-- [ ] Navigator queues `pillar_up(6)` inside a shaft (agent.py:3115-3143; of1 death 3, of1r
+- [x] Navigator queues `pillar_up(6)` inside a shaft (agent.py:3115-3143; of1 death 3, of1r
       death 1 within 6 blocks): no pillar inside own excavation, or hide `go_to` in atoms mode.
-- [ ] GUI atoms: settle (watch ~10) after open before reading slots (six lives rediscovered).
+- [x] GUI atoms: settle (watch ~10) after open before reading slots (six lives rediscovered).
 - [ ] Entities: check whether the observation carries nearby entities at all (agent.py:439
       "never on the wire"); if the green layer never sends them, record that food must come
       from vision, not out of scope work.
-- [ ] codex_backend.py:860 compaction counter (moot under session-turns 1; keep for the
+- [x] codex_backend.py:860 compaction counter (moot under session-turns 1; keep for the
       one-thread mode's honesty).
 
 ## P3 -- gen 3 experiments (API cost: user approval; equal wall 12h, STEPS=100000)
