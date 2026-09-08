@@ -26,15 +26,17 @@ def _run(path: Path, state: dict, args=None):
     return cp.returncode, (json.loads(out) if out else None), cp.stderr.strip()
 
 
-def test_write_skills_and_starters(tmp_path: Path):
+def test_write_skills_and_reflex_examples(tmp_path: Path):
     from mcu_worldmodel import skills
 
     written = skills.write_skills(tmp_path)
     assert {"skills/memory/SKILL.md", "skills/procedures/SKILL.md", "skills/reflexes/SKILL.md", "skills/reflexes/scripts/known_hazards.py", "skills/memory/scripts/death_sheet.py",
             "skills/harness/SKILL.md", "skills/procedures/scripts/stair_step.py",
             "skills/procedures/scripts/torch_wall.py", "skills/memory/scripts/where_was.py",
-            "mine/reflexes/lava_ahead.py", "mine/reflexes/fell.py", "mine/reflexes/hit.py",
-            "mine/reflexes/starving.py"} == set(written)
+            "skills/reflexes/scripts/lava_ahead.py", "skills/reflexes/scripts/fell.py",
+            "skills/reflexes/scripts/hit.py", "skills/reflexes/scripts/starving.py"} == set(written)
+    assert not (tmp_path / "mine").exists()                       # nothing installed: the model copies
+    assert "Nothing is installed for you" in (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
     for name in ("memory", "procedures", "reflexes", "harness"):
         text = (tmp_path / "skills" / name / "SKILL.md").read_text()
         assert text.startswith("---\nname: " + name)
@@ -44,21 +46,15 @@ def test_write_skills_and_starters(tmp_path: Path):
     assert "One-block scripts" in (tmp_path / "skills" / "procedures" / "SKILL.md").read_text()
     assert "BEFORE the event" in (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
     assert "Do not pour your only water bucket" in (tmp_path / "skills" / "harness" / "SKILL.md").read_text()
-    # idempotent, and a retired starter stays retired
-    (tmp_path / "mine" / "reflexes" / "hit.py").rename(tmp_path / "mine" / "reflexes" / "_hit.py")
-    (tmp_path / "mine" / "reflexes" / "fell.py").write_text("mine\n")
-    again = skills.write_skills(tmp_path)
-    assert again == []
-    assert not (tmp_path / "mine" / "reflexes" / "hit.py").exists()
-    assert (tmp_path / "mine" / "reflexes" / "fell.py").read_text() == "mine\n"
-    assert skills.write_skills(tmp_path / "b", starters=False) and not (tmp_path / "b" / "mine").exists()
+    # idempotent: the package is written once, like references/
+    assert skills.write_skills(tmp_path) == []
 
 
-def test_starter_reflexes_fire_on_their_class_only(tmp_path: Path):
+def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
     from mcu_worldmodel import skills
 
     skills.write_skills(tmp_path)
-    rx = tmp_path / "mine" / "reflexes"
+    rx = tmp_path / "skills" / "reflexes" / "scripts"
     # lava: moving toward it fires; standing at it on purpose does not
     rc, res, err = _run(rx / "lava_ahead.py", dict(BASE, lava_frac=0.2))
     assert rc == 0 and res["stop"] is True and "20%" in res["note"] and res["actions"][0]["action"] == {"back": 1}
@@ -136,12 +132,14 @@ def test_chassis_skills_and_no_harness_reflexes(tmp_path: Path):
     assert "does not act for you" in (ws / "references" / "survival.md").read_text()
     for name in ("memory", "procedures", "reflexes", "harness"):
         assert (ws / "skills" / name / "SKILL.md").exists()               # survived the sweeps
-    assert {p.name for p in (ws / "mine" / "reflexes").glob("*.py")} == {"lava_ahead.py", "fell.py", "hit.py", "starving.py"}
+    # nothing installed under mine/reflexes/: the examples wait under skills/reflexes/scripts/
+    assert not list((ws / "mine" / "reflexes").glob("*.py")) if (ws / "mine" / "reflexes").exists() else True
+    assert {p.name for p in (ws / "skills" / "reflexes" / "scripts").glob("*.py")} >= {"lava_ahead.py", "fell.py", "hit.py", "starving.py", "known_hazards.py"}
     log = (ws / "logs.txt").read_text()
     assert "governor:" not in log and "NETHER LOCK" not in log
     assert "The runner is turning you" not in log and "BUNKERING" not in log
-    assert agent.cursor_stats.get("own_reflex_runs", 0) > 0
+    assert agent.cursor_stats.get("own_reflex_runs", 0) == 0          # nothing installed, nothing ran (the loop: test_own_reflex.py)
     assert not agent.cursor_stats.get("own_reflex_failures")
-    assert any("[OWN] your own reflexes" in p and "`fell` -- fell:" in p for p in agent.codex.prompts)
+    assert not any("`fell` -- fell:" in p for p in agent.codex.prompts)   # nothing installed: no reflex listed
     r = agent.report()
-    assert r["skills"] is True and r["harness_reflexes"] is False and r["own"]["reflexes"] == 4
+    assert r["skills"] is True and r["harness_reflexes"] is False and r["own"]["reflexes"] == 0   # nothing installed

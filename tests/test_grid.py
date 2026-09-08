@@ -260,6 +260,9 @@ def test_event_sheet_tiles_the_current_view_and_the_event_frames(tmp_path: Path)
     assert px[100, 420].tolist() == [200, 200, 200]       # top-right: "blocked"
     assert px[280, 420].tolist() == [90, 90, 90]          # bottom-right: "water"
     assert ag._event_frames == [] and ag.cursor_stats["event_sheets"] == 1
+    ag.event_sheet = False                                    # --no-event-sheet: nothing kept, nothing attached
+    ag._keep_event_frame(14, "lava", f1)
+    assert ag._event_frames == [] and ag._event_sheet({"pov": f1}) is None
     assert ag._sheet_labels == ["blocked (step 11)", "hit (step 12)", "water (step 13)"]
 
 

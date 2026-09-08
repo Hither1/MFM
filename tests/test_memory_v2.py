@@ -76,6 +76,8 @@ def test_working_block_reads_the_models_note_and_caps_it(tmp_path: Path):
 
 def test_minimal_contract_is_short_and_points_at_the_references():
     from mcu_worldmodel import prompts
+    from mcu_worldmodel import procedures as P
+    P.set_visible(P.ATOMS)                       # the index the atoms run shows (test order must not matter)
     full = prompts.act_prompt(task_text="Kill the dragon", progress_block="0/24", graph_summary="",
                               plan_summary="", discipline_summary="", entry_cap=6, step_cap=400,
                               memory_mode="mfm", retrieval=True, previous=True, expect=True,
@@ -93,9 +95,18 @@ def test_minimal_contract_is_short_and_points_at_the_references():
                  "deleted before your turn starts", '{"actions": [...]}'):
         assert must in m, must
     assert "**Crafting is ONE call.**" not in m and "**Survival**" not in m
+    # from scratch: no previous lives are mentioned; the action example names an atom, not a macro;
+    # no reflex is installed for the model
+    assert "previous/life_<i>/" not in m and "none is installed for you" in m
+    assert '{"procedure": "mine_ahead", "args": {"n": 100}}' in m and "dig_down" not in m
+    carried = prompts.minimal_contract(task_text="t", progress_block="p", entry_cap=6, step_cap=400,
+                                       atoms=True, harness_reflexes=False, previous=True)
+    assert "`previous/life_<i>/` the earlier lives in this same world;" in carried
     on = prompts.minimal_contract(task_text="t", progress_block="p", entry_cap=6, step_cap=400,
                                   harness_reflexes=True)
     assert "reflexes of its own" in on and "tools/zoom.py" not in on
+    assert '{"procedure": "dig_down", "args": {"n": 40}}' in on        # the full library keeps its example
+    P.set_visible(None)
 
 
 def test_distill_workspace_links_the_lives_and_writes_the_tool_and_skills(tmp_path: Path):

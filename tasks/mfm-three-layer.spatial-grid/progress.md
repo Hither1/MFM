@@ -726,3 +726,24 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   HfApi.list_repo_tree: 9,191 files / 2.42 GB under mfm-era/ on HF = the local staging; README box present; 32 mfm_era
   rows in stats/runs.csv. Before upload the scoreboard rows of og3/og4 and ob1-ob5 were re-read from the evaluator's
   result.json (their reports pre-credited the kit at step 0: report 13/24 vs evaluator 25.0-41.67).
+
+## 2026-09-08 -- of1 prepared: the FULL task from nothing on gpt-5.6-sol high (the user's decisions)
+
+- Why (user): gpt-6 costs too many tokens; start over. Evidence laid out in the session, from the codex rollouts'
+  token_count events (per 1k steps, uncached input / cached input / output; steps per hour):
+  sol medium cold-start (og3, og5, ob*) 110-190k / 260-560k / 5-10k, 11-17k steps/h; sol medium 8-turn threads
+  (og4/og6/og7) 33-56k / 460-800k / 4-8k; gpt-6 high unlimited thread, fixed library (og8-og13, og16) 120-220k /
+  1.5-2.6M / 7-11k, 4.5-7k steps/h; gpt-6 high self-harness (og14/15/19-21) 280-370k / 3-5M / 13-17k, 2.6-4k
+  steps/h; sol xhigh three-layer (og22) 276k / 4.4M / 27k, 2.7k steps/h. og21's thread: 770 API calls over 241
+  turns, per-call input median 79k / max 102k, 31 codex compactions at the 100k limit (the report's
+  `compactions: 0` counter misses them: it watches the --json stream, the events are in the rollout).
+- Decisions: task ender_dragon (never run on this branch; obf1-obf3 ran it on dragon-obsidian with --sites),
+  NO_SEEDS, gpt-5.6-sol high, --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills, one thread
+  compacted at 100k (SESSION_TURNS=0 COMPACT=1), 320x180, --no-event-sheet, WALL=8h with STEPS=100000 (never the
+  stop), the reflex starters demoted to examples (nothing under mine/reflexes/ until the model copies one).
+- Code: MCU spatial-grid-merge f40e9000 (fast-forwarded into the live checkout); tests in this repo: 135 passed
+  (tests/ minus test_carry, test_kicad_eval and the kicad store tests). Pins unchanged (the full-library
+  contracts keep their dig_down example; the atom example applies only under --atoms/--visual-only).
+- Launch line: `tasks/mfm-three-layer.spatial-grid/scripts/launch_of1.sh` (ARM/GP/PP overridable). NOT launched:
+  the user launches, or says go. Expected from the record: 3-6k steps/h -> 20-40k steps in 8 h; the clean
+  full-task record to beat is 11/24 (kd14x, kdc3z, 12k steps with a fixed library); obf2's 13/24 had pushed sites.

@@ -138,7 +138,7 @@ def test_expect_option_echoes_the_line_against_the_record(tmp_path: Path):
     agents_md = (agent.memory.root / "AGENTS.md").read_text()
     assert "Expect, then compare" in agents_md
     assert agent.report()["mfm_options"] == {"expect": True, "frames": False, "corridors": False,
-                                              "sites": False}
+                                              "sites": False, "event_sheet": True}
     assert agent.cursor_stats["expect_lines"] >= 2
 
 
