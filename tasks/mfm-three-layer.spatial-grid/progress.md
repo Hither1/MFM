@@ -820,3 +820,22 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - of2 (gpt-6 medium) died once at 23,285 (lava at y10 while stair-digging; its lava_ahead reflex stepped it
   back INTO the lava during the escape, it had a water bucket it never poured), 9/24. of3 (gpt-6 high) 10/24
   (flint_and_steel @ 23,032 -- flint + iron before diamond), 0 deaths.
+
+## 2026-09-08 17:10 -- of1r relaunched: the minimal contract never told the model about previous/
+- FINDING: of1r's first attempt (16:35-17:09, 27 turns, 2/24) ran 0 commands touching `previous/` (its codex
+  rollout, `"command"` entries; turn 1 read skills/memory/SKILL.md incl. the workshop-turn doctrine, then
+  `rg --files skills references mine` -- not previous/ -- and went to cut a tree). Cause: `minimal_contract`
+  (prompts.py) appended no carried-lives paragraph; every other mfm contract adds MFM_PREVIOUS_NOTE when lives
+  exist (prompts.py:1037, :1595), the minimal one only had the phrase "`previous/life_<i>/` the earlier lives in
+  this same world;" in the Memory line. og15 (the self-harness reuse precedent that read previous/ in turn 1)
+  ran the thin contract WITH the note.
+- FIX (MCU b2f8c832, ff'd into MFM-grid/MCU; MFM-grid acbae40 test): `**Previous lives.** <MFM_PREVIOUS_NOTE>`
+  + "Your first turn is the workshop turn (`skills/memory/SKILL.md`): read them before you play." after the
+  Memory paragraph when previous lives exist; from-scratch contracts unchanged. The note is a pointer ("Nothing
+  from them is put in front of you ... reading it is yours to do"), no digest, no sites: the MFM carry holds.
+  tests/test_memory_v2.py 7 pass. of2r/of3r launch from the live checkout and get it automatically.
+- of1r stopped by pid (wall watchdog 24409 killed, stop_arm 13 pids); its life kept as output/of1r_noprev_mfm +
+  logs/of1r_noprev_mfm_*.log + codex-homes/of1r_noprev_mfm (evidence, not a scored arm). Relaunched 17:10:52:
+  launch pid 6506, wall 6511 -> ~01:11, ports 9124/9134; checks: carry 4613 files, AGENTS.md has both new
+  lines, 0 tracebacks, auth -> ~/ccr/.codex/auth.json. Decision taken without the user (asleep): the reuse life
+  as launched was not a reuse life; 34 min of gpt-5.6 turns spent.
