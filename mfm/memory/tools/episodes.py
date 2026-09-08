@@ -11,6 +11,8 @@ when it is missing.
     ./tools/episodes.py --near 12.5 -30 [--radius 6]   episodes that started near (x, z)
     ./tools/episodes.py --tag stuck           episodes carrying a tag
     ./tools/episodes.py --grep "spruce_log"   episodes whose files mention the text
+    ./tools/episodes.py --ores                every episode that mined or picked up ore
+    ./tools/episodes.py --y-profile           how many game steps went into each y band
     ./tools/episodes.py ... --sheet out.png   tile the matching episodes' frames
     ./tools/episodes.py --then-now ep_000123 --q "is this the ledge I poured from?"
                                               that episode's frame beside the current
@@ -21,6 +23,10 @@ Filters combine (AND). Each line: id, step range, tags, position, the action, th
 outcome summary, the first harness note the entry ended with (why it stopped, what it
 refused -- from `outcome.json`), and the directory holding `observation/image.png`,
 `state/`, `action.json`, `outcome.json`.
+
+`--ores` and `--y-profile` are the two questions the record could answer and nothing
+asked (of1-of3r, 2026-09-09): "where have I seen ore, and at what y" and "where have I
+already looked". Both take the same filters and both work with `--previous`.
 """
 from __future__ import annotations
 
@@ -29,6 +35,7 @@ import json
 import hashlib
 import math
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -151,6 +158,105 @@ def describe(r: dict) -> str:
             f"{r.get('summary') or ''}{note}  -> {r.get('path')}/")
 
 
+#: The ore blocks worth remembering where they were. A name also counts with the
+#: `deepslate_` prefix (`deepslate_redstone_ore`), which is the same vein deeper down.
+ORES = frozenset({
+    "ancient_debris", "coal_ore", "diamond_ore", "emerald_ore",
+    "gold_ore", "iron_ore", "lapis_ore", "redstone_ore",
+})
+_ORE_EVENT_RE = re.compile(r"\b(mine_block|pickup|craft_item)\s+([a-z_]+)\s*\+(\d+)")
+
+
+def is_ore(name: str) -> bool:
+    n = str(name)
+    return n in ORES or (n.startswith("deepslate_") and n[len("deepslate_"):] in ORES)
+
+
+def ore_hits(root: Path | None, r: dict) -> list[str]:
+    """What ore this episode mined or picked up, as `mine_block iron_ore +1` strings.
+
+    Read from the episode's `outcome.json`: its `events` are the harness's own count of
+    what broke and what entered the inventory, and `inventory_delta` catches an ore that
+    arrived without an event line. `craft_item` is excluded -- a furnace output is not a
+    place where ore was found."""
+    if root is None or not r.get("path"):
+        return []
+    try:
+        oc = json.loads((Path(root) / r["path"] / "outcome.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    out, seen = [], set()
+    for ev in oc.get("events") or []:
+        m = _ORE_EVENT_RE.search(str(ev))
+        if m and m.group(1) != "craft_item" and is_ore(m.group(2)):
+            out.append(f"{m.group(1)} {m.group(2)} +{m.group(3)}")
+            seen.add(m.group(2))
+    for name, d in sorted((oc.get("inventory_delta") or {}).items()):
+        if is_ore(name) and isinstance(d, (int, float)) and d > 0 and name not in seen:
+            out.append(f"inventory {name} +{int(d)}")
+    return out
+
+
+def describe_ore(r: dict, hits: list[str]) -> str:
+    pos = (f"({float(r['x']):.0f},{float(r['y']):.0f},{float(r['z']):.0f})"
+           if all(r.get(k) is not None for k in "xyz") else "(?)")
+    life = f"  life {r['life']}" if r.get("life") is not None else ""
+    frame = r.get("image") or f"{r.get('path')}/observation/image.png"
+    return (f"{r['id']}  step {r.get('first_step')}  y={_fmt_y(r)}  pos={pos}{life}  "
+            f"{', '.join(hits)}  -> {frame}")
+
+
+def _fmt_y(r: dict) -> str:
+    return f"{float(r['y']):.0f}" if r.get("y") is not None else "?"
+
+
+def ore_rows(rows: Iterable[dict], root: Path | None) -> list[tuple[dict, list[str]]]:
+    """(row, hits) for every episode whose outcome names an ore, oldest first."""
+    out = []
+    for r in rows:
+        hits = ore_hits(root, r)
+        if hits:
+            out.append((r, hits))
+    return out
+
+
+def y_profile(rows: Iterable[dict], band: int = 4) -> dict[int, int]:
+    """{band floor: game steps} -- how long the agent spent in each `band`-block slice
+    of y. An episode's span (`last_step - first_step`) is credited to the band of the y
+    it started at, so this is "where have I already looked", in the units the log counts
+    in. Episodes without a y, and the zero-length ones, contribute nothing."""
+    out: dict[int, int] = {}
+    for r in rows:
+        if r.get("y") is None:
+            continue
+        span = (r.get("last_step") or 0) - (r.get("first_step") or 0)
+        if span <= 0:
+            continue
+        floor = int(math.floor(float(r["y"]) / band) * band)
+        out[floor] = out.get(floor, 0) + span
+    return out
+
+
+def print_y_profile(rows: list[dict], band: int = 4, width: int = 40) -> None:
+    """The profile as a bar chart, deepest band last; one block per life when the rows
+    carry a `life` (that is, under `--previous`)."""
+    groups: dict[Any, list[dict]] = {}
+    for r in rows:
+        groups.setdefault(r.get("life"), []).append(r)
+    for life in sorted(groups, key=lambda v: (v is None, v)):
+        prof = y_profile(groups[life], band)
+        label = "this life" if life is None else f"life {life}"
+        total = sum(prof.values())
+        print(f"[{label}] {total} steps over {len(prof)} y bands of {band}")
+        if not prof:
+            continue
+        top = max(prof.values())
+        for floor in sorted(prof, reverse=True):
+            n = prof[floor]
+            bar = "#" * max(1, round(width * n / top))
+            print(f"  y {floor:>4}..{floor + band - 1:<4} {n:>7} steps  {bar}")
+
+
 def contact_sheet(rows: Iterable[dict], root: Path, out: Path, cols: int = 4,
                   thumb: int = 320) -> Path:
     try:
@@ -237,6 +343,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--grep")
     ap.add_argument("--previous", action="store_true",
                     help="search the episodes of the tasks finished before this one")
+    ap.add_argument("--ores", action="store_true",
+                    help="only the episodes that mined or picked up ore, with where and at what y")
+    ap.add_argument("--y-profile", action="store_true",
+                    help="game steps spent per y band instead of the episode lines "
+                         "(where you have already looked)")
+    ap.add_argument("--band", type=int, default=4, help="y band height for --y-profile")
     ap.add_argument("--same-screen", metavar="PNG",
                     help="episodes that faced exactly this screenshot (by content hash)")
     ap.add_argument("--sheet", help="write a contact sheet of the matching frames here")
@@ -275,6 +387,25 @@ def main(argv: list[str] | None = None) -> int:
         rows = grep(rows, root, args.grep)
     if args.last is not None:
         rows = recent(rows, args.last)
+    if args.y_profile:
+        if not rows:
+            print("(no matching episodes)", file=sys.stderr)
+        print_y_profile(rows, max(1, args.band))
+        if args.q:
+            print(f"Q: {args.q}", file=sys.stderr)
+        return 0
+    if args.ores:
+        hits = ore_rows(rows, root)
+        for r, what in hits:
+            print(json.dumps({**r, "ore": what}) if args.json else describe_ore(r, what))
+        if not hits:
+            print("(no episode in this selection touched ore)", file=sys.stderr)
+        if args.sheet and hits:
+            contact_sheet([r for r, _ in hits], root, Path(args.sheet))
+            print(f"sheet: {args.sheet}", file=sys.stderr)
+        if args.q:
+            print(f"Q: {args.q}", file=sys.stderr)
+        return 0
     rows = with_note(rows, root)
     for r in rows:
         print(json.dumps(r) if args.json else describe(r))
