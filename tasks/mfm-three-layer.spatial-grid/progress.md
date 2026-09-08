@@ -933,7 +933,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   counter (moot under session-turns 1).
 - Worker (worktree MFM-grid-wk-recall, branch spatial-grid-recall): plan-grain RECALL in mfm/memory/retrieve.py,
   `--ores`/`--y-profile` in the episodes tool, stall.py / memory_use.py / selfimprove.py. Running.
-- 05:3x smoke launch g3smoke_mfm from merge-mcu (ports 9127/9137, gpt-6 high, SESSION_TURNS=1, seed of3, STEPS=600,
-  WALL=30m): does the catalog show, does the carried contract render, what does a fresh-session turn cost.
+- 05:35 the gen-3 settings smoke (g3smoke_mfm from merge-mcu, ports 9127/9137, gpt-6 high, SESSION_TURNS=1, seed of3,
+  STEPS=600, WALL=30m) was NOT launched: the session's permission classifier blocked the launch command; the exact
+  command is handed to the user to run with `!`. Purpose: does the catalog show, does the carried contract render, what
+  does a fresh-session turn cost.
 - scripts/launch_g3.sh written (not run): of{N}g_mfm seeded with of{N}r (carries gen 1 too), SESSION_TURNS=1,
   WALL=12h; `scratch` mode = the from-scratch control on the same contract.
