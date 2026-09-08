@@ -899,3 +899,6 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   are listed in the analysis §4 for the user's morning decision.
 - 01:56 **of3r flint_and_steel @ 28,009 -- 14/24, the full-task record** (obf2 13/24 with --sites; kdc3z 11/24 from
   scratch). gpt-6 high, own-life carry, no sites, 0 deaths, 6h41 in; wall 07:13.
+- 02:54 **of3r mine_obsidian @ 32,685 -- 15/24**, 0 deaths, 7h40 in (wall 07:13). of1r died twice more at the pond
+  (02:13 skeleton at 2/20 health, 02:24 charging the same skeleton with the diamond sword after recovering its
+  drops) -- 3 deaths, 13/24, no food in 73k steps. of2r rebuilding at y11 after its obsidian death, 13/24.
