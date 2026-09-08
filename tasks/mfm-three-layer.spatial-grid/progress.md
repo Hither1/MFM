@@ -804,3 +804,19 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   _result.json -- og15/og23/og24 have none, scores come from the purple log's [milestone] lines / worldmodel_report.json),
   sleeps 90 s, then runs launch_ofr.sh. Watchers detached 12:38: pids 37334 (of1, wall ~16:32), 37336 (of2, ~18:05),
   37335 (of3, ~19:11); logs/ofNr_mfm_chain.log. Nothing else is launched.
+
+## 2026-09-08 16:35 -- of1 wall-stopped: 8/24, 3 deaths; of1r launched by the chain
+- of1_mfm (gpt-5.6-sol high, from nothing): stopped by the wall at 16:32:43 mid-turn 416, 56,800 steps, 8/24
+  (iron_ingot @ 22,218), 3 deaths, 0 tracebacks. The story after the ingot: drowned twice in the same water
+  shaft at (-2998, 43-45, -5612) -- trapped there from ~24.6k to the first death at 40,593 (hand-mining upward
+  while the current pulled it down), the second at 45,364 was deliberate ("wait for the last two damage pulses"
+  as a teleport home, its recovered items dropped again); the third at 52,7xx inside a go_to's queued
+  pillar_up(6) at (-2992, 54, -5583), no damage note before it (the runner ran 400 ticks). Never crafted the
+  iron pickaxe though it held 3 ingots at 22k. Scores from logs/of1_mfm_purple.log [milestone] lines (no _result.json).
+- Chain: run-arm exited 16:33:35; of1r_mfm launched 16:35:05 (launch pid 24406, wall 24409 -> ~00:35, ports
+  9124/9134). Checks: model=gpt-5.6-sol sites=False minimal=True seed_mine=None; "[previous] 1 live(s) carried
+  (4613 files linked, 1148 indexed episodes), no sites pushed"; previous/life_1 = episodes grid.jsonl index.jsonl
+  logs.txt mine skills; mine/reflexes empty; 0 tracebacks; auth -> ~/ccr/.codex/auth.json.
+- of2 (gpt-6 medium) died once at 23,285 (lava at y10 while stair-digging; its lava_ahead reflex stepped it
+  back INTO the lava during the escape, it had a water bucket it never poured), 9/24. of3 (gpt-6 high) 10/24
+  (flint_and_steel @ 23,032 -- flint + iron before diamond), 0 deaths.
