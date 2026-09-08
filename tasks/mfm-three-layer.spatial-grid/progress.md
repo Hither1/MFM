@@ -878,3 +878,22 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 00:18 of2r died at (-3007, 8, -5680), step ~32,270: trapped under the obsidian cap it had made, burning in the
   lava/water mix; its own `hit` reflex read the burn as a mob and cut the escape plan. Everything (diamond
   pickaxe, diamonds, bucket, 336 cobble) dropped at the lava. 13/24 stands.
+
+## 2026-09-09 01:2x -- systemic review recorded; waiting for the reuse lives (the user: 先记录和排查, 继续等)
+- `analysis/systemic_of_2026-09-09.md` (+ traj_of1_of1r.md, traj_of2_of3_reuse.md from two read-only subagents):
+  nine ranked problems and the multimodal-memory use table. Verified against code/logs in this pass:
+  1. the cut-short note (agent.py:1991) is unconditional and names mine_forward/strip_mine/stair_down, none in
+     procedures.ATOMS -- 300-400 notes per gpt-6 life;
+  2. the navigator's stall path (agent.py:3115-3143) queues `pillar_up(n)` + the same go_to; of1 death 3 and of1r's
+     only death happened inside it, 6 blocks apart (repeat_deaths.py);
+  3. the reflex example set is fell/hit/lava_ahead/starving/known_hazards (skills.py:234); no arm installed
+     known_hazards, none wrote a drowning/burning class; hit's text (skills.py:92) asserts "a mob is at you";
+  4. NEW: codex compacted the thread 28-58 times per life (rollout `"type":"compacted"` records, ~every 12 min for
+     of3r) while codex_backend.py:860 counted 0 -- it scans the exec event stream, not the rollout. working.md
+     (40-68 KB, rewritten every turn, put in front of the model every turn) is the token item that drives it;
+  5. 0 eat actions in six lives (eat is an atom), of1 at 2/20 for 16k steps, of3r 11-13/20 now;
+  6. memory use: view_image 0.14-0.49/turn, almost all this life's latest frames; episodes.py --near/--sheet/
+     --then-now used by sol only (65/49 calls), gpt-6 0/0 first lives, 6/6 reuse lives; previous-life frames 2-6
+     per reuse life; digests are grep-of-logs.txt text.
+- Nothing changed in the running arms; no launches. Walls: of1r 05:10, of2r 06:08, of3r 07:13. Fix candidates
+  are listed in the analysis §4 for the user's morning decision.

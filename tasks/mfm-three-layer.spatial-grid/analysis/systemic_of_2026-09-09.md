@@ -109,8 +109,16 @@ frames are the whole across-life visual use.)
    looking for gravel nearby; of1r died 6 blocks from life 1's third death although the digest named it.
 7. **Turn wall time, not game steps, is the budget.** 52-103 s median per turn, p90 90-213 s; gpt-6 high runs
    ~107 steps/turn -> 30k steps in 8h. A model that thinks longer gets fewer game steps; the 8h wall therefore
-   compares "steps affordable" as much as competence. Compaction never triggered (0 in six lives at 200-430 turns;
-   whether codex compacts silently is unverified). Discarded sessions: 1 in of1, 1 in of2, none since.
+   compares "steps affordable" as much as competence. Discarded sessions: 1 in of1, 1 in of2, none since.
+   **Compaction is constant and invisible to the harness** (checked 01:1x): the rollouts hold 57 / 32 / 33 / 58 /
+   34 / 28 `"type":"compacted"` records (of1..of3r) -- of3r about 5 per hour, one every ~12 minutes = every 8-10
+   turns -- while `worldmodel_report.json` says `compactions: 0` for all six, because codex_backend.py:860 counts
+   compaction events in the `codex exec --json` stdout stream, where codex 0.147 never reports them; only the
+   rollout file does. So "one compacted thread" is in practice a chain of ~10-turn windows joined by codex's own
+   summaries; the model's durable state is `working.md`, which it therefore rewrites every turn and which grows to
+   40-68 KB -- and that file, put in front of the model every turn, is itself the biggest token item and the
+   reason the 100k limit is hit every ~10 turns. It also explains the repeated identical plans (§3.1): the summary
+   does not carry "the last 30 plans were this same plan".
 8. **GUI/crafting state is read from stale frames.** Recurring notes and self-notes in all six: "craft macro slot
    report named the old matching item, not the actual output", "GUI reports open while the image shows the
    world", "5 cells already hold leftovers ... plan dropped", furnace slot mis-click costing 135 ticks; the models
