@@ -779,3 +779,13 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   runtime-home/auth.json; the turn-1 codex child is `node .../bin/codex exec --json ...` under the purple; AGENTS.md
   2,002 words, full task text, no previous/, "none is installed for you"; mine/reflexes empty. Turn 1 at 10:06:20.
 - Both arms share the node: load ~11 on 255 cores; each arm has one engine (java mcprec) + Xvfb.
+
+## 2026-09-08 11:11 -- of3 LAUNCHED: gpt-6-astra HIGH on the ~/.codex-eval account (the user's ask)
+
+- `launch_of3.sh` = launch_of2.sh with `--reasoning-effort high`, ARM of3_mfm, ports 9123/9133; same raw-binary +
+  MCU_CODEX_AUTH plumbing, same plan account 7631363f as of2 (one symlinked credential, as codex-home.sh intends).
+  Launch pid 14133, purple 14189, wall watchdog 14136 (-> ~19:11).
+- Checks at 11:13: 0 tracebacks; purple env CODEX_BIN=raw binary, MCU_CODEX_AUTH=runtime-home; arm home auth.json ->
+  runtime-home; harness_reflexes=False skills=True minimal=True; AGENTS.md 2,002 words, full task, no previous/,
+  "none is installed for you"; mine/reflexes empty. Turn 1 at 11:12:42. Load spiked to 34 during the engine start.
+- At launch time of1 (turn 150, 18.8k steps) and of2 (turn 41, ~6.6k steps) were both at 6/24 (furnace), no iron yet.
