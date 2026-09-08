@@ -34,7 +34,10 @@ def test_write_skills_and_reflex_examples(tmp_path: Path):
             "skills/harness/SKILL.md", "skills/procedures/scripts/stair_step.py",
             "skills/procedures/scripts/torch_wall.py", "skills/memory/scripts/where_was.py",
             "skills/reflexes/scripts/lava_ahead.py", "skills/reflexes/scripts/fell.py",
-            "skills/reflexes/scripts/hit.py", "skills/reflexes/scripts/starving.py"} == set(written)
+            "skills/reflexes/scripts/hit.py", "skills/reflexes/scripts/starving.py",
+            # 2026-09-09: the game-rules and search-doctrine skills, the fire and water reflex examples
+            "skills/minecraft/SKILL.md", "skills/mining/SKILL.md",
+            "skills/reflexes/scripts/burning.py", "skills/reflexes/scripts/drowning.py"} == set(written)
     assert not (tmp_path / "mine").exists()                       # nothing installed: the model copies
     assert "Nothing is installed for you" in (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
     for name in ("memory", "procedures", "reflexes", "harness"):

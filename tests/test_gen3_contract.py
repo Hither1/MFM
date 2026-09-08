@@ -32,7 +32,7 @@ def _contracts():
 def test_minimal_contract_carries_routines_rules_and_self_improvement():
     carried, scratch = _contracts()
     for must in ("**Routines**", "workshop turn (`skills/memory/SKILL.md`)", "death_sheet.py",
-                 "Three plans with the same EXPECT and moved=0", "`[RECALL]` block",
+                 "three plans in a row that moved", "`[RECALL]` block",
                  "**Rules of play**", "never replay a resource-consuming sequence",
                  "obsidian: the diamond pickaxe only", "No natural healing below 18 food",
                  "`skills/minecraft`", "`skills/mining`",

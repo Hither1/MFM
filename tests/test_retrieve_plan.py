@@ -64,9 +64,12 @@ def test_three_turns_of_the_same_expect_with_nothing_moving_is_reported(tmp_path
     assert "moved=0.0 and no inventory change" in line
     assert "the face opens and iron_ore comes into view" in line
     assert line.endswith("Latest frame: episodes/ep_000007/observation/image.png")
-    # and it is the FIRST line of the block
+    # the block's first line is the outcome-based stall (plan_stall): three turns of nothing,
+    # and it notices the text repeated
     block = R.recall_block(rows, tmp_path, pos=(0.0, 0.0))
-    assert block.splitlines()[1].startswith("- The same EXPECT 3 turns running")
+    first = block.splitlines()[1]
+    assert first.startswith("- Nothing happened for 3 turns (turns 1-3, steps 100-315): moved=0.0, no inventory change")
+    assert "the same EXPECT each time (numbers aside)" in first and "Latest EXPECT: `the face opens" in first
     # two turns are not a repeat
     assert R.plan_repeats(R.turns_of(_life(tmp_path / "b", 2), tmp_path / "b")) is None
 
@@ -99,3 +102,37 @@ def test_a_hotbar_streak_is_not_a_loop():
     # a real kind in the same run still is one
     rows += [_row(40 + i, "mine_ahead", 500 + 10 * i, 505 + 10 * i) for i in range(3)]
     assert [s["kind"] for s in R.streaks(rows, min_len=3)] == ["mine_ahead"]
+
+
+def test_plan_stall_is_outcome_based_and_flags_a_long_dead_plan(tmp_path: Path):
+    """The record's real shape (worker_recall_2026-09-09.md): EXPECT lines rephrased every
+    turn with the numbers changed, and single plans of 15-24 entries that achieve nothing."""
+    # three turns, three different EXPECT texts, nothing moved: a stall all the same
+    root = tmp_path / "rephrased"
+    rows = []
+    for t in range(1, 4):
+        for j in range(2):
+            i = 2 * t + j
+            r = _row(i, "mine_ahead" if j else "look_abs", 100 * t + 10 * j, 100 * t + 10 * j + 5)
+            _write_action(root, r, t, f"Mine two blocks west.\n\nEXPECT: x reaches -310{t}.{t} and the face opens." if j == 0 else None)
+            rows.append(r)
+    turns = R.turns_of(rows, root)
+    assert R.plan_repeats(turns) is None                       # not the same text
+    st = R.plan_stall(turns)
+    assert st is not None and st["n"] == 3 and st["same_text"] and not st["long_plan"]
+    line = R.plan_stall_line(st)
+    assert line.startswith("Nothing happened for 3 turns") and "numbers aside" in line
+    # one turn whose plan ran 14 entries to no effect is reported alone
+    root2 = tmp_path / "long"
+    rows2 = []
+    for j in range(14):
+        r = _row(j, "mine_ahead", 500 + 10 * j, 505 + 10 * j)
+        _write_action(root2, r, 7, PLAN if j == 0 else None)
+        rows2.append(r)
+    st2 = R.plan_stall(R.turns_of(rows2, root2))
+    assert st2 is not None and st2["n"] == 1 and st2["entries"] == 14 and st2["long_plan"]
+    assert R.plan_stall_line(st2).startswith("Your last plan ran 14 entries (steps 500-635) and changed nothing")
+    # a short plan of one quiet turn says nothing; a turn that moved ends the run
+    assert R.plan_stall(R.turns_of(rows2[:5], root2)) is None
+    moving = tmp_path / "moving"
+    assert R.plan_stall(R.turns_of(_life(moving, 4, moved=3.0), moving)) is None

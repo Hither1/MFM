@@ -481,6 +481,79 @@ def plan_repeats(turns: list[dict[str, Any]], min_len: int = 3) -> dict[str, Any
             "turns": run}
 
 
+_NUMS = re.compile(r"-?\d+(?:\.\d+)?")
+#: A plan of this many entries that changed nothing is reported on its own (of3r's
+#: 21-entry plan at steps 24067-24188, moved 0.0; 43% of its entries sat in such plans).
+LONG_PLAN = 12
+
+
+def plan_stall(turns: list[dict[str, Any]], min_turns: int = 3,
+               long_plan: int = LONG_PLAN) -> dict[str, Any] | None:
+    """The run of latest consecutive turns in which NOTHING happened -- each moved less
+    than 0.5 blocks and none scored or moved the inventory -- reported when it is
+    `min_turns` long, or when the latest turn alone ran `long_plan` or more entries to
+    no effect. Outcome-based, not text-based: the six full-task lives (2026-09-09,
+    analysis/worker_recall_2026-09-09.md) never re-issued an identical EXPECT three
+    turns running, but 34-43% of their plan entries sat inside long plans that achieved
+    nothing, and consecutive EXPECT lines were near-identical with the numbers changed.
+    `same_text` says whether the run's EXPECT (or plan) lines are one text once numbers
+    are stripped. None when there is nothing to say. Pure: `turns` is `turns_of`'s output."""
+    if not turns:
+        return None
+    run: list[dict[str, Any]] = []
+    moved = 0.0
+    for t in reversed(turns):
+        m = float(t.get("moved") or 0.0)
+        if t.get("inventory") or m >= 0.5:
+            break
+        moved += m
+        run.append(t)
+    if not run:
+        return None
+    run.reverse()
+    last = run[-1]
+    entries = len(last.get("rows") or [])
+    if len(run) < min_turns and entries < long_plan:
+        return None
+    keys = {" ".join(_NUMS.sub("#", str(t.get("expect") or t.get("plan") or "")).split()).lower()
+            for t in run}
+    last_rows = last.get("rows") or []
+    row = last_rows[-1] if last_rows else {}
+    text = str(last.get("expect") or last.get("plan") or "")
+    return {"n": len(run), "entries": entries, "long_plan": entries >= long_plan,
+            "same_text": len(run) > 1 and len(keys) == 1 and "" not in keys,
+            "text": " ".join(text.split()), "first_step": run[0].get("first_step"),
+            "last_step": last.get("last_step"), "first_turn": run[0].get("turn"),
+            "last_turn": last.get("turn"), "moved": round(moved, 2), "id": row.get("id"),
+            "frame": _frame(row) if row else "", "turns": run}
+
+
+def plan_stall_line(run: dict[str, Any], root: Path | str | None = None,
+                    limit: int = 120) -> str:
+    """The stall as one sentence for the recall block: what did not happen, over how many
+    turns and entries, and the EXPECT the model keeps writing."""
+    text = run.get("text") or ""
+    if len(text) > limit:
+        text = text[: limit - 3].rstrip() + "..."
+    if run["n"] == 1:
+        line = (f"Your last plan ran {run['entries']} entries (steps {run['first_step']}-"
+                f"{run['last_step']}) and changed nothing: moved={run['moved']:.1f}, no "
+                f"inventory change")
+    else:
+        line = (f"Nothing happened for {run['n']} turns (turns {run['first_turn']}-"
+                f"{run['last_turn']}, steps {run['first_step']}-{run['last_step']}): "
+                f"moved={run['moved']:.1f}, no inventory change")
+        if run.get("long_plan"):
+            line += f"; the last plan ran {run['entries']} entries to no effect"
+        if run.get("same_text"):
+            line += ", the same EXPECT each time (numbers aside)"
+    if text:
+        line += f". Latest EXPECT: `{text}`"
+    if run.get("frame"):
+        line += f". Latest frame: {run['frame']}"
+    return line
+
+
 def plan_repeat_line(run: dict[str, Any], root: Path | str | None = None,
                      limit: int = 120) -> str:
     """The plan repeat as one sentence for the recall block. `root` is accepted for
@@ -514,9 +587,9 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     root = Path(root) if root is not None else None
     lines: list[str] = []
 
-    rep_plan = plan_repeats(turns_of(rows, root, recent=plan_recent), min_len=plan_repeat_min)
-    if rep_plan is not None:
-        lines.append("- " + plan_repeat_line(rep_plan, root))
+    stall = plan_stall(turns_of(rows, root, recent=plan_recent), min_turns=plan_repeat_min)
+    if stall is not None:
+        lines.append("- " + plan_stall_line(stall, root))
 
     movers, openers = set(movers), set(openers)
     for s in streaks(rows, min_len=streak_min, ignore=ignore_kinds,

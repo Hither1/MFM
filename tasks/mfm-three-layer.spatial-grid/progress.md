@@ -939,3 +939,17 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   does a fresh-session turn cost.
 - scripts/launch_g3.sh written (not run): of{N}g_mfm seeded with of{N}r (carries gen 1 too), SESSION_TURNS=1,
   WALL=12h; `scratch` mode = the from-scratch control on the same contract.
+
+## 2026-09-09 06:0x -- worker merged; the repeat finding corrected; suite green except the environment
+- Worker branch spatial-grid-recall rebased and fast-forwarded into spatial-grid (69d5a66 plan-grain recall +
+  hotbar out of streaks, 2ea00b5 episodes tool --ores/--y-profile, 353e95b stall.py/memory_use.py/selfimprove.py,
+  40389e4 report analysis/worker_recall_2026-09-09.md). Read-outs on the six lives are in the report.
+- CORRECTION: the "same plan repeated 11-30x" numbers counted logs.txt sections (plan entries), not turns; no life
+  re-issued an identical EXPECT three turns running. The stall is one long plan (15-24 entries) achieving nothing:
+  34-43% of entries. Added `retrieve.plan_stall` (outcome-based: N quiet turns, or one plan of >= 12 entries that
+  changed nothing; notes "same EXPECT, numbers aside"), wired first into recall_block; the Routine and the mining
+  skill's Stalls paragraph reworded; MCU RECALL_IGNORE_KINDS lists hotbar.1-9 explicitly.
+- Tests adapted to the gen-3 behaviour: test_grid (pillar then stop, no re-queued go_to), test_own_reflex (working
+  note names the digest), test_skills (six skills, burning/drowning). Whole suite: only the 8 environment failures
+  remain (gym_codex / CUA-KiCad submodule missing: test_carry x2, kicad pins x6), identical on unmodified HEAD.
+- of2r 05:29 diamond_sword 15/24 (@50,492). Walls: of2r 06:08, of3r 07:13 (monitors armed).

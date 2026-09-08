@@ -88,7 +88,9 @@ def test_contract_carries_the_reflex_and_digest_notes():
     assert MFM_DIGEST_NOTE.strip() in c and "mine/digest.md" in c
     assert c.index("**Your own files and procedures.**") < c.index("**Your own reflexes.**")
     c2 = prompts._mfm_contract(own=True, own_reflexes=False, previous=False)
-    assert "**Your own reflexes.**" not in c2 and "mine/digest.md" not in c2
+    # (2026-09-09: the working-memory note names mine/digest.md for every own arm; the carried-lives
+    # digest paragraph itself still appears only with previous lives)
+    assert "**Your own reflexes.**" not in c2 and MFM_DIGEST_NOTE.strip() not in c2
     c3 = prompts._mfm_contract(own=False, own_reflexes=True, previous=True)
     assert "**Your own reflexes.**" not in c3 and "mine/digest.md" not in c3
     h = prompts.human_contract(task_text="t", progress_block="", entry_cap=4, step_cap=40,

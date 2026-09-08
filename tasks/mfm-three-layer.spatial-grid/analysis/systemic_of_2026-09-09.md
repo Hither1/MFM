@@ -142,3 +142,18 @@ frames are the whole across-life visual use.)
 - For sol specifically: either fix the navigator's pit behaviour (do not queue pillar_up inside a shaft) or hide
   go_to in atoms mode; gpt-6 does not need it.
 - A per-turn settle inside the GUI atoms (open -> watch 10) so the stale-frame rule stops being rediscovered.
+
+## Correction (2026-09-09 06:0x): the unit of the "repeated plan"
+
+The "30+ times", "15+ plans" and "repeated 11-17x" counts above (and the 04:40 progress line
+"345 plans since mine_obsidian") count logs.txt SECTIONS -- one per plan entry, the [PLAN]/EXPECT
+text reprinted under every entry -- not model turns. At the turn grain no life re-issued an
+identical EXPECT three turns running (scripts/stall.py, analysis/worker_recall_2026-09-09.md:
+653 dead section runs across six lives, 652 inside one turn; consecutive EXPECT similarity
+median 0.48). The stall the record shows is ONE LONG PLAN of 15-24 entries that achieves
+nothing: 34% (of1r) to 43% (of3r) of all plan entries sat inside such plans. The RECALL line
+is therefore outcome-based (mfm/memory/retrieve.py plan_stall): "nothing happened for N turns"
+or "your last plan ran K entries and changed nothing", with "the same EXPECT each time (numbers
+aside)" when the rephrased text collapses to one. §3.1's conclusion (single-cell search, no
+change of y) stands; §3.7's "repeated identical plans" should read "long plans that check
+nothing on the way".
