@@ -839,3 +839,11 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   launch pid 6506, wall 6511 -> ~01:11, ports 9124/9134; checks: carry 4613 files, AGENTS.md has both new
   lines, 0 tracebacks, auth -> ~/ccr/.codex/auth.json. Decision taken without the user (asleep): the reuse life
   as launched was not a reuse life; 34 min of gpt-5.6 turns spent.
+
+## 2026-09-08 18:08 -- of2 wall-stopped: 9/24, 1 death; of2r launched by the chain
+- of2_mfm (gpt-6-astra medium): stopped 18:05:09 mid-turn 427, 34,000 steps, 9/24 (iron_pickaxe @ 12,883),
+  1 death (lava at y10, 23,285), 0 tracebacks. of2r launched 18:08:06 (launch 64645, wall 64648 -> ~02:08, ports
+  9125/9135) on MCU b2f8c832: carry 5732 files / 1426 episodes, no sites; AGENTS.md has the previous-lives lines;
+  mine/reflexes empty; 0 tracebacks; auth -> ~/.codex/runtime-home/auth.json (nyu plan).
+- of1r (relaunched 17:10) at 17:53: 6/24 (furnace @ 5,509; life 1 needed 8,494); digest.md written from
+  previous/life_1 in its workshop turn.
