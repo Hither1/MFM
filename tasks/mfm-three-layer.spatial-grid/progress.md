@@ -897,3 +897,5 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
      per reuse life; digests are grep-of-logs.txt text.
 - Nothing changed in the running arms; no launches. Walls: of1r 05:10, of2r 06:08, of3r 07:13. Fix candidates
   are listed in the analysis §4 for the user's morning decision.
+- 01:56 **of3r flint_and_steel @ 28,009 -- 14/24, the full-task record** (obf2 13/24 with --sites; kdc3z 11/24 from
+  scratch). gpt-6 high, own-life carry, no sites, 0 deaths, 6h41 in; wall 07:13.
