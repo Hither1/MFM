@@ -102,6 +102,10 @@ def test_minimal_contract_is_short_and_points_at_the_references():
     carried = prompts.minimal_contract(task_text="t", progress_block="p", entry_cap=6, step_cap=400,
                                        atoms=True, harness_reflexes=False, previous=True)
     assert "`previous/life_<i>/` the earlier lives in this same world;" in carried
+    # the carried-lives paragraph (a pointer, no digest) and the workshop-turn line; not from scratch
+    assert "**Previous lives.** `previous/life_<i>/` holds the complete records" in carried
+    assert "workshop turn (`skills/memory/SKILL.md`)" in carried
+    assert "**Previous lives.**" not in m and "workshop turn" not in m
     on = prompts.minimal_contract(task_text="t", progress_block="p", entry_cap=6, step_cap=400,
                                   harness_reflexes=True)
     assert "reflexes of its own" in on and "tools/zoom.py" not in on
