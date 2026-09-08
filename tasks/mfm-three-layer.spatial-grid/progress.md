@@ -847,3 +847,16 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   mine/reflexes empty; 0 tracebacks; auth -> ~/.codex/runtime-home/auth.json (nyu plan).
 - of1r (relaunched 17:10) at 17:53: 6/24 (furnace @ 5,509; life 1 needed 8,494); digest.md written from
   previous/life_1 in its workshop turn.
+
+## 2026-09-08 19:13 -- of3 wall-stopped: 10/24, 0 deaths; of3r launched by the chain. First generation closed.
+- of3_mfm (gpt-6-astra high): stopped ~19:11, 30,200 steps, 10/24 (iron_pickaxe @ 6,243, flint_and_steel @
+  23,032), 0 deaths, 0 tracebacks. Head-to-head of one setting (full task from nothing, minimal contract, 8h):
+  | arm | model | steps | milestones | deaths | iron_pickaxe |
+  | of1 | gpt-5.6-sol high | 56,800 | 8 | 3 | never (3 ingots at 22k) |
+  | of2 | gpt-6-astra medium | 34,000 | 9 | 1 | 12,883 |
+  | of3 | gpt-6-astra high | 30,200 | 10 | 0 | 6,243 |
+  None reached diamond; the record (11/24 at 12k) stands. The gpt-6 arms are ~2x slower per step (turn cost).
+- of3r launched 19:13:06 (launch 50442, wall 50450 -> ~03:13, ports 9126/9136): carry 4708 files / 1170
+  episodes, no sites; AGENTS.md has the previous-lives lines; 0 tracebacks; nyu plan auth.
+- Second generation at 19:15: of1r 6/24 @ 18,400 steps (stuck after the furnace, 0 deaths); of2r 6/24 @ 7,600
+  (furnace @ 4,123), 0 deaths. Both read previous/life_1 in the workshop turn and wrote mine/digest.md.
