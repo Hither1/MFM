@@ -860,3 +860,12 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   episodes, no sites; AGENTS.md has the previous-lives lines; 0 tracebacks; nyu plan auth.
 - Second generation at 19:15: of1r 6/24 @ 18,400 steps (stuck after the furnace, 0 deaths); of2r 6/24 @ 7,600
   (furnace @ 4,123), 0 deaths. Both read previous/life_1 in the workshop turn and wrote mine/digest.md.
+
+## 2026-09-08 22:54 -- of2r 12/24 (diamond_pickaxe @ 27,591); walls extended to 12h (the user's call)
+- of2r_mfm (gpt-6 medium, seeded with of2's own life, the model read it): mine_diamond_ore @ 27,258, diamond @
+  27,280, diamond_pickaxe @ 27,591 (22:48) -- 12/24, above the clean from-scratch record kdc3z 11/24 and one
+  below obf2's 13/24 (which had --sites). of1r 9/24 @ 44k (1 death, pillar fall at (-2998,56,-5583) ~28k);
+  of3r 9/24 @ 15.8k, 0 deaths.
+- The user (awake, 22:5x) asked to extend the walls: all three +4h. Old watchdogs killed by pid (6511, 64648,
+  50450), new ones sleep to 12h after launch: of1r pid 2893 -> 05:10, of2r 3080 -> 06:08, of3r 4345 -> 07:13
+  (logs/<arm>_wall.pid rewritten; setsid forks, so the pid was resolved from ps, not $!).
