@@ -747,3 +747,18 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - Launch line: `tasks/mfm-three-layer.spatial-grid/scripts/launch_of1.sh` (ARM/GP/PP overridable). NOT launched:
   the user launches, or says go. Expected from the record: 3-6k steps/h -> 20-40k steps in 8 h; the clean
   full-task record to beat is 11/24 (kd14x, kdc3z, 12k steps with a fixed library); obf2's 13/24 had pushed sites.
+
+## 2026-09-08 08:32 -- of1 LAUNCHED (full task, gpt-5.6-sol high, three-layer minimal)
+
+- Cleanup first (the user's ask): four orphan engines left by the 04:36 stop (og15/og21/og23/og24, `java mcprec` pids
+  39312/41696/34246/33303, ppid 1) killed by pid; this track's stale `tail -F` monitors killed; 11 dead `/tmp/.X*-lock`
+  + sockets removed; six dead `stark_tech_instances/` dirs removed. Root disk stays 96% (36G /usr, 6.2G /var/log: not ours).
+- Two launch failures fixed before it ran: (1) `--skills needs --thin and --own` -- `--minimal` does not imply `--thin`,
+  og24 also carried both; `--thin` added to launch_of1.sh. (2) `WorldModelExecutor.__init__() got an unexpected keyword
+  argument 'event_sheet'` -- the purple executor never forwarded the new flag (tests build the agent directly); MCU 6eb4ea17.
+- Third launch 08:32:43: launch pid 19612, wall watchdog 19615 (stops at ~16:32), green 9121, purple 9131 (pid 19650),
+  codex home `codex-homes/of1_mfm`. Checks at 08:34: 0 tracebacks; purple line `model=gpt-5.6-sol ... thin=True atoms=True
+  own=True own_reflexes=True harness_reflexes=False skills=True minimal=True frame_size=320x180`; AGENTS.md 2,002 words,
+  task "Starting from nothing, defeat the Ender Dragon", no previous/ mention, `mine_ahead` example, "none is installed
+  for you"; `mine/reflexes/` empty, five examples under `skills/reflexes/scripts/`; own.md "guards are OFF in this run";
+  toml task_category=ender_dragon max_steps=100000. Turn 1 at 08:33:55 (images=1); leaves being mined by 08:35.
