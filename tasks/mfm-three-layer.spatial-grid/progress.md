@@ -1009,3 +1009,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   caves; enter the Nether at health 16+ with cooked food; copy known_hazards.py after the first death.
 - analysis/traj_gen2_final.md (subagent) kept with a caveat header: its death steps and GUI counts failed checking.
 - Gen 3 not relaunched: waiting for the user's word.
+
+## 2026-09-09 09:0x -- knowledge as general rules (user), starving stop, no harness perception for animals/portal
+- User: knowledge = general rules a human player knows, not specific recipes; the harness never decides for the model;
+  animals and the portal frame are for the model to recognise (no frame-based animal hint, no portal verifier).
+- MCU (this commit): skills/mining rewritten as "game facts + principles" (where ore generates, expose-look-break,
+  cover volume not distance, evidence decides depth/heading, segment plans, budget the way back); the branch-spacing /
+  torch-interval / segment-length numbers are gone. minecraft skill: portal "checked by looking, not by counting",
+  Nether "go in healthy and fed; the portal is the way to heal", hunger phrased as cost. Contract: geometry "verified
+  by looking at what stands"; pre-Nether "healthy" instead of a number. starving.py: note at the 18 crossing, STOP
+  when health <= 10 with food < 18 or food <= 6 (a decision handed to the model, no action taken for it).
+- Live MFM-grid/MCU fast-forwarded; core tests pass (test_gen3_contract adapted). Gen 3 still waits for the user's go.

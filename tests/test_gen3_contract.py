@@ -73,7 +73,8 @@ def test_skill_package_has_six_trigger_skills_and_a_native_catalog(tmp_path: Pat
     mc = (tmp_path / "skills" / "minecraft" / "SKILL.md").read_text()
     assert "4 wide x 5 tall" in mc and "18 or more" in mc and "DIAMOND pickaxe" in mc
     mn = (tmp_path / "skills" / "mining" / "SKILL.md").read_text()
-    assert "--y-profile" in mn and "every 3rd block" in mn and "STAIRCASE" in mn
+    assert "--y-profile" in mn and "Principles" in mn and "Expose, then look, then break" in mn
+    assert "every 3rd block" not in mn and "every 8-10 blocks" not in mn      # principles, not a recipe (user, 2026-09-09)
     # the codex-native catalog: .agents/skills/<name> -> ../../skills/<name>, resolving to SKILL.md
     cat = tmp_path / ".agents" / "skills"
     assert sorted(p.name for p in cat.iterdir()) == names
@@ -120,6 +121,14 @@ def test_reflex_examples_name_the_unknown_source_fire_and_water(tmp_path: Path):
     assert "actions" not in burn                                  # no automatic step back
     walking = {**base, "lava_frac": 0.05, "pos_prev": {**pos, "x": 3.5}}
     assert _run_reflex(tmp_path, "burning.py", walking) is None   # a walk: lava_ahead's job
+    # starving: a note at the 18 crossing, a STOP when health is low with no healing or food is nearly out
+    st = _run_reflex(tmp_path, "starving.py", {**base, "health": 12.0, "health_prev": 12.0, "food": 17, "food_prev": 18})
+    assert st and "stop" not in st and "no natural healing below 18" in st["note"]
+    st2 = _run_reflex(tmp_path, "starving.py", {**base, "health": 9.0, "health_prev": 12.0, "food": 15, "food_prev": 15})
+    assert st2 and st2["stop"] and "cannot heal" in st2["note"]
+    st3 = _run_reflex(tmp_path, "starving.py", {**base, "health": 18.0, "health_prev": 18.0, "food": 5, "food_prev": 7})
+    assert st3 and st3["stop"]
+    assert _run_reflex(tmp_path, "starving.py", {**base, "health": 18.0, "health_prev": 18.0, "food": 15, "food_prev": 15}) is None
     drown = _run_reflex(tmp_path, "drowning.py", {**base, "water_frac": 0.6})
     assert drown and drown["stop"] and "DROWNING" in drown["note"]
     assert drown["actions"][0]["action"] == {"jump": 1}
