@@ -1,6 +1,6 @@
 # MIN arm (gen4-min) vs gen 2 (b2f8c832) -- rendered minimal_contract(previous=True, atoms, frames, no harness reflexes) + write_skills; gen-2 render == of3r's AGENTS.md and skills/ byte for byte (checked 2026-09-10)
 --- gen2/AGENTS.md	2026-09-10 05:11:10.731121589 +0800
-+++ min/AGENTS.md	2026-09-10 05:21:56.463199593 +0800
++++ min/AGENTS.md	2026-09-10 05:35:39.899291557 +0800
 @@ -26,8 +26,9 @@
  (`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
  [--sheet out.png] [--then-now <id>] --q "<question>"`); `previous/life_<i>/` the earlier lives in this same world; `mine/` is yours
@@ -24,7 +24,7 @@
  
 diff -ru gen2/skills/memory/SKILL.md min/skills/memory/SKILL.md
 --- gen2/skills/memory/SKILL.md	2026-09-10 05:11:10.731121589 +0800
-+++ min/skills/memory/SKILL.md	2026-09-10 05:21:56.463199593 +0800
++++ min/skills/memory/SKILL.md	2026-09-10 05:35:39.899291557 +0800
 @@ -40,8 +40,8 @@
  
  The first turn of a life with `previous/` is a WORKSHOP, not a play turn: read the
@@ -38,7 +38,7 @@ diff -ru gen2/skills/memory/SKILL.md min/skills/memory/SKILL.md
  turns cost wall clock, not game steps.
 diff -ru gen2/skills/reflexes/scripts/starving.py min/skills/reflexes/scripts/starving.py
 --- gen2/skills/reflexes/scripts/starving.py	2026-09-10 05:11:10.731121589 +0800
-+++ min/skills/reflexes/scripts/starving.py	2026-09-10 05:21:56.463199593 +0800
++++ min/skills/reflexes/scripts/starving.py	2026-09-10 05:35:39.903291557 +0800
 @@ -1,11 +1,29 @@
 -"""starving: the food bar crossing below 18 -- no natural healing from here; a note."""
 -# Example reflex: health regenerates only with the food bar at 18+; og18 spent 3,300 steps
@@ -64,11 +64,11 @@ diff -ru gen2/skills/reflexes/scripts/starving.py min/skills/reflexes/scripts/st
 +         "potato", "beetroot", "sweet_berries")
 +inv = s.get("inventory") or {}
 +food = next((k for k in FOODS if inv.get(k, 0) > 0), None)
-+if f < 18 and f < fp and food and not s.get("gui_open"):
++if f < 18 and f < fp and food and not s.get("gui_open") and s.get("entry") != "eat":
 +    print(json.dumps({"actions": [{"procedure": "eat", "args": {"item": food}}],
 +                      "note": "food %.0f/20 with %s carried: eating (no natural healing below 18)"
 +                              % (f, food)}))
-+elif f < 18 and fp >= 18:
++elif f < 18 and fp >= 18 and s.get("entry") != "eat":
 +    print(json.dumps({"note": ("food %.0f/20: no natural healing from here; eat the %s once the GUI is closed"
 +                               % (f, food)) if food else
 +                              ("food %.0f/20 and nothing to eat: no natural healing from here. "

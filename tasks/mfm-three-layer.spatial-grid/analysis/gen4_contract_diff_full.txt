@@ -1,6 +1,6 @@
 # FULL arm (gen4-full) vs gen 2 (b2f8c832) -- same rendering
 --- gen2/AGENTS.md	2026-09-10 05:11:10.731121589 +0800
-+++ full/AGENTS.md	2026-09-10 05:21:56.835199637 +0800
++++ full/AGENTS.md	2026-09-10 05:35:40.543291620 +0800
 @@ -20,14 +20,22 @@
  if it works). Then write the file:
  - `./actions.json` -- REQUIRED. `{"actions": [...]}`, see below.
@@ -105,7 +105,7 @@
  
 diff -ru gen2/skills/harness/SKILL.md full/skills/harness/SKILL.md
 --- gen2/skills/harness/SKILL.md	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/harness/SKILL.md	2026-09-10 05:21:56.839199637 +0800
++++ full/skills/harness/SKILL.md	2026-09-10 05:35:40.547291621 +0800
 @@ -1,6 +1,6 @@
  ---
  name: harness
@@ -140,7 +140,7 @@ diff -ru gen2/skills/harness/SKILL.md full/skills/harness/SKILL.md
    the place.
 diff -ru gen2/skills/memory/SKILL.md full/skills/memory/SKILL.md
 --- gen2/skills/memory/SKILL.md	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/memory/SKILL.md	2026-09-10 05:21:56.835199637 +0800
++++ full/skills/memory/SKILL.md	2026-09-10 05:35:40.543291620 +0800
 @@ -40,8 +40,8 @@
  
  The first turn of a life with `previous/` is a WORKSHOP, not a play turn: read the
@@ -182,7 +182,7 @@ diff -ru gen2/skills/memory/SKILL.md full/skills/memory/SKILL.md
  
 diff -ru gen2/skills/procedures/scripts/stair_step.py full/skills/procedures/scripts/stair_step.py
 --- gen2/skills/procedures/scripts/stair_step.py	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/procedures/scripts/stair_step.py	2026-09-10 05:21:56.835199637 +0800
++++ full/skills/procedures/scripts/stair_step.py	2026-09-10 05:35:40.543291620 +0800
 @@ -1,7 +1,7 @@
  """stair_step: one step of a staircase DOWN along the heading -- foot block, head block, step in."""
  # Example procedure (harness-written; copy it to mine/procedures/ and make it yours). The
@@ -194,7 +194,7 @@ diff -ru gen2/skills/procedures/scripts/stair_step.py full/skills/procedures/scr
            "pick": "hotbar slot 1-9 holding the pickaxe (default: the first pickaxe found)"}
 diff -ru gen2/skills/procedures/SKILL.md full/skills/procedures/SKILL.md
 --- gen2/skills/procedures/SKILL.md	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/procedures/SKILL.md	2026-09-10 05:21:56.835199637 +0800
++++ full/skills/procedures/SKILL.md	2026-09-10 05:35:40.543291620 +0800
 @@ -23,8 +23,8 @@
    turn: a staircase step, a tunnel segment with its torch, a GUI craft with its
    verification, a bucket fill from a bank, a pour and a scoop at a pool.
@@ -245,7 +245,7 @@ diff -ru gen2/skills/procedures/SKILL.md full/skills/procedures/SKILL.md
 Only in full/skills/reflexes/scripts: burning.py
 diff -ru gen2/skills/reflexes/scripts/hit.py full/skills/reflexes/scripts/hit.py
 --- gen2/skills/reflexes/scripts/hit.py	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/reflexes/scripts/hit.py	2026-09-10 05:21:56.839199637 +0800
++++ full/skills/reflexes/scripts/hit.py	2026-09-10 05:35:40.543291620 +0800
 @@ -1,13 +1,17 @@
 -"""hit: 3+ health lost in four ticks with no lava in view -- a mob; stop, decide, act."""
 -# Example reflex: monsters are reported on no channel; the health drop is the only sign.
@@ -273,7 +273,7 @@ diff -ru gen2/skills/reflexes/scripts/hit.py full/skills/reflexes/scripts/hit.py
                                % (lost, s["health"])}))
 diff -ru gen2/skills/reflexes/scripts/lava_ahead.py full/skills/reflexes/scripts/lava_ahead.py
 --- gen2/skills/reflexes/scripts/lava_ahead.py	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/reflexes/scripts/lava_ahead.py	2026-09-10 05:21:56.839199637 +0800
++++ full/skills/reflexes/scripts/lava_ahead.py	2026-09-10 05:35:40.543291620 +0800
 @@ -1,7 +1,6 @@
  """lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you -- stop, step back."""
 -# Example reflex (harness-written, yours to edit or retire): the runs that died in lava
@@ -287,7 +287,7 @@ diff -ru gen2/skills/reflexes/scripts/lava_ahead.py full/skills/reflexes/scripts
 Only in full/skills/reflexes/scripts: slow_loss.py
 diff -ru gen2/skills/reflexes/scripts/starving.py full/skills/reflexes/scripts/starving.py
 --- gen2/skills/reflexes/scripts/starving.py	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/reflexes/scripts/starving.py	2026-09-10 05:21:56.839199637 +0800
++++ full/skills/reflexes/scripts/starving.py	2026-09-10 05:35:40.543291620 +0800
 @@ -1,11 +1,29 @@
 -"""starving: the food bar crossing below 18 -- no natural healing from here; a note."""
 -# Example reflex: health regenerates only with the food bar at 18+; og18 spent 3,300 steps
@@ -313,11 +313,11 @@ diff -ru gen2/skills/reflexes/scripts/starving.py full/skills/reflexes/scripts/s
 +         "potato", "beetroot", "sweet_berries")
 +inv = s.get("inventory") or {}
 +food = next((k for k in FOODS if inv.get(k, 0) > 0), None)
-+if f < 18 and f < fp and food and not s.get("gui_open"):
++if f < 18 and f < fp and food and not s.get("gui_open") and s.get("entry") != "eat":
 +    print(json.dumps({"actions": [{"procedure": "eat", "args": {"item": food}}],
 +                      "note": "food %.0f/20 with %s carried: eating (no natural healing below 18)"
 +                              % (f, food)}))
-+elif f < 18 and fp >= 18:
++elif f < 18 and fp >= 18 and s.get("entry") != "eat":
 +    print(json.dumps({"note": ("food %.0f/20: no natural healing from here; eat the %s once the GUI is closed"
 +                               % (f, food)) if food else
 +                              ("food %.0f/20 and nothing to eat: no natural healing from here. "
@@ -328,7 +328,7 @@ diff -ru gen2/skills/reflexes/scripts/starving.py full/skills/reflexes/scripts/s
 +                              "you eat" % (h, f)}))
 diff -ru gen2/skills/reflexes/SKILL.md full/skills/reflexes/SKILL.md
 --- gen2/skills/reflexes/SKILL.md	2026-09-10 05:11:10.731121589 +0800
-+++ full/skills/reflexes/SKILL.md	2026-09-10 05:21:56.835199637 +0800
++++ full/skills/reflexes/SKILL.md	2026-09-10 05:35:40.543291620 +0800
 @@ -1,12 +1,12 @@
  ---
  name: reflexes
