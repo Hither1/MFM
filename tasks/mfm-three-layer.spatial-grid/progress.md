@@ -1410,3 +1410,13 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   canopy to the pond, took a water bucket (use_item bucket @~10.9k), crafted a wooden_hoe and is planting wheat seeds at
   the workshop (-3022,65,-5578). A preparation-first strategy (bucket, food) at surface-navigation cost; the model's own
   call, not intervened. of3r at equal wall (+3h): 9/24 too, diamonds at +4h (step 17921). Load 19, root 54G.
+- 01:40 of3g_mfm (gen-3b) hour 4: 131 turns, step 14000, still 9/24, 106 steps/turn, digest unchanged, food 20 all life,
+  no deaths/faults. Killed a sheep (mutton, wool), planted wheat, heading back to the workshop (-3022,65,-5580) to smelt.
+  Verdict of the +4h point: of3r had diamonds at +4h00 (step 17921); gen-3b has not left the surface since the pickaxe
+  (+56m). Cause traced (01:20 exchange): the descent checklist is prescribed four times -- contract Routines
+  (prompts.py:1506 block, "Before descending below y 40: food..."), harness SKILL.md:39, minecraft SKILL.md:35, and the
+  inherited digest's own lesson; food in this engine fell only to 16 over of3r's 41.6k steps (never eaten). Decision
+  proposed to the user, not applied: next arm keeps the seed memory (world facts are harness-independent; the gen-2
+  chain 10->13->14->16 is the reuse evidence) and cuts the contract to harness interface + memory discipline
+  (drop the descent/hit-view/then-now-on-arrival/no-replay prescriptions, reword the pace rule as a runner fact,
+  target <= 10 KB); a from-scratch control (P3-B) only as measurement. Awaiting the user's word.
