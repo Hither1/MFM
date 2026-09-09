@@ -204,6 +204,8 @@ def then_now(root: Path, then: str, now: str | None, out: Path,
                     if row.get("x") is not None and row.get("z") is not None else ""))
     else:
         then_path = Path(then) if Path(then).is_absolute() else root / then
+        if then_path.is_dir():                      # an episode directory (this life's or previous/life_i/...)
+            then_path = then_path / "observation" / "image.png"
         label = f"THEN {then}"
     if not then_path.exists():
         raise SystemExit(f"no frame for {then!r}: not an episode id in the index and not a file")
