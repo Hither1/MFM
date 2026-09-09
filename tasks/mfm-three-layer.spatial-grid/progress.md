@@ -1372,3 +1372,24 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   treat its first two hours as the test. Prepared: live MFM-grid/MCU fast-forwarded 725574f3 -> cf86f15a
   (no arm was running there); of3g's directories set aside as `*of3g_mfm*.stopped-2031*` (logs, output,
   codex home) -- analysis scripts now need `of3g_mfm.stopped-2031` as the arm name.
+- 21:37 GEN-3b SMOKE RESULT (g3smoke_mfm from merge-mcu, 2000 steps, 20:56:54-21:37:12, seeding 9 min): 18 turns,
+  5/24 @1937 (stone_pickaxe; of3g 5/24 @1507, of3r @2227), 111 steps/turn (of3g 42-46, of3r 83-123), plan
+  entries median 7 steps (of3g 6, of3r 11), turn interval median 75 s (of3g 84-108, of3r 68), output tokens
+  median 1,148/turn (of3g 2,012). Cells/turn 2.33: read own log 0.67, read previous 0.61, references 0.56,
+  writes working+notes+actions 0.50 + working+actions 0.33 (NO per-turn digest write, NO json.tool: of3g had
+  0.65 and 0.97), queries 0.28 (of3g 0.43), skill reads 0.28 (0.66), looks 0.22 (0.60). digest.md 2,145 B /
+  15 lines (of3g 100 KB), working.md 713 B, notes.md 2.3 KB; 4 reflexes + 2 copied procedures. Contract in the
+  workspace: "Your thread persists" present, old sentence absent, pace rule present, 16,178 B. Report: 18 calls,
+  attachment peak 5.3 MB, 1 compaction, 0 tool-error turns; home without auth.json/snapshots.
+  Anomalies: turn 1 (workshop) hit the backend's 480 s ceiling (codex_backend.py:128, tied to the green's 600 s
+  step timeout, not adjustable) -- "timed out after 480s; 12 events kept", session discarded, attempt 2 planned
+  from the files it had written (digest, reflexes, procedures were on disk); of3g's workshop took 3m19s, this
+  one read more of previous/. One "Reconnecting... waiting for network" at turn 2 (transient). Watchdog 10262
+  killed by pid after the smoke. Verdict: pace and bookkeeping fixed; discriminating post-furnace behaviour
+  not covered (2000 steps end at the stone pickaxe); per the user (21:27) the full run's first two hours are
+  the test.
+- 21:38:10 LAUNCHED of3g_mfm = gen-3b full run (`bash launch_g3.sh 3` on live MCU cf86f15a): openrouter,
+  gpt-6-astra high, 640x360, SESSION_TURNS=0, seed of3r, hires on. launch pid 8983, watchdog 8987, WALL 12h ->
+  ~09:38 2026-09-10, ports 9128/9138. Monitor task b3gq1vmvv (milestones, errors, faults, every 25 turns,
+  stalls, hourly with steps/turn and digest size). Test criteria for the first two hours: >= 80 steps/turn,
+  furnace by ~+30 min and iron by ~+1 h 15 (of3r: +20 / +52 min), digest <= 3 KB, no per-turn digest writes.
