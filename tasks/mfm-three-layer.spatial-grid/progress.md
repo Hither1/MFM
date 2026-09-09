@@ -1300,3 +1300,16 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   arm's /tmp use is 0.45 GB (MineStudio engine) + a few PNGs. A shared-node job fills and frees / in cycles; each
   fill = a sandbox-fault window (turns lost, the harness moves on). Nothing on our side can move codex's bwrap
   marker out of /tmp; watching root_free hourly and sandbox faults per turn.
+- 17:43 hourly: 154 turns, step 6000, 6/24, load 22, root fs 55 GB free (drained 93->55 between 15:42 and 16:42,
+  flat since). Two transient stream errors (turn 114 16:44 "502", turn 142 17:31 "error decoding response body"),
+  both reconnected on codex's first retry. No sandbox faults since 13:16.
+  PACE vs of3r by wall time since first obs (of3r first obs 19:14:50 09-08): of3r 6/24 at +20 min (step 2507),
+  mine_iron_ore +52 min (@5033), iron_pickaxe +1h07 (@6060), diamond_pickaxe +4h06 (@18155); of3g 6/24 at
+  +1h01 (@2318) and still 6/24 at +4h41 (@6000). Both slower per hour (2x) and, past the furnace, less
+  productive per step (of3r had iron by step 5033; of3g has none at 6000: it spent 14:03-17:40 hopping toward
+  life-1's iron entrance one block at a time, climbed into the spruce canopy at Y72 clearing leaves, plans of
+  1-14 steps, RECALL nudges present in the prompts). Model play, not infrastructure: no intervention under the
+  overnight mandate. Decision for the user in the morning: at ~1,300 steps/h the 12h wall (~00:57) yields
+  ~15k steps, far short of the 41.6k of3r used for 16/24; the gen-3 setup (skills catalog, 640x360, OpenRouter,
+  "Improve yourself") is underperforming gen-2 on this life -- the seed is the same, so the cause is the
+  gen-3 changes and/or the provider's speed, to be separated before the next arm.
