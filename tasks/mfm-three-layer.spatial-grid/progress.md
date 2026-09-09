@@ -1474,3 +1474,35 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   via the memory skill), tier 1 = model-invisible (hires record, then-now dir fix, WALL 14h, account plumbing),
   tiers 2/3 default off with their measured gen-2 costs. Correction recorded: of3r's digest lacks a diamond line
   because life_1 had none; run A's workshop reads life_2's MILESTONE line with gen-2 grep. Waiting on the account.
+
+## 2026-09-10 05:0x-05:5x -- the user's decision: both settings, head to head (gen 4 = MIN vs FULL)
+- User (05:0x): run both -- "full" (gen 2 + gen 3's neutral fixes + hunger + memory, 640x360) and "min" (exact gen 2
+  + three edits, 320x180) -- and compare. Run B (continuation from 16, kit-based) stays deferred.
+- Worktrees: MFM-grid-min-mcu (MCU branch gen4-min from b2f8c832) + MFM-grid-min (mfm branch gen4-min from ede1627);
+  MFM-grid-merge-mcu now on gen4-full from cf86f15a + MFM-grid (spatial-grid). .venv and output/of3r_mfm symlinked.
+- MIN (gen4-min 1c697dd8, mfm a87aa8d): 392bc49a the three edits (starving.py eats what you carry when the bar drops
+  below 18, else a note at the crossing, a stop at health 10.5 with nothing to eat; the hunger line in Safety;
+  then-now on arrival in Memory + the episode id beside each digest place in the memory skill); cherry-picks
+  07063171 hires record, 3ffe35c5 env scrub, a70c9c16 OpenRouter route (model-invisible); bfd31b31 GUI case + '4000';
+  1c697dd8 quiet while the eat runs + stage s28_eat. mfm 3098424 = then-now dir fix 3dc7f7a.
+- FULL (gen4-full 27b206aa, mfm 09c60f7): 2f508c8c drops Routines / Rules of play / Improve yourself / the
+  persistence sentence, restores gen 2's workshop sentence, drops the codex-native catalog and the minecraft/mining
+  trigger skills (rules -> references/minecraft.md with the ore-search lines folded in), gen 2's skill descriptions,
+  drowning.py -> slow_loss.py on health_100 (the health 100 ticks ago, new in the reflex state; of1's dark drowning
+  frames read water 0), plus the same three edits; a7dbe7ba references/skills.md pointers -> references/minecraft.md
+  (they would have dangled), GUI case, '4000'; 27b206aa eat guard + stage. mfm 6f44b70 RECALL closing line = gen 2's
+  view_image nudge; df1816d tests (test_gen3_contract -> test_gen4_contract), pin re-recorded (only that line).
+- Verification ladder, both arms: (a) rendered contract + skills diffed against gen 2 -- the gen-2 render equals of3r's
+  own AGENTS.md and skills/ byte for byte; MIN's diff is exactly the three edits (analysis/gen4_contract_diff_min.txt,
+  79 lines); FULL's is the neutral fixes + the three edits (gen4_contract_diff_full.txt, 390 lines); the three shared
+  edits are identical across arms (starving.py, the hunger line, the digest line). (b) tests: MFM-grid suite green
+  against merge-mcu (run_tests.sh exit 0); MFM-grid-min suite green against min-mcu except the 8 kicad tests that fail
+  on the untouched gen-2 baseline too (CUA-KiCad submodule absent there). (c) simulator stage s28_eat, 12/12 in both
+  worktrees: mutton in a main inventory slot, hunger effect (difficulty easy) -> bar 18 -> 17 during a watch -> one
+  firing, plan dropped, eat runs, mutton 3 -> 2; no food -> one note at the crossing, no stop, plan runs its 160
+  ticks, a further point silent. Two findings: the reflex re-fired at the next point lost while its own eat was still
+  running (artefact of the accelerated drain; guarded anyway with entry != "eat"); raw mutton restores 2 food, not 6.
+- launch_g4.sh (5d876fc): min -> of3m_mfm 9133/9143 from min-mcu (MFM_ROOT MFM-grid-min, 320x180); full -> of3f_mfm
+  9132/9142 from merge-mcu (MFM_ROOT MFM-grid, 640x360); both gpt-6-astra high via OpenRouter, one thread + compaction,
+  100k steps, WALL 14h, seed of3r (carry-only); refuses a stale worktree, dirty harness code, busy ports.
+  SMOKE=150 -> g4smoke_<arm>_mfm on 9127/9137 (min) / 9126/9136 (full), WALL 30m.
