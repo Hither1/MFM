@@ -1404,3 +1404,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   diamond site (-3096,11,-5545, ep_000952). P3 read-out pending: diamond by step 9420 (pickaxe + 5000).
   Looks 0.24/turn, skill reads 0.45/turn, own-procedure calls: west_stairs/west_level used (n3 passed @3287).
   working.md 3.6 KB in a space-stripped style (harness shows 1500 chars); not touched. Load 17, root 54G free.
+- 00:40 of3g_mfm (gen-3b) hour 3: 98 turns, step 11200, still 9/24, 114 steps/turn, digest 2.4 KB unchanged, notes 30 KB,
+  no deaths, no faults. The P3 line (diamond by step 9420) is missed: since the pickaxe the model stayed on the surface --
+  walked west over the life_2 diamond site (-3117,69,-5541 @~9000) without descending, came back east through the spruce
+  canopy to the pond, took a water bucket (use_item bucket @~10.9k), crafted a wooden_hoe and is planting wheat seeds at
+  the workshop (-3022,65,-5578). A preparation-first strategy (bucket, food) at surface-navigation cost; the model's own
+  call, not intervened. of3r at equal wall (+3h): 9/24 too, diamonds at +4h (step 17921). Load 19, root 54G.
