@@ -1042,3 +1042,33 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   (previous/life_1/skills exists), DIGEST_CAP 2000 < of3r's digest 2142 B. The 08:08 launches never reached a
   codex turn (of3g: agent constructed, no AGENTS.md/skills/codex_turns) -> the gen-3 path is untested end to
   end; the 600-step smoke is still the next step. Tests on live MCU dc27d08c: 22 passed.
+
+## 2026-09-09 09:5x-10:5x -- the review's four items fixed (user: anecdotes out, frictions fixed, codex home isolated, multimodal flow checked)
+- Rule (user): the model reads previous/ itself; the harness gives no earlier life's outcome. Every anecdote in the
+  model-facing text is now a rule (skills x6, the reflex/procedure example comments, Routines/Rules of play, the atoms
+  situations, gui.md/survival.md's three old sentences); tests/test_gen3_fixes.py guards it with a regex over the
+  rendered contract, references, skills and scripts. Chassis pins re-recorded (three sentences + index fields).
+- Frictions: `.agents` in KEEP_BETWEEN_TURNS; `skills` in NOT_CARRIED (a seed's harness skill package is no longer
+  under previous/life_N/); DIGEST_CAP 3000.
+- Codex home: the per-arm home is isolated, but codex 0.153.4 (both accounts run it now; the 05:03 smoke was 0.147)
+  re-installs its 5 bundled skills into `$CODEX_HOME/skills/.system` at every start and also lists `$HOME/.agents/
+  skills` (this host: deepspeed, find-skills, health, flash-attention) -- 9 strangers in every arm's catalog, with
+  `skill-creator` matching the moment the contract says "write a skill". Six one-turn smokes (gpt-5.6-sol low):
+  an empty or read-only `.system` dir is replaced; `-c skills.config=[...enabled=false]` is ignored; a plain FILE at
+  `skills/.system` makes the install fail (logged, harmless) and HOME=<arm home> drops the host root -> the catalog
+  is the workspace's `.agents/skills` alone (symlinks followed, full descriptions, own skills included).
+  codex-home.sh + codex_backend.py do both now.
+- Multimodal flow, checked on of3r's real record: episode frames and attach/frame.png are 320x180, previous-life
+  frames hard-linked (nlink 3), previous/index.jsonl paths resolve; `--last/--near/--tag --sheet/--then-now` (own
+  and previous frames), `--y-profile`, zoom.py all produce the right images (viewed sheet.png/tn.png); [OBSERVED]
+  and [RECALL] cite frame paths in real turn prompts (turn 120: 4 citations); the model's shell python has PIL and
+  numpy (of3r ran crops and `--previous --steps --q`). Found and fixed: `--grep` opened action/outcome/state of
+  every episode (>120 s at 2,787 episodes on data3) and `--ores` every outcome.json (84 s) -- longer than a turn.
+  Now the index row carries note/events/inventory_delta (store.py) and the carry enriches old lives' rows at seed
+  time (previous.py): seeding of3r into a scratch workspace took 3m31s for 3,957 rows (all with events, 1,512 with
+  a note); then `--previous --grep lava` 0.04 s, `--previous --ores` 0.01 s. `--deep` keeps the old file search.
+  recall_block on the full record from a cold cache: 13.4 s (in the arm the files are page-cache warm; not changed).
+  worldmodel_report's `view_image_calls` (10,887 for of3r) is inflated by the 0.153 exec-tool echo; the read-out
+  scripts (vision_use.py, memory_use.py) count calls correctly.
+- MCU d3d567e2 (spatial-grid-merge, live MFM-grid/MCU fast-forwarded), MFM-grid e3e4e11; whole suite green (9 skips).
+  Not pushed. Still not run end to end on an arm: the 600-step g3smoke (user's launch).
