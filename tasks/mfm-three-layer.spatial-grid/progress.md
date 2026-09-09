@@ -1143,3 +1143,8 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   gpt-6-astra high, seed of3r (carries of3), one thread + COMPACT, STEPS=100000, WALL=12h (stops ~23:51),
   launch pid 13636, watchdog pid 13639, ports 9128/9138, live MCU d3d567e2. Orphan `sleep 12h` processes
   (4362, 39877, 42313, 42686; parents already killed) fire nothing.
+- 11:55 stopped on the user's word ("先停一下"), 3.5 min in: green/purple up, seeding in progress, 0 codex turns.
+  `stop_arm.py --go of3g_mfm` stopped 11 of 11 pids (3 SIGKILLed); watchdog 13639 and its sleep 13641 killed by
+  pid; ports 9128/9138 free. output/of3g_mfm and logs/of3g_mfm_* left in place (a relaunch overwrites them).
+  Relaunch line (from MFM-grid/MCU): `env -u GITHUB_PERSONAL_ACCESS_TOKEN -u WANDB_API_KEY SESSION_TURNS=0
+  ACCOUNT=nyu bash ../tasks/mfm-three-layer.spatial-grid/scripts/launch_g3.sh 3`.
