@@ -1368,3 +1368,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   it is the watchdog's own command). The two other stale ones (12579, 34891) killed by pid.
 - 20:56:54 gen-3b smoke RELAUNCHED (pid 10259, watchdog 10262 = the only g3smoke watchdog now; ports
   9127/9137; MCU_DIR=merge-mcu, MFM_ROOT=MFM-grid, SMOKE=2000, WALL=100m). Ends by ~22:40 at the latest.
+- 21:27 user: wait for the smoke, then launch the full gen-3b run (of3g2 = `launch_g3.sh 3`, seed of3r) and
+  treat its first two hours as the test. Prepared: live MFM-grid/MCU fast-forwarded 725574f3 -> cf86f15a
+  (no arm was running there); of3g's directories set aside as `*of3g_mfm*.stopped-2031*` (logs, output,
+  codex home) -- analysis scripts now need `of3g_mfm.stopped-2031` as the arm name.
