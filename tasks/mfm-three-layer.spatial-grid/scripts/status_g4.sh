@@ -36,6 +36,24 @@ for e in "$EP/codex_turns"/turn_*.events.jsonl; do
   n=$(grep -cE "view_image|then-now|zoom\.py" "$e"); [ "$n" -gt 0 ] && printf "%s:%s " "$(basename "$e" .events.jsonl | sed 's/turn_0*//')" "$n"
 done; echo
 grep -hoE "episodes\.py --then-now[^\"\\\\]{0,120}" "$EP"/codex_turns/turn_*.events.jsonl | tail -3
+echo "-- view_image calls (codex rollout; the --json events never show them)"
+RO=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes/$ARM/sessions
+python3 - "$RO" <<'PY'
+import json,sys,glob,os
+n=0; last=[]
+for f in sorted(glob.glob(os.path.join(sys.argv[1],"*/*/*/rollout-*.jsonl"))):
+    for l in open(f):
+        try: e=json.loads(l)
+        except: continue
+        p=e.get("payload",{})
+        if p.get("type")=="function_call" and "view_image" in p.get("name",""):
+            n+=1
+            try: path=json.loads(p.get("arguments","{}")).get("path","")
+            except Exception: path=p.get("arguments","")
+            last.append((e.get("timestamp","")[11:19]+"Z", path.split("/memory/")[-1]))
+print("total view_image calls:",n)
+for t,pa in last[-6:]: print(" ",t,pa)
+PY
 echo "-- last plan"
 grep -E "^\[PLAN\]" "$EP/memory/logs.txt" | tail -1 | cut -c1-240
 echo "-- last turn usage"

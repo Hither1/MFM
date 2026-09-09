@@ -1536,3 +1536,15 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   watchdog 42102 + its sleep killed by pid; it had 0 completed turns (mid-workshop), ports 9132/9142 free. MIN
   of3m_mfm runs alone (pid 38535, watchdog 38538, WALL 14h -> ~20:00). FULL stays ready: `bash launch_g4.sh full`
   from a clean merge-mcu at 27b206aa. Checkpoints for MIN at 06:37 and 08:07 (session cron).
+
+## 2026-09-10 06:18 -- of3m_mfm +18 min: view_image confirmed, across-life then-now at spawn
+- Alive (38535/38538). Step 1018, 3/24 (mine_log 153, crafting_table 587, wooden_pickaxe 677), 6 turns,
+  169 steps/turn, health/food 20/20, no reflex fire, 0 purple errors.
+- The "0 view_image events" worry is resolved: codex `--json` never emits view_image (codex_backend.py:370-380);
+  the rollout under `codex-homes/of3m_mfm/sessions` shows 10 calls in 6 turns -- turn 1 viewed life_2
+  ep_000007 (spawn trunk), ep_002597 (piglin death), ep_000952 (diamond); turn 2 ran
+  `--then-now previous/life_2/episodes/ep_000007` ("same spruce trunk and safe lower footing?") and viewed
+  then_now.png; turns 3-6 viewed ep_000031/54/72 and two more then-now sheets. worldmodel_report.json
+  `codex.view_image_calls` tracks the same source.
+- Token use grows ~300k input/turn in the one thread (turn 6: 1.96M in, 1.85M cached, 15k out; 7.2M in total);
+  compaction expected near turn 12 as in of3r. Hourly monitor: scripts/status_g4.sh (cron 9d1041ed at :23).
