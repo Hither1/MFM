@@ -1271,3 +1271,19 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   no arm running, all four ports free, load 12.7/255. The 12:12 JVM-crash leftovers were set aside as
   `*of3g_mfm*.crashed-1212*` (logs, output, codex home) so the launcher wrote a fresh tree.
   First-hour watch: attachment_bytes_peak / payload errors at 640x360, turn cadence, any 403 or fallback line.
+- 13:02:03 of3g_mfm seeded (4 min); turn 1 (workshop) 13:02-13:05:22; mine_log 1/24 @158 13:06, crafting_table
+  2/24 @526 13:09, wooden_pickaxe 3/24 @657 13:10. 13:35: 25 turns, step 1200, ~77 s/turn, attachment_bytes_peak
+  7.83 MB (of3r's was 35 MB with no failure), 2 codex compactions, 0 tool-error turns, no 403/fallback lines.
+  Thread usage at turn 21: 5.67M input (5.09M cached, 0.49M cache-write), 42.6k output -> ~$12 for 37 min,
+  i.e. ~$19/h, ~$230 per 12h (of3r-based estimate was $204).
+  INCIDENT 13:12-13:16 (turns 6-8 lost, ~4 min): codex's linux-sandbox panicked "failed to create synthetic
+  bubblewrap mount marker directory /tmp/codex-bwrap-synthetic-mount-targets-637400009/... No space left on
+  device" -- the root filesystem (/tmp is on /) filled up transiently; every exec cell and every apply_patch
+  failed, the harness logged "act turn attempt 1..3 produced no actions.json" and moved on; turn 9 wrote a
+  one-tick plan and play resumed. At 13:37 / has 114 GB free (58%), inodes 11%; the filler is unknown (shared
+  node; not this arm -- its /tmp use is a few model-written PNGs). codex hardcodes /tmp for the marker (no
+  TMPDIR string in the binary), so it cannot be moved to data3. Not restarted: transient, self-healed, 3 turns
+  cost. The overnight monitor (task bm3cxz4uh) now also counts stderr files with sandbox/stream faults and
+  prints root free space; a recurrence is the trigger to look for the filler.
+  The overnight mandate (user 13:05, asleep): keep it running, fix and relaunch on infrastructure faults
+  without asking (seed of3r + this life's own memory if it had progress), never inject facts.
