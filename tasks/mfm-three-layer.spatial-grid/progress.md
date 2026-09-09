@@ -1562,3 +1562,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   lava_ahead/starving copied. 32 view_image calls in 16 turns, then-now vs life_2 ep_000167 (route from the spruce
   to the raised grass); working.md plans "scan for animals and a safe route northwest toward the known shallow iron".
   Thread usage 5.64M input (5.12M cached), 47k output; context 77.7k, 2 compactions.
+- 07:28 hourly (of3m_mfm): alive, 38 turns, step 7729, 203 steps/turn, 9/24 -- mine_iron_ore 4231 (06:48),
+  iron_ingot 5208 (06:57), iron_pickaxe 5293 (06:58 = +59 min; the 16/24 run had it at +67 min). Health/food still
+  20/20, no animal killed yet, one [REFLEX fell] at (-3022.7,65,-5579.8) that dropped 3 actions, 0 deaths, 0 errors.
+  108 view_image calls in 38 turns; then-now vs life_2 ep_000468/475 on the pond-to-spruce route, life_2 ep438-448
+  viewed to re-find the surface exit from the table/furnace station. Working.md: diamond target life_2 ep_000952
+  (-3096,11,-5546), lava frontier (-3217,11,-5576), portal guide from life_2. Thread 14.0M input (12.4M cached),
+  130k output, 7 compactions, context 76.6k.
