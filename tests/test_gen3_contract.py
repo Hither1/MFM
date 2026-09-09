@@ -208,3 +208,45 @@ def test_gui_open_settles_and_a_mined_station_leaves_the_map():
     assert ag._placed == {} and ag.grid.placed == {} and "mined your furnace back up at step 28914" in notes[0]
     WorldModelAgent._station_picked_up(ag, "crafting_table", 1)         # nothing placed: silent
     assert len(notes) == 1
+
+
+def test_atoms_references_are_macro_free_and_keep_recipes_and_write_down():
+    """`--atoms`: references/skills.md is the engine's situations without the macro library
+    (user, 2026-09-09: general knowledge, nothing task-shaped prescribed); survival.md's
+    Movement bullets stop naming mine_forward/strip_mine/stair_down."""
+    from mcu_worldmodel import prompts
+    from mcu_worldmodel import procedures as P
+    P.set_visible(P.ATOMS)
+    full = prompts.act_prompt(task_text="Kill the dragon", progress_block="0/24", graph_summary="",
+                              plan_summary="", discipline_summary="", entry_cap=40, step_cap=400,
+                              memory_mode="mfm", retrieval=True, previous=True, expect=True,
+                              frames=True, own=True, atoms=True, own_reflexes=True, harness_reflexes=False)
+    P.set_visible(None)
+    thin, refs = prompts.thin_split(full)
+    orig = refs["skills.md"]
+    assert "harvest_tree(" in orig and "fight_blaze()" in orig            # the macro-shaped original
+    sk = prompts.situations_atoms(orig)
+    for macro in ("harvest_tree(", "strip_mine(", "dig_down(", "make_obsidian(", "build_portal_frame(",
+                  "light_portal(", "fight_blaze(", "enderman_pit(", "throw_eye(", "fill_end_portal(",
+                  "enter_end(", "break_crystal(", "attack_dragon(", "sleep_in_bed(", "explore_nether(",
+                  "fetch_water(", "scan_around(", "travel_bearing("):
+        assert macro not in sk, macro
+    for must in ("**Skills by situation**", "skills/minecraft/SKILL.md", "skills/mining/SKILL.md",
+                 "COBBLESTONE block", "drop_and_pickup(slot)", "Entities are reported on no channel",
+                 "divided by 8", "end_stone", "Recipes available:", "**Write down what worked"):
+        assert must in sk, must
+    assert len(sk) < 0.6 * len(orig), (len(sk), len(orig))
+    sv = prompts.survival_atoms(refs["survival.md"])
+    assert "mine_forward" in refs["survival.md"] and "mine_forward" not in sv
+    assert "queue one `mine_ahead` per block" in sv and "**Turn, then move.**" in sv
+    assert prompts.survival_atoms("unrelated text") == "unrelated text"
+
+
+def test_minecraft_skill_covers_the_late_game_as_rules(tmp_path: Path):
+    from mcu_worldmodel import skills as K
+    K.write_skills(tmp_path)
+    mc = (tmp_path / "skills" / "minecraft" / "SKILL.md").read_text()
+    for must in ("respawn", "BED", "GOLD armour", "eight in the Overworld",
+                 "The void", "Bow = 3 sticks + 3 string", "silverfish", "iron cages", "Piglins"):
+        assert must in mc, must
+    assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", mc)                   # still no coordinates

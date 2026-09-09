@@ -1020,3 +1020,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   by looking at what stands"; pre-Nether "healthy" instead of a number. starving.py: note at the 18 crossing, STOP
   when health <= 10 with food < 18 or food <= 6 (a decision handed to the model, no action taken for it).
 - Live MFM-grid/MCU fast-forwarded; core tests pass (test_gen3_contract adapted). Gen 3 still waits for the user's go.
+
+## 2026-09-09 09:2x-09:5x -- late-game knowledge as general rules; the atoms references rewritten macro-free
+- User: add the missing late-game knowledge (beds/respawn, 1:8, piglins/gold, blazes, bows/arrows, void/cages/perch,
+  stronghold room, everyday dangers) in general form; fix survival.md's stale macro line; and rewrite the 27 KB
+  references/skills.md, which named the old macro library, before relaunching.
+- MCU (spatial-grid-merge, ff'd into the live checkout): prompts.SITUATIONS_ATOMS + situations_atoms() replace the
+  situations/chain sections under --atoms (skills.md 30.0 KB -> ~14 KB incl. the kept recipe list and write-down
+  section; no macro names); survival_atoms() rewrites the two Movement bullets; the references tail describes
+  skills.md as "the situations". skills/minecraft gains five sections of general rules. Tests: test_gen3_contract +2
+  (macro-free references; late-game rules), all affected files pass.
+- Gen 3 still waits for the user's go.
