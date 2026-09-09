@@ -997,3 +997,15 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   跑完的这三个arm的系统性问题，看看我们现在新改动是否都adress了" -> watchdogs 39874/42308/42681 killed by pid,
   stop_arm.py --go on all three (31 pids) after ONE codex turn each. Outputs, logs and codex homes moved to *.aborted-0808.
   Next: the coverage analysis (analysis/gen3_coverage_2026-09-09.md), then relaunch on the user's word.
+
+## 2026-09-09 08:12-08:50 -- coverage analysis of the gen-2 endgames against the gen-3 code
+- analysis/gen3_coverage_2026-09-09.md: final gen-2 table (of1r 13/4 deaths/84k, of2r 15/1/52k, of3r 16/1/43.5k;
+  dead-plan entry share 34/28/42%; digest re-read 0/0/13; then-now 2/0/0; eat 0/0/0; new reflex classes 0) and a
+  15-row problem -> change -> status matrix: 8 rows fixed in the harness (stall line, reflex state, pillar stop,
+  cut-short hint, GUI settles, station pickup, catalog, hotbar), 7 rows given as knowledge/routines whose effect gen 3
+  must show (search doctrine, food, portal geometry, flint, Nether entry, self-improvement, memory hypotheses), and
+  the honest gaps: animals are not perceived by the harness, no portal verifier, turn wall time, the entry cap.
+- Added from the endgames (MCU f943269a, live MCU fast-forwarded, MFM-grid 55e3cce): gravel is at water's edge and in
+  caves; enter the Nether at health 16+ with cooked food; copy known_hazards.py after the first death.
+- analysis/traj_gen2_final.md (subagent) kept with a caveat header: its death steps and GUI counts failed checking.
+- Gen 3 not relaunched: waiting for the user's word.
