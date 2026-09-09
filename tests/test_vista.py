@@ -122,6 +122,25 @@ def test_channel_rendezvous():
     assert ch.play({"b": 2}) == "final" and ch.take(0.05) is None
 
 
+def test_channel_take_refuses_while_a_play_is_owed():
+    """`take` must never park while the previous play is still owed its outcome: that
+    state is a caller bug, and parking made it a permanent two-thread deadlock."""
+    from mfm.vista.channel import ActionChannel
+    ch = ActionChannel()
+    t = threading.Thread(target=lambda: ch.play({"a": 1}), daemon=True)
+    t.start()
+    assert ch.take(2.0) == {"a": 1} and ch.owed()
+    # Asking again without delivering returns at once instead of blocking on a play
+    # the model cannot make (it is still waiting inside `play`).
+    started = time.monotonic()
+    assert ch.take(30.0) is None
+    assert time.monotonic() - started < 5, "take() parked while a play was owed"
+    assert ch.owed(), "the refused take must not consume the outstanding play"
+    assert ch.deliver("done")
+    t.join(2)
+    assert not t.is_alive() and not ch.owed()
+
+
 # -- MCU: the chassis in vista mode -------------------------------------------------------------
 
 def _pov(step: int) -> np.ndarray:
@@ -131,7 +150,7 @@ def _pov(step: int) -> np.ndarray:
     return frame
 
 
-def drive_vista_chassis(root: Path, fake, steps: int = 120, **options):
+def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None = None, **options):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
     from mcu_worldmodel.selftest import fake_info
@@ -180,6 +199,12 @@ def drive_vista_chassis(root: Path, fake, steps: int = 120, **options):
     actions = []
     for step in range(1, steps + 1):
         actions.append(agent.next_action(info))
+        if step == drop_at:
+            # Exactly what the chassis does when a gui_click lifts nothing: the rest of
+            # the plan goes, including the entry that is running, and `_entry_index`
+            # goes with it -- so nothing will ever call `entry_done` for it.
+            agent.queue.clear()
+            agent._entry_index = None
         if step == 8:
             info = fake_info(inventory={"oak_log": 2}, mine_block={"oak_log": 1})
         elif step == 30:
@@ -279,6 +304,47 @@ def test_chassis_vista_mode(tmp_path: Path, fake_appserver):
                           for a in actions], sort_keys=True))
 
 
+def test_dropped_entry_play_is_answered(tmp_path: Path, fake_appserver):
+    """A running entry dropped by the chassis (the gui_click guard clears the queue and
+    `_entry_index` together) must still answer the play it belongs to.
+
+    Before the fix nothing set the bridge's `_owed`, so `act_turn` went straight to
+    `channel.take()` with the play still owed: the model slept in `play`, the
+    environment slept in `take`, and the episode was over -- vista1_dragon deadlocked
+    at step 6109 on `craft furnace` and held its node until it was cancelled. The
+    reproduction is run on a thread so a regression fails by timeout instead of
+    hanging the suite.
+    """
+    box: dict = {}
+
+    def run():
+        try:
+            box["agent"], _ = drive_vista_chassis(tmp_path, fake_appserver, steps=60, drop_at=3)
+        except BaseException as exc:            # noqa: BLE001 - reported below
+            box["error"] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(180)
+    assert not worker.is_alive(), (
+        "the chassis deadlocked: a dropped entry left its play unanswered")
+    assert "error" not in box, box.get("error")
+
+    agent = box["agent"]
+    assert agent.vista.dropped_entries >= 1, "the dropped entry was not accounted for"
+    results = [json.loads(r["text"]) for r in fake_appserver.recorded()
+               if r["kind"] == "tool_response" and r["tool"] == "play"]
+    dropped = [r for r in results if r.get("entry") == "dropped"]
+    assert dropped, "the dropped play got no answer"
+    assert not dropped[0]["action_applied"]
+    assert "dropped before it finished" in dropped[0]["error"]
+    # It is answered with the present, like every other outcome, so the model can replan.
+    assert {"step", "inventory", "cursor"} <= set(dropped[0])
+    # The channel is square: every play was answered exactly once.
+    audit = agent.report()["vista"]
+    assert audit["channel"]["plays"] == audit["channel"]["deliveries"]
+
+
 def test_vista_prompt_hash_and_other_modes_untouched():
     """The vista contract is its own; the four pinned modes' hashes are the recorded ones."""
     import hashlib
@@ -362,3 +428,119 @@ def test_run_eval_and_make_agent_know_vista():
     import inspect as _i
     assert '"vista"' in _i.getsource(run_eval._make_agent)
     assert "vista" in _i.getsource(memory_agents.make_agent)
+
+
+# -- a dead session must not cost a node-day ----------------------------------------------------
+
+def test_session_failed_is_none_while_the_loop_lives():
+    from mcu_worldmodel.vista import VistaBridge
+    bridge = VistaBridge.__new__(VistaBridge)
+    bridge.session = None
+    assert bridge.session_failed is None
+
+    class Live:
+        alive = True
+        failure = None
+    bridge.session = Live()
+    assert bridge.session_failed is None, "a live loop must never look failed"
+
+
+def test_session_failed_reports_the_exception_that_ended_the_loop():
+    """`VistaSession._run` records the failure; before this nothing on the chassis side
+    read it, so a dead loop was indistinguishable from a slow one."""
+    from mcu_worldmodel.vista import VistaBridge
+    bridge = VistaBridge.__new__(VistaBridge)
+
+    class Dead:
+        alive = False
+        failure = RuntimeError("Codex did not write the compact checkpoint")
+    bridge.session = Dead()
+    assert isinstance(bridge.session_failed, RuntimeError)
+    assert "compact checkpoint" in str(bridge.session_failed)
+
+    # A loop that ended cleanly (terminal, no exception) is not a failure.
+    class Finished:
+        alive = False
+        failure = None
+    bridge.session = Finished()
+    assert bridge.session_failed is None
+
+
+def test_act_turn_returns_at_once_when_the_session_is_dead():
+    """The regression this exists for: `act_turn` waited the full turn ceiling for a play
+    no thread could make. abaw_vista spent 9.8 h of a node at ~6 steps an hour that way,
+    and no log line called it an error."""
+    import time
+    from mcu_worldmodel.vista import VistaBridge
+
+    class Channel:
+        def __init__(self): self.takes = 0
+        def owed(self): return False
+        def take(self, timeout):
+            self.takes += 1
+            time.sleep(timeout)          # what the real channel does: park until the ceiling
+            return None
+
+    bridge = VistaBridge.__new__(VistaBridge)
+
+    class Dead:
+        alive = False
+        failure = RuntimeError("Codex did not write the compact checkpoint")
+    bridge.session = Dead()
+    bridge.controller = object()
+    bridge.channel = Channel()
+    bridge.agent = None
+    bridge.timeout = 600.0
+    bridge.idle_ticks = 0
+
+    started = time.monotonic()
+    bridge.act_turn({})
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 1.0, f"act_turn parked for {elapsed:.1f}s on a dead session"
+    assert bridge.channel.takes == 0, "must not wait on the channel at all"
+    assert bridge.idle_ticks == 1, "the skipped tick is still counted"
+
+
+# -- the checkpoint contract must be teachable --------------------------------------------------
+
+def _controller(tmp_path):
+    from mfm.vista.controller import VistaController
+    c = VistaController.__new__(VistaController)
+    import threading
+    c._lock = threading.RLock()
+    home = tmp_path / "home"; home.mkdir(parents=True, exist_ok=True)
+    c.compact_checkpoint_marker = home / "marker"
+    c.compact_checkpoint_ready = home / "ready"
+    c.working_path = tmp_path / "WORKING.md"
+    c.guide_path = tmp_path / "GUIDE.md"
+    c.working_provenance_path = tmp_path / "WORKING.prov"
+    c.turn = 3                      # read by _record_working_provenance
+    c.compact_checkpoint_marker.touch()
+    return c
+
+
+def test_malformed_checkpoint_error_names_the_contract(tmp_path):
+    """The exact call that killed abaw_vista: one invented key. The reply is the only
+    thing the model can correct from, and "Invalid arguments." named nothing."""
+    c = _controller(tmp_path)
+    out = c._save_compact_checkpoint({"checkpoint": "Turn 10: pos=(3185,71,1399) ..."})
+    assert out["ok"] is False
+    err = out["metadata"]["error"]
+    assert "working_memory" in err and "guide" in err, "the reply must name the keys"
+    assert "checkpoint" in err, "and say what it actually received"
+
+
+def test_a_well_formed_checkpoint_still_saves(tmp_path):
+    """The success path is untouched -- this is what every healthy run does."""
+    c = _controller(tmp_path)
+    out = c._save_compact_checkpoint({"guide": None, "working_memory": "plan: go north"})
+    assert out["ok"] is True and out["metadata"]["checkpoint_saved"] is True
+    assert c.compact_checkpoint_ready.exists() and c.working_path.is_file()
+    assert c.working_path.read_text().strip() == "plan: go north"
+
+
+def test_checkpoint_attempts_leave_room_to_correct():
+    """At 2 the model got one correction and one chance to use it in the same breath."""
+    from mfm.vista import session
+    assert session.MAX_CHECKPOINT_ATTEMPTS >= 4

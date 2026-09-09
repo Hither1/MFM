@@ -23,7 +23,13 @@ from mfm.vista.runner import AppServerRunner, CodexResult
 
 logger = logging.getLogger(__name__)
 
-MAX_CHECKPOINT_ATTEMPTS = 2
+#: Attempts at the handoff before the episode is abandoned. 4 rather than 2: the
+#: first attempt is where a malformed call happens, and the model only learns the
+#: contract from the error the *previous* attempt returned -- at 2 it got one correction
+#: and one chance to use it, in the same breath. Raising this changes nothing for a run
+#: whose checkpoint succeeds first time, which is the normal case (vista2_dragon: 233 act
+#: turns, ~23 checkpoints, no failure).
+MAX_CHECKPOINT_ATTEMPTS = 4
 MAX_COMPACT_CYCLES_WITHOUT_ACTION = 3
 MAX_RUNTIME_RECOVERIES_PER_TURN = 8
 #: Runtime failures at one turn before the thread is abandoned for a fresh one that

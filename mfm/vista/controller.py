@@ -366,7 +366,19 @@ class VistaController:
                     return {"ok": False, "metadata": {"error": "Compact checkpoint is incomplete."}}
                 return {"ok": True, "metadata": {"checkpoint_saved": True, "already_saved": True}}
             if not isinstance(arguments, dict) or set(arguments) != {"guide", "working_memory"}:
-                return {"ok": False, "metadata": {"error": "Invalid arguments."}}
+                # Naming the contract, because this text is the only thing the model gets
+                # to correct from and "Invalid arguments." taught it nothing. Measured
+                # (abaw_vista, 2026-09-07): the model called this with a single invented
+                # `checkpoint` key, was told "Invalid arguments.", repeated the same
+                # mistake, and the arm died at step 800 of 12,000. Unreachable unless a
+                # call is already malformed, so a run that never made one is unchanged.
+                got = (", ".join(sorted(map(str, arguments))) if isinstance(arguments, dict)
+                       else type(arguments).__name__)
+                return {"ok": False, "metadata": {"error":
+                    "Invalid arguments. This tool takes exactly two keys: `working_memory` "
+                    "(a non-empty string: the continuation state) and `guide` (a complete "
+                    "replacement GUIDE.md, or null to keep the current one). "
+                    f"Received: {got or 'nothing'}. Call it again with both keys."}}
             guide, working = arguments.get("guide"), arguments.get("working_memory")
             if guide is not None and (not isinstance(guide, str) or not guide.strip()
                                       or len(guide) > MAX_GUIDE_CHARS):

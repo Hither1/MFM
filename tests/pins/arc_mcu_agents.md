@@ -173,6 +173,7 @@ procedure (below); it is the one way to shed junk here.
 - `fetch_water(n=<tick budget for the search and walk (default 600; the plan's step cap shrinks it -- call it again to continue); the sweep at the shore adds up to 260>)` -- Get to water you can see and fill the bucket: looks around for the blue of still water (12 headings, if none is in view), walks toward it correcting the heading on every frame, breaks the leaves or dirt that stop the walk (a trunk is side-stepped), stops at the shore and runs fill_bucket there. The one call for a pond behind trees or across a clearing; go_to only walks to a coordinate and stops at the first obstacle.  [An empty `bucket` carried; still water (a pond, river or lake, not a stream's flow) visible from here or within a turn of the head; no screen open.]
 - `throw(item=<throwable item name>, n=<how many (default 1)>)` -- Throw a snowball / egg / ender pearl / eye of ender: taps use `n` times with the item selected; verified on the count going down.  [Aim first; no screen open.]
 - `eat(item=<food item (optional)>)` -- Eat food (the best carried when unnamed); holds use ~40 ticks. Only works while the food bar is below 20.
+- `watch(until=<condition (default none)>, n=<ticks, max 400 (default 60)>)` -- Do nothing for up to `n` ticks and stop the moment `until` holds, read from the game's own numbers: none (a plain wait), inventory (any count changes), gui (a screen opens), health, damage, y_below:<v>, y_above:<v>, moved:<blocks>. The observe step between acting and deciding; ends with a [NOTE] saying what happened.
 - `pillar_up(n=<blocks (1-30)>, item=<block name (optional)>)` -- Jump and place `n` blocks under your feet (each verified on the measured y): a tower to stand on, a lookout, an escape from a mob. Uses cobblestone/dirt/planks from the hotbar when `item` is omitted.  [Clear air above you; a placeable block carried.]
 - `build_wall(item=<block>, length=<blocks wide (1-32)>, height=<1-6>, dist=<blocks ahead (1-3, default 2)>)` -- A wall `length` wide x `height` high, `dist` blocks AHEAD of you, running left-right across your facing (snapped to an axis), built from where you stand block by block with each placement verified; walks along the line for long walls. Reports placed / refused / not attempted, and resumes on a second call.  [Flat ground ahead; carry length x height blocks plus height-1 to stand on (each upper row is built from one block higher); face the wall's middle. Max height 6.]
 - `build_row(item=<block>, length=<blocks (1-32)>)` -- A row of blocks on the ground running AWAY from you, from the block ahead: the far cells first, from where you stand, walking forward for the farther segments before they are built (a path, a fence line, a carpet strip).  [Flat, walkable ground along the row; carry `length` blocks.]
@@ -180,12 +181,12 @@ procedure (below); it is the one way to shed junk here.
 - `bridge_forward(n=<blocks (1-32)>, item=<block (default cobblestone)>)` -- Extend the floor ahead `n` blocks over water / lava / a drop, stepping onto each placed block with sneak held (you cannot fall off). Faces snap to an axis.  [Stand at the edge facing the gap; carry n blocks.]
 - `scan_around(steps=<4-12 (default 8)>, pitch=<camera pitch for the sweep (default 0; -20 looks slightly up for mountains/sky)>)` -- Turn a full circle in `steps` headings, saving a frame at each, and attach ONE contact sheet of them (yaw-labelled tiles) to your next turn -- the look-around for finding anything (a village, water, lava, sand, a tree line, a mob). Ends facing where you started.  [No screen open. Stand somewhere with a view (a hilltop, a pillar).]
 - `sleep_in_bed(x=<bed block x>, y=<bed block y>, z=<bed block z>)` -- Right-click the bed at (x, y, z) and wait the night out (the bed screen opens; it closes when morning comes).  [Night time, within 3 blocks of the bed, no monsters near.]
-- `explore_nether(axis=<x or z>, sign=<+1 or -1 (the direction along it)>, length=<blocks to cover, 8-200 (default 60; ~9 ticks per block)>, block=<block to bridge with (default: cobblestone, then netherrack)>)` -- Walk `length` blocks along one world axis IN THE NETHER looking for a fortress: keeps the heading, tunnels through netherrack when a wall stops you (eye block, foot block, walk), sneaks when lava fills the lower view and bridges an edge with your blocks, and STOPS the moment a nether-brick mass (a fortress) or a blaze is in view, saying the bearing. Reports blocks walked, tunnelled, bridged and where you are. Fortresses run along the x or z axis in long lines, so one leg per axis finds one where nothing else would.  [In the Nether, no screen open, a pickaxe carried (netherrack is soft) and 8+ cobblestone/netherrack for bridging lava.]
+- `explore_nether(axis=<x or z>, sign=<+1 or -1 (the direction along it)>, bearing=<a yaw in degrees to walk along instead of an axis (toward a sighting; optional)>, length=<blocks to cover, 8-200 (default 60; ~9 ticks per block)>, block=<block to bridge with (default: cobblestone, then netherrack)>)` -- Walk `length` blocks along one world axis IN THE NETHER looking for a fortress: keeps the heading, tunnels through netherrack when a wall stops you (eye block, foot block, walk), sneaks when lava fills the lower view and bridges an edge with your blocks, and STOPS the moment a nether-brick mass (a fortress) or a blaze is in view, saying the bearing. Reports blocks walked, tunnelled, bridged and where you are. Fortresses run along the x or z axis in long lines, so one leg per axis finds one where nothing else would; with `bearing` it walks along that yaw instead (toward a sighting).  [In the Nether, no screen open, a pickaxe carried (netherrack is soft) and 8+ cobblestone/netherrack for bridging lava.]
 - `fight_blaze(ticks=<budget, 40-400 (default 300)>, retreat_hp=<back off at this health (default 6)>, weapon=<item to fight with (default: your best sword)>)` -- Melee a BLAZE to death with the blaze detector (in the Nether the plain fight mistakes lava for its yellow): faces it, walks in under it when swings miss, pulses attack, verifies kill_entity.blaze; then collect_drops for the rod.  [A blaze in view (explore_nether's note, or scan_around), a sword carried, health above 10 -- it shoots fire from range.]
 - `enderman_pit()` -- Dig a 2-deep, 1x1 pit under your feet and look up at the rim: an enderman is three blocks tall and cannot hit what stands two blocks below its feet, while your sword reaches its legs. Then fight(label="enderman") from inside; after the kill, pillar_up(2) and collect_drops for the pearl.  [Solid ground (not over lava), a pickaxe carried, an enderman near (they wander the Nether's warped forests and the Overworld at night) but NOT yet angry -- look at it only from the pit.]
 - `find_lava(n=<tick budget, 250-1500 (default 600, about 27 blocks of tunnel)>, y=<level to search at (default 11)>, leg=<blocks per straight leg before the 90-degree turn (default 40)>)` -- Find the lava the obsidian needs. Takes a staircase down to about y 11 if you are above it, then tunnels in straight legs (turning 90 degrees after each), watching the lower view for lava the whole way. STOPS the moment lava comes into view, at least 2 blocks short of it, and the note names the pool's cell, the RIM cell to pour from and the exact `make_obsidian(x, y, z)` call -- so a sighting turns into obsidian in one more step. Says how many blocks it searched and where to go next when it finds nothing.  [Underground (it is meant for y <= 15), a pickaxe carried, no screen open; carry the water_bucket so the pour can follow at once (fetch_water/fill_bucket first if you do not).]
-- `make_obsidian(x=<rim block x>, y=<rim block y>, z=<rim block z>)` -- Turn lava into obsidian: pours a water bucket onto the TOP of the block at (x, y, z) -- a solid block at the edge of a lava pool -- waits for the flow to quench the lava sources, and scoops the water back. Then mine_obsidian each block.  [Carry a water_bucket; stand 2-3 blocks from the pool on its rim, the rim block within 4 blocks. Flowing lava turns to cobblestone, only SOURCE blocks (still lava) become obsidian.]
-- `mine_obsidian(x=<block x>, y=<block y>, z=<block z>, ticks=<budget (default 300)>)` -- Break the obsidian block at (x, y, z) with the diamond pickaxe (about 190 ticks) and sweep the drop; stops the moment `obsidian` lands in the inventory.  [A diamond pickaxe carried; the block within 4 blocks.]
+- `make_obsidian(x=<rim block x (optional: with no x, y, z the last sighting's rim is used)>, y=<rim block y>, z=<rim block z>)` -- Turn lava into obsidian: pours a water bucket onto the TOP of the block at (x, y, z) -- a solid block at the edge of a lava pool -- waits for the flow to quench the lava sources, and scoops the water back (walking back into reach if the flow pushed you). With no x, y, z it pours on the last sighting's rim (find_lava's stop, or a LAVA AHEAD note with the bucket carried). Then mine_obsidian().  [Carry a water_bucket; stand 2-3 blocks from the pool on its rim, the rim block within 4 blocks. Flowing lava turns to cobblestone, only SOURCE blocks (still lava) become obsidian.]
+- `mine_obsidian(x=<block x (optional: with no x, y, z the last sighting's pool cell)>, y=<block y>, z=<block z>, ticks=<budget, 240-400 (default 300)>)` -- Break the obsidian block at (x, y, z) with the diamond pickaxe: the aim is held on the block's centre every tick and the attack never released (about 190 ticks), stops the moment `mine_block obsidian` moves, then sweeps the drop. With no x, y, z it mines the last sighting's pool cell. Put it FIRST in its plan: it needs 240 ticks and is dropped whole when fewer are left.  [A diamond pickaxe carried; the block within 4 blocks.]
 - `build_portal_frame(item=<obsidian>, dist=<blocks ahead (2-3)>)` -- Place the 14-obsidian outline of a nether portal (4 wide x 5 high, corners included) standing on the ground `dist` blocks ahead of you, across your facing; every block verified; call again to fill what was refused.  [14 obsidian (10 is the minimum frame; this places the corners too so each block has a neighbour to build on); flat ground ahead; stand 2 blocks back from the line, facing it.]
 - `light_portal(dist=<the dist the frame was built with>)` -- Light the frame built by build_portal_frame from the same spot: flint_and_steel on the inside of its bottom row; checks the purple appears.  [Same position and facing as build_portal_frame; flint_and_steel carried.]
 - `enter_portal(dist=<the dist the frame was built with>, x=<portal cell x (optional)>, z=<portal cell z (optional)>)` -- Walk into the lit portal (the frame built from this spot, or the cell at x, z) and stand until the dimension changes; reports where you arrived.  [The portal is lit (light_portal's note). Takes ~4 s in the purple; the trip back is the same call from the other side.]
@@ -404,6 +405,12 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   detected"), do not walk away: the ore face sits within a block or two of where the
   [NOTE] flagged it -- mine out the flagged wall segment by hand and sweep the drops.
   A run's only sighting of the night was abandoned exactly this way.
+- **Carry the workshop down.** Before any descent the inventory holds a crafting_table
+  (craft a second one rather than leave the only one behind), 12+ planks or 4+ logs, and
+  8+ cobblestone: a table placed beside the ore is one `place_and_open`, a trip back to
+  the surface for one is thousands of steps (obf2, 2026-09-07: 12,000 steps between the
+  diamond and the diamond pickaxe, spent looking for a table and a log). A table you
+  placed and walked away from is gone for practical purposes.
 - **Light BEFORE iron -- torches are eyes and armour.** Unlit tunnel walls render
   near-black (~4% brightness): the wall watcher and your own eyes are both nearly
   blind there, which is the main reason runs that strip-mine in the dark never see
@@ -443,7 +450,10 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   beyond one stack. Never bank junk in a furnace or place it block by block for room.
 - **Cheap milestones off the main chain**, when your list has them: `flint_and_steel`
   is 1 iron ingot + 1 flint in the 2x2 grid, and flint drops from GRAVEL (about 1
-  block in 10, any tool: aim at a gravel bank, `mine_until(item="flint")`) -- bank it
+  block in 10, any tool: aim at a gravel bank, `mine_until(item="flint")`). Gravel
+  you carry can be PLACED and broken again -- every break is a fresh 1-in-10 roll,
+  so 3-4 gravel blocks re-broken a few times give the flint without a search; gravel
+  lies in pockets underground, in river beds and on beaches. Bank flint_and_steel
   with the first spare ingot rather than after the diamond chain.
 - **The furnace runs while you mine.** Smelting takes ~200 ticks per item whether you
   watch it or not: load ALL banked ore and enough fuel in ONE visit, walk away to keep
@@ -462,16 +472,26 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   The `pickup` event for the ingot is what the milestone counts -- take the output.
 - **After the iron pickaxe** the chain is diamond -> obsidian -> a lit portal -> the
   Nether, and every step has a macro: diamonds sit at y 5-12 in the same strips (a
-  diamond pickaxe is 3 diamonds + 2 sticks; a diamond sword 2 + 1); **obsidian** is
-  made where lava pools are (y <= 10, the orange light): `make_obsidian(x, y, z)` on a
-  rim block beside the pool pours a water bucket over it (bucket = 3 iron ingots,
-  filled at any water), then `mine_obsidian(x, y, z)` per block with the DIAMOND
-  pickaxe (~190 ticks each; any other tool destroys it). To FIND the pool in the first
-  place, call `find_lava()` once you are at y <= 15 with the water_bucket carried: it
-  tunnels in legs at about y 11 watching for lava, stops at least 2 blocks short of the
-  first pool it sees, and its [NOTE] names the rim cell and the exact
-  `make_obsidian(x, y, z)` call to follow it with -- do not walk closer to read the
-  coordinates yourself. **The portal** needs 10-14
+  diamond pickaxe is 3 diamonds + 2 sticks; a diamond sword 2 + 1). **The bucket comes
+  FIRST**: the moment you hold 3 spare iron ingots (right after the iron pickaxe, before
+  any descent for diamonds), craft the bucket and fill it at still water on the surface
+  (`fetch_water()` walks to the water it sees and fills it there), then carry the
+  water_bucket down; 43 second-half runs that descended first never came back up for
+  water. Never dig a shaft beside the water you filled at (it floods): walk 8 blocks
+  away first. **Obsidian** is made where lava LAKES are -- the open orange pools at
+  y <= 11, not a corridor: strip-mining at y 11-12 walks past them and the runner's
+  "LAVA AHEAD" [NOTE] names the pool cell and the rim cell the moment one fills the
+  lower view; with the water_bucket carried that sighting IS the plan: `make_obsidian()`
+  (no arguments: it pours on the sighting's rim and scoops the source back), then
+  `mine_obsidian()` (no arguments: the sighting's pool cell, ~190 ticks of held attack,
+  FIRST in its plan) with the DIAMOND pickaxe. Pour
+  only once the lava is IN VIEW and the LAVA AHEAD note has named the cells -- a
+  `make_obsidian(x, y, z)` with no lava in view is refused as a blind pour (three lives
+  poured on stone in the dark and two died there).
+  `find_lava()` is the blind search for when
+  nothing is known: it tunnels in legs at about y 11 and stops 2 blocks short of the
+  first pool it sees; it is slow (about 25 blocks per call) and needs 250+ ticks FIRST
+  in its plan. **The portal** needs 10-14
   obsidian and flint_and_steel (1 iron + 1 flint from gravel): stand on flat ground
   with 4-8 cobblestone in the hotbar, `build_portal_frame()`, `light_portal()`,
   `enter_portal()`; the [NOTE] confirms the Nether. There, `netherrack` is the ground
@@ -658,6 +678,14 @@ between solving a recipe once and solving it every time.
   on x and z -- before drawing any conclusion about the site: a run once planned the
   same walk to a proven vein all night, called the vein absent, and had never come
   closer than 23 blocks.
+- **The Nether lock.** Every Nether visit on record died within 400 steps of arriving,
+  walking, sprinting or jumping down a slope or off a ledge into the lava sea (y ~31).
+  There the runner holds sneak on every step you take (a quarter of the walking speed),
+  never sprints, drops a jump taken while moving, and DROPS any plan entry that has
+  walked you a block down with lava in the lower view (NETHER DESCENT). A one-block
+  rise is tunnelled or pillared; go DOWN by digging (stair_down), never by walking or
+  jumping; cross lava with bridge_forward; a hit there is answered by the bunker, the
+  pillar or the turn, never a sprint.
 - A big health drop interrupts your plan with a [NOTE]; find the danger before resuming.
 - If you die, the harness [NOTE] gives the death coordinates. Your items despawn there
   after ~6000 ticks: recover by stairs (never jump into a shaft) or rebuild -- decide by

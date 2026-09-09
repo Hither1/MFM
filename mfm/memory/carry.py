@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -85,12 +86,48 @@ what followed then, two steps ahead: if it matches what you intend, queue those 
 as one plan instead of rediscovering them one screenshot at a time."""
 
 
-def _link_tree(src: Path, dst: Path, skip: frozenset[str] = frozenset()) -> int:
-    """Hard-link every file under `src` into `dst` (copy where linking fails)."""
+@dataclass(frozen=True)
+class CarriedRecord:
+    """One finished record to carry over: where it is now, what it is called under
+    `previous/`, and the fields stamped on every index row it contributes.
+
+    The two benchmarks name their records differently -- KiCad carries the tasks of one
+    run (`previous/<task_id>/`, rows tagged `task`), MCU carries earlier runs of the same
+    world (`previous/life_<i>/`, rows tagged `life`) -- and that naming is the protocol,
+    so it is the caller's to decide and this layer's to respect.
+    """
+    name: str
+    source: Path
+    tag: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CarrySeed:
+    """What seeding produced: the merged index rows and how much was linked."""
+    rows: list[dict[str, Any]] = field(default_factory=list)
+    linked: int = 0
+    names: list[str] = field(default_factory=list)
+
+
+#: Index-row fields that name a file inside the record; rewritten to the carried path so
+#: `./tools/episodes.py --previous` and the recall block resolve them from the workspace.
+_PATH_FIELDS = ("path", "image", "attachment")
+
+
+def link_record(src: Path, dst: Path, *, skip: frozenset[str] = frozenset(),
+                skip_hidden: bool = False) -> int:
+    """Hard-link every file under `src` into `dst` (copy where linking fails).
+
+    `skip` names top-level entries of the record that are its machinery rather than its
+    history; `skip_hidden` drops top-level dotfiles as well (MCU's rule). Both apply at
+    the top level only: a name of the record's own, deeper in, is history. Returns the
+    number of files placed.
+    """
     n = 0
     for p in src.rglob("*"):
         rel = p.relative_to(src)
-        if rel.parts and rel.parts[0] in skip:
+        if rel.parts and (rel.parts[0] in skip
+                          or (skip_hidden and rel.parts[0].startswith("."))):
             continue
         if not p.is_file():
             continue
@@ -104,6 +141,47 @@ def _link_tree(src: Path, dst: Path, skip: frozenset[str] = frozenset()) -> int:
             shutil.copyfile(p, target)
         n += 1
     return n
+
+
+def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
+                  skip: frozenset[str] = frozenset(), skip_hidden: bool = False,
+                  write_index: bool = True) -> CarrySeed:
+    """Link the finished records under `prev_dir` and merge their episode indexes.
+
+    One `previous/index.jsonl` over every carried episode, each row stamped with its
+    record's `tag` and its file fields rewritten to `previous/<name>/...`. This is the
+    whole of what the carry layer does that both benchmarks do identically; what each
+    reads OUT of the carried material -- MCU's verified sites and corridors, KiCad's
+    outcome table and situation table -- is the caller's, and stays in its adapter.
+    """
+    seed = CarrySeed()
+    for rec in records:
+        if not rec.source.exists():
+            continue
+        seed.linked += link_record(rec.source, prev_dir / rec.name,
+                                   skip=skip, skip_hidden=skip_hidden)
+        seed.names.append(rec.name)
+        idx = rec.source / "index.jsonl"
+        if not idx.exists():
+            continue
+        for line in idx.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            row.update(rec.tag)
+            for key in _PATH_FIELDS:
+                if row.get(key):
+                    row[key] = f"previous/{rec.name}/{row[key]}"
+            seed.rows.append(row)
+    if seed.rows and write_index:
+        prev_dir.mkdir(parents=True, exist_ok=True)
+        (prev_dir / "index.jsonl").write_text(
+            "".join(json.dumps(r, sort_keys=True) + "\n" for r in seed.rows),
+            encoding="utf-8")
+    return seed
 
 
 class CarrySink(MemorySink):
@@ -169,35 +247,21 @@ class CarrySink(MemorySink):
             return
         self._seeded = True
         prev_dir = self.record / "previous"
-        rows: list[dict[str, Any]] = []
-        for m in self.prior():
-            src = Path(m["record_dir"])
-            if not src.exists():
-                continue
-            dst = prev_dir / m["task_id"]
-            self.seeded += _link_tree(src, dst, skip=_NOT_CARRIED)
-            idx = src / "index.jsonl"
-            if idx.exists():
-                for line in idx.read_text(encoding="utf-8").splitlines():
-                    if not line.strip():
-                        continue
-                    try:
-                        r = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    r["task"] = m["task_id"]
-                    for key in ("path", "image", "attachment"):
-                        if r.get(key):
-                            r[key] = f"previous/{m['task_id']}/{r[key]}"
-                    rows.append(r)
-        if rows:
-            prev_dir.mkdir(parents=True, exist_ok=True)
-            (prev_dir / "index.jsonl").write_text(
-                "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
-            if any(r.get("perception") for r in rows):
-                # Consolidation: the episodic rows folded into the situation table.
-                (prev_dir / "situations.md").write_text(to_markdown(situations(rows)),
-                                                        encoding="utf-8")
+        # One task of a run per carried record, named by its task id (`seed_previous`
+        # links them and merges their indexes; the situation table below is this
+        # benchmark's own reading of the merged rows).
+        seed = seed_previous(
+            prev_dir,
+            [CarriedRecord(name=m["task_id"], source=Path(m["record_dir"]),
+                           tag={"task": m["task_id"]})
+             for m in self.prior()],
+            skip=_NOT_CARRIED)
+        self.seeded += seed.linked
+        rows = seed.rows
+        if rows and any(r.get("perception") for r in rows):
+            # Consolidation: the episodic rows folded into the situation table.
+            (prev_dir / "situations.md").write_text(to_markdown(situations(rows)),
+                                                    encoding="utf-8")
         self.previous_rows = rows
         if self.outcomes:
             self._write_outcomes(prev_dir)

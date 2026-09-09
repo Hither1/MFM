@@ -16,6 +16,63 @@ and reaching into the parent's private fields. This revision lifts the code the 
 already share into one package, in three layers, and guarantees the baseline with pinned
 tests (section 7) instead of with untouched files. MFM is then written once.
 
+## Status: the baseline restored, and one carry layer (2026-09-08)
+
+Two changes, both in service of the rule above -- the baseline is guaranteed by the pins,
+not by untouched files -- after `spatial-grid-merge` landed in the MCU submodule (df4bd35).
+
+**1. The merge had moved the logbook BASELINE, not just the mfm arm.** Re-recording the
+seven stale pins and reading the diff showed `chassis_logbook_prompts.txt` had gained 138
+lines of `[RECENT]` (the last six finished entries, harness-rendered) and `[MAP]` (the
+spatial grid summary), the workspace had gained `ws/grid.jsonl` and `attach/events.png`,
+and the report had gained the keys `grid`, `watchdog`, `thin`. `[RECENT]` and `[MAP]` are
+memory mechanisms of the kind the MFM arm is meant to supply, so logbook-vs-mfm had stopped
+isolating MFM. They are now constructor flags on `WorldModelAgent`, default OFF, reachable
+as `--wm-extra "--grid --recent --event-frames"`: `grid` (grid.jsonl + [MAP]), `recent`
+([RECENT]), `event_frames` (the 2x2 event sheet). Each is now an arm that can be measured.
+
+The **governor is deliberately not one of them**. Its `[NOTE]` lines are in the committed
+`chassis_logbook_logs.txt` pin, so the null-entry tabu is what the measured runs already
+ran; gating it off made the log shorter than the pin, which is how the mis-attribution was
+caught. Its flag is tri-state (`governor: bool | None = None`): `None` is the baseline, on
+and unreported; an explicit True/False is an arm choosing, and only then does the
+`watchdog` key -- new even though the mechanism is old -- appear in the report. Check a
+mechanism against the committed pin before calling it drift.
+
+After gating, the only pin bytes that move are the four identical `AGENTS.md` prose updates
+(`watch`, `make_obsidian`, `mine_obsidian`, `explore_nether`, the rewritten Nether/obsidian
+strategy) and the derived `chassis_prompt_hashes.json`; those were re-recorded.
+
+A pin bug was fixed alongside: `mcu_worldmodel.procedures.VISIBLE` is a module global that
+every `WorldModelAgent.__init__` sets, so a test building an `--atoms`/`--visual-only`
+agent changed the contract every LATER test rendered, and the tests that hash
+`prompts.act_prompt` directly inherited whatever ran before them -- recorded pins depended
+on the order files were handed to pytest. `tests/conftest.py` now resets it around every
+test; verified by recording in two orders and diffing the pin directory.
+
+**2. One carry layer (section 5).** `mcu_worldmodel/previous.py: PreviousLives` and
+`mfm/memory/carry.py: CarrySink` had implemented the same design twice: hard-link each
+finished record into `previous/<name>/` minus that benchmark's machinery, merge the
+records' `index.jsonl` with every path field rewritten into the carried tree and a source
+stamp per row, count what was linked. The spine is now `mfm.memory.carry`:
+`CarriedRecord(name, source, tag)`, `link_record(src, dst, skip=, skip_hidden=)` and
+`seed_previous(prev_dir, records, ...) -> CarrySeed(rows, linked, names)`.
+`PreviousLives.seed` lost 58 lines and gained 18.
+
+The per-benchmark policy is passed in and never merged into a default: KiCad names records
+by task id and stamps rows `task`; MCU names them `life_<i>`, stamps `life`, and passes
+`skip_hidden=True`. Both skip sets apply at the TOP LEVEL only -- a name of the record's
+own, deeper in, is history. What each benchmark READS out of the carried material stays in
+its adapter: MCU's `Site`/`Corridor` and the `[KNOWN SITES]` push, KiCad's
+`previous/outcomes.md` and `previous/situations.md`.
+
+Still open on this thread: the governor is not in `mfm/` (a benchmark-neutral design --
+KiCad already has the null predicate in `screen_unchanged` -- but porting it is a new
+mechanism needing its own measured arm, not a refactor); and the adapter contract is
+undocumented -- KiCad subclasses `mfm.agent.base.MemoryAgent` while
+`mcu_worldmodel/episodes.py` keeps its own chassis and duck-types the hooks, so
+`EpisodeStore` serves two shapes and section 2.2 above assumed only the first.
+
 ## Status: the MCU chassis decision (2026-09-04, evening)
 
 **Decision.** The MCU MFM arm is `worldmodel_purple_agent.py --memory mfm`: the logbook

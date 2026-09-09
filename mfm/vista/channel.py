@@ -29,6 +29,7 @@ class ActionChannel:
         self._has_outcome = False
         self._closed = False
         self._final: Any = None
+        self._taken = False
         self.plays = 0
         self.deliveries = 0
 
@@ -65,13 +66,21 @@ class ActionChannel:
 
     # -- environment side -------------------------------------------------------------
 
-    _taken = False
-
     def take(self, timeout: float | None) -> Any:
         """The next action, or None when none arrived within `timeout` (or the channel
         is closed). Once taken, the play is owed a `deliver`."""
         with self._cv:
             if self._closed:
+                return None
+            if self._taken:
+                # A play is still owed its outcome. Asking for the next one is a bug in
+                # the caller, and parking here makes it unrecoverable: the model waits in
+                # `play` for an outcome the environment will now never send, the
+                # environment waits here for a play the model will never make, and both
+                # threads sleep until the walltime kills the job (vista1_dragon, step
+                # 6109 -- a `craft` whose entry was dropped by the gui_click guard, so
+                # nothing called `entry_done` and nothing set the bridge's `_owed`).
+                # Refusing costs the caller one tick and leaves it able to deliver.
                 return None
             if not self._has_action:
                 self._cv.wait(timeout=timeout)
