@@ -1072,3 +1072,26 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   scripts (vision_use.py, memory_use.py) count calls correctly.
 - MCU d3d567e2 (spatial-grid-merge, live MFM-grid/MCU fast-forwarded), MFM-grid e3e4e11; whole suite green (9 skips).
   Not pushed. Still not run end to end on an arm: the 600-step g3smoke (user's launch).
+
+## 2026-09-09 10:33-10:49 -- g3smoke_mfm: the gen-3 path end to end (user: "smoke一下吧", then "尽快跑完")
+- Launch (live MFM-grid/MCU d3d567e2): TASK=ender_dragon, gpt-6-astra high (nyu plan, raw binary), seed of3r
+  (carries of3 -> 2 lives), SESSION_TURNS=0+COMPACT, STEPS=600, WALL=30m, ports 9127/9137, BASE flags of
+  launch_g3.sh. Servers up in 20 s; seeding 3m15s (15,866 files linked, 3,957 rows all with events/1,512 with a
+  note); 17 skill files written; ended at step 599 by itself at 10:49 (11.5 min of play, 11 act turns).
+- What the smoke had to show, all seen: the arm's codex home has `skills/.system` as a file and the session
+  catalog lists exactly harness/memory/minecraft/mining/procedures/reflexes (no imagegen/skill-creator, no host
+  skills); the model read minecraft/memory/procedures/reflexes SKILL.md in turn 1; AGENTS.md 15.8 KB; turn-4+
+  prompts carry [WORKING] [DIGEST] [RECALL] [MAP] [RECENT] [OWN]x2 [EXPECTED]/[OBSERVED] (9.3 KB); previous/ holds
+  life_1+life_2 without skills/; 0 tool errors, 0 attach misses, 0 compactions, frames attached 11/11.
+- The model's turn 1 (2m11s): 6 commands over previous/, viewed a life-1 frame and a then-now pair, wrote
+  mine/digest.md (2.3 KB, its own reading of both lives incl. the diamond site of life 2), copied west_level +
+  west_stairs under their own names and fell/hit/lava_ahead/known_hazards into mine/reflexes (380 reflex runs,
+  0 firings, 0 failures), then mined a log by step 123. 3/24 by step 513 (log 123, table 379, wooden pickaxe
+  513). memory_use: prev/ later 0, digest later 2, notes later 1, view_image 6 (attached view/sheet 4, previous
+  frame 1), --then-now 2, --previous 2. Turn wall 41-83 s after the workshop turn; ~52 steps/min.
+- stderr classes only two, both known: "failed to install system skills ... Not a directory" (the .system file,
+  by design) and "failed to refresh available models: timeout waiting for child process" -- account-side: a
+  raw-binary turn on the plan account WITHOUT the HOME override shows it too (3x), the API-key wrapper with or
+  without HOME shows none. Watchdog 57305 killed by pid after the arm ended; output kept under output/g3smoke_mfm.
+- Gen 3 can launch on the user's word: `bash tasks/.../scripts/launch_g3.sh 3` (SESSION_TURNS=0 in the env for
+  the compaction mode, default 1), then 2 / 1 / `3 scratch`.
