@@ -1532,3 +1532,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   why not, the starving reflex fires when the bar drops below 18 with food carried (logs.txt [REFLEX starving]).
   Read-out at the end: milestones vs 16/24, deaths, steps/turn, across-life then-nows that changed a decision,
   eat count and food trajectory, per arm.
+- 06:05 FULL arm of3f_mfm STOPPED on the user's word ("出于成本考虑，先跑那个min的吧"): stop_arm.py --go (10 pids), wall
+  watchdog 42102 + its sleep killed by pid; it had 0 completed turns (mid-workshop), ports 9132/9142 free. MIN
+  of3m_mfm runs alone (pid 38535, watchdog 38538, WALL 14h -> ~20:00). FULL stays ready: `bash launch_g4.sh full`
+  from a clean merge-mcu at 27b206aa. Checkpoints for MIN at 06:37 and 08:07 (session cron).
