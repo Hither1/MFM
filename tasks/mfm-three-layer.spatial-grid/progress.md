@@ -1183,3 +1183,37 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - Relaunch 12:10:40 (my shell, env -u of the secret vars): `SESSION_TURNS=0 ACCOUNT=nyu bash launch_g3.sh 3`
   -> of3g_mfm, gpt-6-astra high, frames 320x180, seed of3r, one thread + COMPACT, STEPS=100000, WALL=12h
   (stops ~00:10 on 09-10), launch pid 52676, watchdog 52690, ports 9128/9138; live MCU 44978744.
+
+## 2026-09-09 12:12-12:45 -- of3g_mfm died at start (JVM crash); env filter + snapshot off landed; the 320x180 question
+- The 12:10 relaunch ended at 12:12 after ONE request: green log "Error during task 'kill_ender_dragon':
+  TypeError - a bytes-like object is required, not 'NoneType'", and logs/mc_2026-09-09_12-12-01_3131.log shows why:
+  the Minecraft JVM died of SIGSEGV in native code, `liblwjgl_stb.so+0x2e144`, at mission init ("Setting width,
+  height to 640, 360"). The purple agent never got an observation (no `[adapter] episode 1` line), so the hires
+  adapter code never ran. The only mc log this week with a fatal error (10:56 and 11:53 instances were fine);
+  nothing under /tmp/MineStudio-ruihan was written 11:50-12:00 outside the instance dirs; hs_err was cleaned with
+  the instance dir. Verdict: a one-off native crash; relaunch when the user says so, dig if it recurs.
+  User 12:20: (1) do the filter + snapshot-off, (2) no launch for now, (3) is 320x180 enough for the model?
+- (1) DONE, MCU 90e4dc78 (live ff'd, no arm running): `scrub_env` drops KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL
+  names from the environment codex gets (LOCAL_API_KEY and CODEX_* kept), logged once per CodexTurn; SAFE_CODEX_FLAGS
+  += features.shell_snapshot=false. tests/test_codex_env.py (2), whole suite exit 0. The 21 stale snapshot files
+  under Collab/codex-homes deleted. NOT touched (the user's own dirs): ~/.codex/shell_snapshots (16 files) and
+  ~/ccr/.codex/runtime-home/shell_snapshots (18) still hold GITHUB_PERSONAL_ACCESS_TOKEN and WANDB_API_KEY.
+- OpenRouter's own codex recipe (docs/cookbook/coding-agents/codex-cli, user's link): `[model_providers.openrouter.auth]
+  command = "sh" args = ["-c", "echo $OPENROUTER_API_KEY"]` -- command-based auth. Tested with the key read by the
+  command from the 600 file instead of the environment (`auth.command="sed" auth.args=["-n","s/^OPENROUTER_API_KEY=//p",
+  ".../secrets/openrouter.env"]`, wire_api responses, proxy): one turn, 15 s, image described, exec ran, both
+  OPENROUTER_API_KEY and OPENAI_API_KEY unset inside the exec cell, stderr clean. This is the recipe to wire if the
+  OpenRouter route is ever used (no auth.json copy needed; secrets/openrouter-auth.json deleted).
+- (3) A/B, gpt-6-astra low effort through OpenRouter, the same 640x360 frames shown whole and downscaled to 320x180
+  (obf2/ob1/ob1b lives, 10 frames, $0.20): at 640x360 the model reads the hotbar (item names and counts, e.g. "Dirt
+  x5, cobblestone x21, wood logs x3, pickaxe x1"); at 320x180 it says "unreadable" for the hotbar in 5 of 6 frames
+  (the sixth: "dirt, count unreadable"). Block-level scene reading (logs, leaves, stone, gravel, dropped item,
+  tentative coal in a dark cave) was the same at both sizes on all 10 frames; no clean ore-in-view frame exists in
+  the indices to test ore spotting. Tokens per image: 387 (640x360) vs 171 (320x180) -- +216 per turn, ~1-2% of a
+  turn. The harness gives the inventory as text ([INV], hotbar/held lines, the cursor's slot from the 640x360
+  pov), so the GUI digits are not something the model has to read from pixels; what 320x180 costs is fine texture
+  (item icons, distant ore, small mobs). The 320x180 choice (og2, 2026-09-07) was about bytes in resumed threads
+  ("payload wall around turn 12", run-arm.sh), not tokens; codex_backend counts attachment bytes per session
+  (attachment_bytes_peak in the report) for that. Gen 1-3 all ran 320x180; the ob era 640x360.
+- State: nothing running; live MFM-grid/MCU 90e4dc78; MFM-grid 738f02f+; ports 9128/9138 free. Relaunch line:
+  `[FRAME_SIZE=640x360] SESSION_TURNS=0 ACCOUNT=nyu bash ../tasks/mfm-three-layer.spatial-grid/scripts/launch_g3.sh 3`.
