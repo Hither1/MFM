@@ -1354,4 +1354,4 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   0 deaths; stop_arm.py --go + watchdog 52496 killed by pid; ports 9128/9138 down; live MCU has no arm
   (fast-forward to gen-3b pending the smoke). Kept as output/of3g_mfm, codex-homes/of3g_mfm, logs/of3g_mfm_*
   (the gen-3 data point: analysis/gen3_vs_gen2_2026-09-09.md, method_alignment_2026-09-09.md).
-  
+  of3g thread usage at turn_0284.: 72.9M input (62.2M cached, 10.55M cache-write), 688k output -> ~$203 at OpenRouter prices (one thread; compactions keep the id)
