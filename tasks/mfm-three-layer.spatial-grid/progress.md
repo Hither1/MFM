@@ -1316,3 +1316,12 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 18:43 hourly: 197 turns, step 8200, 9/24 -- mine_iron_ore @6565 17:56 (+4h55), iron_ingot @6989 18:10, iron_pickaxe
   @7880 18:33 (+5h31; of3r +1h07). 2,200 steps in the last hour (was ~1,300): once underground the plans got
   longer. Root fs 55 GB free, load 16, no faults.
+- 19:50 analysis/gen3_vs_gen2_2026-09-09.md: of3r vs of3g over the first ~220 turns (same seed, model, session
+  mode). Turns to step 10k 81 vs 217; steps/turn 123 vs 46; cells/turn by kind: skill reads 0.01 -> 0.73, looks
+  0.01 -> 0.70, queries 0.02 -> 0.51, json validation 0 -> 0.96, working+digest+actions rewrite 0 -> 0.68/turn.
+  Defects found: the contract's "context does not persist" sentence (prompts.py:1495) is unconditional and false
+  in one-thread mode; digest.md became a per-turn log (100.6 KB, 207 lines, newest first; the [DIGEST] block shows
+  its head, so the cross-life facts at the tail are never shown); Rules of play always-on halve the plan grain;
+  skill triggers fire ~every turn; no model-authored skill; RECALL entry-grain noise in 75-90% of prompts (both
+  gens). Positives: 0 deaths, prepared descent, iron via life 1's recorded entrance (then-now). Ranked gen-3b
+  changes and the decisive experiment are in the file. User is awake and deciding; of3g_mfm keeps running.
