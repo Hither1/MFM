@@ -78,9 +78,6 @@
  "step": 1
 }
 
-### ep_000001/state/ticks.jsonl
-{"feedback": null, "max_steps": 8, "png_sha256": "37c50eaef55527394f58a661041bd16010998f3657ca717cfc1fbff965638685", "step": 2}
-
 ### ep_000002/action.json
 {
  "briefing": "",
@@ -140,9 +137,6 @@
  "step": 2
 }
 
-### ep_000002/state/ticks.jsonl
-{"feedback": "Some actions were invalid and skipped: unknown action {'action': 'fly', 'coordinate': [1, 1]} | env error: dialog blocked the click", "max_steps": 8, "png_sha256": "238a2aab5195e927fd23cf6938d70fc6a86fa170c39acc08c7548ce973e14c8a", "step": 3}
-
 ### ep_000003/action.json
 {
  "briefing": "",
@@ -200,9 +194,6 @@
  "step": 3
 }
 
-### ep_000003/state/ticks.jsonl
-{"feedback": null, "max_steps": 8, "png_sha256": "8f87064d6581d8604d0cbf148a79cfbf6145f22b8a6c5494ea60057dd47327e4", "step": 4}
-
 ### ep_000004/action.json
 {
  "briefing": "",
@@ -258,8 +249,8 @@
 }
 
 ### index.jsonl
-{"action_kind": null, "first_step": 1, "id": "ep_000000", "image": "episodes/ep_000000/observation/image.png", "kind": "initial", "last_step": 1, "observation_hash": "629f4275ec7728373546c2565e62bc8bfa5577c1d8aa82a340c0436aa5c4eccf", "path": "episodes/ep_000000", "summary": "initial state", "tags": ["initial"]}
-{"action_kind": "click+type", "first_step": 1, "id": "ep_000001", "image": "episodes/ep_000001/observation/image.png", "kind": "episode", "last_step": 2, "observation_hash": "629f4275ec7728373546c2565e62bc8bfa5577c1d8aa82a340c0436aa5c4eccf", "path": "episodes/ep_000001", "summary": "click(500,500); type(\"R1\")", "tags": []}
-{"action_kind": "click", "first_step": 2, "id": "ep_000002", "image": "episodes/ep_000002/observation/image.png", "kind": "episode", "last_step": 3, "observation_hash": "37c50eaef55527394f58a661041bd16010998f3657ca717cfc1fbff965638685", "path": "episodes/ep_000002", "summary": "click(200,1000)", "tags": ["feedback"]}
-{"action_kind": "key", "first_step": 3, "id": "ep_000003", "image": "episodes/ep_000003/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": "238a2aab5195e927fd23cf6938d70fc6a86fa170c39acc08c7548ce973e14c8a", "path": "episodes/ep_000003", "summary": "key(ctrl+s)", "tags": []}
-{"action_kind": "terminate", "first_step": 4, "id": "ep_000004", "image": "episodes/ep_000004/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": "8f87064d6581d8604d0cbf148a79cfbf6145f22b8a6c5494ea60057dd47327e4", "path": "episodes/ep_000004", "summary": "terminate(success)", "tags": ["terminate"]}
+{"action_kind": null, "attachment": "frames/step_0001.png", "first_step": 1, "id": "ep_000000", "image": "episodes/ep_000000/observation/image.png", "kind": "initial", "last_step": 1, "observation_hash": "629f4275ec7728373546c2565e62bc8bfa5577c1d8aa82a340c0436aa5c4eccf", "path": "episodes/ep_000000", "summary": "initial state", "tags": ["initial"]}
+{"action_kind": "click+type", "attachment": "frames/step_0001.png", "first_step": 1, "id": "ep_000001", "image": "episodes/ep_000001/observation/image.png", "kind": "episode", "last_step": 2, "observation_hash": "629f4275ec7728373546c2565e62bc8bfa5577c1d8aa82a340c0436aa5c4eccf", "path": "episodes/ep_000001", "summary": "click(500,500); type(\"R1\")", "tags": []}
+{"action_kind": "click", "attachment": "frames/step_0002.png", "first_step": 2, "id": "ep_000002", "image": "episodes/ep_000002/observation/image.png", "kind": "episode", "last_step": 3, "observation_hash": "37c50eaef55527394f58a661041bd16010998f3657ca717cfc1fbff965638685", "path": "episodes/ep_000002", "summary": "click(200,1000)", "tags": ["feedback"]}
+{"action_kind": "key", "attachment": "frames/step_0003.png", "first_step": 3, "id": "ep_000003", "image": "episodes/ep_000003/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": "238a2aab5195e927fd23cf6938d70fc6a86fa170c39acc08c7548ce973e14c8a", "path": "episodes/ep_000003", "summary": "key(ctrl+s)", "tags": []}
+{"action_kind": "terminate", "attachment": "frames/step_0004.png", "first_step": 4, "id": "ep_000004", "image": "episodes/ep_000004/observation/image.png", "kind": "episode", "last_step": 4, "observation_hash": "8f87064d6581d8604d0cbf148a79cfbf6145f22b8a6c5494ea60057dd47327e4", "path": "episodes/ep_000004", "summary": "terminate(success)", "tags": ["terminate"]}

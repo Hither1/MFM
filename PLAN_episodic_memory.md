@@ -1,9 +1,12 @@
-# Plan: MFM agents (Multimodal Filesystem Memory), built on PRO-LONG
+# Plan: MFM agents (Multimodal Filesystem Memory)
 
 Scope: a new memory arm, the **MFM agent**, for MCU (diamond / dragon) and for the KiCad
-GUI benchmark. The MFM agent **replaces** the world-model agent in both repos: it is the
-simplified successor, built on PRO-LONG instead of on the world-model code. The existing
-world-model agents are retired, not kept alongside.
+GUI benchmark. On KiCad it is PRO-LONG plus the episode store. On MCU, **revised
+2026-09-04 (evening)**: it is built on the world-model chassis's *logbook* mode, not on
+the original PRO-LONG port -- see "Status: the MCU chassis decision" below. The rule
+"built on PRO-LONG instead of on the world-model code" that the rest of this document
+still states is therefore overturned for MCU; `mfm/` (backend, agent base, memory) is
+unchanged by that decision, only the MCU adapter layer moved.
 
 Design rule, unchanged: **the MCU arm is the current PRO-LONG agent with the smallest
 possible delta**, so its measured behaviour is preserved. What changed in this revision is
@@ -12,6 +15,328 @@ and stacking subclasses on top, which meant writing every MFM piece twice (once 
 and reaching into the parent's private fields. This revision lifts the code the two repos
 already share into one package, in three layers, and guarantees the baseline with pinned
 tests (section 7) instead of with untouched files. MFM is then written once.
+
+## Status: the baseline restored, and one carry layer (2026-09-08)
+
+Two changes, both in service of the rule above -- the baseline is guaranteed by the pins,
+not by untouched files -- after `spatial-grid-merge` landed in the MCU submodule (df4bd35).
+
+**1. The merge had moved the logbook BASELINE, not just the mfm arm.** Re-recording the
+seven stale pins and reading the diff showed `chassis_logbook_prompts.txt` had gained 138
+lines of `[RECENT]` (the last six finished entries, harness-rendered) and `[MAP]` (the
+spatial grid summary), the workspace had gained `ws/grid.jsonl` and `attach/events.png`,
+and the report had gained the keys `grid`, `watchdog`, `thin`. `[RECENT]` and `[MAP]` are
+memory mechanisms of the kind the MFM arm is meant to supply, so logbook-vs-mfm had stopped
+isolating MFM. They are now constructor flags on `WorldModelAgent`, default OFF, reachable
+as `--wm-extra "--grid --recent --event-frames"`: `grid` (grid.jsonl + [MAP]), `recent`
+([RECENT]), `event_frames` (the 2x2 event sheet). Each is now an arm that can be measured.
+
+The **governor is deliberately not one of them**. Its `[NOTE]` lines are in the committed
+`chassis_logbook_logs.txt` pin, so the null-entry tabu is what the measured runs already
+ran; gating it off made the log shorter than the pin, which is how the mis-attribution was
+caught. Its flag is tri-state (`governor: bool | None = None`): `None` is the baseline, on
+and unreported; an explicit True/False is an arm choosing, and only then does the
+`watchdog` key -- new even though the mechanism is old -- appear in the report. Check a
+mechanism against the committed pin before calling it drift.
+
+After gating, the only pin bytes that move are the four identical `AGENTS.md` prose updates
+(`watch`, `make_obsidian`, `mine_obsidian`, `explore_nether`, the rewritten Nether/obsidian
+strategy) and the derived `chassis_prompt_hashes.json`; those were re-recorded.
+
+A pin bug was fixed alongside: `mcu_worldmodel.procedures.VISIBLE` is a module global that
+every `WorldModelAgent.__init__` sets, so a test building an `--atoms`/`--visual-only`
+agent changed the contract every LATER test rendered, and the tests that hash
+`prompts.act_prompt` directly inherited whatever ran before them -- recorded pins depended
+on the order files were handed to pytest. `tests/conftest.py` now resets it around every
+test; verified by recording in two orders and diffing the pin directory.
+
+**2. One carry layer (section 5).** `mcu_worldmodel/previous.py: PreviousLives` and
+`mfm/memory/carry.py: CarrySink` had implemented the same design twice: hard-link each
+finished record into `previous/<name>/` minus that benchmark's machinery, merge the
+records' `index.jsonl` with every path field rewritten into the carried tree and a source
+stamp per row, count what was linked. The spine is now `mfm.memory.carry`:
+`CarriedRecord(name, source, tag)`, `link_record(src, dst, skip=, skip_hidden=)` and
+`seed_previous(prev_dir, records, ...) -> CarrySeed(rows, linked, names)`.
+`PreviousLives.seed` lost 58 lines and gained 18.
+
+The per-benchmark policy is passed in and never merged into a default: KiCad names records
+by task id and stamps rows `task`; MCU names them `life_<i>`, stamps `life`, and passes
+`skip_hidden=True`. Both skip sets apply at the TOP LEVEL only -- a name of the record's
+own, deeper in, is history. What each benchmark READS out of the carried material stays in
+its adapter: MCU's `Site`/`Corridor` and the `[KNOWN SITES]` push, KiCad's
+`previous/outcomes.md` and `previous/situations.md`.
+
+Still open on this thread: the governor is not in `mfm/` (a benchmark-neutral design --
+KiCad already has the null predicate in `screen_unchanged` -- but porting it is a new
+mechanism needing its own measured arm, not a refactor); and the adapter contract is
+undocumented -- KiCad subclasses `mfm.agent.base.MemoryAgent` while
+`mcu_worldmodel/episodes.py` keeps its own chassis and duck-types the hooks, so
+`EpisodeStore` serves two shapes and section 2.2 above assumed only the first.
+
+## Status: the MCU chassis decision (2026-09-04, evening)
+
+**Decision.** The MCU MFM arm is `worldmodel_purple_agent.py --memory mfm`: the logbook
+arm (the world-model chassis -- macros, cursor, vision, governor -- with PRO-LONG's
+memory protocol, one append-only `logs.txt`) plus the episode store beside the log.
+The ladder on one chassis is now direct -> logbook -> **mfm** -> wmlite -> worldmodel,
+so MFM's memory effect separates from the chassis. The PRO-LONG-based MFM arm stays
+launchable as `--agent plmfm` (the dmw3 wave) for the original PRO-LONG-vs-PRO-LONG+MFM
+comparison; it is no longer the ladder rung.
+
+Why. Prompt-tuning PRO-LONG towards longer plans cannot close the gap: its caps are
+already 40 entries / repeat 200 / 400 ticks and the model still writes 1-2 tick plans,
+because raw keypresses give no in-plan feedback -- two to three times fewer calls at
+best, not the twenty times the chassis's macros give (median plan entry ~40 ticks). And
+"episode = plan entry" maps onto a macro call naturally: the chassis already writes one
+log section per finished entry with position delta, [INV], [EVENT]s and the governor's
+[NOTE], which is the outcome record.
+
+What was built (all gated on `memory_mode == "mfm"`; the logbook arm is pinned):
+
+- `mcu_worldmodel/episodes.py`: `EpisodeBridge`, the adapter that drives
+  `mfm.memory.store.EpisodeStore` from four chassis hook points (`start`, entry open
+  in `next_action`, `observe`, `_log_entry_done`) and implements the store's
+  `episode_*` hooks for Minecraft. `MFM_MEMORY_NOTE` lives there; `prompts.py` builds
+  the mfm contract from the logbook contract by replacing one paragraph, every other
+  segment being the same object as the logbook's.
+- `memory.py`: `episodes=True` keeps `episodes/`, `index.jsonl`, `tools/` between
+  turns (the sweep otherwise removes them). (It wrote `tools/zoom.py` until 2026-09-05.)
+- `codex_backend.py` (chassis): counts `tools/episodes.py` runs in the rollout scan;
+  `session_max_turns` is a constructor argument.
+- `worldmodel_purple_agent.py`: `--memory mfm`; explicit `--session-turns 1` and
+  `--codex-timeout 480` (no environment defaults); the open episode is closed and the
+  report written on the last step.
+- `tests/test_pins_chassis.py`: the logbook arm replayed through the selftest's fakes
+  (120 ticks, 15 sections, a procedure, governor notes, a hit reflex, a failed
+  attempt): `logs.txt`, `AGENTS.md`, every prompt, every action, the workspace listing
+  and the report keys, plus the four modes' system-prompt hashes. Recorded before the
+  mfm changes; green after.
+
+Fixes from the 2026-09-04 review (all pinned or covered by `tests/`):
+
+- Results-losing: `slurm/arm.sbatch` walltime 24 h -> 2.5 days (a PRO-LONG-cadence arm
+  needs 18-29 h; sapphire allows 3 days). `prolong_purple_agent.py` now writes
+  `prolong_vision_audit.json` every 200 steps and calls `save_state` (closing the
+  store's open episode) on the last step -- nothing ever called it before, so no MCU
+  run of this arm had an audit and its last episode never closed. The subscription
+  account's usage limit: the shared backend gained the chassis's gate as an MCU policy
+  knob (after 5 refusals in a row the calls stop, one probe every 40th) and the MCU
+  adapter waits 2/4/8/16/30 s between contentless failed attempts (the chassis's own
+  rule); prompts, log and actions unchanged.
+- Ablations: the store's `publish` keeps an episode under a window only when the frame
+  it opened on is visible (it kept by `last_step`, leaking pre-window frames); under
+  stateless the system prompt no longer names the tool the publish removes.
+  `tests/test_pins_ablation.py` pins `--log-window 3` and `--stateless`, with and
+  without the store.
+- Data: state.json `moved` was always 0.0 (the state hook was called twice per
+  observation; now once, cached per step, after the flush decision so it carries the
+  updated verification state); a flushed entry no longer absorbs the default-action
+  ticks of a failed turn (a `refill` sink hook closes it when the turn starts).
+- Backend: `audit()` remembers each session's rollout path (was O(N^2) in sessions);
+  the empty-output session discard no longer starts the new session with one failure
+  already counted; `session_max_turns` / `timeout` are explicit arguments from both
+  purple agents.
+
+## Status: the VISTA baseline (2026-09-06)
+
+A third memory arm, VISTA (Han, Hu, Qiu, Wu, He; MIT 2026; joshhhhhan/VISTA @900aa33,
+MIT licence), ported as `mfm/vista/` with one adapter per benchmark. It is the
+counterpoint to both PRO-LONG and MFM: the *conversation* is the memory. One codex
+`app-server` thread drives the environment through dynamic tools and nothing else (no
+shell, no filesystem): `play` executes exactly one action -- one plan entry on MCU, one
+batch on KiCad -- and returns the objective result with the resulting frame steered into
+the thread; `inspect` / `read_pixels` read the lossless frame archive; `history` the
+record of every play; `GUIDE.md` / `WORKING.md` are the model's two notes; when the
+context fills, `save_compact_checkpoint` and a FRESH thread from the present, the last
+result, the recent history and the notes. Launch: `run-arm.sh --agent vista`
+(`worldmodel_purple_agent.py --memory vista`, the same chassis as logbook/mfm) and
+`run_eval.py --agent vista`.
+
+One addition to the upstream method: `thread_bytes_budget` (`--vista-thread-bytes`,
+4 MB base64 default). Frames here are 130-500 KB and codex re-sends every image on every
+call; the wire stalls near 5.5 MB long before a token-based compaction would fire, so
+the runner requests the same checkpoint handoff at the byte budget. The audit reports
+`checkpoint_reasons` so a run says which handoffs were the context and which the wire.
+
+Verified: the whole control plane against codex 0.153.4 without a model call
+(`--strict-config`, hook discovery and trust, `thread/start` with `dynamicTools`), and
+both adapters end to end on `tests/fake_appserver.py` (`tests/test_vista.py`, pinned;
+the old pins unchanged -- every vista path is gated on `self.vista`). Verified live too (2026-09-06, `python -m mfm.vista.smoke`: three plays, an
+inspect, a guide write; the model predicted before and read after every play). Section 8 gains one
+decision: a vista wave beside a logbook seed on the same chassis commit.
+
+## Status: the arc-code baseline (2026-09-06)
+
+A fourth memory arm, arc-code (jerber/arc-code @6b33c1f, MIT), ported as `mfm/arc/` with
+an MCU adapter (`mcu_worldmodel/arc.py`, `--memory arc`). It is the counterpoint on the
+other side of MFM from VISTA: the *workspace* is the memory, and the model builds
+whatever machinery it wants inside it. One long coding-agent session -- `codex exec`, or
+`claude -p` with `--arc-agent claude` -- runs in the workspace with a shell, a
+filesystem and six tools, and its only way to touch the world is `./act do ENTRY ...`,
+which plays a batch of plan entries and prints back the log sections they produced.
+`./act status` is the present, `./act view` names the current frame. The chassis's own
+`logs.txt` is the actuator's log; `notes.md` and any script the model writes persist
+(nothing is swept, unlike the logbook arm). A session that exits before the budget is
+spent is replaced by a fresh one told to recover from `notes.md` and `logs.txt`.
+
+Upstream is three files (PROMPT.md, act.py, run.py) and the claim that none of them
+knows the game: on ARC-AGI-3's 25 public games Opus 5 scored 30.2 model-only and 96.2
+through this harness, writing 269 throwaway programs on the way. `mfm/arc/prompt.py`
+carries PROMPT.md sentence for sentence with its ARC nouns replaced (the substitutions
+are listed in the module); the brief above it -- what this environment is, what `./act`
+accepts, the log's section format -- is the benchmark's, as upstream's ARC.md is.
+
+Two departures from upstream, both forced by the inversion: upstream's agent drives the
+game and the actuator holds the session, while here the benchmark's server drives the
+clock, so `./act do` blocks in a file mailbox (`mfm/arc/mailbox.py`) on the same
+`ActionChannel` rendezvous the vista arm uses; and upstream's boards are text inside the
+log, while a Minecraft frame is a PNG, so each section names its file and the model
+looks at it with its own image tool.
+
+Verified: end to end on `tests/fake_arc_agent.py` (`tests/test_arc.py`, pinned -- the
+brief, every `./act` answer, the log; the other arms' pins unchanged, every arc path is
+gated on `self.arc`), and live against real codex (`python -m mfm.arc.smoke`, 2026-09-06:
+the session read the brief, ran `./act status`, played batches through the actuator,
+looked at a frame, wrote `notes.md`, and the governor's streak refusal reached it as
+actuator output).
+
+One finding this port turned up, which is not about arc-code: **`codex exec` reads
+`AGENTS.md` only to `project_doc_max_bytes`, 32 KiB by default**, and the chassis brief
+is ~80 KB. Measured on codex 0.149 against a lad8 rollout: the model saw the first 32 KB
+and nothing past it -- so every codex-exec arm on this ladder (logbook, mfm, direct,
+worldmodel) has been running without the procedures reference, the survival rules or the
+benchmark's own control reference, while the vista arm (which passes the same text as
+`developerInstructions`) saw all of it. The arc arm passes
+`-c project_doc_max_bytes=262144`. Fixing it for the other arms is a chassis change that
+re-baselines the ladder, and is not made here.
+
+## Status: what the first KiCad waves showed (2026-09-05)
+
+Measured on the gpt-5.6-sol `_projdir` pair and the GPT-6 low pair (25 tasks each):
+
+- **The model reads the text log every turn and never reads the store.** PRO-LONG made
+  1,183 log reads in 1,186 turns on GPT-6, MFM 1,184; `tail -n 12..25 logs.txt` (744)
+  and `cat logs.txt` (430) dominate. The episode tool was called 0 times on GPT-6 and 2
+  on gpt-5.6; earlier screenshots were re-opened twice in 1,410 shell commands. The two
+  GPT-6 arms scored identically on all 25 tasks.
+- **Why the store has nothing to add within a task**: KiCad tasks are 9-110 turns in a
+  fresh per-task workspace; the screen changes every step (27 repeated screenshot hashes
+  in 1,247 episodes, all the initial/first-turn pair), `screen_unchanged` fired twice.
+  The index carries nothing the log's last 15 lines do not.
+- **`tools/zoom.py` was promised and never written** (both arms; the sandbox even
+  provisions a Pillow `python` for it). Every zoom attempt failed, then the model stopped
+  looking back. Fixed 2026-09-05: `mfm.memory.log.install_zoom_tool`, called by the KiCad
+  agent for both arms; baseline prompt, log and argv pins unchanged.
+- **The success rate is bounded by the grader, not memory.** Three exact-set checks
+  (library part names, (ref,pin) net sets, net names including KiCad's auto-generated
+  `Net-(D1-K)`); no design-from-scratch task has ever been solved by any arm; only
+  modify-existing tasks are solvable (5-7 of 10). Task 34877be3 asks for "LN271" while
+  its reference uses `LD271`; a6414tw4's reference is an empty netlist. The
+  `--kicad-project-hint` flag (EVAL_EXTRA) is what makes scratch tasks gradable at all;
+  the GPT-6 wave ran without it (15 tasks never reached the grader).
+- **Where memory could matter on KiCad: across tasks.** Median 7 turns per task
+  (122 of 1,222) are the same preamble -- dismiss the first-run and update dialogs,
+  create the project, find the save directory -- and the same GUI lessons recur (Escape
+  cancels a wire). Section 5's `carry` layer (a memory that persists across a run's
+  tasks) is the only MFM mechanism with a plausible effect here; it changes the
+  benchmark's task-independence assumption and needs a decision.
+
+**Decision (2026-09-05): memory may persist across a run's tasks.** Built as the carry
+rung (`mfm/memory/carry.py`, `CarrySink`): `previous/<task>/` holds every finished
+task's record (logs.txt, frames, episodes, index; hard links), `notes/` is the model's
+own directory copied in at task start and out at task end, `<out>/carry/manifest.json`
+is the task order. Two new KiCad arms, `prolong-carry` (the control: carry-over without
+structure) and `mfm-carry` (plus the merged `previous/index.jsonl`, `--previous` and
+`--same-screen` in the query tool, and a `[SEEN BEFORE]` line pushed into the turn prompt
+when the current screen matches an earlier episode, since the model does not pull). Both
+require `--concurrency 1`; task order is part of the arm and is reported. The per-task
+arms are unchanged (pins green). The ladder on KiCad is therefore
+prolong -> prolong-carry -> mfm-carry, with prolong vs mfm as the within-task control
+pair that is expected to tie.
+
+**Re-scorable runs and a relaxed score (2026-09-05).** `run_eval` now saves what the
+grader reads (`<task>/kicad_project/*.kicad_sch|.kicad_pro|.net` and the netlist
+`kicad-cli` exports, `<task>/graded.net`) after the final step, so a nine-hour run can
+be re-scored offline under any grader. `gym_codex/kicad_rescore.py` reports a relaxed
+score beside the official one and never instead of it: symbol-style suffixes ignored
+(`R_US` = `R`), nets compared up to renumbering of interchangeable components, KiCad's
+auto-generated net names dropped. Every reference scores 1.0 against itself and against
+a style-variant copy of itself, where the official grader gives that copy 0.67 on 16 of
+the 25 tasks. `gym_codex/patch_kicad_tasks.py` re-applies the LN271 -> LD271 fix to the
+dataset cache (34877be3); a6414tw4 (empty reference netlist) is skipped with
+`--exclude-tasks`. Wave launched 2026-09-05 on GPT-6 low, codex 0.153, project-dir hint,
+24 tasks, one node per arm: `kicad_{prolong,mfm,plcarry,mfmcarry}_gpt6hint`
+(jobs 44622955, 44622961, 44622965, 44622968). Why ~9 h per arm: of the measured 8.9 h,
+~8.5 h is codex latency (1,180 calls, median 19 s) and 1.6 h environment steps; the plan
+queue does not shorten it (94% of turns are single-action batches) and only the
+per-task arms can be sharded with `--tasks`, so the carry arms stay sequential.
+
+**Result of the hinted GPT-6 wave (2026-09-06).** 24 tasks, codex 0.153, project-dir hint,
+one node per arm, no errors. Official mean / relaxed mean (`gym_codex/kicad_rescore.py`,
+which reproduces the official score exactly from the saved grader inputs):
+
+| arm | official | relaxed | modify (10) off / rel / steps | scratch (14) off / rel / steps | wall |
+|---|---|---|---|---|---|
+| direct GPT-6 low | 0.194 | 0.222 | 0.467 / 0.533 / 109 | 0.000 / 0.000 / 50 | 7.1 h |
+| prolong | 0.389 | 0.528 | 0.733 / 0.800 / 19 | 0.143 / 0.333 / 71 | 8.2 h |
+| mfm | 0.375 | 0.569 | 0.667 / 0.800 / 20 | 0.167 / 0.405 / 68 | 7.8 h |
+| prolong-carry | 0.375 | 0.556 | 0.667 / 0.800 / 17 | 0.167 / 0.381 / 66 | 7.8 h |
+| mfm-carry | 0.361 | 0.542 | 0.667 / 0.800 / 18 | 0.143 / 0.357 / 66 | 7.8 h |
+
+Reading: the log (prolong) roughly doubles the memoryless baseline and cuts steps on the
+modify tasks by 5x; the four memory arms are a tie, every difference between them being a
+single grader check flipping on a single task (a symbol-style variant, one component
+value). Transcript scan: `logs.txt` is read on every turn in every arm; the episode store
+is queried once in ~2,000 mfm turns; the carry arms read `notes/` ~8x per task and
+`previous/` 4-7 times per run; `[SEEN BEFORE]` fired twice. Carry-over is consulted and
+does not change decisions. The direct GPT-5.6-high baseline runs ~70 min/task.
+
+**Recall and consolidation (2026-09-06).** Trajectory findings of the hinted wave: the
+store's index was lossless at the file level and lossy at the index (a row = raw action
+string + exact screenshot hash; nothing of what the model saw, meant or caused); no links
+between modalities beyond exact hash, which matched twice in 24 tasks, while a whole-frame
+perceptual hash alone matched half of all frames and conflated dialogs; no consolidation.
+Built, behind `EpisodeStore(recall=True)` (KiCad `mfm` and `mfm-carry` only; MCU arms
+byte-identical): rows carry `perception` (first plan line), `intent`, `effect` (the next
+turn's perception, linked back when it arrives), `dhash`/`next_dhash`;
+`mfm.memory.recall` matches the previous turn's (perception, action) against earlier rows
+within the task and across carried tasks, confirms with the next-frame hash, and pushes a
+`[RECALL]` block (what followed, two steps ahead) into the turn prompt;
+`mfm.memory.consolidate` folds the carried rows into `previous/situations.md`. Prompt
+additions: `RECALL_NOTE` (mfm arms), `CARRY_RECALL_NOTE` (mfm-carry). Tests:
+`tests/test_recall.py`. Run: `kicad_mfmcarry2_gpt6hint` against the finished
+prolong-carry / mfm-carry.
+
+**Result of the recall run (`kicad_mfmcarry2_gpt6hint`, 2026-09-06).** Same 24 tasks, order,
+hint and CLI as the wave. Official / relaxed / model calls / wall:
+
+| arm | official | relaxed | steps | calls | wall |
+|---|---|---|---|---|---|
+| mfm-carry + recall | 0.375 | **0.597** | 1121 | **889** | **6.9 h** |
+| mfm-carry (2026-09-05) | 0.361 | 0.542 | 1105 | 1085 | 7.8 h |
+| prolong-carry | 0.375 | 0.556 | 1095 | 1095 | 7.8 h |
+| mfm | 0.375 | 0.569 | 1145 | 1110 | 7.8 h |
+| prolong | 0.389 | 0.528 | 1188 | 1188 | 8.2 h |
+
+Official score unchanged (one scratch task up one check); relaxed score the best of any
+arm, four scratch tasks up one check each (83490c3a, b7148878, c4baee36, ff6dfdde);
+18% fewer model calls and 12% less wall time at the same step count, because the plan
+queue was used for the first time on KiCad: at recalled screens the model queues the
+recalled chain as a multi-batch plan. Recall fired on ~40% of scratch-task prompts.
+The official ceiling is still the grader's naming conventions (no feedback reaches the
+model); the outcome-informed extension (reward + checks in the carried rows) remains the
+protocol decision.
+
+**Log-only PRO-LONG (2026-09-06).** The baseline's prompt says the workspace persists
+and invites the model to keep files there; on KiCad it kept a `plan.txt` in 20 of 24
+tasks and read it back every turn it wrote it -- a second memory channel beside the log.
+`prolong-logonly` (`EpisodeLog(log_only=True)`, `mfm/memory/log.py`): same log, frames,
+tools and resumed thread; the model's own files are taken back before every call and
+stashed under `<workspace>_record/scratch/<publish>/` for the analysis; the two prompt
+sentences that promised persistence are replaced (`_LOG_ONLY_SYSTEM_EDITS`,
+`_LOG_ONLY_FIRST_TURN_EDITS` in `gym_codex/prolong_agent.py`; each target asserted to
+occur once). Pinned baseline untouched (`tests/test_logonly.py`). Run:
+`kicad_pllogonly_gpt6hint` on GPT-6 low against prolong 0.389 / 1188 steps.
 
 ## Status (2026-09-04)
 
@@ -56,10 +381,184 @@ Pre-existing defects found on the way, not fixed (not on the measured paths):
 `test_task_framing_matches_baseline` on a file removed in commit fb46ac9, so the four
 tests after it must be run by hand (they pass).
 
-Not done: `tools/zoom.py` output into the episode's `crops/`; the optional retrieval
-block in the turn prompt (off = absent); section 5; the engine-dependent stage-run check;
-the waves. The MCU purple agent closes the store on the next `init`, so an episode
-killed by the launcher loses only its open entry.
+Dropped 2026-09-05: `observation/crops/` and the mfm arm's `tools/zoom.py` -- 805 crops
+directories across every MCU and KiCad run, all empty; zoom.py never called on MCU and
+only failing on KiCad (KiCad's baseline-promised `tools/zoom.py` stays, its prompt is
+pinned). Not done: section 5. The retrieval
+block exists since 2026-09-05 (below), off by default. The MCU purple agent closes the
+store on the next `init`, so an episode killed by the launcher loses only its open entry.
+
+**Wave 1 is running (2026-09-04).** KiCad: `--agent mfm` as job 44469925, from a git
+worktree of the run checkout so the three arms already mid-run were not disturbed, with
+the already-running `--agent prolong` (44396608) as its baseline -- legitimate because
+the pins show the rendered system and turn prompts are byte-identical across the
+refactor, checked again by hashing both trees' `build_system_prompt`/`build_turn_prompt`.
+Its first task scored 1.0 in 11 steps and wrote 12 episodes. MCU: `dmw3_prolong` and
+`dmw3_mfm` on `mine_diamond_from_scratch` at 12000 steps, one job each, forced onto
+different nodes.
+
+Two things that cost three launches and are worth knowing before the next wave. The
+green server's readiness ceiling was 300 s and its import time off NFS is
+node-dependent by more than an order of magnitude -- 10 s on a warm node against 210 s
+on a cold one in the same wave, and past 300 s twice -- so arms were being killed for a
+cold page cache; the ceiling is now 900 s with a heartbeat. And `run-arm.sh` must not be
+edited while a job is executing it, since bash reads a script by byte offset as it runs,
+which is why the wave was relaunched rather than patched in place.
+
+The MFM and PRO-LONG task orders differ within a KiCad run, so the arms must be compared
+on the task ids they both finished, not on whatever each got through.
+
+**lad1/lad2 (2026-09-05) and the retrieval block.** Diamond, 12,000 steps, from the
+`MCU-ladder` worktree: logbook 70 / 80, mfm 60 / 80 -- both lad2 arms 8/10, missing
+`iron_pickaxe` and `diamond`, no MFM effect. The model ran `tools/episodes.py` in 28% of
+its turns but almost only as `--last N`, which listed less than `tail logs.txt` (the
+index row has no note). Where the steps went, in every run: the "one plank short"
+wood/table/open-GUI loop (2,650 steps in lad2 mfm; the same loop after the logbook arm's
+death), a descent to Y=12 with no furnace and no torches (5,030 steps of `view was DARK
+throughout`), and a death whose drop was never recovered. Each is a repetition the model
+never saw as one thing, because it read the last few sections each turn.
+
+So the flag the plan reserved is now built: `mfm.memory.retrieve.recall_block` computes,
+from the rows the store already holds, (1) streaks -- actions that changed nothing
+(no `milestone`/`inventory_changed` tag; for movers, `stuck`) in their last >=3 calls,
+with the note the last one ended on and the step the same action last worked, dropped
+once the run is older than the last 30 rows; (2) the harness note that ended the last
+>=3 noted entries (one sentence, digits ignored) -- the dark descent is not a no-change
+loop, every entry banked cobblestone, but eight in a row ended on "The view was DARK
+throughout"; (3) what happened within 6 blocks of here, older than the six rows the
+model can see; (4) the entry that scored each milestone. On lad2 mfm's own index at
+step 2266 it reads "`craft` changed nothing in its last 23 calls ... `harvest_tree` ...
+18 calls ... It last changed something at step 563", and at 6104 "The same harness note
+ended the last 7 entries that carried one (since step 4164; strip_mine x3, dig_down x3,
+mine_forward x1)"; a chain is present in 25 of that run's 337 entries; 0.5-1.6 KB.
+`WorldModelAgent(retrieval=True)` inserts it into the mfm turn prompt between the
+present and the log pointer and adds one paragraph (`MFM_RETRIEVAL_NOTE`) to the
+contract; `worldmodel_purple_agent.py --retrieval`, `run-arm.sh --agent mfm --wm-extra
+--retrieval`. The logbook arm is untouched (its pins are green); the flag-off mfm arm
+differs from lad2's only in the CLI listing the first outcome note and in `_MOVERS`
+naming the real procedures (`go_to`, not `goto`, so movers now get the `stuck` tag).
+Pinned: `tests/test_pins_chassis.py::test_chassis_mfm_retrieval`, `tests/test_retrieve.py`.
+The lad3 pair is `mfm` against `mfm --retrieval`; the ladder worktree needs the MCU
+commits and `PYTHONPATH` at the MFM root, since the run venv's `mfm` is a frozen copy.
+
+**lad3 (2026-09-05): mfm --retrieval scored 90** (9/10; iron_pickaxe at 11954, diamond
+unreached). But the block cannot be credited: across its 68 turns no briefing cites an
+episode id or a streak, and a flagged action was used in 43% of the turns right after
+the flag against 27% unflagged (confounded -- a flag marks a phase the model is already
+in -- but no evidence of an effect either). The 4,800-step loss was a decision, not a
+loop: the table was placed at Y=68 (step 571), the model descended without it, and at
+Y=12 with three ingots it climbed 56 blocks, 27 turns, to craft the pickaxe. The rule
+("carry ONE table") was in the contract 400 lines from the pre-descent checklist.
+
+**The refusal rules (`--refuse`, 2026-09-05)**, since narration showed nothing and the
+governor's refusals are the one channel the model demonstrably reads: the store vetoes
+a plan, whole, for one no-op tick, with a [NOTE] naming the episodes -- (1) an entry
+whose kind changed nothing in its last 5 calls ANYWHERE (the governor sees only the
+same spot; entries that never ran, a deferred `craft`, do not count), (2) a
+`dig_down`/`stair_down` while the placed table stands 8+ blocks above where the descent
+ends and none is carried (`left_behind`, from `inventory_delta`). Each streak or
+placement is refused at most twice; `"why": "..."` / `"leave_table": true` on the entry
+lets it through and is recorded in the episode's action.json. Replayed over the
+recorded plans: lad2 would have been refused 9 times of 89 turns -- five inside the
+plank loop, the two furnace-less descents at 3367/3939 -- and lad3 10 of 68, including
+step 3092, the descent that cost it the pickaxe. `parse_actions` carries the two keys
+through for every arm (no pinned plan uses them). Pinned: `test_chassis_mfm_refusal`,
+`test_descent_guard_is_a_pure_rule`, `test_left_behind_tracks_placements_and_pickups`,
+`test_entries_that_never_ran_do_not_make_a_streak`. lad4 = `mfm --retrieval --refuse`.
+
+**lad4 / lad5 (2026-09-05): 90 and 60 on the same arm.** lad4 got the iron pickaxe at
+8632 (lad3: 11954); its two refusals were both the descent guard, and the model recovered
+the table, crafted, then descended with `leave_table: true`. Three bugs from those two
+refusals were fixed (MCU 832a362): the note quoted the standing position as the table
+cell; `leave_table` inside `args` failed the procedure check (override keys are now
+lifted out of `args`); GUI openers were on the ignore list, so an open-nothing loop was
+invisible (an opener is changed iff the episode has the `gui` tag). lad5 on the fixed
+rules died twice to mobs in its own unlit shaft (y 52, y 27), with no torch either time,
+and spent 500 steps trying to reach a table its own aimed open had already failed on.
+Twenty-plus points between identical arms means single runs cannot be read: waves are now
+two seeds.
+
+**The light guard (MCU 112a8f5, MFM 1adc21e):** a `dig_down`/`stair_down` that ends or
+starts below y 55 with no torch carried is refused (`light_guard` in
+`mcu_worldmodel/episodes.py`; override `unlit: true`; at most twice, re-armed once a
+torch is carried); the note gives the recipe and what the inventory holds towards it.
+Replayed over every recorded descent in lad2-lad5: all of lad2/lad3/lad5's dark descents
+refused, none of lad4's four-torch ones. The descent guard now says "craft a new one"
+when the record shows the placed table could not be opened since placement. Pinned:
+`test_light_guard_is_a_pure_rule`. lad6a/lad6b = `mfm --retrieval --refuse`, two seeds.
+
+**lad6 (2026-09-05 night): 60 and 70 (truncated).** lad6a had the furnace by 3503 and crafted
+torches before descending with no refusal at all, then tunnelled 84 blocks in 5,770 ticks
+at y 11-29 and met no iron (the chassis mine cycle: ~57 ticks per block advanced). lad6b
+sat in the plank loop until 3900, recovered to 7/10, and the Minecraft process died at
+step 8419 (first such crash in the ladder). Fixed from lad6b (MCU a5cc225, 7957bfc):
+streak staleness now counts streak-eligible rows, not raw rows (39 rows of bookkeeping
+had aged an eight-call loop out of the window); a `why` that ran and changed nothing is
+spent, and the next `why` on that streak is refused twice with the claim quoted
+(`burned_override`); streak notes say where the action last worked and how far that is;
+and `hint_for` adds what the harness knows about a procedure's failure.
+
+**The plank loop was a vision bug (2026-09-06, MCU 4aa167c -- a CHASSIS change).** The
+recorded harvest_tree first frames across lad2-lad7b: 92 ended "no trunk detected", 5
+gained a log. In the model's own view the spruce trunk was there each time (lad7b
+ep_000192: a full-height trunk one block left of the crosshair). Shadowed spruce bark
+has r median 33-42 and (r-b)/r ~0.70, outside `find_tree_trunk`'s bands (r >= 35, rb <
+0.75), and a trunk at arm's reach is 30-50% of the frame, which the scene cap and the
+130-px run cap called terrain. Bands widened (r >= 24, rb < 0.85) and a near mode added
+(full-height run, one non-bark flank, green beside): first-frame detections 38/92 ->
+61/92, the 5 successes kept, 0 false trunks on 122 underground frames, selftest 820/820,
+MFM pins unchanged. Every arm gets this, so the lad2 logbook = 80 no longer stands as
+the baseline: lad8 runs a logbook seed beside the mfm one.
+
+**The sword guard (MCU fa63d71).** lad5 (twice), lad7a and lad7b died to a melee mob in
+their own shaft; the chassis's fightback reflex arms only with a sword in the hotbar
+(without one it sprints, and a 1-wide tunnel has nowhere to sprint), and no run had
+crafted the 2-cobblestone sword. A descent below y 55 with no sword is refused like the
+unlit one (override `unarmed: true`, cap 2, re-arms when a sword is carried).
+
+**lad7 (old detector): 70 and 60.** Both died once to a zombie in their shaft (lad7b after
+the light guard had made it craft torches), and both then lost thousands of steps to the
+harvest loop -- lad7b 43 spent-why refusals against a detector that could not see the
+trunk in front of it. **lad8, the first wave on the new chassis: logbook 80, mfm 70.** No
+deaths in the mfm run (it carried a stone sword and torches: both guards held); it was
+slower in the early game (wooden pickaxe 2475 vs 1098) and reached iron ore at 9166,
+where 12 refusals hit the `mine_ahead` entries that had just broken the ore: the drop was
+still on the floor, so no inventory changed, and "changed nothing" was wrong. Fixed
+(MCU 03a386b, MFM 6f262c5): the bridge tags an episode `broke` from its block events, the
+store accepts adapter tags on close, and `broke` counts as a change (mfm index pin
+re-recorded). A second detector pass from lad8's frames (MCU 10c7a51): a run's score is
+weighted by its darkness (spruce bark r 36-43 against dirt 58-83 and the placed table
+92-124, all inside the colour bands), and a trunk against a dirt cliff passes the flank
+test when the flank is brighter than the run -- corpus 61/92 -> 68/92, still 0 false
+trunks underground. lad9 = logbook + mfm on 10c7a51; lad10 will carry the `broke` tag.
+
+**Two more from lad8's record (MCU cd90a3a, c53776b).** The episode video (one frame per
+step) replayed through the detector showed every walk-in that ended "no trunk detected"
+had REACHED the trunk: bark filled 50-69% of the frame, the column search had no run,
+and eight nodet ticks later the re-aim missed six times facing bark. `harvest.FACE_FRAC`
+(0.33, via `vision.bark_fraction`) now treats a bark-filled frame as arrival: the
+approach keeps walking into it and the re-aim chops what the crosshair is on. And the
+iron frames: lad8_mfmrr broke five iron ore, picked up none (the drops lay in the dark
+cavity), and swung at the empty hole for 1,500 steps -- lad6b and lad7a did the same. The
+drop guard (rule 5 of `--refuse`): while the record shows `mine_block <ore>` without its
+pickup in the last 12 episodes, a plan with no collecting, moving, fighting or fleeing
+entry is refused (twice per breaking episode; `why` overrides; never while the last
+episode took damage). `uncollected()` reads the adapter's events with an ore-to-drop map
+(coal ore drops coal). lad10 = logbook + mfm on c53776b.
+
+**Where the ladder stands (2026-09-06 morning).** Four pairs on the new chassis, logbook /
+mfm --retrieval --refuse: lad8 80/70, lad9 60/80, lad10 80/60, lad11 70/60 (means 72.5 /
+67.5) -- no arm difference inside the noise. What the memory arm's rules verifiably did:
+no mfm run has died to an unlit or unarmed shaft since the guards (lad8, lad10, lad11: no
+deaths; lad9's death was at 2 hp after mining out of the runner's bunker), the descent
+guard recovers the table, the spent-why rule and the hints turned lad7b's 43-override
+harvest loop into lad10's one "no trunk" note by step 761. What bounds both arms now is
+the chassis: the harvest state machine after a detected trunk (lad11_mfmrr: "2 approaches,
+0 logs" twice), trunks behind leaf cover in dim light, and iron exposure at ~57 ticks per
+block advanced (lad6a and lad10_mfmrr each tunnelled 70-84 blocks after the furnace and
+met no iron). Those are the next levers, all chassis-wide; the episode video replayed
+through the detectors (one frame per step) is the tool that found every fix in this
+section, and is the way to work the harvest state machine next.
 
 ---
 
@@ -126,16 +625,16 @@ Unchanged from the first draft. Decided.
     ep_000042/                         one per PLAN ENTRY ({"action": {...}, "repeat": N})
       observation/
         image.png                      hard link to frames/step_<first tick>.png
-        crops/                         zoom outputs and (later) harness crops; append-only
+        crops/                         (dropped 2026-09-05: never written in any run)
       state/
         state.json                     state at the entry's first tick, structured
-        ticks.jsonl                    one line per tick: the same fields state_block prints
+        (ticks.jsonl dropped 2026-09-05: 12k lines a run, never read by anything)
       action.json                      the entry, its repeat, its position in the plan,
                                        the turn that produced it, briefing + [PLAN] text
                                        (on the plan's first entry only)
       outcome.json                     written when the entry's last tick has been observed
   index.jsonl                          one line per episode: id, steps, tags, summary, paths
-  tools/zoom.py                        as today; default output moves into the episode's crops/
+  tools/zoom.py                        KiCad only (its baseline prompt promises it); dropped from MCU's mfm arm 2026-09-05
   tools/episodes.py                    query the index (see 2.2)
 ```
 
@@ -145,7 +644,7 @@ Unchanged from the first draft. Decided.
 - **`logs.txt` stays the primary model-facing record.** Written exactly as today;
   `episodes/` is written beside it from the same call sites. `render_logs_txt` regenerates
   the log from the episodes and the bytes must match (section 7).
-- **Episode = plan entry, not tick** (MCU). Per-tick facts go into `state/ticks.jsonl`.
+- **Episode = plan entry, not tick** (MCU). (Per-tick facts went into `state/ticks.jsonl` until 2026-09-05.)
   The KiCad episode is one turn: one screenshot, one batch, one feedback.
 - **Ownership.** Everything under `episodes/*/` except `observation/crops/`, and
   `index.jsonl`, is harness-written and immutable once closed.

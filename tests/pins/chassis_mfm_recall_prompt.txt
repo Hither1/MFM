@@ -1,0 +1,25 @@
+Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
+Act turns since anything verifiably changed (milestone or inventory): 10.
+
+Milestones:
+  [x] mine_log (step 8)
+  [x] crafting_table (step 30)
+  [ ] iron_pickaxe <- craft_item: iron_pickaxe
+
+[STATE] pos=(35.5, 59.0, 2.0) pitch=0 yaw=0
+Vitals: health=16/20 food=20/20
+Inventory (35 slots free): oak_logx2
+Hotbar: hotbar.1=oak_logx2
+Held: unknown
+Nearby entities: none reported
+GUI open: False
+[CURSOR] no screen open
+
+[RECALL] computed from episodes/ by the harness -- what you did, not advice:
+- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3) at (2, 64, 2), 33 blocks from here (33 west).
+- Milestones so far, with the entry that scored each: mine_log step 5 (ep_000002: {"attack":1} x3); crafting_table step 8 (ep_000003: dig_down(n=4)).
+
+Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
+`./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames.
+The current view is attached.
+Write ./actions.json.

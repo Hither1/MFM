@@ -19,6 +19,8 @@
  "patch_dup_target",
  "patch_stale_target",
  "plan_flushes",
+ "quota_refusals",
+ "quota_skipped_calls",
  "rollouts_scanned",
  "session_max_turns",
  "stateless",

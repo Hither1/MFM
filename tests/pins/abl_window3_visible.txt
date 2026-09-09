@@ -1,0 +1,8 @@
+<tmp>/ws/AGENTS.md
+<tmp>/ws/actions.json
+<tmp>/ws/frames/step_0000.png
+<tmp>/ws/frames/step_0009.png
+<tmp>/ws/frames/step_0010.png
+<tmp>/ws/frames/step_0011.png
+<tmp>/ws/last_message.txt
+<tmp>/ws/logs.txt

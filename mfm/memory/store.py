@@ -4,9 +4,7 @@ decision, written from the same call sites.
     episodes/
       ep_000042/
         observation/image.png     hard link to the frame the decision was made from
-        observation/crops/        zoom outputs; append-only, the agent's
         state/state.json          structured state at the entry's first tick
-        state/ticks.jsonl         one line per tick observed while the entry ran
         action.json               the entry, its place in the plan, the turn, the plan text
         outcome.json              what the entry changed, notes, tags (on close)
     index.jsonl                   one line per closed episode
@@ -20,8 +18,10 @@ is the initial state, closed at once, with no action.
 
 What is Minecraft or KiCad about the contents comes from the agent's hooks
 (`episode_state`, `episode_action`, `episode_outcome`); the store knows only the layout.
-Everything under `episodes/*/` except `observation/crops/` is harness-written and
-immutable once closed; writes are atomic (`.tmp` + `replace`).
+Everything under `episodes/*/` is harness-written and immutable once closed; writes
+are atomic (`.tmp` + `replace`). (An `observation/crops/` the model could write zoom
+outputs into was part of the layout until 2026-09-05: 805 of them across every MCU and
+KiCad run, all empty.)
 """
 from __future__ import annotations
 
@@ -32,8 +32,9 @@ import shutil
 import stat
 from collections import Counter
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
+from mfm.memory import recall as R
 from mfm.memory.sink import MemorySink
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,8 +62,17 @@ def _link(src: Path, dst: Path) -> None:
 
 
 class EpisodeStore(MemorySink):
-    def __init__(self, root: Path | str) -> None:
+    """`recall=True` (the KiCad MFM arms since 2026-09-06) adds to every row what the
+    model said it saw (`perception`), meant (`intent`) and caused (`effect`, filled in
+    from the next turn's perception), plus perceptual hashes of the frame the turn was
+    decided on and the frame it closed on; and replaces the exact-hash "seen before"
+    line with the transition recall of `mfm.memory.recall`. Off, the store is
+    byte-identical to what the MCU ladder runs on."""
+
+    def __init__(self, root: Path | str, *, recall: bool = False) -> None:
         self.root = Path(root)
+        self.recall = recall
+        self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
         self.index_path = self.root / "index.jsonl"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -71,6 +81,10 @@ class EpisodeStore(MemorySink):
         self._open: dict[str, Any] | None = None
         self._pending_notes: list[str] = []
         self._plan: dict[str, Any] = {}
+        # The state computed for the current step, shared by `observe` and `act`: the
+        # hooks that compute it keep per-tick state (the previous position for `moved`),
+        # so computing it twice for one observation read moved=0.0 in every state.json.
+        self._state_at: tuple[int, dict[str, Any]] | None = None
         self.n_closed = 0
         self.tags: Counter[str] = Counter()
         self.closed: list[dict[str, Any]] = []
@@ -86,10 +100,20 @@ class EpisodeStore(MemorySink):
     # -- sink hooks -----------------------------------------------------------
 
     def prompt_note(self, agent: "MemoryAgent") -> str | None:
+        # Under the stateless ablation the visible workspace is rebuilt without
+        # `episodes/` or the tool every turn (see `publish`), so the model is not told
+        # about them; the record still holds them for the analysis.
+        if getattr(agent, "stateless", False):
+            return None
         return getattr(agent, "mfm_memory_note", None)
 
+    def _state(self, agent: "MemoryAgent", obs: "Observation") -> dict[str, Any]:
+        if self._state_at is None or self._state_at[0] != obs.step:
+            self._state_at = (obs.step, agent.episode_state(obs))
+        return self._state_at[1]
+
     def initial(self, agent: "MemoryAgent", obs: "Observation") -> None:
-        state = agent.episode_state(obs)
+        state = self._state(agent, obs)
         ep = self._new_episode(agent, obs, state, kind="initial")
         self._open = ep
         self._close(agent, flushed=False, last_step=obs.step)
@@ -98,17 +122,65 @@ class EpisodeStore(MemorySink):
         ep = self._open
         if ep is None:
             return
-        state = agent.episode_state(obs)
-        with (ep["dir"] / "state" / "ticks.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps(state, sort_keys=True, default=str) + "\n")
+        # The entry's running state is kept in memory for the outcome; a per-tick
+        # `state/ticks.jsonl` was written until 2026-09-05 (12k lines a run) and
+        # nothing -- model, recall block, CLI -- ever read one.
+        state = self._state(agent, obs)
         ep["last_state"] = state
         ep["last_step"] = obs.step
         ep["ticks_seen"] += 1
         if ep["ticks_seen"] >= ep["ticks"]:
-            self._close(agent, flushed=False, last_step=obs.step)
+            self._close(agent, flushed=False, last_step=obs.step, closing=obs.attachment)
+
+    def refill(self, agent: "MemoryAgent", obs: "Observation") -> None:
+        if self._open is not None:
+            # Closed here, at the step the turn runs on, rather than when the next entry
+            # opens: the ticks between (a failed turn's default actions) are not its.
+            self._close(agent, flushed=True, last_step=obs.step, closing=obs.attachment)
 
     def plan(self, agent: "MemoryAgent", plan: "Plan") -> None:
         self._plan = {"turn": agent.codex.calls, "briefing": plan.briefing, "plan": plan.think}
+        if self.recall:
+            perception, intent = R.perception_and_intent(plan.think)
+            self._plan["perception"], self._plan["intent"] = perception, intent
+            self._link_effect(agent, perception)
+
+    def _link_effect(self, agent: "MemoryAgent", perception: str) -> None:
+        """The lossless link the index lacked: the episode that closed on the frame
+        this turn was decided on gets this turn's perception as its `effect`."""
+        obs = agent._obs
+        if not perception or obs is None or not self.closed:
+            return
+        row = self.closed[-1]
+        if row.get("kind") != "episode" or row.get("effect") or row.get("last_step") != obs.step:
+            return
+        row["effect"] = perception
+        self._rewrite_index()
+
+    def _rewrite_index(self) -> None:
+        tmp = self.index_path.with_suffix(".jsonl.tmp")
+        tmp.write_text("".join(json.dumps(r, sort_keys=True, default=str) + "\n" for r in self.closed),
+                       encoding="utf-8")
+        os.replace(tmp, self.index_path)
+
+    def _dhash(self, attachment: str | None) -> str | None:
+        if not self.recall or not attachment or Path(attachment).is_absolute():
+            return None
+        if attachment not in self._dhash_at:
+            self._dhash_at[attachment] = R.dhash_file(self.root / attachment)
+            if len(self._dhash_at) > 64:
+                for k in list(self._dhash_at)[:-32]:
+                    del self._dhash_at[k]
+        return self._dhash_at[attachment]
+
+    def previous_row(self, obs: "Observation") -> dict[str, Any] | None:
+        """The episode that just closed on this observation: the previous turn."""
+        if not self.closed:
+            return None
+        row = self.closed[-1]
+        if row.get("kind") == "episode" and row.get("last_step") == obs.step:
+            return row
+        return None
 
     def act(self, agent: "MemoryAgent", item: dict[str, Any]) -> None:
         if item.get("tick", 1) != 1:
@@ -117,10 +189,32 @@ class EpisodeStore(MemorySink):
         assert obs is not None
         if self._open is not None:
             # The previous entry did not run to its last tick: the plan was flushed.
-            self._close(agent, flushed=True, last_step=obs.step)
-        state = agent.episode_state(obs)
+            self._close(agent, flushed=True, last_step=obs.step, closing=obs.attachment)
+        state = self._state(agent, obs)
         ep = self._new_episode(agent, obs, state, kind="episode", item=item)
         self._open = ep
+
+    def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
+        """Within this task: the earlier turns that faced this exact screen, or (recall
+        on) the earlier turns that repeated the previous turn's transition."""
+        if self.recall:
+            prev = self.previous_row(obs)
+            rows = [r for r in self.closed if r is not prev]
+            return R.recall_note(rows, prev, self._dhash(obs.attachment), "in this task")
+        digest = (obs.state or {}).get("png_hash")
+        if not digest:
+            return None
+        hits = [r for r in self.closed
+                if r.get("observation_hash") == digest and r.get("kind") != "initial"
+                and (r.get("first_step") or 0) < obs.step]
+        if not hits:
+            return None
+        lines = [f"step {r.get('first_step')}: {r.get('action_kind') or '-'}"
+                 + (f" -> {r['summary']}" if r.get("summary") else "")
+                 + (f" [{','.join(r['tags'])}]" if r.get("tags") else "")
+                 for r in hits[-3:]]
+        return ("[SEEN BEFORE] this exact screen appeared earlier in this task: "
+                + "; ".join(lines) + ".")
 
     def note(self, agent: "MemoryAgent", text: str) -> None:
         if self._open is not None:
@@ -128,9 +222,13 @@ class EpisodeStore(MemorySink):
         else:
             self._pending_notes.append(text)
 
-    def close(self, agent: "MemoryAgent", **outcome: Any) -> None:
+    def close(self, agent: "MemoryAgent", *, tags: Iterable[str] = (), **outcome: Any) -> None:
+        """`tags`: extra tags the adapter derives from what it alone can see (MCU: `broke`
+        from the tick's block events -- an ore broken and not yet picked up changes no
+        inventory, and lad8 refused the entry that broke it as "changed nothing")."""
         if self._open is not None:
-            self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome)
+            self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome,
+                        extra_tags=tuple(tags))
 
     def publish(self, agent: "MemoryAgent", visible: Path, window: int | None,
                 stateless: bool, current: str | None) -> None:
@@ -146,8 +244,22 @@ class EpisodeStore(MemorySink):
             (Path(visible) / "index.jsonl").unlink(missing_ok=True)
             return
         step_now = agent._obs.step if agent._obs is not None else 0
-        keep = [r for r in self.closed
-                if window is None or (r.get("last_step") or 0) >= step_now - window]
+
+        def inside(r: dict[str, Any]) -> bool:
+            # An episode is inside the window when the frame it opened on is: its
+            # image is that frame, and its ticks all come after it. Judged by what the
+            # log's publish left in `visible` (the attachment it opened on), so the two
+            # views cannot disagree; an episode with no attachment falls back to its
+            # first step. Keeping by `last_step` leaked frames from before the window
+            # through `episodes/` (window 3 at step 13 showed step 8's frame).
+            if window is None:
+                return True
+            att = r.get("attachment")
+            if att:
+                return (Path(visible) / att).exists()
+            return (r.get("first_step") or 0) > step_now - window
+
+        keep = [r for r in self.closed if inside(r)]
         keep_ids = {r["id"] for r in keep}
         for r in self.closed:
             src, dst = self.dir / r["id"], vis_dir / r["id"]
@@ -163,8 +275,13 @@ class EpisodeStore(MemorySink):
         _link(self.root / "tools" / "episodes.py", Path(visible) / "tools" / "episodes.py")
 
     def audit(self, agent: "MemoryAgent") -> dict[str, Any]:
-        return {"n": self.n_closed, "tags": dict(self.tags),
-                "episodes_tool_calls": getattr(agent.codex, "episodes_tool_calls", None)}
+        out = {"n": self.n_closed, "tags": dict(self.tags),
+               "episodes_tool_calls": getattr(agent.codex, "episodes_tool_calls", None)}
+        if self.recall:
+            reps = R.repeated_transitions(self.closed)
+            out["recall"] = {"effects_linked": sum(1 for r in self.closed if r.get("effect")),
+                             "repeated_transitions": sum(c - 1 for c in reps.values() if c > 1)}
+        return out
 
     # -- mechanics ---------------------------------------------------------------
 
@@ -173,7 +290,7 @@ class EpisodeStore(MemorySink):
         ep_id = f"ep_{self._next_id:06d}"
         self._next_id += 1
         d = self.dir / ep_id
-        (d / "observation" / "crops").mkdir(parents=True, exist_ok=True)
+        (d / "observation").mkdir(parents=True, exist_ok=True)
         (d / "state").mkdir(parents=True, exist_ok=True)
         if obs.attachment and (self.root / obs.attachment).exists():
             _link(self.root / obs.attachment, d / "observation" / "image.png")
@@ -205,10 +322,21 @@ class EpisodeStore(MemorySink):
                 "last_state": state, "notes": notes,
                 "image": (d / "observation" / "image.png").relative_to(self.root).as_posix()
                          if (d / "observation" / "image.png").exists() else None,
-                "observation_hash": state.get("png_sha256")}
+                "observation_hash": state.get("png_sha256"),
+                # The log-relative frame the episode opened on (what `publish` keys on);
+                # an absolute path is a caller's scratch file, not a name in the log.
+                "attachment": (obs.attachment if obs.attachment
+                               and not Path(obs.attachment).is_absolute() else None),
+                "perception": self._plan.get("perception") if (self.recall and item is not None) else None,
+                "intent": self._plan.get("intent") if (self.recall and item is not None) else None,
+                "dhash": self._dhash(obs.attachment) if item is not None else None}
 
     def _close(self, agent: "MemoryAgent", *, flushed: bool, last_step: int,
-               extra: dict[str, Any] | None = None) -> None:
+               extra: dict[str, Any] | None = None, closing: str | None = None,
+               extra_tags: tuple[str, ...] = ()) -> None:
+        """`closing`: the frame the episode closes on (the observation after its last
+        tick), hashed as `next_dhash` under recall. `agent._obs` is not yet that
+        observation when `observe` runs, which is why it is passed in."""
         ep = self._open
         assert ep is not None
         self._open = None
@@ -218,6 +346,9 @@ class EpisodeStore(MemorySink):
             outcome, tags, summary = agent.episode_outcome(
                 ep["entry"], ep["first_state"], ep["last_state"], ep["notes"], flushed)
             tags = list(tags)
+            for t in extra_tags:
+                if t not in tags:
+                    tags.append(t)
             if ep["notes"] and "note" not in tags:
                 tags.append("note")
             if flushed:
@@ -230,7 +361,12 @@ class EpisodeStore(MemorySink):
                "image": ep["image"], "path": ep["dir"].relative_to(self.root).as_posix(),
                "action_kind": ep["action_kind"],
                "observation_hash": ep["observation_hash"],
+               "attachment": ep["attachment"],
                **agent.episode_index_fields(ep["first_state"], ep["last_state"])}
+        if self.recall:
+            row.update({"perception": ep.get("perception"), "intent": ep.get("intent"),
+                        "effect": None, "dhash": ep.get("dhash"),
+                        "next_dhash": self._dhash(closing) if ep["kind"] == "episode" else None})
         with self.index_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
         self.closed.append(row)
