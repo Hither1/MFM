@@ -1100,3 +1100,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - `SESSION_TURNS=0 bash launch_g3.sh 3` (user's shell): of3g_mfm, gpt-6-astra high (nyu plan), seed of3r (carries
   of3), one thread + COMPACT, STEPS=100000, WALL=12h -> stops ~22:55; launch pid 4357, watchdog 4360; ports
   9128/9138; live MFM-grid/MCU d3d567e2. Codex home has the `.system` file. First-turn check to follow.
+- 11:00:36 seeded (2 lives, 15,866 files, 3,957 rows with events); turn 1 11:00:36-11:02:41: catalog = the six
+  skills only, `.system` file in place, previous/ without skills/; the model ran 6 commands over previous/, viewed 2
+  previous-life frames, wrote mine/digest.md (2.5 KB) + notes.md, copied west_level/west_stairs and
+  fell/hit/lava_ahead/known_hazards (hit.py edited); stderr only the by-design system-skills line. Turn-2 prompt
+  carries [WORKING]/[DIGEST]/[OWN]. Pushed by the user 11:0x (MCU d3d567e2 on spatial-grid-merge and
+  spatial-grid; MFM-grid 2f97331).
