@@ -1242,3 +1242,24 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   limit when checked (auth/key: limit None); worth setting one on the OpenRouter side.
 - 12:37:26 `SMOKE=150 bash launch_g3.sh 3` -> g3smoke_mfm (pid 9540, watchdog 9544): the decided setup end
   to end (seed of3r, OpenRouter through the proxy, 640x360, one thread). Result below.
+  RESULT 12:50 (ended at step 150; 13 min wall, 7 of them seeding: obs 12:39:27 -> carried 12:46:28, 3.5 min
+  at 11:00, data3 load): the whole gen-3 path ran on OpenRouter.
+  - Codex: 1 turn (workshop + first plan in one; 12:46:29-12:49:24 = 2m55s, 12 exec cells, one exit-1 retried,
+    0 tool-error turns; session 01a0847d): read digests/procedures/reflexes of both carried lives, ran
+    tools/episodes.py --grep, installed 4 reflexes into mine/reflexes (fell, hit, known_hazards, lava_ahead),
+    wrote mine/digest.md, working.md, notes.md, emitted an 8-entry plan (clear leaves -> punch the known
+    trunk). Usage 378.8k input (332.3k cached, 46.5k cache-write), 6.5k output (1.2k reasoning) = ~$1.1 at
+    OpenRouter prices. 0/24 at step 149 (plan entry 6/8, spruce_leaves broken; 150 steps is one plan).
+    stderr has only the by-design skills/.system lines (4x "failed to install system skills"); no 403, no
+    region error, no websocket/HTTP fallback line.
+  - Frames: model-side attach/frame.png is 640x360; attachment_bytes_peak 474,569 (one frame). Hires record:
+    149 JPEGs, 14.1 MB, avg 97 KB, 640x360, 0000001..0000149.jpg under episode_001/hires/, none inside
+    memory/. ~97 KB/step -> a 42k-step life (of3r's length) writes ~4 GB; data3 has 76 T free.
+  - Hygiene: the codex home has no auth.json and 0 shell_snapshots; the OpenRouter key prefix occurs nowhere
+    under output/g3smoke_mfm or codex-homes/g3smoke_mfm; purple log: "[codex] env: not passed to codex:
+    CLAUDE_CODE_MESSAGING_TOKEN, GITHUB_PERSONAL_ACCESS_TOKEN, MAX_THINKING_TOKENS, WANDB_API_KEY".
+  - Not covered by this smoke: the long thread (codex's 100k compaction over OpenRouter's responses path) and
+    the payload wall at 640x360 -- watch attachment_bytes_peak and the purple log in the run's first hour.
+  The 12h launch waits for the user's word: from MFM-grid/MCU, `bash ../tasks/mfm-three-layer.spatial-grid/
+  scripts/launch_g3.sh 3` (defaults: openrouter, 640x360, SESSION_TURNS=0, seed of3r); set a credit limit on
+  the key first (~$204 per 12h).
