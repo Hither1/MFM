@@ -1287,3 +1287,16 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   prints root free space; a recurrence is the trigger to look for the filler.
   The overnight mandate (user 13:05, asleep): keep it running, fix and relaunch on infrastructure faults
   without asking (seed of3r + this life's own memory if it had progress), never inject facts.
+- 14:42 hourly: 49 turns, step 3000, 6/24 (mine_cobblestone @1356 13:39, stone_pickaxe @1507 13:43, furnace @2318
+  14:03), load 21, hires 3131 files. PACE: turns are 2x slower than of3r -- last 30 turns codex wall median 108 s
+  (mean 125, max 440) + plan execution median 25 s, vs of3r's turn-to-turn median ~60 s; 2.8 exec cells per turn
+  (of3r 1.8), ~3k output tokens per turn (of3r ~0.6k). The model re-reads .agents/skills/*/SKILL.md, mine/working.md
+  and previous/ logs most turns and validates actions.json with json.tool; the time is model generation over
+  OpenRouter, not the environment. Consequence: ~1,500 steps/h -> ~18k steps at the 12h wall (of3r: 41.6k in 13h),
+  so the wall, not the model, may cap this life's milestone count. Gen-3 design consequence (skills catalog +
+  "Improve yourself"), not an infrastructure fault: no intervention; the user decides on wall/contract changes.
+  ROOT FS: 114 GB free at 13:37 -> 94 GB at 14:42 (-20 GB/h). `du -x` sees only 55 GB of the 176 GB used (rest
+  in other users' unreadable dirs or open-deleted files); no >200 MB file of the last 90 min is readable; this
+  arm's /tmp use is 0.45 GB (MineStudio engine) + a few PNGs. A shared-node job fills and frees / in cycles; each
+  fill = a sandbox-fault window (turns lost, the harness moves on). Nothing on our side can move codex's bwrap
+  marker out of /tmp; watching root_free hourly and sandbox faults per turn.
