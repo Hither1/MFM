@@ -1398,3 +1398,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   +9m @797, wooden_pickaxe +10m @934, cobblestone +17m @1627, stone_pickaxe +23m @1927, mine_iron_ore +39m
   @2947 (of3r +52m, of3g +4h55), furnace +48m @3583, iron_ingot +53m @3960 (of3r +1h03). Seeding 6.8 min,
   workshop turn 3m41s. Load 23, root fs 54 GB free.
+- 23:40 of3g_mfm (gen-3b) hour 2: 61 turns, 9/24 (iron_pickaxe +56m @4420; of3r +1h07 @6060, of3g +5h31 @7880),
+  124 steps/turn, digest 2.4 KB / 16 lines, notes 15 KB, no deaths, no faults. Since the pickaxe: iron smelting,
+  sword/torches/blocks stocked, walked west on the surface to (-3076,69,-5541), above the digest's life_2
+  diamond site (-3096,11,-5545, ep_000952). P3 read-out pending: diamond by step 9420 (pickaxe + 5000).
+  Looks 0.24/turn, skill reads 0.45/turn, own-procedure calls: west_stairs/west_level used (n3 passed @3287).
+  working.md 3.6 KB in a space-stripped style (harness shows 1500 chars); not touched. Load 17, root 54G free.
