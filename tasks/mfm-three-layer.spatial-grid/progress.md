@@ -1031,3 +1031,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   skills.md as "the situations". skills/minecraft gains five sections of general rules. Tests: test_gen3_contract +2
   (macro-free references; late-game rules), all affected files pass.
 - Gen 3 still waits for the user's go.
+
+## 2026-09-09 09:15-09:45 -- gen-3 pre-launch review (user's four checks), no code changed
+- analysis/gen3_review_2026-09-09.md. Knowledge for all 24 milestones is present as rules (skills/minecraft,
+  skills/mining, the atoms references + recipe list), no coordinates; grey area = harness-digested earlier-life
+  anecdotes in the skill texts (user's call). Skill catalog verified on the arms' binary (codex is 0.153.4 now,
+  not 0.147): symlinked .agents/skills lists all six + an own skill with full descriptions; the catalog also
+  carries 5 codex .system skills and 4 host ~/.agents/skills (skill-creator collides with "write a skill").
+  Frictions: `.agents` not in KEEP_BETWEEN_TURNS (rebuilt each act turn), `skills` not in NOT_CARRIED
+  (previous/life_1/skills exists), DIGEST_CAP 2000 < of3r's digest 2142 B. The 08:08 launches never reached a
+  codex turn (of3g: agent constructed, no AGENTS.md/skills/codex_turns) -> the gen-3 path is untested end to
+  end; the 600-step smoke is still the next step. Tests on live MCU dc27d08c: 22 passed.
