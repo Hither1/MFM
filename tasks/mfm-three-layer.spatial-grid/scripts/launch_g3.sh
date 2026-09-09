@@ -28,7 +28,9 @@ MODE="${2:-reuse}"
 # codex at 100k tokens (COMPACT=1 follows). SESSION_TURNS=1 = a fresh thread every turn.
 ST="${SESSION_TURNS:-0}"
 CM=0; [ "$ST" = "0" ] && CM=1
-cd /datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU
+# MCU_DIR overrides the MCU worktree (a smoke of the merge worktree before it is fast-forwarded
+# into the live one: MCU_DIR=.../MFM-grid-merge-mcu). 2026-09-09: a smoke meant for merge-mcu ran here.
+cd "${MCU_DIR:-/datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU}"
 export MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes
 # FRAME_SIZE: WxH of the frames the model is shown. 640x360 = the render (user's decision
 # 2026-09-09 after the read-out: at 320x180 the model cannot read the hotbar; +216 tokens per

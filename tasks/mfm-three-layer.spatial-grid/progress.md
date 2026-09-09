@@ -1341,3 +1341,17 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   Contract 15.8 -> 13.1 KB. Targeted suites 44 pass; full suite re-run in progress. HF: look_examples_of3g
   uploaded to Ced-Collab/MCUData (commit dcc36d25, 17 files). User's decisions so far: 1/4/6 yes, frames stay in
   RECALL; the relaunch timing (stop of3g now vs. after the 00:57 wall) is theirs.
+- 20:10:31 SMOKE meant for gen-3b ran the OLD code: launch_g3.sh `cd`s to the live MFM-grid/MCU (line 31), so
+  `SMOKE=600` from merge-mcu launched the live 725574f3 purple (workspace and logs under MFM-grid/MCU; the
+  contract had no "thread persists" sentence). 8 turns, 3/24 @525, 75 steps/turn, 47 s/turn -- the early game
+  is fast under either contract, so a discriminating smoke needs the post-furnace turns. Fixed: launch_g3.sh
+  takes `MCU_DIR=` (default the live MCU). The invalid smoke overwrote the 12:37 smoke's logs/output (recorded).
+- 20:30:23 RELAUNCHED the gen-3b smoke from merge-mcu: `MCU_DIR=$PWD SMOKE=2000 WALL=100m bash launch_g3.sh 3`
+  (purple cwd verified = MFM-grid-merge-mcu, codex wrapper from merge-mcu; pid 34086, watchdog 34098, ports
+  9127/9137, seed of3r via the symlink merge-mcu/output/of3r_mfm -> MFM-grid/MCU/output/of3r_mfm). Read-out
+  when it ends: turn_profile.py . g3smoke_mfm (steps/turn, cells/turn by kind, digest size, contract check).
+- 20:31:10 of3g_mfm STOPPED on the user's word ("没救了"): 285 turns, 9/24, step 11600, 7 h 29 min of wall,
+  0 deaths; stop_arm.py --go + watchdog 52496 killed by pid; ports 9128/9138 down; live MCU has no arm
+  (fast-forward to gen-3b pending the smoke). Kept as output/of3g_mfm, codex-homes/of3g_mfm, logs/of3g_mfm_*
+  (the gen-3 data point: analysis/gen3_vs_gen2_2026-09-09.md, method_alignment_2026-09-09.md).
+  
