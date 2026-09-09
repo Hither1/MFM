@@ -56,8 +56,23 @@ for t,pa in last[-6:]: print(" ",t,pa)
 PY
 echo "-- last plan"
 grep -E "^\[PLAN\]" "$EP/memory/logs.txt" | tail -1 | cut -c1-240
-echo "-- last turn usage"
-tail -1 "$(ls "$EP/codex_turns"/turn_*.events.jsonl | tail -1)" | grep -oE '"usage":\{[^}]*\}' | head -1
+echo "-- thread usage + compactions (codex rollout token_count / compacted records)"
+python3 - "$RO" <<'PY'
+import json,sys,glob,os
+tot=None; n=0; ctx=None; last=[]
+for f in sorted(glob.glob(os.path.join(sys.argv[1],"*/*/*/rollout-*.jsonl"))):
+    for l in open(f):
+        try: e=json.loads(l)
+        except: continue
+        t=e.get("type"); p=e.get("payload",{})
+        if t=="compacted": n+=1; last.append((e.get("timestamp","")[11:19]+"Z", ctx))
+        if t=="event_msg" and p.get("type")=="token_count" and p.get("info"):
+            i=p["info"]; tot=i.get("total_token_usage"); li=i["last_token_usage"].get("input_tokens")
+            if li: ctx=li
+print("total input=%s cached=%s output=%s (thread-cumulative, NOT the sum of turn.completed usages, which are cumulative too)" % ((tot or {}).get("input_tokens"),(tot or {}).get("cached_input_tokens"),(tot or {}).get("output_tokens")))
+print("context now=%s  compactions=%d (limit 100000; the --json-based report counter always says 0)" % (ctx,n))
+for x in last[-3:]: print("  compacted at",x[0],"ctx before",x[1])
+PY
 echo "-- errors in purple (non agent-card)"
 grep -iE "traceback|error" "$PL" | grep -v agent-card | wc -l
 grep -iE "traceback|error" "$PL" | grep -v agent-card | tail -2 | cut -c1-200

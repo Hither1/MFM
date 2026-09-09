@@ -1548,3 +1548,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   `codex.view_image_calls` tracks the same source.
 - Token use grows ~300k input/turn in the one thread (turn 6: 1.96M in, 1.85M cached, 15k out; 7.2M in total);
   compaction expected near turn 12 as in of3r. Hourly monitor: scripts/status_g4.sh (cron 9d1041ed at :23).
+- 06:35 correction: `turn.completed.usage` in the --json events is thread-cumulative, so the 06:18 "7.2M in total" was a
+  double count; the rollout's total_token_usage is the number to read (4.6M input at 06:29, ~300k input consumed per
+  turn). Compaction: `--compact` -> CODEX_AUTO_COMPACT_TOKEN_LIMIT=100000 -> `model_auto_compact_token_limit=100000`
+  (run-arm.sh:113,147; codex_backend.py:166-168). Rollout `compacted` records: of3m 2 so far (ctx 92.7k->27.9k at
+  06:16, 99.0k->36.8k at 06:29); of3r had 70 over 516 turns (~every 7 turns, ctx ~97-100k -> 50-64k). The report's
+  `codex.compactions=0` on both is a counting gap: _COMPACTION_RE reads the event stream, which never carries them.
+  status_g4.sh now reads usage and compactions from the rollout.
