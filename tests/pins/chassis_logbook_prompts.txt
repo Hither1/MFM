@@ -206,6 +206,8 @@ Nearby entities: none reported
 GUI open: False
 [CURSOR] no screen open
 
+Attached second image: a 2x2 sheet -- top-left the current view, then the frames at this turn's events (hit (step 75)).
+
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.
 Write ./actions.json.

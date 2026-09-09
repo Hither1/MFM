@@ -1,3 +1,4 @@
+attach/events.png
 attach/frame.png
 ws/AGENTS.md
 ws/logs.txt

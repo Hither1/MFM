@@ -20,6 +20,6 @@ GUI open: False
 - Milestones so far, with the entry that scored each: mine_log step 5 (ep_000002: {"attack":1} x3); crafting_table step 8 (ep_000003: dig_down(n=4)).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
-`./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames.
+`./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames; `view_image` opens a frame.
 The current view is attached.
 Write ./actions.json.

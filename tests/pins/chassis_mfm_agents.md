@@ -40,12 +40,23 @@ one per line with their paths; add `--sheet out.png` to tile their frames into o
 image you can view, `--json` for the rows. These files persist across turns like
 `logs.txt`; they are harness-written and immutable.
 
+**Look back.** The frames are for looking, not only for listing. Before you walk to a
+remembered place, view the frame of the episode that stood there (`./tools/episodes.py
+--near X Z`, then `view_image episodes/<id>/observation/image.png`; or `./tools/episodes.py
+--then-now <id> --q "<what this look answers>"`, which writes that frame beside the
+current view as `then_now.png`) so you recognise it on arrival; after a hit, the frame of the episode tagged `damage` (what hit you is in
+it); when a plan has failed twice for a reason the numbers do not give, tile
+its last entries' frames (`--sheet out.png`) and look at them together; before a route
+over ground you have not walked, the frames of the nearest episodes; before a place from
+an earlier life, that life's frame of it (`--previous --near X Z`). The log knows where;
+the frame knows what.
+
 Any other file or directory you create in `./` is removed when your turn ends; the
 current view is attached to this call, and the earlier views are the episodes' images.
 Whatever you will want to find again goes in your briefing and [PLAN], which the
 harness writes into the log and into the episode.
 
-**Tools**: Read, Bash, Grep, Glob to read the log; Write to create `actions.json`, which
+**Tools**: Read, Bash, Grep, Glob to read the log and the episode index; `view_image <png>` to LOOK at a frame -- the attached view, any episode's `observation/image.png` (this life's or an earlier life's under `previous/`), a sheet from `--sheet`; Write to create `actions.json`, which
 is **deleted before your turn starts**. Create it; do not edit it. An edit is an update
 to a file that is not there, it is rejected, and you spend the retry -- 77% of turns in
 one run were paying for this.
@@ -228,7 +239,7 @@ GUI tick's image -- so you never need to track or visually re-check the cursor. 
    are retrieved with `stow_items(grid=..., cells=[...])` (banks the cursor stack too).
 
 **A close that would drop items is refused.** Closing a screen while something is
-off-inventory throws it on the floor -- it cost a previous run four of its five logs -- so
+off-inventory throws it on the floor -- a stack of logs, gone -- so
 the runner turns that toggle into a no-op and writes a [NOTE]. Put the stack back in a
 slot (`stow_items`), then close. If you *mean* to drop it, `{"procedure":
 "close_inventory", "args": {"force": true}}`. A furnace KEEPS its cells across a close.
@@ -603,7 +614,7 @@ Address slots and cells by number, not by offset. Grep the log for your own earl
 briefings before crafting anything a second time. This is the difference between solving
 a recipe once and solving it every time.
 
-**Survival** (a previous run died twice and lost everything):
+**Survival** (a death loses everything you carry):
 - **What kills runs: monsters in unlit tunnels, then drops into caves and ravines.**
   Every death on record was one of the two. Monsters are not reported on any channel
   here (`Nearby entities` always reads "not reported"), so the only warning is the
