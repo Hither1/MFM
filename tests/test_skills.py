@@ -89,6 +89,7 @@ def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
     rc, res, _ = _run(rx / "starving.py", dict(BASE, food=17.0, inventory={"mutton": 2}, gui_open=True))
     assert "actions" not in res and "stop" not in res and "once the GUI is closed" in res["note"]   # no eat under a GUI
     assert _run(rx / "starving.py", dict(BASE, food=15.0, food_prev=15.0, inventory={"mutton": 2}))[1] is None
+    assert _run(rx / "starving.py", dict(BASE, food=13.0, food_prev=14.0, inventory={"mutton": 2}, entry="eat"))[1] is None   # an eat in progress
     rc, res, _ = _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=11.0, food=12.0, food_prev=12.0))
     assert res["stop"] is True and "cannot heal" in res["note"]
     assert _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=10.2, food=12.0, food_prev=12.0))[1] is None
