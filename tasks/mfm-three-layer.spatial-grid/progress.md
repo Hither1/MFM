@@ -987,3 +987,13 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   catalog (incl. mine/skills written mid-life), the Routines and the per-turn [WORKING]/[DIGEST]/[RECALL] all work
   under SESSION_TURNS=0+COMPACT exactly as under 1. SESSION_TURNS=1 buys only the "MFM is the sole continuity"
   framing. launch_g3.sh now takes SESSION_TURNS (0 -> COMPACT=1; N; default 1) from the environment.
+
+## 2026-09-09 08:06-08:11 -- of3r stopped early (user); gen 3 launched and aborted within 2 minutes (user: analyse first)
+- User 08:05: "直接停掉吧" -> of3r watchdog 4806 killed by pid, stop_arm.py --go of3r_mfm (12 pids). Final: 43,479 steps,
+  ~520 turns, 16/24 (66.7), 1 death (06:52 in the Nether at (-408,43,-704), health 10, no food, sneaking between fires
+  with a zombified piglin in view; all gear lost; rebuilt from spawn to dirt-only inventory in the remaining 74 min).
+- MFM-grid/MCU fast-forwarded b2f8c832 -> 3a63e24a (pushed hither spatial-grid); MFM-grid 36c8e4b bumps the submodule.
+- 08:08:04/26/28 launched of3g/of2g/of1g (launch_g3.sh, SESSION_TURNS=0 + COMPACT). 08:09 user: "先别开跑，我觉得再分析一下
+  跑完的这三个arm的系统性问题，看看我们现在新改动是否都adress了" -> watchdogs 39874/42308/42681 killed by pid,
+  stop_arm.py --go on all three (31 pids) after ONE codex turn each. Outputs, logs and codex homes moved to *.aborted-0808.
+  Next: the coverage analysis (analysis/gen3_coverage_2026-09-09.md), then relaunch on the user's word.
