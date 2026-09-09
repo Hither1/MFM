@@ -1506,3 +1506,18 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   9132/9142 from merge-mcu (MFM_ROOT MFM-grid, 640x360); both gpt-6-astra high via OpenRouter, one thread + compaction,
   100k steps, WALL 14h, seed of3r (carry-only); refuses a stale worktree, dirty harness code, busy ports.
   SMOKE=150 -> g4smoke_<arm>_mfm on 9127/9137 (min) / 9126/9136 (full), WALL 30m.
+- 05:5x-06:2x smokes (SMOKE=150, one workshop turn each; MCU min 1c697dd8 / full 27b206aa, mfm a87aa8d / 09c60f7).
+  First attempt stuck 13 min at "port still starting": the launching shell carries http(s)_proxy without no_proxy,
+  so run-arm.sh's urllib readiness check went to the proxy while both servers were up; both stopped by pid
+  (stop_arm.py --go + the wall watchdogs), launch_g4.sh exports no_proxy=127.0.0.1,localhost (70a0112;
+  codex-openrouter.sh sets its own HTTPS_PROXY, unaffected). Second attempt: both finished 149 steps in ~7.5 min.
+  Read-out, both arms: received contract = the rendered one (0 Routines/Rules/Improve; MIN differs from of3r's
+  AGENTS.md in exactly the two edited sentences; FULL has references/minecraft.md); the workshop wrote an 11-line
+  mine/digest.md with the DIAMOND line carrying life_2 step 17921 + ep_000952 (the episode id, as asked), the shallow
+  iron (life_1 ep_000266), the pond (ep_000454), the piglin death (ep_002597, "no gold armor"), and "carry food
+  before descent"; copied lava_ahead/fell/hit/starving into mine/reflexes (FULL left burning/slow_loss uncopied);
+  reused west_stairs/west_level under their names; working.md in both says "on arrival run --then-now once";
+  the plan replays life_2's opening (yaw -17 to the spruce trunk). Workshop turn ~240k input tokens (194-206k
+  cached), 4.5-4.7k output, 8-9 shell commands; 0 view_image events detected in turn 1 by the event parser though
+  both digests say a life_1 ep_000008 frame was viewed -- check look_cases on the real runs. Smoke dirs kept under
+  each worktree's output/g4smoke_<arm>_mfm.
