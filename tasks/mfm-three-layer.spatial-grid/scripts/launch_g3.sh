@@ -31,6 +31,10 @@ CM=0; [ "$ST" = "0" ] && CM=1
 # MCU_DIR overrides the MCU worktree (a smoke of the merge worktree before it is fast-forwarded
 # into the live one: MCU_DIR=.../MFM-grid-merge-mcu). 2026-09-09: a smoke meant for merge-mcu ran here.
 cd "${MCU_DIR:-/datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU}"
+# run-arm.sh puts ${MFM_ROOT:-<MCU>/..} on PYTHONPATH for the `mfm` package; only the live MCU has
+# MFM-grid as its parent, so name it for any other worktree (2026-09-09 20:46: the merge-mcu smoke
+# died on "No module named mfm").
+export MFM_ROOT="${MFM_ROOT:-/datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid}"
 export MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes
 # FRAME_SIZE: WxH of the frames the model is shown. 640x360 = the render (user's decision
 # 2026-09-09 after the read-out: at 320x180 the model cannot read the hotbar; +216 tokens per

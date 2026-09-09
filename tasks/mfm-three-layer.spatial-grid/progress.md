@@ -1355,3 +1355,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   (fast-forward to gen-3b pending the smoke). Kept as output/of3g_mfm, codex-homes/of3g_mfm, logs/of3g_mfm_*
   (the gen-3 data point: analysis/gen3_vs_gen2_2026-09-09.md, method_alignment_2026-09-09.md).
   of3g thread usage at turn_0284.: 72.9M input (62.2M cached, 10.55M cache-write), 688k output -> ~$203 at OpenRouter prices (one thread; compactions keep the id)
+- 20:46 the 20:30 gen-3b smoke ABORTED before its first turn: the merge-mcu purple died on `No module named
+  'mfm'` (run-arm.sh puts ${MFM_ROOT:-<MCU>/..} on PYTHONPATH; only the live MCU has MFM-grid as its parent),
+  the launcher waited 900 s for port 9137 and left its green on 9127. A 20:48 relaunch with PYTHONPATH
+  aborted on "port 9127 is already in use". Cleared by pid (green 34163, watchdogs 34098/19998).
+- 20:50:31 gen-3b smoke RELAUNCHED: `MCU_DIR=$PWD MFM_ROOT=.../MFM-grid SMOKE=2000 WALL=100m bash launch_g3.sh 3`
+  from merge-mcu (pid 34886, watchdog 34891, ports 9127/9137, purple cwd = merge-mcu, both servers up at
+  20:51:50). launch_g3.sh now exports MFM_ROOT=MFM-grid by default. Read-out at the end: turn_profile.py.
