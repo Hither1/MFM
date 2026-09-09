@@ -1420,3 +1420,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   chain 10->13->14->16 is the reuse evidence) and cuts the contract to harness interface + memory discipline
   (drop the descent/hit-view/then-now-on-arrival/no-replay prescriptions, reword the pace rule as a runner fact,
   target <= 10 KB); a from-scratch control (P3-B) only as measurement. Awaiting the user's word.
+- 02:40 of3g_mfm (gen-3b) hour 5: 169 turns, step 18600, still 9/24, 110 steps/turn; the first descent began at step
+  ~15200 (turn 142, aligned on life_2's deep-stair entrance by then-now against ep_000530) after 10.8k surface steps;
+  at 02:21 it was at (-3031,49,-5553) cutting west toward the digest's diamond site. of3r at +5h: 13/24.
+- 02:40 HF head-to-head staged and uploading (the user's request 02:25): hf_staging/carry-only-era/ (1.88 GB, 2103
+  files) = gen2/of3r_mfm (MCU b2f8c832, mfm ede1627; reflog-verified) + gen3b/of3g_mfm (MCU cf86f15a, mfm 3f7c110;
+  snapshot at step 18600, hires.tar 1.2 GB) each with provenance, trajectory, slimmed codex sessions, launcher logs,
+  harness-code/ at the commit, profile.txt; diff-gen2-to-gen3b/ (mcu.patch, mfm.patch, contract.diff); look-cases/
+  (gen 3b: 19 of 29 look turns, 5 across-life then-nows; gen 2: its 3 zooms). Scripts: stage_hf_carry_only_era.py
+  (reuses stage_hf_mfm_era.py; tolerant of a running arm), look_cases.py fixed (bash -lc wrapper parsing for the
+  then-now regen; copies the model's own mine/*.png sheets). Tool finding: episodes.py --then-now with a previous-life
+  EPISODE DIRECTORY raises IsADirectoryError (turn 141); the image path works (turn 142). Not fixed yet.

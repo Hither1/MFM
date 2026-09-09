@@ -129,10 +129,15 @@ def regen_then_now(ep: Path, c: str, step: int, d: Path) -> None:
     the bundle (the model's own sheet went to then_now.png in memory/ and was overwritten)."""
     import shlex
     import subprocess
-    seg = next((s for s in re.split(r"\s*(?:;|&&|\|\|)\s*", c) if "then-now" in s), None)
+    inner = c
+    if re.match(r"\S*bash -lc ", c):                       # codex wraps the cell: bash -lc '<script>'
+        try:
+            inner = shlex.split(c)[-1]
+        except ValueError:
+            inner = c.replace('\\"', '"').replace("\\'", "'")
+    seg = next((s for s in re.split(r"\s*(?:;|&&|\|\|)\s*", inner) if "then-now" in s), None)
     if not seg:
         return
-    seg = seg.replace('\\"', '"').replace("\\'", "'")     # the bash -lc "..." escapes
     try:
         argv = shlex.split(seg)
     except ValueError:
@@ -192,6 +197,13 @@ def cmd_dump(mcu: Path, arm: str, turns: list[int], out: Path) -> None:
                         shutil.copy(p, d / "look_outputs" / Path(p).name)
                 if is_look(it) and "then-now" in shell_part(c) and step is not None:
                     regen_then_now(ep, shell_part(c), step, d)
+                    # the model's own sheet, if the file it named still exists (it may have overwritten it later)
+                if is_look(it):
+                    for own in set(re.findall(r"(mine/[\w./-]+\.png)", shell_part(c))):
+                        src = ep / "memory" / own
+                        if src.exists():
+                            (d / "look_outputs").mkdir(exist_ok=True)
+                            shutil.copy(src, d / "look_outputs" / ("model_sheet_" + Path(own).name))
             elif it.get("type") == "reasoning":
                 lines.append("## reasoning\n\n" + (it.get("text") or "").strip()[:2000] + "\n")
         (d / "transcript.md").write_text("\n".join(lines))
