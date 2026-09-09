@@ -12,6 +12,8 @@
 # codex thread every turn) can be overridden: SESSION_TURNS=0 means one thread for the life
 # and turns COMPACT on (codex compacts instead of cold-starting); SESSION_TURNS=10 means a
 # fresh thread every 10 turns (about the observed compaction cadence of gen 2).
+# ACCOUNT=api|nyu overrides the per-arm default account (3 and 2 = nyu plan, 1 = API key): the
+# API key is $HOME/ccr/bin/codex (wrapper), the nyu plan the raw binary + MCU_CODEX_AUTH.
 set -euo pipefail
 N="${1:?usage: launch_g3.sh <1|2|3> [scratch]}"
 MODE="${2:-reuse}"
@@ -21,14 +23,17 @@ cd /datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU
 export MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes
 BASE="--expect --frames --retrieval --no-event-sheet --frame-size 320x180 --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
 case "$N" in
-  1) MODEL="--model gpt-5.6-sol --reasoning-effort high"; GP=9130; PP=9140
-     export CODEX_BIN="$HOME/ccr/bin/codex";;
-  2) MODEL="--model gpt-6-astra --reasoning-effort medium"; GP=9129; PP=9139
-     export CODEX_BIN="$HOME/.nvm/versions/node/v22.18.0/bin/codex" MCU_CODEX_AUTH="$HOME/.codex/runtime-home/auth.json";;
-  3) MODEL="--model gpt-6-astra --reasoning-effort high"; GP=9128; PP=9138
-     export CODEX_BIN="$HOME/.nvm/versions/node/v22.18.0/bin/codex" MCU_CODEX_AUTH="$HOME/.codex/runtime-home/auth.json";;
+  1) MODEL="--model gpt-5.6-sol --reasoning-effort high"; GP=9130; PP=9140; ACC="${ACCOUNT:-api}";;
+  2) MODEL="--model gpt-6-astra --reasoning-effort medium"; GP=9129; PP=9139; ACC="${ACCOUNT:-nyu}";;
+  3) MODEL="--model gpt-6-astra --reasoning-effort high"; GP=9128; PP=9138; ACC="${ACCOUNT:-nyu}";;
   *) echo "N must be 1, 2 or 3" >&2; exit 2;;
 esac
+case "$ACC" in
+  api) export CODEX_BIN="$HOME/ccr/bin/codex"; unset MCU_CODEX_AUTH;;
+  nyu) export CODEX_BIN="$HOME/.nvm/versions/node/v22.18.0/bin/codex" MCU_CODEX_AUTH="$HOME/.codex/runtime-home/auth.json";;
+  *) echo "ACCOUNT must be api or nyu" >&2; exit 2;;
+esac
+echo "account=$ACC codex=$CODEX_BIN${MCU_CODEX_AUTH:+ auth=$MCU_CODEX_AUTH}"
 git -C . merge-base --is-ancestor 1ac1c7f7 HEAD || { echo "MFM-grid/MCU is not at the gen-3 code (needs 1ac1c7f7)" >&2; exit 1; }
 if [ "$MODE" = "scratch" ]; then
   TASK=ender_dragon ARM="of${N}s_mfm" GP=$((GP+3)) PP=$((PP+3)) STEPS=100000 SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-12h}" \

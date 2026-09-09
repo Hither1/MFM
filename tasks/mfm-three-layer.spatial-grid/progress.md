@@ -1106,3 +1106,6 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   fell/hit/lava_ahead/known_hazards (hit.py edited); stderr only the by-design system-skills line. Turn-2 prompt
   carries [WORKING]/[DIGEST]/[OWN]. Pushed by the user 11:0x (MCU d3d567e2 on spatial-grid-merge and
   spatial-grid; MFM-grid 2f97331).
+- 11:08 user: "我们停止一下，我觉得我们要换一个账号跑" -> watchdog 4360 killed by pid, stop_arm.py --go of3g_mfm
+  (12 of 12 pids). It had 3/24 @641 in turn 6 (11:07). Output, logs and codex home set aside as
+  *of3g_mfm.stopped-1108*. launch_g3.sh takes ACCOUNT=api|nyu (default per arm as before).
