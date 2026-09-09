@@ -56,7 +56,7 @@ def test_wire_bytes_are_kept_verbatim(tmp_path):
     assert cv2.imdecode(np.frombuffer(out.read_bytes(), np.uint8), cv2.IMREAD_COLOR).shape == (360, 640, 3)
 
 
-def test_png_and_junk(tmp_path):
+def test_png_and_junk():
     enc, raw = _frame(".png")
     assert adapter.WorldModelExecutor.wire_frame_bytes(enc) == (raw, ".png")
     with pytest.raises(ValueError):

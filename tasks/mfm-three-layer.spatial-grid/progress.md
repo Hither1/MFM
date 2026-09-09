@@ -1148,3 +1148,38 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   pid; ports 9128/9138 free. output/of3g_mfm and logs/of3g_mfm_* left in place (a relaunch overwrites them).
   Relaunch line (from MFM-grid/MCU): `env -u GITHUB_PERSONAL_ACCESS_TOKEN -u WANDB_API_KEY SESSION_TURNS=0
   ACCOUNT=nyu bash ../tasks/mfm-three-layer.spatial-grid/scripts/launch_g3.sh 3`.
+
+## 2026-09-09 11:57-12:11 -- proxy test (OpenAI + Anthropic through OpenRouter), the hires frame record, relaunch
+- User: (1) keep a higher-resolution copy of every frame the agent is NOT shown, for a video on the website;
+  (2) test whether the proxy lets us use OpenAI and Anthropic models; (3) make the resolution fed to the agent
+  an option.
+- Proxy (192.168.1.64:7890, LA exit), python in-process key, OpenRouter: openai/gpt-6-astra, anthropic/claude-
+  sonnet-5 and anthropic/claude-opus-5 all answer on /chat/completions and /responses, with an image attached
+  (the 320x180 frame described correctly); opus-5 returns empty text on chat with a small max_tokens (thinking
+  eats it), fine on /responses. reasoning.effort reaches gpt-6-astra (37 vs 31 reasoning tokens high vs low on
+  a small counting question). Anthropic prices on OpenRouter: fable-5.1 $10/$50, opus-5 $5/$25, sonnet-5
+  $2/$10 per M; all 1M ctx, image input.
+- The codex path through the proxy WORKS with one recipe and fails with the others:
+  * OPENAI_BASE_URL env: ignored -- codex 0.153 went to api.openai.com (websocket first, then HTTP; OpenAI's own
+    401 text) -- and `-c model_providers.openai.base_url=...` is refused ("reserved built-in provider IDs").
+  * WORKS: `-c model_provider="openrouter" -c model_providers.openrouter.name="OpenRouter"
+    -c model_providers.openrouter.base_url="https://openrouter.ai/api/v1" -c model_providers.openrouter.wire_api=
+    "responses" -c model_providers.openrouter.requires_openai_auth=true` with HTTPS_PROXY set for the codex
+    process and the arm's auth.json a symlink to `secrets/openrouter-auth.json` ({"OPENAI_API_KEY": sk-or-...},
+    600, derived from the user's env file). One turn, gpt-6-astra high, frame + shell command: 12 s, image
+    described, exec ran, and `${OPENAI_API_KEY:+set}` printed EMPTY inside the exec cell -- the key never
+    enters the environment. A second one-turn call answered the primes question (21) in 8 s.
+    Wiring it into launch_g3.sh needs: a wrapper that sets HTTPS_PROXY for codex only (never for the tree:
+    the A2A hop is localhost), the backend's --base-url branch emitting requires_openai_auth instead of env_key
+    (a 3-line switch), `openai/` model ids, CODEX_MODEL_CONTEXT_WINDOW=1050000. Not done: the user chose nyu.
+  * The key's spend for the whole investigation: $0.24.
+- Hires record (MCU 44978744, live MFM-grid/MCU ff'd): the purple adapter writes every observation's frame
+  exactly as the green agent sent it (640x360 JPEG, the MinecraftSim obs_size; `src/agent.py:473`) to
+  `episode_NNN/hires/<step:07d>.jpg` -- beside memory/, outside the model's cwd, never named in any prompt/
+  skill/tool (tests/test_hires_record.py greps mcu_worldmodel/ for it), never carried. `--hires-every N`
+  (default 1; 0 off). A write failure is logged once and stops the record. Higher than 640x360 needs the
+  green obs_size raised (benchmark layer; the user's call). FRAME_SIZE env in launch_g3.sh sets the frames
+  the model is shown (default 320x180). Tests: test_hires_record.py 4 pass; whole suite exit 0.
+- Relaunch 12:10:40 (my shell, env -u of the secret vars): `SESSION_TURNS=0 ACCOUNT=nyu bash launch_g3.sh 3`
+  -> of3g_mfm, gpt-6-astra high, frames 320x180, seed of3r, one thread + COMPACT, STEPS=100000, WALL=12h
+  (stops ~00:10 on 09-10), launch pid 52676, watchdog 52690, ports 9128/9138; live MCU 44978744.
