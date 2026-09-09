@@ -1521,3 +1521,14 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   cached), 4.5-4.7k output, 8-9 shell commands; 0 view_image events detected in turn 1 by the event parser though
   both digests say a life_1 ep_000008 frame was viewed -- check look_cases on the real runs. Smoke dirs kept under
   each worktree's output/g4smoke_<arm>_mfm.
+- 06:00 LAUNCHED the gen-4 head-to-head (the user's decision 05:0x), both via launch_g4.sh, OpenRouter, gpt-6-astra
+  high, one thread + compaction, 100k steps, WALL 14h (stops ~20:00 by watchdog), seed of3r (carry-only):
+    of3m_mfm (MIN)  pid 38535, watchdog 38538, ports 9133/9143, MCU min-mcu 1c697dd8, mfm MFM-grid-min a87aa8d, 320x180
+    of3f_mfm (FULL) pid 42096, watchdog 42102, ports 9132/9142, MCU merge-mcu 27b206aa, mfm MFM-grid eb5f0a1, 640x360
+  Node load 21 on 255 cores at launch; / at 81%. Cost expectation ~$19/h per arm (gen-3 rate) -> ~$530 for both.
+  Checkpoints (pre-registered in the plan, section 6): +30 min -- both alive, first plans running, no codex errors;
+  +2 h -- >= 100 steps/turn, no cell kind > 0.3/turn except read_log/write actions (turn_profile.py), a then-now on
+  arrival at the shallow iron (~3k steps; look_cases.py), iron pickaxe by ~+1h10, an animal killed or the plan says
+  why not, the starving reflex fires when the bar drops below 18 with food carried (logs.txt [REFLEX starving]).
+  Read-out at the end: milestones vs 16/24, deaths, steps/turn, across-life then-nows that changed a decision,
+  eat count and food trajectory, per arm.
