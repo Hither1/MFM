@@ -1468,3 +1468,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   turn and never got the diamond line; gen 3 and 3b both dug the diamonds out of life_2's log with --grep/--ores.
 - State: nothing running; live MFM-grid/MCU cf86f15a; merge-mcu cf86f15a; MFM-grid cb701b2+. Waiting for the
   user's decisions (plan section 7) before any branch, code or launch.
+- 04:5x user: "why still gen 3 and not gen 2?" -- right: sections 4/8 of the plan kept ~85% of the gen-3 diff as
+  "neutral". Section 11 replaces them: exact b2f8c832 + ede1627, tier 0 = three edits (starving.py eats when food is
+  carried and fires per decrement; one Survival fact line; then-now-on-arrival in Memory + episode id in the digest
+  via the memory skill), tier 1 = model-invisible (hires record, then-now dir fix, WALL 14h, account plumbing),
+  tiers 2/3 default off with their measured gen-2 costs. Correction recorded: of3r's digest lacks a diamond line
+  because life_1 had none; run A's workshop reads life_2's MILESTONE line with gen-2 grep. Waiting on the account.
