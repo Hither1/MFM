@@ -1440,3 +1440,6 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   the surface (food, bucket, wheat, sheep) before descending; gen 2 had 13/24 at the same wall. The descent checklist
   is prescribed in the contract, two skills and the inherited digest; proposal on record (01:40 line). Run dir left
   as output/of3g_mfm (final snapshot re-staged to HF carry-only-era/gen3b).
+- 03:20 HF carry-only-era updated with the final of3g_mfm record (commits 5340c4dc, ee75f904 README, one transient
+  actions.json deleted): remote 2182 files / 2.05 GB = the staging dir. No look turns after turn 143 (the descent).
+  No arm running; no watchdog; monitor closed. Next decision is the user's: gen-3c contract cut (proposal 01:40).
