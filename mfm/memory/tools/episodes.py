@@ -24,9 +24,11 @@ outcome summary, the first harness note the entry ended with (why it stopped, wh
 refused -- from `outcome.json`), and the directory holding `observation/image.png`,
 `state/`, `action.json`, `outcome.json`.
 
-`--ores` and `--y-profile` are the two questions the record could answer and nothing
-asked (of1-of3r, 2026-09-09): "where have I seen ore, and at what y" and "where have I
-already looked". Both take the same filters and both work with `--previous`.
+`--ores` and `--y-profile` answer the two questions a search should ask its record:
+"where have I seen ore, and at what y" and "where have I already looked". Both take
+the same filters and both work with `--previous`. `--grep` searches the index rows
+(action, summary, tags, the first harness note, the events); `--deep` opens every
+episode's action/outcome/state files too, which is slow on a long record.
 """
 from __future__ import annotations
 
@@ -94,19 +96,27 @@ def same_action(rows: list[dict], kind: str) -> list[dict]:
     return [r for r in rows if r.get("action_kind") == kind]
 
 
-def grep(rows: list[dict], root: Path, text: str) -> list[dict]:
+def grep(rows: list[dict], root: Path, text: str, deep: bool = False) -> list[dict]:
+    """Rows whose index line holds `text` (action, summary, tags, note, events, place).
+    `deep` also reads each episode's action.json / outcome.json / state.json -- the plan
+    text, every note, the inventory -- at a file open per episode. Rows written before
+    the index carried `note` (no such key, `note` tag) get their notes read from
+    outcome.json so an old life greps the same."""
     needle = text.lower()
     out = []
     for r in rows:
-        d = Path(root) / r.get("path", "")
         hay = [json.dumps(r)]
-        for name in ("action.json", "outcome.json", "state/state.json"):
-            p = d / name
-            if p.exists():
-                try:
-                    hay.append(p.read_text(encoding="utf-8", errors="replace"))
-                except OSError:
-                    pass
+        if deep:
+            d = Path(root) / r.get("path", "")
+            for name in ("action.json", "outcome.json", "state/state.json"):
+                p = d / name
+                if p.exists():
+                    try:
+                        hay.append(p.read_text(encoding="utf-8", errors="replace"))
+                    except OSError:
+                        pass
+        elif "note" not in r and "note" in (r.get("tags") or []):
+            hay.extend(notes_of(root, r))
         if any(needle in h.lower() for h in hay):
             out.append(r)
     return out
@@ -125,11 +135,14 @@ def notes_of(root: Path | None, r: dict) -> list[str]:
 
 
 def first_note(root: Path | None, r: dict, limit: int = 220) -> str | None:
+    if r.get("note"):
+        note = " ".join(str(r["note"]).split())
+        return note if len(note) <= limit else note[: limit - 3].rstrip() + "..."
     """The first harness note in the episode's `outcome.json`, one line, or None.
 
     The index row's `summary` says what an entry changed; the note says why it ended
     (`no trunk detected`, `a SCREEN is open`, `refused: ...`). Listing rows without it
-    told the model less than `tail logs.txt` did (lad2, 2026-09-05)."""
+    tells less than `tail logs.txt` does."""
     notes = notes_of(root, r)
     if not notes:
         return None
@@ -179,12 +192,16 @@ def ore_hits(root: Path | None, r: dict) -> list[str]:
     what broke and what entered the inventory, and `inventory_delta` catches an ore that
     arrived without an event line. `craft_item` is excluded -- a furnace output is not a
     place where ore was found."""
-    if root is None or not r.get("path"):
-        return []
-    try:
-        oc = json.loads((Path(root) / r["path"] / "outcome.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+    if "events" in r:                       # a row that carries its outcome (the store since 2026-09-09;
+        oc = {"events": r.get("events") or [],   # the carry enriches older lives' rows at seed time)
+              "inventory_delta": r.get("inventory_delta") or {}}
+    else:                                   # an older row: its outcome.json, one open per row
+        if root is None or not r.get("path"):
+            return []
+        try:
+            oc = json.loads((Path(root) / r["path"] / "outcome.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
     out, seen = [], set()
     for ev in oc.get("events") or []:
         m = _ORE_EVENT_RE.search(str(ev))
@@ -294,8 +311,8 @@ def then_now(root: Path, then: str, now: str | None, out: Path,
     ../attach/frame.png) as one image with labels. Returns (out, caption).
 
     The check VISTA's inspect makes side by side: is the place in front of me the
-    place the record describes? og14-og22 walked to remembered places by coordinate
-    and never compared (analysis/memory-usage.md)."""
+    place the record describes? A walk by coordinate that never compares digs the
+    wrong place with confidence."""
     try:
         from PIL import Image, ImageDraw
     except ImportError as exc:  # pragma: no cover
@@ -341,6 +358,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--tag")
     ap.add_argument("--action")
     ap.add_argument("--grep")
+    ap.add_argument("--deep", action="store_true",
+                    help="with --grep: also search every episode's action/outcome/state files (slow on a long record)")
     ap.add_argument("--previous", action="store_true",
                     help="search the episodes of the tasks finished before this one")
     ap.add_argument("--ores", action="store_true",
@@ -384,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.action:
         rows = same_action(rows, args.action)
     if args.grep:
-        rows = grep(rows, root, args.grep)
+        rows = grep(rows, root, args.grep, deep=args.deep)
     if args.last is not None:
         rows = recent(rows, args.last)
     if args.y_profile:

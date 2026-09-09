@@ -288,6 +288,17 @@ class EpisodeStore(MemorySink):
                "observation_hash": ep["observation_hash"],
                "attachment": ep["attachment"],
                **agent.episode_index_fields(ep["first_state"], ep["last_state"])}
+        # What the query tool asks of `outcome.json` most, kept in the row so `--grep`
+        # and `--ores` read the index alone: opening every episode's outcome.json cost
+        # ~40 ms a file on the shared storage, 85-120 s over a 2,800-episode life
+        # (2026-09-09), longer than a turn.
+        if ep["notes"]:
+            row["note"] = " ".join(str(ep["notes"][0]).split())[:220]
+        events = (extra or {}).get("events") or outcome.get("events") or []
+        row["events"] = [str(e) for e in events][:12]
+        delta = outcome.get("inventory_delta")
+        if isinstance(delta, dict) and delta:
+            row["inventory_delta"] = dict(list(delta.items())[:12])
         with self.index_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
         self.closed.append(row)

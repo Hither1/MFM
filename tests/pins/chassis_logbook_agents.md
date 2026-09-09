@@ -213,7 +213,7 @@ GUI tick's image -- so you never need to track or visually re-check the cursor. 
    are retrieved with `stow_items(grid=..., cells=[...])` (banks the cursor stack too).
 
 **A close that would drop items is refused.** Closing a screen while something is
-off-inventory throws it on the floor -- it cost a previous run four of its five logs -- so
+off-inventory throws it on the floor -- a stack of logs, gone -- so
 the runner turns that toggle into a no-op and writes a [NOTE]. Put the stack back in a
 slot (`stow_items`), then close. If you *mean* to drop it, `{"procedure":
 "close_inventory", "args": {"force": true}}`. A furnace KEEPS its cells across a close.
@@ -588,7 +588,7 @@ Address slots and cells by number, not by offset. Grep the log for your own earl
 briefings before crafting anything a second time. This is the difference between solving
 a recipe once and solving it every time.
 
-**Survival** (a previous run died twice and lost everything):
+**Survival** (a death loses everything you carry):
 - **What kills runs: monsters in unlit tunnels, then drops into caves and ravines.**
   Every death on record was one of the two. Monsters are not reported on any channel
   here (`Nearby entities` always reads "not reported"), so the only warning is the
