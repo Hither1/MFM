@@ -1313,3 +1313,6 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   ~15k steps, far short of the 41.6k of3r used for 16/24; the gen-3 setup (skills catalog, 640x360, OpenRouter,
   "Improve yourself") is underperforming gen-2 on this life -- the seed is the same, so the cause is the
   gen-3 changes and/or the provider's speed, to be separated before the next arm.
+- 18:43 hourly: 197 turns, step 8200, 9/24 -- mine_iron_ore @6565 17:56 (+4h55), iron_ingot @6989 18:10, iron_pickaxe
+  @7880 18:33 (+5h31; of3r +1h07). 2,200 steps in the last hour (was ~1,300): once underground the plans got
+  longer. Root fs 55 GB free, load 16, no faults.
