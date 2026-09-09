@@ -1263,3 +1263,11 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   The 12h launch waits for the user's word: from MFM-grid/MCU, `bash ../tasks/mfm-three-layer.spatial-grid/
   scripts/launch_g3.sh 3` (defaults: openrouter, 640x360, SESSION_TURNS=0, seed of3r); set a credit limit on
   the key first (~$204 per 12h).
+- 12:56:51 user: "开跑". LAUNCHED of3g_mfm = the gen-3 arm (`bash launch_g3.sh 3` from MFM-grid/MCU, live MCU
+  725574f3): ACCOUNT=openrouter (proxy wrapper, auth by sed on the 600 key file, no auth.json), openai/gpt-6-astra
+  high, frames 640x360, SESSION_TURNS=0 (one thread, codex compacts), seed of3r (carries of3 -> of3r), no
+  sites/corridors, hires record on, env scrub + snapshot off. launch pid 52493, watchdog 52496, WALL 12h ->
+  ~00:57 2026-09-10, ports 9128/9138, logs/of3g_mfm_*.log, output/of3g_mfm, codex-homes/of3g_mfm. Preflight:
+  no arm running, all four ports free, load 12.7/255. The 12:12 JVM-crash leftovers were set aside as
+  `*of3g_mfm*.crashed-1212*` (logs, output, codex home) so the launcher wrote a fresh tree.
+  First-hour watch: attachment_bytes_peak / payload errors at 640x360, turn cadence, any 403 or fallback line.
