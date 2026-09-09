@@ -38,7 +38,10 @@ def test_streak_names_the_run_its_note_and_the_last_success(tmp_path: Path):
             _row(6, "harvest_tree", 700, 800, x=8, z=9)]
     _write_outcome(tmp_path, rows[6], ["harvest_tree: no trunk detected (6 frames). Turn "
                                        "toward visible LEAVES and retry", "second note"])
-    block = R.recall_block(rows, tmp_path, pos=(100.0, 100.0))
+    # three calls make a streak only when asked for (the default asks for four since
+    # 2026-09-09: of3g's prompts carried an entry-grain line 169 turns out of 229)
+    assert "changed nothing" not in R.recall_block(rows, tmp_path, pos=(100.0, 100.0))
+    block = R.recall_block(rows, tmp_path, pos=(100.0, 100.0), streak_min=3)
     assert block.startswith("[RECALL]")
     assert "`harvest_tree` changed nothing in its last 3 calls (since step 300, 3 spots" in block
     assert 'ep_000006, steps 700-800): "harvest_tree: no trunk detected (6 frames)' in block

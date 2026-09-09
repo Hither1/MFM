@@ -1325,3 +1325,19 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   skill triggers fire ~every turn; no model-authored skill; RECALL entry-grain noise in 75-90% of prompts (both
   gens). Positives: 0 deaths, prepared descent, iron via life 1's recorded entrance (then-now). Ranked gen-3b
   changes and the decisive experiment are in the file. User is awake and deciding; of3g_mfm keeps running.
+- 20:35 GEN-3b PATCH (MCU cf86f15a on spatial-grid-merge, pushed; NOT in the live MFM-grid/MCU while of3g runs):
+  prompts.py -- `_PERSISTENCE[one_thread]` (the contract says the thread persists and codex compacts it;
+  minimal_contract(one_thread=) wired from codex.session_max_turns == 0), digest = 20 one-line facts written in
+  the first turn + at most one line per milestone/death, notes.md append-only, one look per plan, then-now once
+  on arrival, Rules of play = open-loop pace rule (60+ steps on known ground) + no replay after a stall + the
+  skills pointer (the five wz1119 step rules and the two facts moved to skills/minecraft), Improve-yourself moment
+  = a banked milestone or a death, actions.json validated by the runner (no json.tool cell); skills.py -- once per
+  stage in the catalog paragraph, memory/reflexes/harness/minecraft triggers narrowed, the geometry rule under
+  The portal; agent.py -- [DIGEST] shown in full on act turns 1-2, afterwards a one-line pointer with the file's
+  shape and a rewrite note over 20 lines / 3,000 chars; episodes.py -- `watch` in RECALL_IGNORE_KINDS. MFM-grid --
+  retrieve.py recall_block streak_min 4 (was 3), max_streaks 2 (was 3), the closing view_image nudge replaced by a
+  neutral note (frame paths kept); tests: test_gen3_contract (one-thread text, once-per-stage triggers, digest
+  pointer/shape), test_retrieve, test_vision_prompt, pin chassis_mfm_recall_prompt.txt re-recorded (1 line).
+  Contract 15.8 -> 13.1 KB. Targeted suites 44 pass; full suite re-run in progress. HF: look_examples_of3g
+  uploaded to Ced-Collab/MCUData (commit dcc36d25, 17 files). User's decisions so far: 1/4/6 yes, frames stay in
+  RECALL; the relaunch timing (stop of3g now vs. after the 00:57 wall) is theirs.

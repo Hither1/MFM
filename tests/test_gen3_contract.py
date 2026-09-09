@@ -34,12 +34,24 @@ def test_minimal_contract_carries_routines_rules_and_self_improvement():
     for must in ("**Routines**", "workshop turn (`skills/memory/SKILL.md`)", "death_sheet.py",
                  "three plans in a row that moved", "`[RECALL]` block",
                  "**Rules of play**", "never replay a resource-consuming sequence",
-                 "obsidian: the diamond pickaxe only", "No natural healing below 18 food",
+                 "A plan runs open-loop", "60+ steps per\n  plan", "Short plans are for a GUI",
                  "`skills/minecraft`", "`skills/mining`",
                  "**Improve yourself.**", "mine/skills/<name>/SKILL.md", "write the reflex now",
-                 "`mine/digest.md` (what is true of this world across lives)",
-                 "Your context does not persist between turns", "--ores", "--y-profile"):
+                 "The moment\nis a banked milestone or a death",
+                 "`mine/digest.md` (what is true of this world\nacross lives: 20 one-line facts at most",
+                 "shown unasked only at the start of a life",
+                 "one look per\nplan is the budget", "`--then-now` once, on arrival",
+                 "at most one line after a\n  milestone or a death",
+                 "do not spend a cell\nvalidating it yourself",
+                 "Your context does not persist between turns (a fresh session each turn)",
+                 "--ores", "--y-profile"):
         assert must in carried, must
+    # the wz1119 process rules that fit a step-by-step player, not this open-loop runner
+    # (2026-09-09 of3g: 6-step plans, a look after every hop), are gone from the contract
+    for gone in ("Stop a plan the moment terrain", "inspect footing, tool and surroundings",
+                 "Before crafting, inspect ingredients", "Budget tools, materials, lighting",
+                 "update `mine/digest.md` with what holds across lives"):
+        assert gone not in carried, gone
     # the workshop routine belongs to lives with previous/ only; the rest is shared
     assert "workshop turn" not in scratch and "**Previous lives.**" not in scratch
     assert "**Routines**" in scratch and "**Rules of play**" in scratch
@@ -47,6 +59,34 @@ def test_minimal_contract_carries_routines_rules_and_self_improvement():
     assert len(carried.encode()) < 14000, len(carried.encode())
     # rules, not places: no world coordinate anywhere in the contract
     assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", carried)
+
+
+def test_one_thread_contract_says_the_thread_persists():
+    from mcu_worldmodel import prompts
+    from mcu_worldmodel import procedures as P
+    P.set_visible(P.ATOMS)
+    kw = dict(task_text="t", progress_block="p", entry_cap=8, step_cap=400,
+              atoms=True, frames=True, harness_reflexes=False, previous=True)
+    one = prompts.minimal_contract(one_thread=True, **kw)
+    fresh = prompts.minimal_contract(one_thread=False, **kw)
+    P.set_visible(None)
+    assert "Your thread persists between turns" in one and "do not rewrite a file nothing" in one
+    assert "does not persist" not in one
+    assert "Your context does not persist between turns (a fresh session each turn)" in fresh
+    assert "Your thread persists" not in fresh
+
+
+def test_skill_triggers_are_once_per_stage():
+    from mcu_worldmodel import skills
+    for name, text in skills.HARNESS_SKILLS.items() if hasattr(skills, "HARNESS_SKILLS") else []:
+        pass
+    src = open(Path(skills.__file__)).read()
+    assert "read its SKILL.md once, when that situation first arises" in src
+    assert "a skill\nis read once per stage, not once per turn" in src
+    assert "Use once per stage, when it begins" in src            # minecraft
+    assert "Not for routine navigation; one read per occasion" in src   # memory
+    assert "Use once, the first time the runner surprises you" in src   # harness
+    assert "verified by looking at what stands" in src            # the geometry rule moved here
 
 
 def test_compact_procedure_index_keeps_names_and_defaults_only():
@@ -145,6 +185,7 @@ def test_digest_block_beside_working_and_the_forty_line_rule(tmp_path: Path):
         own = True
         memory = Mem()
         WORKING_CAP = WorldModelAgent.WORKING_CAP
+        turns = {"act": 1}
     fake = Fake()
     assert WorldModelAgent._digest_block(fake) == ""
     (tmp_path / "mine").mkdir()
@@ -152,7 +193,17 @@ def test_digest_block_beside_working_and_the_forty_line_rule(tmp_path: Path):
     block = WorldModelAgent._digest_block(fake)
     assert block.startswith("[DIGEST] mine/digest.md") and "shallow face" in block
     (tmp_path / "mine" / "digest.md").write_text("y" * 5000)
-    assert "3000 more chars: Read mine/digest.md" in WorldModelAgent._digest_block(fake)
+    block = WorldModelAgent._digest_block(fake)
+    assert "3000 more chars: Read mine/digest.md" in block and "5000 chars; the contract asks for 20" in block
+    # from the third act turn on, a pointer, not the text (the model reads the file itself)
+    fake.turns = {"act": 3}
+    (tmp_path / "mine" / "digest.md").write_text("# life_1\n- iron at the shallow face, step 5300\n")
+    block = WorldModelAgent._digest_block(fake)
+    assert block.startswith("[DIGEST] mine/digest.md -- your across-lives facts, not shown") and "shallow face" not in block
+    assert "rewrite it" not in block
+    (tmp_path / "mine" / "digest.md").write_text("\n".join(f"Step{i} note" for i in range(207)))
+    block = WorldModelAgent._digest_block(fake)
+    assert "207 lines" in block and "rewrite it -- step notes belong in mine/notes.md" in block and "Step5" not in block
     (tmp_path / "mine" / "working.md").write_text("\n".join(f"line {i}" for i in range(50)))
     w = WorldModelAgent._working_block(fake)
     assert "[working.md is 50 lines; the contract asks for 40" in w

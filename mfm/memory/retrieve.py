@@ -572,10 +572,10 @@ def plan_repeat_line(run: dict[str, Any], root: Path | str | None = None,
 
 def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                  pos: tuple[float, float] | None = None, radius: float = 6.0,
-                 streak_min: int = 3, ignore_kinds: Iterable[str] = (),
+                 streak_min: int = 4, ignore_kinds: Iterable[str] = (),
                  movers: Iterable[str] = (), openers: Iterable[str] = (),
                  exclude_last: int = 6, streak_recent: int = 30, repeat_min: int = 3,
-                 max_streaks: int = 3, max_here: int = 3, max_milestones: int = 0,
+                 max_streaks: int = 2, max_here: int = 3, max_milestones: int = 0,
                  plan_repeat_min: int = 3, plan_recent: int = PLAN_RECENT) -> str:
     """The retrieval block for one turn, or "" when there is nothing to say.
 
@@ -641,8 +641,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
         return ""
     return ("[RECALL] computed from episodes/ by the harness -- what you did, not "
             "advice:\n" + "\n".join(lines)
-            + "\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
-              "what you will see there.)")
+            + "\n  (the cited frame is there when one line is not enough.)")
 
 
 def _milestone_name(row: dict[str, Any]) -> str:
