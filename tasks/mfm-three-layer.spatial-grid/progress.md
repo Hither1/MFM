@@ -1362,3 +1362,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 20:50:31 gen-3b smoke RELAUNCHED: `MCU_DIR=$PWD MFM_ROOT=.../MFM-grid SMOKE=2000 WALL=100m bash launch_g3.sh 3`
   from merge-mcu (pid 34886, watchdog 34891, ports 9127/9137, purple cwd = merge-mcu, both servers up at
   20:51:50). launch_g3.sh now exports MFM_ROOT=MFM-grid by default. Read-out at the end: turn_profile.py.
+- 20:55:31 the 20:50 smoke was KILLED by the 20:10 smoke's own watchdog (pid 26475, `sleep 45m; stop_arm.py --go
+  g3smoke_mfm`): a finished smoke leaves its watchdog sleeping, and it stops whatever arm carries that name
+  when it fires. Lesson: after any smoke that ends early, kill its watchdog by pid (stop_arm.py --go does not,
+  it is the watchdog's own command). The two other stale ones (12579, 34891) killed by pid.
+- 20:56:54 gen-3b smoke RELAUNCHED (pid 10259, watchdog 10262 = the only g3smoke watchdog now; ports
+  9127/9137; MCU_DIR=merge-mcu, MFM_ROOT=MFM-grid, SMOKE=2000, WALL=100m). Ends by ~22:40 at the latest.
