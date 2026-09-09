@@ -1217,3 +1217,28 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   (attachment_bytes_peak in the report) for that. Gen 1-3 all ran 320x180; the ob era 640x360.
 - State: nothing running; live MFM-grid/MCU 90e4dc78; MFM-grid 738f02f+; ports 9128/9138 free. Relaunch line:
   `[FRAME_SIZE=640x360] SESSION_TURNS=0 ACCOUNT=nyu bash ../tasks/mfm-three-layer.spatial-grid/scripts/launch_g3.sh 3`.
+
+## 2026-09-09 12:25-12:40 -- the gen-3 setup confirmed and decided; the OpenRouter route wired
+- User's decisions (after the setup read-back): (1) OpenRouter; (2) seed = the gpt-6-astra-high lineage's
+  gen-2 life (of3r, which carries of3; launch_of3.sh / launch_ofr.sh both gpt-6-astra high, logs
+  model=gpt-6-astra); (3) sites/corridors explained (harness-digested [KNOWN SITES] / dry corridors from
+  earlier lives; banned since 09-07, off); (4) frames 640x360; (5) SESSION_TURNS=0, one thread per life.
+- launch_g3.sh (MFM-grid fed13d3) defaults now: ACCOUNT=openrouter, FRAME_SIZE=640x360, SESSION_TURNS=0
+  (COMPACT on), `SMOKE=<steps>` = g3smoke_mfm on 9127/9137 with WALL 30m. MCU 725574f3 (live ff'd):
+  `provider_auth_args()` -- CODEX_LOCAL_AUTH_COMMAND (JSON list) makes the --base-url provider authenticate by
+  running that command (OpenRouter's documented auth.command form) instead of env_key, so the key is in no
+  process environment; scripts/codex-openrouter.sh sets the proxy for the codex process alone;
+  codex-home.sh MCU_CODEX_AUTH=none. tests/test_codex_env.py 4 tests; whole suite exit 0.
+- Backend-level smoke (CodexTurn.run through the wrapper, no auth.json, a 640x360 frame): ok in 24 s, the
+  model read the hotbar (5 dirt, 21 cobblestone, 2 sticks, 3 planks, pickaxe), inside the exec cell
+  OPENROUTER_API_KEY and OPENAI_API_KEY unset and LOCAL_API_KEY=EMPTY, the env-scrub log line present, no
+  key anywhere in the home or workspace, no snapshot.
+- Attachment bytes in one thread: of3r's harness counter peaked at 35.2 MB (516 turns, 320x180) with 0
+  harness-visible compactions and no failure; the harness only counts what it attached, codex's compaction
+  drops the images from the wire. At 640x360 each frame is ~2-3x the bytes; watch attachment_bytes_peak and
+  the purple log for any payload error in the first hour of the real run.
+- Cost at OpenRouter: of3r's rollouts sum to 1,585 model calls, 121.5M input tokens (93% cached), 0.51M
+  output (0.11M reasoning) -> $82 + $113 + $25 = $221 for ~13h, ~$204 per 12h run. The key had no credit
+  limit when checked (auth/key: limit None); worth setting one on the OpenRouter side.
+- 12:37:26 `SMOKE=150 bash launch_g3.sh 3` -> g3smoke_mfm (pid 9540, watchdog 9544): the decided setup end
+  to end (seed of3r, OpenRouter through the proxy, 640x360, one thread). Result below.
