@@ -641,7 +641,8 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
         return ""
     return ("[RECALL] computed from episodes/ by the harness -- what you did, not "
             "advice:\n" + "\n".join(lines)
-            + "\n  (the cited frame is there when one line is not enough.)")
+            + "\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
+              "what you will see there.)")
 
 
 def _milestone_name(row: dict[str, Any]) -> str:
