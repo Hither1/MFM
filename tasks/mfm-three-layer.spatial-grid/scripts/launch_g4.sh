@@ -27,6 +27,11 @@ cd "$MCU"
 git -C . merge-base --is-ancestor "$NEED" HEAD || { echo "$MCU is not at the gen-4 $ARM_KIND code (needs $NEED)" >&2; exit 1; }
 [ -z "$(git -C . status --porcelain -- mcu_worldmodel scripts)" ] || { echo "$MCU has uncommitted changes under mcu_worldmodel/ or scripts/" >&2; exit 1; }
 export MCU_CODEX_ROOT="$C/codex-homes"
+# The launching shell may carry http_proxy/https_proxy (the host reaches OpenRouter through one);
+# the harness talks to its own servers on 127.0.0.1 with urllib/httpx, which honour those unless
+# loopback is excluded -- without this the readiness check reads "still starting" against a
+# server that is up (2026-09-10 smoke).
+export no_proxy="127.0.0.1,localhost${no_proxy:+,$no_proxy}" NO_PROXY="127.0.0.1,localhost${NO_PROXY:+,$NO_PROXY}"
 ST="${SESSION_TURNS:-0}"; CM=0; [ "$ST" = "0" ] && CM=1
 BASE="--expect --frames --retrieval --no-event-sheet --frame-size $FS --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
 MID=gpt-6-astra; EFF=high
