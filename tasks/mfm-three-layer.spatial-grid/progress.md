@@ -1095,3 +1095,8 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   without HOME shows none. Watchdog 57305 killed by pid after the arm ended; output kept under output/g3smoke_mfm.
 - Gen 3 can launch on the user's word: `bash tasks/.../scripts/launch_g3.sh 3` (SESSION_TURNS=0 in the env for
   the compaction mode, default 1), then 2 / 1 / `3 scratch`.
+
+## 2026-09-09 10:55 -- gen 3 launched by the user: of3g_mfm
+- `SESSION_TURNS=0 bash launch_g3.sh 3` (user's shell): of3g_mfm, gpt-6-astra high (nyu plan), seed of3r (carries
+  of3), one thread + COMPACT, STEPS=100000, WALL=12h -> stops ~22:55; launch pid 4357, watchdog 4360; ports
+  9128/9138; live MFM-grid/MCU d3d567e2. Codex home has the `.system` file. First-turn check to follow.
