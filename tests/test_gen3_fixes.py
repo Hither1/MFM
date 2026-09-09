@@ -73,6 +73,7 @@ def _model_facing(tmp_path: Path) -> dict[str, str]:
     texts.update({f"references/{k}": v for k, v in refs.items()})
     from mcu_worldmodel import own as _own
     texts["references/own.md"] = _own.MFM_OWN_NOTE + _own.MFM_WORKING_NOTE + _own.reflex_note(False)
+    texts["references/minecraft.md"] = K.MINECRAFT_REFERENCE          # written by the agent (gen 4)
     K.write_skills(tmp_path)
     for p in sorted((tmp_path / "skills").rglob("*")):
         if p.is_file():
@@ -88,11 +89,12 @@ def test_no_earlier_life_outcomes_in_the_model_facing_text(tmp_path: Path):
         for m in ANECDOTE.finditer(text):
             hits.append(f"{name}: ...{text[max(0, m.start() - 40):m.end() + 40]!r}")
     assert not hits, "\n".join(hits)
-    # the rules the review checked are still there
-    mc = (tmp_path / "skills" / "minecraft" / "SKILL.md").read_text()
+    # the rules the review checked are still there (gen 4: one reference file, not two skills)
+    from mcu_worldmodel import skills as K
+    mc = K.MINECRAFT_REFERENCE
     assert "nearest water's edge" in mc and "18 or more" in mc and "4 wide x 5 tall" in mc
-    mn = (tmp_path / "skills" / "mining" / "SKILL.md").read_text()
-    assert "a dig, not a search" in mn and "Expose, then look, then break" in mn
+    assert "Finding ore you have never seen" in mc and "Parallel tunnels" in mc and "--y-profile" in mc
+    assert not mc.startswith("---")                                        # a reference, no skill frontmatter
 
 
 def test_codex_home_blocks_the_bundled_skills(tmp_path: Path):

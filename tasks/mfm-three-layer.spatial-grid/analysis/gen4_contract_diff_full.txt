@@ -1,0 +1,390 @@
+# FULL arm (gen4-full) vs gen 2 (b2f8c832) -- same rendering
+--- gen2/AGENTS.md	2026-09-10 05:11:10.731121589 +0800
++++ full/AGENTS.md	2026-09-10 05:21:56.835199637 +0800
+@@ -20,14 +20,22 @@
+ if it works). Then write the file:
+ - `./actions.json` -- REQUIRED. `{"actions": [...]}`, see below.
+ 
+-**Tools**: Read, Bash, Grep, Glob to read the log and the episode index; `view_image <png>` to LOOK at a frame -- the attached view, any episode's `observation/image.png` (this life's or an earlier life's under `previous/`), a sheet from `--sheet`, a crop from `tools/zoom.py`; Write to create `actions.json`, which is **deleted before your turn starts**: create it, do not edit it.
++**Tools**: Read, Bash, Grep, Glob to read the log and the episode index; `view_image <png>` to LOOK at a frame -- the attached view, any episode's `observation/image.png` (this life's or an earlier life's under `previous/`), a sheet from `--sheet`, a crop from `tools/zoom.py`; Write to create `actions.json`, which is **deleted before your turn starts**: create it, do not edit it. The
++runner validates it and reports a parse error as a `[NOTE]`: do not spend a cell
++validating it yourself.
+ 
+ **Memory.** `./logs.txt` and `episodes/` are the complete record of this life
+-(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
+-[--sheet out.png] [--then-now <id>] --q "<question>"`); `previous/life_<i>/` the earlier lives in this same world; `mine/` is yours
+-and is carried to your next life, and `mine/working.md` is put in front of you every turn. The log knows where; the frame
+-knows what: `view_image` a frame before you walk to a remembered place, after a hit,
+-and when a plan's outcome surprised you.
++(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text | --ores
++| --y-profile [--sheet out.png] [--then-now <id>] --q "<question>"`); `previous/life_<i>/` the earlier lives in this same world; `mine/`
++is yours and is carried to your next life; `mine/working.md` (what you are doing now, under
++40 lines) is put in front of you every turn; `mine/digest.md` (what is true of this world
++across lives: 20 one-line facts at most, every place with the episode whose frame shows it,
++never step notes) is yours to read -- after a compaction, before a new stage -- and is shown
++unasked only at the start of a life.
++The log knows where; the frame knows what: `view_image` a frame before you walk to a
++remembered place and, on arrival, `./tools/episodes.py --then-now <that episode> --q "..."`
++once (this life's, or an earlier life's under `previous/`); look after a hit, and when a
++plan's outcome surprised you -- one look per plan is the budget; a routine step needs none.
+ 
+ **Previous lives.** `previous/life_<i>/` holds the complete records of earlier runs in THIS SAME WORLD (same
+ seed, same spawn), oldest first: each one's `logs.txt` (the same [STATE]/[NOTE]/[EVENT]
+@@ -43,7 +51,7 @@
+ [STATE].
+ Your first turn is the workshop turn (`skills/memory/SKILL.md`): read them before you play.
+ 
+-**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is installed for you: `skills/reflexes/SKILL.md` names the classes, `skills/reflexes/scripts/` holds examples to copy into `mine/reflexes/` in your first turn.
++**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is installed for you: `skills/reflexes/SKILL.md` names the classes, `skills/reflexes/scripts/` holds examples to copy into `mine/reflexes/` in your first turn. Natural healing needs the food bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat when the bar is below 18 (the starving example does it when you carry food).
+ 
+ Each entry in `actions.json` is either a raw action held for N ticks:
+ 
+@@ -71,36 +79,36 @@
+ dropped and you are told so in a [NOTE]. To throw a stack away use the `discard_stack`
+ procedure (below); it is the one way to shed junk here.
+ 
+-**Procedures** (name, arguments, one line each; full descriptions, preconditions and
+-the notes on each: `references/procedures.md`):
+-- `look(pitch=<degrees, + is down>, yaw=<degrees, + is right>)` -- Turn the camera by a relative (pitch, yaw) in degrees, in safe increments.
+-- `look_at(x=<world x>, y=<world y>, z=<world z>)` -- Aim the crosshair at a WORLD coordinate (exact, from [STATE] ground truth).
+-- `look_abs(pitch=<target pitch in degrees (+down, -up), or null to keep>, yaw=<target yaw in degrees, or null to keep>, ticks=<tick budget (default 40)>)` -- Steer the camera to an ABSOLUTE pitch/yaw, closed-loop against [STATE] every tick (works from any starting pose; `look` is relative).
+-- `go_to(x=<world x>, z=<world z>, within=<stop distance in blocks (default 1.5)>, n=<max ticks>)` -- Walk to a WORLD (x, z), re-aiming against [STATE] every tick until within reach.
+-- `mine_ahead(n=<max ticks>, ore_watch=<true to re-enable sightings>)` -- Hold attack on exactly what the crosshair is on -- no re-aiming, no walking.
+-- `equip_hotbar(slot=<1-9>)` -- Select hotbar slot 1-9.
++**Procedures** (name and arguments, defaults where they exist; the full descriptions,
++preconditions and notes on each: `references/procedures.md`):
++- `look(pitch, yaw)` -- Turn the camera by a relative (pitch, yaw) in degrees, in safe increments.
++- `look_at(x, y, z)` -- Aim the crosshair at a WORLD coordinate (exact, from [STATE] ground truth).
++- `look_abs(pitch, yaw, ticks=40)` -- Steer the camera to an ABSOLUTE pitch/yaw, closed-loop against [STATE] every tick (works from any starting pose; `look` is relative).
++- `go_to(x, z, within=1.5, n)` -- Walk to a WORLD (x, z), re-aiming against [STATE] every tick until within reach.
++- `mine_ahead(n, ore_watch)` -- Hold attack on exactly what the crosshair is on -- no re-aiming, no walking.
++- `equip_hotbar(slot)` -- Select hotbar slot 1-9.
+ - `open_inventory()` -- Press E to open the inventory GUI.
+-- `close_inventory(force=<true to close anyway and drop what the cursor holds>)` -- Press E to close the screen.
+-- `stow_items(grid=<2x2 or 3x3 -- which craft grid the open screen has>, cells=<occupied cell indices to clear, e.g. [0, 4]>)` -- Bank the cursor stack and the named craft cells into empty inventory slots (deposits the cursor first, then lifts each cell and banks it), so the screen can close without dropping anything.
+-- `discard_stack(slot=<0-35>)` -- Throw a whole inventory stack away (there is no drop key): opens the inventory, lifts the stack in `slot`, force-closes so it lands on the floor, and steps back so you do not pick it up again.
+-- `collect_drops(ticks=<sweep budget, 24-240 (default 48)>)` -- Walk a small out-and-back sweep to pick up floating item drops; stops the moment the inventory count rises, and says so either way.
+-- `cursor_to_slot(slot=<0-35>)` -- Land the cursor ON a player inventory slot, by its [INV] slot id.
+-- `cursor_to_cell(grid=<2x2, 3x3 or furnace>, cell=<row-major index (furnace: 0=smelt input, 1=fuel), or "out">)` -- Land the cursor ON a crafting or furnace cell (or the output).
++- `close_inventory(force)` -- Press E to close the screen.
++- `stow_items(grid, cells)` -- Bank the cursor stack and the named craft cells into empty inventory slots (deposits the cursor first, then lifts each cell and banks it), so the screen can close without dropping anything.
++- `discard_stack(slot)` -- Throw a whole inventory stack away (there is no drop key): opens the inventory, lifts the stack in `slot`, force-closes so it lands on the floor, and steps back so you do not pick it up again.
++- `collect_drops(ticks=48)` -- Walk a small out-and-back sweep to pick up floating item drops; stops the moment the inventory count rises, and says so either way.
++- `cursor_to_slot(slot)` -- Land the cursor ON a player inventory slot, by its [INV] slot id.
++- `cursor_to_cell(grid, cell)` -- Land the cursor ON a crafting or furnace cell (or the output).
+ - `gui_click()` -- Left-click at the cursor (pick up / place a stack).
+ - `gui_right_click()` -- Right-click at the cursor (place one item).
+-- `craft(item=<recipe name from the list>, count=<crafts to run (default 1; e.g. planks count=2 -> 8 planks)>, slot=<optional slot to bank into>)` -- ONE call crafts a recipe from your real inventory: lifts each ingredient, right-clicks one into every cell, puts the remainder back, takes the output `count` times, banks it (tools go to the hotbar) and verifies craft_item.
+-- `place_and_open(item=<crafting_table or furnace>)` -- Put your crafting_table or furnace on the ground one block ahead and open its screen (moves it to the hotbar first if needed, verifies the placement on use_item and the screen kind).
+-- `furnace_load(item=<what to smelt (iron_ore, gold_ore, a log for charcoal...)>, n=<items to load, 0 = all (default)>, fuel=<auto (default) or a fuel item name>)` -- Load the open furnace: n of item (0 = the whole stack) into the smelt cell and enough fuel into the fuel cell (auto picks coal > charcoal > planks > logs > sticks).
+-- `furnace_take(item=<expected output, e.g. iron_ingot (optional)>, slot=<optional slot to bank into>)` -- Take the finished output out of the open furnace and bank it (checks the output cell is not empty first; reports what arrived).
+-- `drop_and_pickup(slot=<0-35>)` -- Throw the stack in `slot` on the floor and walk over it, so the game counts a `pickup` of it.
+-- `place_at(x=<block x>, y=<block y>, z=<block z>, item=<block to place>, face=<below|above|north|south|west|east (the neighbour to click)>)` -- Put `item` INTO the block cell (x, y, z) by clicking a face of the block it rests on (default: the block BELOW it, i.e.
+-- `use_at(x=<block x>, y=<block y>, z=<block z>, item=<item to hold (optional)>, face=<below (default) | above | north | south | west | east>, hold=<ticks to hold use (default 1)>)` -- Right-click a face of the block at (x, y, z) with `item` selected: pour a water bucket (item=water_bucket, the ground block), light with flint_and_steel, till with a hoe, plant seeds on farmland, shear a pumpkin, open a door / bed, or `item` omitted = use the block with what you hold (a chest, a door).
+-- `use_held(item=<item to select (optional: keep what is held)>, hold=<ticks to hold (default 32)>)` -- Hold `use` with an item selected: draw a bow (hold>=25 then it releases), drink a potion (32), look through a spyglass, raise a shield (hold as long as you want to block).
+-- `fill_bucket(ticks=<sweep budget (default 260: 25 aims of ~9 ticks)>)` -- Fill an EMPTY bucket at water you can see: holds the bucket and sweeps the crosshair over the ground ahead (pitch 18-60, yaw +-40), tapping use at each aim until a filled bucket appears in the inventory (verified on the inventory; it names water_bucket / lava_bucket / milk_bucket, whatever the sweep met).
+-- `throw(item=<throwable item name>, n=<how many (default 1)>)` -- Throw a snowball / egg / ender pearl / eye of ender: taps use `n` times with the item selected; verified on the count going down.
+-- `eat(item=<food item (optional)>)` -- Eat food (the best carried when unnamed); holds use ~40 ticks.
+-- `watch(until=<condition (default none)>, n=<ticks, max 400 (default 60)>)` -- Do nothing for up to `n` ticks and stop the moment `until` holds, read from the game's own numbers: none (a plain wait), inventory (any count changes), gui (a screen opens), health, damage, y_below:<v>, y_above:<v>, moved:<blocks>.
+-- `pillar_up(n=<blocks (1-30)>, item=<block name (optional)>)` -- Jump and place `n` blocks under your feet (each verified on the measured y): a tower to stand on, a lookout, an escape from a mob.
++- `craft(item, count=1; e.g. planks count=2 -> 8 planks, slot)` -- ONE call crafts a recipe from your real inventory: lifts each ingredient, right-clicks one into every cell, puts the remainder back, takes the output `count` times, banks it (tools go to the hotbar) and verifies craft_item.
++- `place_and_open(item)` -- Put your crafting_table or furnace on the ground one block ahead and open its screen (moves it to the hotbar first if needed, verifies the placement on use_item and the screen kind).
++- `furnace_load(item, n, fuel)` -- Load the open furnace: n of item (0 = the whole stack) into the smelt cell and enough fuel into the fuel cell (auto picks coal > charcoal > planks > logs > sticks).
++- `furnace_take(item, slot)` -- Take the finished output out of the open furnace and bank it (checks the output cell is not empty first; reports what arrived).
++- `drop_and_pickup(slot)` -- Throw the stack in `slot` on the floor and walk over it, so the game counts a `pickup` of it.
++- `place_at(x, y, z, item, face)` -- Put `item` INTO the block cell (x, y, z) by clicking a face of the block it rests on (default: the block BELOW it, i.e.
++- `use_at(x, y, z, item, face, hold=1)` -- Right-click a face of the block at (x, y, z) with `item` selected: pour a water bucket (item=water_bucket, the ground block), light with flint_and_steel, till with a hoe, plant seeds on farmland, shear a pumpkin, open a door / bed, or `item` omitted = use the block with what you hold (a chest, a door).
++- `use_held(item, hold=32)` -- Hold `use` with an item selected: draw a bow (hold>=25 then it releases), drink a potion (32), look through a spyglass, raise a shield (hold as long as you want to block).
++- `fill_bucket(ticks=260: 25 aims of ~9 ticks)` -- Fill an EMPTY bucket at water you can see: holds the bucket and sweeps the crosshair over the ground ahead (pitch 18-60, yaw +-40), tapping use at each aim until a filled bucket appears in the inventory (verified on the inventory; it names water_bucket / lava_bucket / milk_bucket, whatever the sweep met).
++- `throw(item, n=1)` -- Throw a snowball / egg / ender pearl / eye of ender: taps use `n` times with the item selected; verified on the count going down.
++- `eat(item)` -- Eat food (the best carried when unnamed); holds use ~40 ticks.
++- `watch(until=none, n=60)` -- Do nothing for up to `n` ticks and stop the moment `until` holds, read from the game's own numbers: none (a plain wait), inventory (any count changes), gui (a screen opens), health, damage, y_below:<v>, y_above:<v>, moved:<blocks>.
++- `pillar_up(n, item)` -- Jump and place `n` blocks under your feet (each verified on the measured y): a tower to stand on, a lookout, an escape from a mob.
+ 
+ This run's procedure set is the ATOMS above: the task-shaped macros (a tree, a strip mine, a shaft, the obsidian, the portal, the Nether, the End) are not provided. Compose them from the atoms and raw actions; when a composition has worked twice, keep it as your own procedure.
+ 
+diff -ru gen2/skills/harness/SKILL.md full/skills/harness/SKILL.md
+--- gen2/skills/harness/SKILL.md	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/harness/SKILL.md	2026-09-10 05:21:56.839199637 +0800
+@@ -1,6 +1,6 @@
+ ---
+ name: harness
+-description: How this run's loop works, what the runner does and does not do for you, the economics of turns versus steps, and the do-not list from the earlier runs.
++description: How this run's loop works, what the runner does and does not do for you, the economics of turns versus steps, and the do-not list.
+ ---
+ 
+ # Harness
+@@ -20,19 +20,19 @@
+ everything, run your reflexes every 4 ticks, carry `mine/` and the records to your next
+ life. Does NOT: guard you (no lava stop, no fall stop, no pillar or bunker on a hit, no
+ water refusal), refuse a repeated plan, nudge you toward a sword or a torch. The notes
+-that say "the runner did X for you" in `references/survival.md` describe OTHER runs;
++that say "the runner did X for you" in `references/survival.md` describe the guarded mode;
+ here those are your reflexes' jobs.
+ 
+ ## Economics
+ 
+ A turn costs about a minute of wall clock; a game step costs almost nothing. The run
+-ends at a step budget AND a wall-clock cap, and every self-built run so far hit the
+-wall clock first (1.7-3.1k steps per hour, against 4-7k for a fixed library). So:
++ends at a step budget AND a wall-clock cap, and a life that checks after every block
++hits the wall clock first. So:
+ plans that run long between turns beat plans that check after every block; a script
+ that saves a turn pays for itself on its second call; a workshop turn that writes a
+ skill you call twenty times is the best turn of the life.
+ 
+-## Do-not list (each line cost an earlier run its night or its life)
++## Do-not list
+ 
+ - Do not re-issue an unchanged plan at the same spot; change the target, the tool, or
+   the place.
+diff -ru gen2/skills/memory/SKILL.md full/skills/memory/SKILL.md
+--- gen2/skills/memory/SKILL.md	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/memory/SKILL.md	2026-09-10 05:21:56.835199637 +0800
+@@ -40,8 +40,8 @@
+ 
+ The first turn of a life with `previous/` is a WORKSHOP, not a play turn: read the
+ lives' digests, notes and death lines, run the query tool over them, write or update
+-`mine/digest.md` (verified places with coordinates and the life/step they come from,
+-what each life died of and where, which scripts and reflexes earned their keep and
++`mine/digest.md` (verified places with coordinates, the life/step they come from and
++the episode id whose frame shows the place, what each life died of and where, which scripts and reflexes earned their keep and
+ which assumptions broke), copy the scripts worth keeping into `mine/procedures/` and
+ `mine/reflexes/`, and only then plan. One no-op plan is a fine end to a workshop turn:
+ turns cost wall clock, not game steps.
+@@ -56,9 +56,8 @@
+ before you walk to a remembered place and on arrival (`--then-now`), after a hit (the
+ frame at the hit shows what hit you), when `OBSERVED vs EXPECTED` disagree (the entry's
+ frame is cited beside the outcome), before a route across ground you have not walked,
+-and when a plan failed twice for a reason you cannot name. The 22 runs before this one
+-opened an earlier episode's frame 32 times in 850,000 steps and an earlier life's 3
+-times; every one of those looks was after a stall, none before a walk.
++and when a plan failed twice for a reason you cannot name. Look before the walk, not
++after the stall.
+ 
+ ## Working memory
+ 
+@@ -73,11 +72,10 @@
+ After `YOU DIED`, before you rebuild anything: `./tools/episodes.py --steps <death-60>
+ <death> --sheet death.png --q "what killed me"`, view it, and write one line into
+ `mine/digest.md` (or `GUIDE.md`): step, place, cause, what you will refuse next time.
+-The frame tells a burn from a mob: flames over the lower view, orange at the feet. Of
+-the 20 deaths in the earlier runs, 11 were lava or fire, 5 a mob, and 3 happened within
+-5 blocks of a place the same life had already written down as lava or a death --
+-recorded, and never turned into a refusal. `skills/memory/scripts/death_sheet.py` does
+-the tiling for the last death in the log.
++The frame tells a burn from a mob: flames over the lower view, orange at the feet. A
++place written down as lava or a death is worth nothing until a reflex refuses to walk
++into it. `skills/memory/scripts/death_sheet.py` does the tiling for the last death in
++the log.
+ 
+ ## Record every firing and every death
+ 
+diff -ru gen2/skills/procedures/scripts/stair_step.py full/skills/procedures/scripts/stair_step.py
+--- gen2/skills/procedures/scripts/stair_step.py	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/procedures/scripts/stair_step.py	2026-09-10 05:21:56.835199637 +0800
+@@ -1,7 +1,7 @@
+ """stair_step: one step of a staircase DOWN along the heading -- foot block, head block, step in."""
+ # Example procedure (harness-written; copy it to mine/procedures/ and make it yours). The
+ # grain a skill should have: one phase step, ~120 ticks, composed of atoms, with guards on
+-# the pose that made it work. og14's north_stair (55 calls) is the same shape.
++# the pose that made it work.
+ import json, math, sys
+ PARAMS = {"yaw": "heading to dig along (default: the current yaw, snapped to 90)",
+           "pick": "hotbar slot 1-9 holding the pickaxe (default: the first pickaxe found)"}
+diff -ru gen2/skills/procedures/SKILL.md full/skills/procedures/SKILL.md
+--- gen2/skills/procedures/SKILL.md	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/procedures/SKILL.md	2026-09-10 05:21:56.835199637 +0800
+@@ -23,8 +23,8 @@
+   turn: a staircase step, a tunnel segment with its torch, a GUI craft with its
+   verification, a bucket fill from a bank, a pour and a scoop at a pool.
+ - One-block scripts (break one stone, walk one block) are not skills: they cost a turn
+-  each to call and a turn each to check, and the runs that wrote them (24 of them in
+-  one life) moved a block at a time all night.
++  each to call and a turn each to check; a library of them moves a block at a time all
++  night.
+ - Every script guards the pose it was tested from: heading, stable y, the tool in the
+   hotbar, a screen closed. Raise SystemExit with the reason when a guard fails -- the
+   note tells you what to fix, and nothing runs.
+@@ -33,26 +33,21 @@
+ - Write a skill after the same sequence worked TWICE by hand; call it by name from then
+   on. A script you never call again was a turn spent on nothing.
+ 
+-## Where the budget went (the 22 runs before this one)
++## Where the budget goes
+ 
+-From nothing (the full task), the runs with a fixed library took 6,500-7,900 steps from
+-the first log to the iron pickaxe and about 11,000 to the first diamond, in a 12,000-step
+-budget; from the kit (the half task) the kit and the diamond tools took 2,000-6,000 steps.
+-Then the runs that got furthest
+-spent most of their steps between the diamond tools and the lighter -- water, gravel,
+-flint, the bucket: 6,000 to 31,000 steps -- and between the first obsidian and a lit
+-portal: 5,000 to 19,000, with one run spending 19,000 steps after its obsidian and never
+-lighting one; the one run that entered the Nether spent 12,000 steps there without a
+-blaze rod. Write the phase skills for water/gravel/flint and for pour -> frame -> light
+-before you polish a staircase; those are the turns the budget rewards.
++The wooden and stone phases are short and the iron pickaxe is a few thousand steps; the
++first diamond is the first long search. After the diamond tools the long stretches are
++water, gravel, flint and the bucket, then obsidian -> frame -> a lit portal, then the
++Nether without a blaze rod. Write the phase skills for water/gravel/flint and for pour ->
++frame -> light before you polish a staircase; those are the turns the budget rewards.
+ 
+ ## Reuse before rewrite
+ 
+ Your earlier lives' scripts are under `previous/life_<i>/mine/procedures/`. Read their
+ docstrings and notes in the workshop turn; copy the ones whose assumptions still hold
+-into `mine/procedures/` UNDER THEIR OWN NAMES (they are not copied for you; every one of
+-the last five lives rewrote its staircase step from scratch under a new name). A script that failed in an
+-earlier life has the failure in that life's notes -- fix the assumption, do not rerun it.
++into `mine/procedures/` UNDER THEIR OWN NAMES (they are not copied for you; a rewrite
++under a new name loses its call history). A script that failed in an earlier life has the
++failure in that life's notes -- fix the assumption, do not rerun it.
+ 
+ ## Examples
+ 
+Only in full/skills/reflexes/scripts: burning.py
+diff -ru gen2/skills/reflexes/scripts/hit.py full/skills/reflexes/scripts/hit.py
+--- gen2/skills/reflexes/scripts/hit.py	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/reflexes/scripts/hit.py	2026-09-10 05:21:56.839199637 +0800
+@@ -1,13 +1,17 @@
+-"""hit: 3+ health lost in four ticks with no lava in view -- a mob; stop, decide, act."""
+-# Example reflex: monsters are reported on no channel; the health drop is the only sign.
+-# A plan standing still under hits (a dig, a sweep, a click) is how most deaths began.
+-# The stop hands you the turn at zero game-clock cost: wall the tunnel (place_at), pillar
+-# up two blocks (pillar_up), or fight with the sword selected -- your call, made now.
++"""hit: 3+ health lost in four ticks with no lava in view -- the source is UNKNOWN (a mob behind you, an arrow, a fall, fire, water); stop, look, act."""
++# Example reflex: monsters are reported on no channel; the health drop is the only sign,
++# and it does not say what hit you; a note that assumes "a mob" is wrong when you are
++# burning. The stop hands you the turn at
++# zero game-clock cost: view the frame of the entry that took the hit (`[RECALL]` and the
++# outcome cite it), then act on what you SEE: wall the tunnel or fight (a mob), step back
++# and pour water at your feet (fire), swim up or dig out (water), look before moving (a
++# fall). A plan standing still under hits (a dig, a sweep, a click) is how a death begins.
+ import json, sys
+ s = json.load(sys.stdin)
+ lost = s.get("health_prev", s["health"]) - s["health"]
+ if lost >= 3.0 and s["lava_frac"] < 0.01:
+     print(json.dumps({"stop": True,
+-                      "note": "took %.0f damage (health %.0f/20) with no lava in view: a mob is at you. "
+-                              "Do not keep digging or clicking -- wall off, pillar up, or fight now"
++                      "note": "took %.0f damage (health %.0f/20) with no lava in view -- source unknown: "
++                              "a mob, an arrow, a fall, fire or water. Look at the frame of this entry "
++                              "before the next plan; do not keep digging or clicking"
+                               % (lost, s["health"])}))
+diff -ru gen2/skills/reflexes/scripts/lava_ahead.py full/skills/reflexes/scripts/lava_ahead.py
+--- gen2/skills/reflexes/scripts/lava_ahead.py	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/reflexes/scripts/lava_ahead.py	2026-09-10 05:21:56.839199637 +0800
+@@ -1,7 +1,6 @@
+ """lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you -- stop, step back."""
+-# Example reflex (harness-written, yours to edit or retire): the runs that died in lava
+-# were all MOVING toward it -- a go_to, a mine_ahead, a raw walk -- with the orange already
+-# in the frame. Standing at a pool on purpose (fill_bucket, use_held, place_at, watch) is
++# Example reflex (harness-written, yours to edit or retire): a lava death is a MOVE
++# toward it -- a go_to, a mine_ahead, a raw walk -- with the orange already in the frame. Standing at a pool on purpose (fill_bucket, use_held, place_at, watch) is
+ # not a walk, so those entries are exempt. A walk covers ~0.9 blocks between two samples,
+ # so the threshold is low where lava is close (underground, the Nether): a pool three
+ # blocks ahead reads 2-3% of the lower view; the surface threshold is higher so a distant
+Only in full/skills/reflexes/scripts: slow_loss.py
+diff -ru gen2/skills/reflexes/scripts/starving.py full/skills/reflexes/scripts/starving.py
+--- gen2/skills/reflexes/scripts/starving.py	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/reflexes/scripts/starving.py	2026-09-10 05:21:56.839199637 +0800
+@@ -1,11 +1,29 @@
+-"""starving: the food bar crossing below 18 -- no natural healing from here; a note."""
+-# Example reflex: health regenerates only with the food bar at 18+; og18 spent 3,300 steps
+-# at 2/20 with food 17 and never ate. The note fires once at the crossing (and again if
+-# the bar keeps falling below 6), never every tick.
++"""starving: the food bar below 18 -- no natural healing from here; eats what you carry, else a note."""
++# Example reflex: health regenerates only with the food bar at 18+, and this engine drains
++# about one point per 4000 steps, so a life that never eats spends its second half unable
++# to heal. Fires only when the bar has just dropped a point: with food carried it runs `eat`
++# (one turn); with none it notes the crossing below 18 once; at health 10.5 with nothing to
++# eat it stops the plan once. Never every tick.
+ import json, sys
+ s = json.load(sys.stdin)
+ f, fp = s.get("food", 20), s.get("food_prev", 20)
+-if (fp >= 18 and f < 18) or (f <= 6 and fp > 6):
+-    print(json.dumps({"note": "food %.0f/20: no natural healing below 18. Eat (the eat atom) if you carry "
+-                              "food; if not, food before the next descent -- animals, berries, fish"
+-                              % f}))
++h, hp = s.get("health", 20), s.get("health_prev", 20)
++FOODS = ("cooked_beef", "cooked_porkchop", "cooked_mutton", "cooked_chicken", "steak",
++         "golden_apple", "bread", "cooked_cod", "cooked_salmon", "baked_potato", "apple",
++         "carrot", "melon_slice", "cookie", "beef", "porkchop", "mutton", "chicken",
++         "potato", "beetroot", "sweet_berries")
++inv = s.get("inventory") or {}
++food = next((k for k in FOODS if inv.get(k, 0) > 0), None)
++if f < 18 and f < fp and food and not s.get("gui_open"):
++    print(json.dumps({"actions": [{"procedure": "eat", "args": {"item": food}}],
++                      "note": "food %.0f/20 with %s carried: eating (no natural healing below 18)"
++                              % (f, food)}))
++elif f < 18 and fp >= 18:
++    print(json.dumps({"note": ("food %.0f/20: no natural healing from here; eat the %s once the GUI is closed"
++                               % (f, food)) if food else
++                              ("food %.0f/20 and nothing to eat: no natural healing from here. "
++                               "Any animal in view is one kill of food" % f)}))
++elif h <= 10.5 and hp > 10.5 and f < 18 and not food:
++    print(json.dumps({"stop": True,
++                      "note": "health %.0f/20, food %.0f/20, nothing to eat: you cannot heal until "
++                              "you eat" % (h, f)}))
+diff -ru gen2/skills/reflexes/SKILL.md full/skills/reflexes/SKILL.md
+--- gen2/skills/reflexes/SKILL.md	2026-09-10 05:11:10.731121589 +0800
++++ full/skills/reflexes/SKILL.md	2026-09-10 05:21:56.835199637 +0800
+@@ -1,12 +1,12 @@
+ ---
+ name: reflexes
+-description: The reflex layer -- tick-level guards you write before the event, the classes that killed earlier runs, the starters already installed, and how to keep or retire them.
++description: The reflex layer -- tick-level guards you write before the event, the classes of danger, the examples to copy, and how to keep or retire them.
+ ---
+ 
+ # Reflexes
+ 
+-A procedure runs when you call it, between turns. What killed the earlier runs happened
+-INSIDE a plan, between one turn and the next: lava coming into view on a walk, a hole
++A procedure runs when you call it, between turns. What kills a life happens INSIDE a
++plan, between one turn and the next: lava coming into view on a walk, a hole
+ under a go_to, a mob at your back in a dig, a slope down into the lava sea. A reflex is
+ a script of yours that runs every 4 ticks on the live numbers while your plan executes
+ and may stop the plan, leave a note for your next turn, and run a short plan of its own
+@@ -28,27 +28,32 @@
+   pillars you when hit, nothing refuses a repeated plan. Your reflexes are the tick
+   layer.
+ 
+-## The classes, from what killed the earlier runs
++## The classes
+ 
+-1. Lava in the lower view while a walk or a dig moves you (every lava death).
++1. Lava in the lower view while a walk or a dig moves you.
+ 2. A drop of 3+ blocks in a few ticks (holes, ledges, your own old shaft).
+-3. Health falling with no lava in view: a mob you cannot see (most deaths underground:
+-   the plan kept digging or clicking through the hits).
++3. Health falling with no lava in view -- THREE different things, three different
++   escapes: a mob you cannot see (wall off or fight), water over your head (swim up or
++   dig out), fire on you or lava under you after a pour or a cap broke (water at your
++   feet, step back the way you came). The frame at the hit tells which; do not assume
++   a mob.
+ 4. In the Nether, any walk with lava in view: every ledge ends in the lava sea at
+    y ~31; sneak, never sprint, never jump while moving, dig the way down.
+-5. The food bar below 18: no natural healing (a run sat at 2/20 for 3,000 steps).
++5. The food bar below 18: no natural healing.
+ 6. Your only water bucket: pouring it as an elevator leaves you empty at the lava.
+-7. A walk toward a place where you, or an earlier life, died or saw lava. Three of the
+-   twenty earlier deaths were within 5 blocks of a spot the same life had already written
+-   down; the log knew, nothing refused. The cheapest reflex there is: read the hazard
++7. A walk toward a place where you, or an earlier life, died or saw lava. The cheapest
++   reflex there is: read the hazard
+    lines from `mine/digest.md`/`mine/GUIDE.md`, stop the plan when you come within 6
+    blocks of one while moving. `skills/reflexes/scripts/known_hazards.py` is the example
+    -- copy it into `mine/reflexes/` once your digest has coordinates in it.
+ 
+ ## The examples
+ 
+-Under `skills/reflexes/scripts/`: `lava_ahead.py`, `fell.py`, `hit.py`, `starving.py`
+-(classes 1, 2, 3, 5) and `known_hazards.py` (class 7). Nothing is installed for you:
++Under `skills/reflexes/scripts/`: `lava_ahead.py`, `fell.py`, `hit.py`, `burning.py`,
++`slow_loss.py`, `starving.py` (classes 1, 2, 3, 3, 3, 5) and `known_hazards.py` (class 7).
++The state a reflex reads carries `lava_frac`, `fire_frac` and `water_frac` (shares of
++the view), `health`/`food`/`pos` and their `_prev`, `health_100` (100 ticks ago), the
++`entry` running, the hotbar and the inventory. Nothing is installed for you:
+ `mine/reflexes/` is empty until you copy a script into it (`cp
+ skills/reflexes/scripts/lava_ahead.py mine/reflexes/`), and from then on it runs every 4
+ ticks. Decide in your first turn which to copy, edit their thresholds, write the Nether

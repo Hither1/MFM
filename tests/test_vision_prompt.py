@@ -43,5 +43,5 @@ def test_recall_block_cites_frames():
     block = recall_block(rows, pos=(100.0, 100.0), exclude_last=0, streak_min=3)
     assert block.startswith("[RECALL]")
     assert "(frame: episodes/ep_00000" in block
-    assert block.rstrip().endswith("(the cited frame is there when one line is not enough.)")
+    assert block.rstrip().endswith("(one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)")
     assert "Frame: episodes/ep_00000" in block or "(frame: episodes/ep_00000" in block

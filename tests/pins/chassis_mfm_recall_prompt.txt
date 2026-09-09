@@ -28,7 +28,7 @@ GUI open: False
 
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
 - `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3). Frame: episodes/ep_000014/observation/image.png
-  (the cited frame is there when one line is not enough.)
+  (one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 `./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames; `view_image` opens a frame.

@@ -1,8 +1,11 @@
-"""Generation-3 contract and skill package (2026-09-09): Routines / Rules of play / Improve
-yourself in the minimal contract, the digest block beside [WORKING], the compact procedure
-index, the codex-native skill catalog (`.agents/skills` mirroring skills/ and mine/skills/),
-the six skills' trigger descriptions, the hit/burning/drowning reflex examples and the
-atoms-aware cut-short hint. Run with MFM_MCU_ROOT pointing at the MCU checkout under test."""
+"""Generation-4 contract and skill package (2026-09-10, the FULL arm of the gen-4 head-to-head):
+gen 2's minimal contract with the gen-3 neutral fixes and without its doctrine -- no Routines,
+Rules of play, Improve yourself or persistence sentence; the workshop sentence is gen 2's; the
+three gen-4 edits (the starving example eats, the hunger line in Safety, then-now on arrival
+and the episode id beside every digest place); four skills and no codex-native catalog; the
+game rules as references/minecraft.md; slow_loss.py in place of drowning.py; the digest block
+beside [WORKING], the compact procedure index, the atoms-aware cut-short hint. Run with
+MFM_MCU_ROOT pointing at the MCU checkout under test."""
 import json
 import os
 import re
@@ -29,39 +32,28 @@ def _contracts():
     return carried, scratch
 
 
-def test_minimal_contract_carries_routines_rules_and_self_improvement():
+def test_minimal_contract_is_gen_2_plus_the_three_edits():
     carried, scratch = _contracts()
-    for must in ("**Routines**", "workshop turn (`skills/memory/SKILL.md`)", "death_sheet.py",
-                 "three plans in a row that moved", "`[RECALL]` block",
-                 "**Rules of play**", "never replay a resource-consuming sequence",
-                 "A plan runs open-loop", "60+ steps per\n  plan", "Short plans are for a GUI",
-                 "`skills/minecraft`", "`skills/mining`",
-                 "**Improve yourself.**", "mine/skills/<name>/SKILL.md", "write the reflex now",
-                 "The moment\nis a banked milestone or a death",
-                 "`mine/digest.md` (what is true of this world\nacross lives: 20 one-line facts at most",
-                 "shown unasked only at the start of a life",
-                 "one look per\nplan is the budget", "`--then-now` once, on arrival",
-                 "at most one line after a\n  milestone or a death",
-                 "do not spend a cell\nvalidating it yourself",
-                 "Your context does not persist between turns (a fresh session each turn)",
-                 "--ores", "--y-profile"):
+    for must in ("workshop turn (`skills/memory/SKILL.md`): read them before you play",
+                 "./tools/episodes.py --then-now <that episode> --q \"...\"`\nonce (this life's, or an earlier life's under `previous/`)",
+                 "Natural healing needs the food bar at 18+", "eat when the bar is below 18",
+                 "every place with the episode whose frame shows it",
+                 "shown\nunasked only at the start of a life", "one look per plan is the budget",
+                 "do not spend a cell\nvalidating it yourself", "--ores", "--y-profile"):
         assert must in carried, must
-    # the wz1119 process rules that fit a step-by-step player, not this open-loop runner
-    # (2026-09-09 of3g: 6-step plans, a look after every hop), are gone from the contract
-    for gone in ("Stop a plan the moment terrain", "inspect footing, tool and surroundings",
-                 "Before crafting, inspect ingredients", "Budget tools, materials, lighting",
-                 "update `mine/digest.md` with what holds across lives"):
+    # gen 3's doctrine is gone: the 16/24 life never had it (analysis/gen4_plan_2026-09-10.md)
+    for gone in ("**Routines**", "**Rules of play**", "**Improve yourself", "death_sheet.py",
+                 "three plans in a row", "A plan runs open-loop", "never replay a resource-consuming",
+                 "mine/skills/<name>/SKILL.md", "Your context does not persist", "Your thread persists",
+                 "`skills/minecraft`", "`skills/mining`", "[RECALL]"):
         assert gone not in carried, gone
-    # the workshop routine belongs to lives with previous/ only; the rest is shared
     assert "workshop turn" not in scratch and "**Previous lives.**" not in scratch
-    assert "**Routines**" in scratch and "**Rules of play**" in scratch
-    # the contract is read at the start of every session: keep it priced
-    assert len(carried.encode()) < 14000, len(carried.encode())
-    # rules, not places: no world coordinate anywhere in the contract
-    assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", carried)
+    assert "Natural healing needs the food bar at 18+" in scratch
+    assert len(carried.encode()) < 12000, len(carried.encode())
+    assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", carried)        # rules, not places
 
 
-def test_one_thread_contract_says_the_thread_persists():
+def test_one_thread_flag_changes_nothing_in_the_contract():
     from mcu_worldmodel import prompts
     from mcu_worldmodel import procedures as P
     P.set_visible(P.ATOMS)
@@ -70,23 +62,7 @@ def test_one_thread_contract_says_the_thread_persists():
     one = prompts.minimal_contract(one_thread=True, **kw)
     fresh = prompts.minimal_contract(one_thread=False, **kw)
     P.set_visible(None)
-    assert "Your thread persists between turns" in one and "do not rewrite a file nothing" in one
-    assert "does not persist" not in one
-    assert "Your context does not persist between turns (a fresh session each turn)" in fresh
-    assert "Your thread persists" not in fresh
-
-
-def test_skill_triggers_are_once_per_stage():
-    from mcu_worldmodel import skills
-    for name, text in skills.HARNESS_SKILLS.items() if hasattr(skills, "HARNESS_SKILLS") else []:
-        pass
-    src = open(Path(skills.__file__)).read()
-    assert "read its SKILL.md once, when that situation first arises" in src
-    assert "a skill\nis read once per stage, not once per turn" in src
-    assert "Use once per stage, when it begins" in src            # minecraft
-    assert "Not for routine navigation; one read per occasion" in src   # memory
-    assert "Use once, the first time the runner surprises you" in src   # harness
-    assert "verified by looking at what stands" in src            # the geometry rule moved here
+    assert one == fresh and "persist" not in one
 
 
 def test_compact_procedure_index_keeps_names_and_defaults_only():
@@ -100,41 +76,30 @@ def test_compact_procedure_index_keeps_names_and_defaults_only():
     assert compact.count("\n") == full.count("\n")           # every atom is still listed
 
 
-def test_skill_package_has_six_trigger_skills_and_a_native_catalog(tmp_path: Path):
+def test_skill_package_is_gen_2s_four_skills_and_the_minecraft_reference(tmp_path: Path):
     from mcu_worldmodel import skills as K
     written = K.write_skills(tmp_path)
     names = sorted(p.name for p in (tmp_path / "skills").iterdir())
-    assert names == ["harness", "memory", "minecraft", "mining", "procedures", "reflexes"]
+    assert names == ["harness", "memory", "procedures", "reflexes"]
     for n in names:
         text = (tmp_path / "skills" / n / "SKILL.md").read_text()
         desc = re.search(r"^description: (.*)$", text, re.M).group(1)
-        assert desc.startswith("Use "), (n, desc[:60])         # a trigger, not a summary
-        assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", text), n  # rules, not places
-    mc = (tmp_path / "skills" / "minecraft" / "SKILL.md").read_text()
-    assert "4 wide x 5 tall" in mc and "18 or more" in mc and "DIAMOND pickaxe" in mc
-    mn = (tmp_path / "skills" / "mining" / "SKILL.md").read_text()
-    assert "--y-profile" in mn and "Principles" in mn and "Expose, then look, then break" in mn
-    assert "every 3rd block" not in mn and "every 8-10 blocks" not in mn      # principles, not a recipe (user, 2026-09-09)
-    # the codex-native catalog: .agents/skills/<name> -> ../../skills/<name>, resolving to SKILL.md
-    cat = tmp_path / ".agents" / "skills"
-    assert sorted(p.name for p in cat.iterdir()) == names
-    for n in names:
-        assert (cat / n).is_symlink() and (cat / n / "SKILL.md").is_file()
-        assert os.readlink(cat / n) == f"../../skills/{n}"
-    # the model's own skills join the catalog on sync, and leave it when deleted
-    own = tmp_path / "mine" / "skills" / "portal_check"
-    own.mkdir(parents=True)
-    (own / "SKILL.md").write_text("---\nname: portal_check\ndescription: Use before igniting.\n---\n")
-    (tmp_path / "mine" / "skills" / "half").mkdir()             # no SKILL.md: not a skill
-    linked = K.sync_skill_catalog(tmp_path)
-    assert "portal_check" in linked and "half" not in linked
-    assert os.readlink(cat / "portal_check") == "../../mine/skills/portal_check"
-    assert (cat / "portal_check" / "SKILL.md").is_file()
-    (own / "SKILL.md").unlink()
-    K.sync_skill_catalog(tmp_path)
-    assert not (cat / "portal_check").exists() and not (cat / "portal_check").is_symlink()
-    assert "skills/reflexes/scripts/burning.py" in written and "skills/reflexes/scripts/drowning.py" in written
-    assert "mine/skills/<name>" in K.SKILLS_NOTE and "`minecraft`, `mining`" in K.SKILLS_NOTE
+        assert not desc.startswith("Use "), (n, desc[:60])     # gen 2's summaries, not gen 3's triggers
+        assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", text), n
+    assert not (tmp_path / ".agents").exists()                   # no codex-native catalog
+    assert "Read all\nfour in your first turn" in K.SKILLS_NOTE and "mine/skills" not in K.SKILLS_NOTE
+    assert "the episode id whose frame shows the place" in (tmp_path / "skills" / "memory" / "SKILL.md").read_text()
+    rx = (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
+    assert "`slow_loss.py`" in rx and "drowning.py" not in rx and "`health_100` (100 ticks ago)" in rx
+    assert "skills/reflexes/scripts/slow_loss.py" in written and "skills/reflexes/scripts/drowning.py" not in written
+    mc = K.MINECRAFT_REFERENCE
+    for must in ("# Minecraft: the rules this world follows", "4 wide x 5 tall", "18 or more", "DIAMOND pickaxe",
+                 "respawn", "BED", "GOLD armour", "eight in the Overworld", "The void",
+                 "Bow = 3 sticks + 3 string", "silverfish", "iron cages", "Piglins",
+                 "## Finding ore you have never seen", "--y-profile"):
+        assert must in mc, must
+    assert not mc.startswith("---") and not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", mc)
+    assert "every 3rd block" not in mc and "every 8-10 blocks" not in mc  # principles, not a recipe
 
 
 def _run_reflex(tmp_path: Path, name: str, state: dict) -> dict | None:
@@ -148,11 +113,11 @@ def _run_reflex(tmp_path: Path, name: str, state: dict) -> dict | None:
     return json.loads(out.stdout) if out.stdout.strip() else None
 
 
-def test_reflex_examples_name_the_unknown_source_fire_and_water(tmp_path: Path):
+def test_reflex_examples_name_the_unknown_source_fire_and_the_slow_loss(tmp_path: Path):
     pos = {"x": 1.0, "y": 11.0, "z": 2.0, "pitch": 0.0, "yaw": 0.0}
     base = {"pos": pos, "pos_prev": pos, "health": 9.0, "health_prev": 10.0, "food": 15, "food_prev": 15,
             "lava_frac": 0.0, "fire_frac": 0.0, "water_frac": 0.0, "hotbar": [], "entry": "mine_ahead",
-            "gui_open": False, "dimension": "overworld"}
+            "gui_open": False, "dimension": "overworld", "inventory": {}}
     hit = _run_reflex(tmp_path, "hit.py", {**base, "health": 6.0})
     assert hit and hit["stop"] and "source unknown" in hit["note"] and "mob is at you" not in hit["note"]
     burn = _run_reflex(tmp_path, "burning.py", {**base, "lava_frac": 0.05,
@@ -161,18 +126,23 @@ def test_reflex_examples_name_the_unknown_source_fire_and_water(tmp_path: Path):
     assert "actions" not in burn                                  # no automatic step back
     walking = {**base, "lava_frac": 0.05, "pos_prev": {**pos, "x": 3.5}}
     assert _run_reflex(tmp_path, "burning.py", walking) is None   # a walk: lava_ahead's job
-    # starving: a note at the 18 crossing, a STOP when health is low with no healing or food is nearly out
+    # starving: eat what you carry when the bar drops below 18; a note with nothing to eat;
+    # a stop at health 10.5 with nothing to eat
     st = _run_reflex(tmp_path, "starving.py", {**base, "health": 12.0, "health_prev": 12.0, "food": 17, "food_prev": 18})
-    assert st and "stop" not in st and "no natural healing below 18" in st["note"]
-    st2 = _run_reflex(tmp_path, "starving.py", {**base, "health": 9.0, "health_prev": 12.0, "food": 15, "food_prev": 15})
+    assert st and "stop" not in st and "actions" not in st and "nothing to eat" in st["note"]
+    eat = _run_reflex(tmp_path, "starving.py", {**base, "health": 12.0, "health_prev": 12.0, "food": 17, "food_prev": 18,
+                                                 "inventory": {"porkchop": 3}})
+    assert eat and eat["actions"] == [{"procedure": "eat", "args": {"item": "porkchop"}}] and "stop" not in eat
+    st2 = _run_reflex(tmp_path, "starving.py", {**base, "health": 10.0, "health_prev": 12.0, "food": 15, "food_prev": 15})
     assert st2 and st2["stop"] and "cannot heal" in st2["note"]
-    st3 = _run_reflex(tmp_path, "starving.py", {**base, "health": 18.0, "health_prev": 18.0, "food": 5, "food_prev": 7})
-    assert st3 and st3["stop"]
+    assert _run_reflex(tmp_path, "starving.py", {**base, "health": 18.0, "health_prev": 18.0, "food": 5, "food_prev": 7}) is None
     assert _run_reflex(tmp_path, "starving.py", {**base, "health": 18.0, "health_prev": 18.0, "food": 15, "food_prev": 15}) is None
-    drown = _run_reflex(tmp_path, "drowning.py", {**base, "water_frac": 0.6})
-    assert drown and drown["stop"] and "DROWNING" in drown["note"]
-    assert drown["actions"][0]["action"] == {"jump": 1}
-    assert _run_reflex(tmp_path, "drowning.py", base) is None
+    # slow_loss: the drowning class without a water detector (dark water reads 0)
+    slow = _run_reflex(tmp_path, "slow_loss.py", {**base, "health": 9.0, "health_prev": 9.5, "health_100": 12.5})
+    assert slow and slow["stop"] and "100 ticks" in slow["note"] and "swim up" in slow["note"]
+    assert _run_reflex(tmp_path, "slow_loss.py", {**base, "health": 9.0, "health_prev": 12.5, "health_100": 12.5}) is None
+    assert _run_reflex(tmp_path, "slow_loss.py", {**base, "health": 9.0, "health_prev": 9.5, "health_100": 12.5, "fire_frac": 0.1}) is None
+    assert _run_reflex(tmp_path, "slow_loss.py", base) is None
 
 
 def test_digest_block_beside_working_and_the_forty_line_rule(tmp_path: Path):
@@ -282,7 +252,7 @@ def test_atoms_references_are_macro_free_and_keep_recipes_and_write_down():
                   "enter_end(", "break_crystal(", "attack_dragon(", "sleep_in_bed(", "explore_nether(",
                   "fetch_water(", "scan_around(", "travel_bearing("):
         assert macro not in sk, macro
-    for must in ("**Skills by situation**", "skills/minecraft/SKILL.md", "skills/mining/SKILL.md",
+    for must in ("**Skills by situation**", "references/minecraft.md",
                  "COBBLESTONE block", "drop_and_pickup(slot)", "Entities are reported on no channel",
                  "divided by 8", "end_stone", "Recipes available:", "**Write down what worked"):
         assert must in sk, must
@@ -291,13 +261,3 @@ def test_atoms_references_are_macro_free_and_keep_recipes_and_write_down():
     assert "mine_forward" in refs["survival.md"] and "mine_forward" not in sv
     assert "queue one `mine_ahead` per block" in sv and "**Turn, then move.**" in sv
     assert prompts.survival_atoms("unrelated text") == "unrelated text"
-
-
-def test_minecraft_skill_covers_the_late_game_as_rules(tmp_path: Path):
-    from mcu_worldmodel import skills as K
-    K.write_skills(tmp_path)
-    mc = (tmp_path / "skills" / "minecraft" / "SKILL.md").read_text()
-    for must in ("respawn", "BED", "GOLD armour", "eight in the Overworld",
-                 "The void", "Bow = 3 sticks + 3 string", "silverfish", "iron cages", "Piglins"):
-        assert must in mc, must
-    assert not re.search(r"\(-?\d{3,}\.?\d*,\s*-?\d", mc)                   # still no coordinates

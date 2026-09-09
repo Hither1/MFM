@@ -36,8 +36,7 @@ def test_write_skills_and_reflex_examples(tmp_path: Path):
             "skills/reflexes/scripts/lava_ahead.py", "skills/reflexes/scripts/fell.py",
             "skills/reflexes/scripts/hit.py", "skills/reflexes/scripts/starving.py",
             # 2026-09-09: the game-rules and search-doctrine skills, the fire and water reflex examples
-            "skills/minecraft/SKILL.md", "skills/mining/SKILL.md",
-            "skills/reflexes/scripts/burning.py", "skills/reflexes/scripts/drowning.py"} == set(written)
+            "skills/reflexes/scripts/burning.py", "skills/reflexes/scripts/slow_loss.py"} == set(written)
     assert not (tmp_path / "mine").exists()                       # nothing installed: the model copies
     assert "Nothing is installed for you" in (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
     for name in ("memory", "procedures", "reflexes", "harness"):
@@ -78,11 +77,33 @@ def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
     assert res["stop"] is True and "took 5 damage (health 11/20)" in res["note"]
     assert _run(rx / "hit.py", dict(BASE, health=11.0, lava_frac=0.3))[1] is None
     assert _run(rx / "hit.py", dict(BASE, health=15.0))[1] is None
-    # starving: the crossing below 18 and below 6, note only, no stop
+    # starving (gen 4, 2026-09-10): the bar dropping below 18 -- eat what you carry (no stop),
+    # else one note at the 18 crossing; a stop at health 10.5 with nothing to eat; nothing at
+    # a steady bar or at the old <= 6 crossing; under a GUI a note, no eat
     rc, res, _ = _run(rx / "starving.py", dict(BASE, food=17.0))
-    assert res == {"note": res["note"]} and "food 17/20" in res["note"] and "stop" not in res
+    assert rc == 0 and res and "stop" not in res and "actions" not in res and "no natural healing" in res["note"]
     assert _run(rx / "starving.py", dict(BASE, food=15.0, food_prev=15.0))[1] is None
-    assert _run(rx / "starving.py", dict(BASE, food=5.0, food_prev=7.0))[1] is not None
+    assert _run(rx / "starving.py", dict(BASE, food=5.0, food_prev=7.0))[1] is None
+    rc, res, _ = _run(rx / "starving.py", dict(BASE, food=17.0, inventory={"cobblestone": 30, "mutton": 2}))
+    assert rc == 0 and res["actions"] == [{"procedure": "eat", "args": {"item": "mutton"}}] and "stop" not in res
+    rc, res, _ = _run(rx / "starving.py", dict(BASE, food=13.0, food_prev=14.0, inventory={"cooked_beef": 1, "mutton": 2}))
+    assert res["actions"][0]["args"]["item"] == "cooked_beef"                  # cooked first
+    rc, res, _ = _run(rx / "starving.py", dict(BASE, food=17.0, inventory={"mutton": 2}, gui_open=True))
+    assert "actions" not in res and "stop" not in res and "once the GUI is closed" in res["note"]
+    assert _run(rx / "starving.py", dict(BASE, food=15.0, food_prev=15.0, inventory={"mutton": 2}))[1] is None
+    rc, res, _ = _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=11.0, food=12.0, food_prev=12.0))
+    assert res["stop"] is True and "cannot heal" in res["note"]
+    assert _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=10.2, food=12.0, food_prev=12.0))[1] is None
+    assert _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=11.0, food=12.0, food_prev=12.0, inventory={"mutton": 1}))[1] is None
+    # slow_loss: 3+ lost over 100 ticks in small steps with no lava or fire in view -- a stop;
+    # a single 3-point hit is hit.py's; lava or fire in view is burning/lava_ahead's
+    rc, res, _ = _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0))
+    assert rc == 0 and res["stop"] is True and "100 ticks" in res["note"] and "swim up" in res["note"]
+    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=12.0, health_100=13.0))[1] is None
+    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0, lava_frac=0.05))[1] is None
+    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0, fire_frac=0.05))[1] is None
+    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=11.0))[1] is None
+    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5))[1] is None           # no history: nothing
     # the example procedures print valid plans; the guards refuse the wrong pose
     sp = tmp_path / "skills" / "procedures" / "scripts"
     rc, res, _ = _run(sp / "stair_step.py", BASE, ["--args", "{}"])
