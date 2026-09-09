@@ -1393,3 +1393,8 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   ~09:38 2026-09-10, ports 9128/9138. Monitor task b3gq1vmvv (milestones, errors, faults, every 25 turns,
   stalls, hourly with steps/turn and digest size). Test criteria for the first two hours: >= 80 steps/turn,
   furnace by ~+30 min and iron by ~+1 h 15 (of3r: +20 / +52 min), digest <= 3 KB, no per-turn digest writes.
+- 22:40 of3g_mfm (gen-3b) hour 1 -- the test criteria are met: 30 turns, 8/24 @4200, 140 steps/turn (of3g 46,
+  of3r 83), digest 2.4 KB, no faults. Milestones by wall since first obs (21:44:59): mine_log +4m @97, table
+  +9m @797, wooden_pickaxe +10m @934, cobblestone +17m @1627, stone_pickaxe +23m @1927, mine_iron_ore +39m
+  @2947 (of3r +52m, of3g +4h55), furnace +48m @3583, iron_ingot +53m @3960 (of3r +1h03). Seeding 6.8 min,
+  workshop turn 3m41s. Load 23, root fs 54 GB free.
