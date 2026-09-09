@@ -1555,3 +1555,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   06:16, 99.0k->36.8k at 06:29); of3r had 70 over 516 turns (~every 7 turns, ctx ~97-100k -> 50-64k). The report's
   `codex.compactions=0` on both is a counting gap: _COMPACTION_RE reads the event stream, which never carries them.
   status_g4.sh now reads usage and compactions from the rollout.
+- 06:37 +30min checkpoint (of3m_mfm): alive (38535/38538), 16 turns, step 3366, 210 steps/turn, 6/24 (mine_log 153,
+  crafting_table 587, wooden_pickaxe 677, mine_cobblestone 1937, stone_pickaxe 2073, furnace 2353) -- the 16/24 run
+  had 6/24 at step 2507 (+22 min), so same pace. Health/food 20/20 every turn, no reflex fire, 0 deaths, 0 errors.
+  Digest line 8 = DIAMONDS life_2 step17921 pose (-3096.04,11,-5545.51) ep_000952 viewed; reflexes fell/hit/
+  lava_ahead/starving copied. 32 view_image calls in 16 turns, then-now vs life_2 ep_000167 (route from the spruce
+  to the raised grass); working.md plans "scan for animals and a safe route northwest toward the known shallow iron".
+  Thread usage 5.64M input (5.12M cached), 47k output; context 77.7k, 2 compactions.
