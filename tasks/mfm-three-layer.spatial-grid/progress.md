@@ -1443,3 +1443,28 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 03:20 HF carry-only-era updated with the final of3g_mfm record (commits 5340c4dc, ee75f904 README, one transient
   actions.json deleted): remote 2182 files / 2.05 GB = the staging dir. No look turns after turn 143 (the descent).
   No arm running; no watchdog; monitor closed. Next decision is the user's: gen-3c contract cut (proposal 01:40).
+
+## 2026-09-10 03:3x-04:2x -- the user's turn: back to gen 2 (16/24) plus hunger and multimodal memory; analysis and plan
+- User (03:3x): gen 3 did not pay; go back to the 16/24 commit (of3r: MCU b2f8c832, mfm ede1627), add back only
+  what addresses of3r's two problems (starvation, no look-back at the multimodal memory), then run (A) a fresh life
+  carrying of3r's memory and (B) a life continuing from the 16-milestone point; goals: a high score, evidence of
+  multimodal memory use. Asked for a full read of the gen-2 and gen-3 trajectories and a plan.
+- Written: analysis/gen4_plan_2026-09-10.md (three-generation table on the of3 seed; of3r's 43.5k steps by
+  phase; hunger and look-use quantified; every gen-3/3b change sorted keep / add back / drop; the implementation
+  slices; experiments A and B with pre-registered read-outs; six decisions for the user). Nothing launched, no
+  code changed.
+- Findings not in the earlier analyses: (1) of3r spent 6,655 steps between its 10th obsidian and the lit portal --
+  7 ignitions made ordinary fire (stone inside/beside the frame, a column one block off), the first set it on
+  fire (health 13 -> 10, never regained); the blind diamond search (11,861), the tunnel to life_1's far gravel
+  (9,606) and the portal (6,655) are 28.1k of 43.5k steps. (2) Hunger in this engine is slow, ~1 food point per
+  4,000 steps; of3r's bar crossed 18 at ~16k and 61% of its episodes ran without natural healing; it died at
+  health 10 to a piglin (no food, no gold armour) and lost every tool. The deficit of a whole life is one animal.
+  Six gen-2 lives ate 0 times; gen 3b got the food and also ate 0 times (never needed it) after 10.8k surface
+  steps. (3) look_cases over the three lives: of3r 3 looks (this-life zooms), gen 3 159 (three across-life
+  then-nows, one decisive: life_1 ep_000231 -> iron), gen 3b 37 (life_1 ep_000472 -> the pond/bucket; life_2
+  ep_000530 -> the deep-stair descent). (4) of3r's world is gone (one MineStudio instance dir, the only save is
+  gen 3b's, 4 MB, 21:39 09-09): B can only be a kit start like ender_dragon_half/portal, and the green scorer
+  credits nothing for given milestones (ce4d9404 finding). (5) of3r's digest was written once at the workshop
+  turn and never got the diamond line; gen 3 and 3b both dug the diamonds out of life_2's log with --grep/--ores.
+- State: nothing running; live MFM-grid/MCU cf86f15a; merge-mcu cf86f15a; MFM-grid cb701b2+. Waiting for the
+  user's decisions (plan section 7) before any branch, code or launch.
