@@ -7,6 +7,7 @@
 #   bash launch_g3.sh 2          # of2g_mfm  9129/9139  gpt-6-astra medium, seeds of2+of2r
 #   bash launch_g3.sh 1          # of1g_mfm  9130/9140  gpt-5.6-sol high (API key), seeds of1+of1r
 #   bash launch_g3.sh 3 scratch  # of3s_mfm  9131/9141  the from-scratch control (no seeds), same contract
+#   FRAME_SIZE=640x360 bash launch_g3.sh 3   # the same arm shown full-render frames
 # Run from MFM-grid/MCU AFTER it is fast-forwarded to the gen-3 MCU commit and no arm is
 # running there. WALL=12h by default (WALL env overrides). SESSION_TURNS (default 1 = a fresh
 # codex thread every turn) can be overridden: SESSION_TURNS=0 means one thread for the life
@@ -21,7 +22,10 @@ ST="${SESSION_TURNS:-1}"
 CM=0; [ "$ST" = "0" ] && CM=1
 cd /datapool/data3/storage/ruihan/data_share/jh/Collab/MFM-grid/MCU
 export MCU_CODEX_ROOT=/datapool/data3/storage/ruihan/data_share/jh/Collab/codex-homes
-BASE="--expect --frames --retrieval --no-event-sheet --frame-size 320x180 --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
+# FRAME_SIZE: WxH of the frames the model is shown (default 320x180; the render is 640x360, so
+# that is the useful maximum). The full-resolution record under episode_001/hires/ is kept
+# regardless (--hires-every, default every step) and the model is never told about it.
+BASE="--expect --frames --retrieval --no-event-sheet --frame-size ${FRAME_SIZE:-320x180} --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
 case "$N" in
   1) MODEL="--model gpt-5.6-sol --reasoning-effort high"; GP=9130; PP=9140; ACC="${ACCOUNT:-api}";;
   2) MODEL="--model gpt-6-astra --reasoning-effort medium"; GP=9129; PP=9139; ACC="${ACCOUNT:-nyu}";;
