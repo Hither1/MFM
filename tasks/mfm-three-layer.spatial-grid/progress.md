@@ -1433,3 +1433,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   EPISODE DIRECTORY raises IsADirectoryError (turn 141); the image path works (turn 142). Not fixed yet.
 - 03:05 HF upload done and verified: carry-only-era/ on Ced-Collab/MCUData (commit 8db8047a + README e678f840 +
   stats 9622629d); list_repo_tree = 2104 files / 1.89 GB = the staging dir. episodes.py then-now dir fix 3dc7f7a.
+- 03:10 of3g_mfm (gen-3b) STOPPED on the user's word ("先停止了吧"): stop_arm.py --go, watchdog 8987 and its sleep 9009
+  killed by pid, monitor closed. Final: 193 turns, step 21600, 9/24, 0 deaths, 5h25 wall, 112 steps/turn; at the stop
+  it stood at (-3079,11,-5553), ~20 blocks east of the digest's life_2 diamond site. Usage 41.8M input (36.3M cached),
+  477k output. Read-out: gen 3b beat gen 2 to the iron pickaxe (+56 vs +67 min) and then spent 10.8k steps / 3.5 h on
+  the surface (food, bucket, wheat, sheep) before descending; gen 2 had 13/24 at the same wall. The descent checklist
+  is prescribed in the contract, two skills and the inherited digest; proposal on record (01:40 line). Run dir left
+  as output/of3g_mfm (final snapshot re-staged to HF carry-only-era/gen3b).
