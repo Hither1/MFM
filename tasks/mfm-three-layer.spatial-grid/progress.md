@@ -1109,3 +1109,37 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
 - 11:08 user: "我们停止一下，我觉得我们要换一个账号跑" -> watchdog 4360 killed by pid, stop_arm.py --go of3g_mfm
   (12 of 12 pids). It had 3/24 @641 in turn 6 (11:07). Output, logs and codex home set aside as
   *of3g_mfm.stopped-1108*. launch_g3.sh takes ACCOUNT=api|nyu (default per arm as before).
+
+## 2026-09-09 11:27-11:52 -- OpenRouter attempt abandoned; of3g_mfm relaunched on the nyu plan
+- User: run the next experiment on an OpenRouter account. Key handed over as a 600 file outside every repo
+  (`Collab/secrets/openrouter.env`, one line, never pasted into the session). Wiring tried: the backend's
+  `--base-url` path (model_provider=local, wire_api responses, env_key LOCAL_API_KEY) through a wrapper that
+  read the file and exec'd codex; codex-home.sh `MCU_CODEX_AUTH=none`; `ACCOUNT=openrouter` in launch_g3.sh.
+- Finding 1 (one-turn codex smoke, `openai/gpt-6-astra`, frame attached): HTTP 403 "This model is not available
+  in your region" on both /responses and /chat/completions, six retries; same for gpt-5.6-sol/luna and
+  claude-sonnet-5 ("failed_routing_step": "Gate Endpoints with Geo Restrictions"). This host's egress is
+  Beijing / China Telecom (ipinfo). Through the user's configured proxy 192.168.1.64:7890 (git http.proxy, ssh
+  ProxyCommand, `withproxy` alias; exit Los Angeles) both endpoints answered gpt-6-astra ($0.00033 each).
+  OpenRouter price for openai/gpt-6-astra: $10 / $50 per M in/out, $1 cached; ctx 1,050,000; image+tools+reasoning.
+- Finding 2 (security, independent of OpenRouter): codex 0.153's exec cells inherit the WHOLE codex environment.
+  Probe (gpt-5.6-sol low, API key, 3 one-turn calls, cents): the model's `printf "${GITHUB_PERSONAL_ACCESS_TOKEN:+set}"`
+  printed set for GITHUB_PERSONAL_ACCESS_TOKEN, WANDB_API_KEY and LOCAL_API_KEY; `-c shell_environment_policy.exclude=
+  ["*KEY*","*TOKEN*","*SECRET*"]` changed nothing. The user's shell exports the GitHub token and the W&B key
+  globally (their own ~/.codex and ~/ccr/.codex/runtime-home shell_snapshots carry both), so every arm's model could
+  have read them. Evidence they never did: grep over every arm workspace's logs.txt / last_message.txt / mine/
+  (MFM-grid/MCU, MFM/MCU, MCU-AgentBeats outputs) finds no mention of the names. Codex also writes a shell snapshot
+  (`$CODEX_HOME/shell_snapshots/<thread>.sh`, `declare -x` of every variable) at thread start and deletes it on a
+  clean exit; 21 of 54 codex homes (arms stopped mid-turn) still hold one with those variables in plaintext.
+  `-c features.shell_snapshot=false` stops the file (probed: 0 files during a 25 s turn, exec unaffected).
+  TODO for the next MCU slice (not while an arm runs): filter `*KEY*|*TOKEN*|*SECRET*` out of the env the backend
+  hands codex (LOCAL_API_KEY excepted) and add `features.shell_snapshot=false` to SAFE_CODEX_FLAGS; delete the
+  stale snapshots. Recorded, not fixed: the user asked for the launch first.
+- Decision (user 11:49): "算了，我觉得我们就先用nyu账号跑吧，开始跑吧". Everything OpenRouter-related reverted
+  (codex-home.sh, the wrapper, launch_g3.sh back to 64117f1); probe codex homes orsmoke1 (its snapshot held the
+  real key) and snapprobe1-5 removed; the derived secrets/openrouter-auth.json removed; secrets/openrouter.env
+  left as the user made it.
+- Launch 11:51:41 (my shell, `env -u GITHUB_PERSONAL_ACCESS_TOKEN -u WANDB_API_KEY -u CLAUDE_CODE_MESSAGING_TOKEN`
+  so this run's tree carries none of them): `SESSION_TURNS=0 ACCOUNT=nyu bash launch_g3.sh 3` -> of3g_mfm,
+  gpt-6-astra high, seed of3r (carries of3), one thread + COMPACT, STEPS=100000, WALL=12h (stops ~23:51),
+  launch pid 13636, watchdog pid 13639, ports 9128/9138, live MCU d3d567e2. Orphan `sleep 12h` processes
+  (4362, 39877, 42313, 42686; parents already killed) fire nothing.
