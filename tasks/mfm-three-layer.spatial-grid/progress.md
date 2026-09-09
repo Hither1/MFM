@@ -1431,3 +1431,5 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   (reuses stage_hf_mfm_era.py; tolerant of a running arm), look_cases.py fixed (bash -lc wrapper parsing for the
   then-now regen; copies the model's own mine/*.png sheets). Tool finding: episodes.py --then-now with a previous-life
   EPISODE DIRECTORY raises IsADirectoryError (turn 141); the image path works (turn 142). Not fixed yet.
+- 03:05 HF upload done and verified: carry-only-era/ on Ced-Collab/MCUData (commit 8db8047a + README e678f840 +
+  stats 9622629d); list_repo_tree = 2104 files / 1.89 GB = the staging dir. episodes.py then-now dir fix 3dc7f7a.
