@@ -1658,3 +1658,22 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   15, food 17 (no food carried; the 3rd starving note is the "nothing to eat" warning), shield up, crouched, bridging
   north at Y48 to (-437,48,-803) one support at a time, canopy ahead. 597 view_image calls, thread 127M input
   (108M cached), 1.37M output, 68 compactions, 0 deaths, 0 errors. 30 min of wall left; final expected 16/24.
+- 20:28 END (of3m_mfm, 06:00-20:00 wall, 14 h): FINAL 16/24, tying the record (of3r, 2026-09-08) in 7h53 of wall
+  instead of 11h19. 475 turns, step 49570 (report 49400), ~104 steps/turn, 0 real deaths (cursor_stats.deaths=1 is
+  the false portal-trip death, see 15:28), 0 tool errors, 0 image attach failures. Milestones (start 06:00):
+  wooden_pickaxe 677, stone_pickaxe 2073, iron_pickaxe 5293 (+59 min; of3r +69 min), flint_and_steel 9995 (+2h12;
+  of3r +6h43), diamond 18110, diamond_pickaxe 18295, diamond_sword 18490 (10:18), obsidian 30994 (+6h46; of3r +7h41),
+  netherrack 35204 (+7h53; of3r +11h19). Then 6 h in the nether (14 300 steps) without reaching a fortress or
+  blaze: bridging one support at a time at Y41-48 over lava, mostly north/west of life_2's death spot.
+  Reflex fires: fell 1, hit 1, lava_ahead 5, starving 3 (1 real eat: the porkchop at health 8.6 after the piglin
+  hit; 2 "nothing to eat" warnings). Health/food 20/20 until turn 433, then 8.6 -> 12 -> 15 with food 17 to the end.
+  Multimodal across-life use: 77 distinct then-now targets, 61 of them previous/ (life_2); look_cases lists 112
+  cases, and the milestone-tied ones (score 3, previous/) run from ep_000007 (first logs) through the whole iron
+  chain ep_000219-000316 (steps 3656-5208: "compare the approach frames", "compare it with the recorded iron
+  approach", "the furnace frame confirms the ingots occupy slot 34, not requested slot 15"). Plus the two
+  self-made compare sheets at the lava frontier (13:xx) against life_2 ep_001696. Codex audit: 474 calls, 636
+  view_image function calls in the 2 rollouts (the report's 3902 counts text mentions), 5409 episodes-tool calls.
+  Thread usage from the rollouts: 131.8M input (112.2M cached), 1.43M output, 0.34M reasoning, 70 compactions;
+  cost estimate ~$379 at gpt-6-astra list prices. Run stopped by the wall watchdog at 20:00 (13 pids, 3 SIGKILL).
+  Open: launch cc (Opus via Claude Code) and lb (append-only logbook) baselines; VISTA arm definition; the
+  false-death fix in agent.py:702.
