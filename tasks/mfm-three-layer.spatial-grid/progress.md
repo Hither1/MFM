@@ -1590,3 +1590,90 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   turn 65: "return toward the known diamond approach; checked the old entrance and diamond frames"; turns 70-73
   then-now vs life_2 ep_000530 at the old stair entrance (-3012.8,68,-5553.7), tunnel reset, fresh staircase started
   (Y65). 182 view_image calls; 12 compactions; thread 24.0M input (21.3M cached), 224k output; 0 deaths, 0 errors.
+
+## 2026-09-10 10:40 -- MIN at 14/24 (+4h18); Claude Code channel + logbook baseline built and smoked
+- of3m_mfm: mine_diamond_ore 18100 (10:07), diamond 18110, diamond_pickaxe 18295, diamond_sword 18490 (10:18, +4h18).
+  The 16/24 run reached 14/24 at +6h43. Step 18501, health/food 20/20, no starving fire yet, 0 deaths.
+- User decisions (10:0x): Opus must run through Claude Code (not codex+OpenRouter), account = OpenRouter or a
+  Claude subscription, isolation required; the text baseline is the logbook arm with nothing but logs.txt;
+  a VISTA-style baseline should carry VISTA's idea inside our framework (design still to agree).
+- Built on MCU branch gen4-cc (worktree MFM-grid-cc-mcu, = gen4-min 1c697dd8 + 4 commits, head 33709cca):
+  ClaudeTurn ported from branch claude-code-support (2026-08-30 work), + session_max_turns kwarg, codex's
+  secret scrub, settings apiKeyHelper (CLAUDE_API_KEY_HELPER), sandbox failIfUnavailable + denyRead (config
+  dir + secrets dir) + Read-tool deny rules, 2.1.257 degradation wording; agent/purple/run-arm/launch-og take
+  --cli codex|claude; claude-home.sh writes the OpenRouter key helper (MCU_CLAUDE_ACCOUNT=openrouter);
+  claude-openrouter.sh = proxy + bwrap/socat PATH (socat installed into Collab/tools/cc-sandbox-env via conda);
+  CLAUDE.md/.claude kept across the sweep (the first Opus smoke lost its contract after turn 1); every
+  harness text renames view_image -> Read for this channel; MFM_IMAGE_TOOL for the episodes tool
+  (MFM-grid-min gen4-min 8651823). Logbook contract gains one paragraph naming previous_expedition_log.txt.
+- Measured (2.1.257 via OpenRouter): key never in the model's env (apiKeySource=apiKeyHelper); secrets and
+  config dir unreadable from Bash and Read; writes outside the workspace refused; image blocks seen without
+  Read; --resume works; Anthropic cache hits (turn 2 of the Opus smoke: 944k cache reads, 46 uncached).
+- Smokes (150 steps): g4smoke_lb_logbook (gpt-6-astra): contract carries the previous-log paragraph, turn 1
+  grepped previous_expedition_log.txt and quoted life_2's iron (-3029,62,-5579) and diamond (-3096,11,-5546)
+  positions, wrote actions.json, 1 turn = 150 steps. g4smoke_cc_mfm (Opus 5 via Claude Code): workshop turn
+  20 tool calls / 3.5 min / $0.92 (skills, digests, reflexes copied, digest+working+notes written; no frame
+  viewed in the workshop); turn 2 zoomed ep_000008 and Read the crop to explain a failed mine_ahead
+  ("falling cancels the break"); $1.69 for 2 turns, ~143 s/turn. Haiku plumbing smoke kept as
+  g4smoke_cc_mfm.haiku. Launcher: `bash launch_g4.sh cc|lb` (ports 9134/9144, 9135/9145), SMOKE=150.
+- Open: VISTA-mode design; whether to start the 14 h cc and lb runs (cost ~ $20/h Opus, ~$28/h gpt-6).
+- 13:28 hourly (of3m_mfm): 15/24 -- mine_obsidian at step 30994 (12:46, +6h46; the 16/24 run: +7h41). 278 turns,
+  step 34140, 122 steps/turn, health/food 20/20, no starving fire, no lava/hit reflex at the lava frontier, 0 deaths,
+  0 errors. Arrival at the lava: two self-made compare sheets (mine/lava_approach_compare.png, lava_arrival_compare
+  .png) against life_2 ep_001696, bucket poured and refilled, obsidian mined with the diamond pickaxe. Now building
+  the portal frame at (-3211,11,-5578): placement checked frame by frame (a block that landed one level high was
+  found in the frame and repaired), 4 obsidian left. 370 view_image calls; thread 76.6M input (67.4M cached),
+  757k output, 39 compactions. Next: portal lit -> nether (the 16/24 run died there to a piglin at food 16).
+- 14:28 hourly (of3m_mfm): 16/24 -- netherrack at step 35204 (13:53, +7h53; the 16/24 run banked its 16th at +11h19).
+  The record is tied with 6 h of wall left. In the nether at (-410,43,-710), i.e. within 6 blocks of life_2's death
+  spot (-408,43,-704); health/food 20/20, no reflex fire, 0 deaths. Turn 309: "distant figures look piglin-like ...
+  check a route around them before leaving the pillar"; turn 310 creeping east, zoom crops of the flames
+  (/tmp/flame36297.png). 310 turns, step 36297, 117 steps/turn; 422 view_image calls (a then-now at 06:07Z);
+  thread 86.5M input (76.0M cached), 861k output, 44 compactions, 0 errors.
+- 15:28 hourly (of3m_mfm): still 16/24, 343 turns, step 37586, 109 steps/turn, health/food 20/20, 0 real deaths,
+  0 errors; in the nether at (-418,41,-738) bridging toward a shoreline with sneak + a placed-block guard. The
+  model's own lava_ahead reflex fired 3x (7.2/9.3/11.7% lava in the lower view), each dropping the plan (14/20/16
+  actions) -- the carried reflex working where life_2 died. 439 view_image calls; thread 94.2M input (82.3M
+  cached), 962k output, 48 compactions.
+  HARNESS FALSE POSITIVE (fix after the run): at step 35121 the portal trip was taken with raw `forward x5` +
+  `watch`, not enter_portal, so no `_dimcheck` headed the queue and the 5631-block jump at full health was
+  logged "YOU DIED at (-3211,11,-5578) and respawned at (-403,42,-696)" (agent.py:702). The model dismissed it
+  ("conflicts with full health and unchanged gear") and lost nothing, but cursor_stats.deaths=1, a grid hazard
+  at the portal, and previous.py's _DIED regex would tell the next life this life died at its portal. Fix idea:
+  also require a health drop or a dimension change check (y/8 coordinate ratio) before calling a jump a death.
+  status_g4.sh now counts YOU DIED notes (it grepped "died", case-sensitive, and showed 0).
+- 17:28 hourly (of3m_mfm): still 16/24; 408 turns, step 41195, 100 steps/turn; nether (-437,45,-770) on a placed
+  cobblestone support between a lava drop (east) and unknown footing (west), creeping west; 4th lava_ahead fire
+  (4.7%); health/food 20/24 -> 20/20 throughout, 0 real deaths, 0 errors; 496 view_image calls (this life's nether
+  frames only); thread 109.9M input (94.3M cached), 1.16M output, 57 compactions. 2.5 h of wall left.
+- 18:28 hourly (of3m_mfm): still 16/24; 436 turns, step 42654, 97 steps/turn; nether (-437,48,-778). FIRST DAMAGE
+  and the reflex chain worked end to end: step 42264 it struck a piglin, took 11.4 (health 8.6), [REFLEX hit]
+  dropped 176 actions; it raised the shield and backed along its cobblestone bridge (turns 433-435, then-now on its
+  own bridge frames ep_002612/2591 to confirm footing), edited its lava reflex to keep the shield up during a
+  low-health retreat; food dipped below 18 and [REFLEX starving] ate the last porkchop (123 actions dropped) ->
+  health 9 -> 12 with natural healing back. Cost noted by the model: the eat unequipped the shield with the piglin
+  in view. Now pillaring up 2 blocks; no food left, health 12/20. 5 lava_ahead fires total, 0 deaths, 0 errors;
+  530 view_image calls; thread 118M input (100M cached), 1.26M output, 62 compactions. 1.5 h of wall left.
+- 19:28 hourly (of3m_mfm): still 16/24; 462 turns, step 46401, 100 steps/turn. Recovered from the piglin: health 12 ->
+  15, food 17 (no food carried; the 3rd starving note is the "nothing to eat" warning), shield up, crouched, bridging
+  north at Y48 to (-437,48,-803) one support at a time, canopy ahead. 597 view_image calls, thread 127M input
+  (108M cached), 1.37M output, 68 compactions, 0 deaths, 0 errors. 30 min of wall left; final expected 16/24.
+- 20:28 END (of3m_mfm, 06:00-20:00 wall, 14 h): FINAL 16/24, tying the record (of3r, 2026-09-08) in 7h53 of wall
+  instead of 11h19. 475 turns, step 49570 (report 49400), ~104 steps/turn, 0 real deaths (cursor_stats.deaths=1 is
+  the false portal-trip death, see 15:28), 0 tool errors, 0 image attach failures. Milestones (start 06:00):
+  wooden_pickaxe 677, stone_pickaxe 2073, iron_pickaxe 5293 (+59 min; of3r +69 min), flint_and_steel 9995 (+2h12;
+  of3r +6h43), diamond 18110, diamond_pickaxe 18295, diamond_sword 18490 (10:18), obsidian 30994 (+6h46; of3r +7h41),
+  netherrack 35204 (+7h53; of3r +11h19). Then 6 h in the nether (14 300 steps) without reaching a fortress or
+  blaze: bridging one support at a time at Y41-48 over lava, mostly north/west of life_2's death spot.
+  Reflex fires: fell 1, hit 1, lava_ahead 5, starving 3 (1 real eat: the porkchop at health 8.6 after the piglin
+  hit; 2 "nothing to eat" warnings). Health/food 20/20 until turn 433, then 8.6 -> 12 -> 15 with food 17 to the end.
+  Multimodal across-life use: 77 distinct then-now targets, 61 of them previous/ (life_2); look_cases lists 112
+  cases, and the milestone-tied ones (score 3, previous/) run from ep_000007 (first logs) through the whole iron
+  chain ep_000219-000316 (steps 3656-5208: "compare the approach frames", "compare it with the recorded iron
+  approach", "the furnace frame confirms the ingots occupy slot 34, not requested slot 15"). Plus the two
+  self-made compare sheets at the lava frontier (13:xx) against life_2 ep_001696. Codex audit: 474 calls, 636
+  view_image function calls in the 2 rollouts (the report's 3902 counts text mentions), 5409 episodes-tool calls.
+  Thread usage from the rollouts: 131.8M input (112.2M cached), 1.43M output, 0.34M reasoning, 70 compactions;
+  cost estimate ~$379 at gpt-6-astra list prices. Run stopped by the wall watchdog at 20:00 (13 pids, 3 SIGKILL).
+  Open: launch cc (Opus via Claude Code) and lb (append-only logbook) baselines; VISTA arm definition; the
+  false-death fix in agent.py:702.
