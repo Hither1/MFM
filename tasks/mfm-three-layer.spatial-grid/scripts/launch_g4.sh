@@ -30,8 +30,8 @@ CLI=codex; AGENT=mfm
 case "$ARM_KIND" in
   min)  MCU="$C/MFM-grid-min-mcu";   export MFM_ROOT="$C/MFM-grid-min"; ARM=of3m_mfm; GP=9133; PP=9143; FS="${FRAME_SIZE:-320x180}"; NEED=bfd31b31; SGP=9127; SPP=9137;;
   full) MCU="$C/MFM-grid-merge-mcu"; export MFM_ROOT="$C/MFM-grid";     ARM=of3f_mfm; GP=9132; PP=9142; FS="${FRAME_SIZE:-640x360}"; NEED=a7dbe7ba; SGP=9126; SPP=9136;;
-  cc)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3c_mfm; GP=9134; PP=9144; FS="${FRAME_SIZE:-320x180}"; NEED=902f1313; SGP=9128; SPP=9138; CLI=claude;;
-  lb)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3l_lb;  GP=9135; PP=9145; FS="${FRAME_SIZE:-320x180}"; NEED=902f1313; SGP=9129; SPP=9139; AGENT=logbook;;
+  cc)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3c_mfm; GP=9134; PP=9144; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9128; SPP=9138; CLI=claude;;
+  lb)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3l_lb;  GP=9135; PP=9145; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9129; SPP=9139; AGENT=logbook;;
   *) echo "arm must be min, full, cc or lb" >&2; exit 2;;
 esac
 cd "$MCU"
