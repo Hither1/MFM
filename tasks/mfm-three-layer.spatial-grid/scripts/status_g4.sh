@@ -17,7 +17,7 @@ grep -oE "step [0-9]+: Environment-verified progress: [0-9]+/24" "$PL" | tail -1
 grep -oE "\[milestone\] [a-z_]+ at step [0-9]+ \([0-9]+/24\)" "$PL" | sed 's/\[milestone\] //' | tr '\n' ';' ; echo
 echo "-- deaths / lives"
 grep -iE "died|death|respawn|new life|life [0-9]" "$PL" | grep -v "previous life" | tail -3 | cut -c1-200
-grep -cE "^\[DEATH\]|died" "$EP/memory/logs.txt" 2>/dev/null | sed 's/^/logs.txt death lines: /'
+grep -cE "YOU DIED" "$EP/memory/logs.txt" 2>/dev/null | sed 's/^/logs.txt YOU DIED notes (a portal trip taken with raw moves counts too -- check health): /'
 echo "-- turns"
 NT=$(ls "$EP/codex_turns"/turn_*.events.jsonl 2>/dev/null | wc -l)
 STEP=$(grep -oE "^Action [0-9]+ \| Step [0-9]+" "$EP/memory/logs.txt" | tail -1 | grep -oE "[0-9]+$")
