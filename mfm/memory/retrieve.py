@@ -9,6 +9,10 @@ entries in a row, was never seen as one thing. It queried the store in a quarter
 turns and only ever asked for `--last N`. So the harness asks the three questions the
 model did not, from the rows it already holds:
 
+    plan repeat the same [PLAN]/EXPECT re-issued turn after turn with nothing moving --
+                the plan-grain stall an atom-grain streak cannot see (of1-of3r,
+                2026-09-09: the same EXPECT ran turn after turn while the only thing the
+                block had to say was that `hotbar.6` had changed nothing)
     streaks     which actions have changed nothing in their last N calls, and when the
                 same action last did change something
     repeats     which harness note has ended the last N entries -- a loop whose entries
@@ -18,13 +22,15 @@ model did not, from the rows it already holds:
     milestones  the entries that scored, as a recipe index
 
 Everything here is derived from `index.jsonl` rows plus, for a few cited episodes, the
-`notes` in their `outcome.json`; nothing is inferred and nothing is advice. The block
+`notes` in their `outcome.json` and the turn/plan text in their `action.json`; nothing
+is inferred and nothing is advice. The block
 is the "what you did" the log already holds, put where the model is looking.
 """
 from __future__ import annotations
 
 import re
 import json
+import math
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
@@ -45,12 +51,56 @@ from mfm.memory.tools.episodes import (  # noqa: F401
 CHANGE_TAGS = frozenset({"milestone", "inventory_changed", "broke"})
 
 
+_MOVE_KEYS = frozenset({"forward", "back", "left", "right", "jump", "sneak", "sprint"})
+RAW_NUDGE_TICKS = 8
+
+#: A raw hotbar key (`hotbar.6`) and the procedure that presses one. Selecting a slot
+#: is bookkeeping: it never moves the world, so a run of them is not a loop. of3r
+#: (2026-09-09) pressed `hotbar.6` 67 times and the block reported "`hotbar.6` changed
+#: nothing in its last 61 calls" while the real stall was plan-grain. The caller's
+#: `ignore` list lives in MCU (`mcu_worldmodel/episodes.py` RECALL_IGNORE_KINDS) and
+#: cannot name `hotbar.N` without enumerating nine kinds, so the shape is excluded here.
+_HOTBAR_RE = re.compile(r"^hotbar\.\d$")
+
+
+def hotbar_only(kind: Any) -> bool:
+    """True for a kind that is nothing but hotbar selection: `hotbar.6`,
+    `equip_hotbar`, or a held key set composed only of those."""
+    parts = [p for p in str(kind or "").split("+") if p]
+    return bool(parts) and all(_HOTBAR_RE.match(p) or p == "equip_hotbar" for p in parts)
+
+
+def raw_move(row: dict[str, Any]) -> bool:
+    """A raw held-movement entry (`forward`, `forward+jump`, ...): its kind is the
+    joined key set, nothing else."""
+    parts = set(str(row.get("action_kind") or "").split("+"))
+    return bool(parts) and parts <= _MOVE_KEYS
+
+
+def moved_of(row: dict[str, Any]) -> float | None:
+    m = re.search(r"moved (\d+(?:\.\d+)?)", str(row.get("summary") or ""))
+    return float(m.group(1)) if m else None
+
+
+def raw_nudge(row: dict[str, Any]) -> bool:
+    """A raw movement shorter than RAW_NUDGE_TICKS: a one-tick `forward` to square up
+    before a dig. og21's RECALL read "forward changed nothing in its last 34 calls ...
+    never changed anything" while the avatar walked fine: every nudge moved 0.1 and
+    counted as a failure (judge calibration, 2026-09-08). Nudges are not in the streak
+    statistic at all."""
+    return raw_move(row) and ((row.get("last_step") or 0) - (row.get("first_step") or 0)) < RAW_NUDGE_TICKS
+
+
 def changed(row: dict[str, Any], movers: Iterable[str] = (),
             openers: Iterable[str] = ()) -> bool:
     tags = set(row.get("tags") or [])
     if CHANGE_TAGS & tags:
         return True
     kind = row.get("action_kind")
+    if raw_move(row):
+        # A held walk changed something iff it moved: the summary's `moved` is the fact.
+        mv = moved_of(row)
+        return mv is not None and mv >= 0.5 and "stuck" not in tags
     if kind in set(openers):
         # An entry whose job is to open a screen changed something iff one is open
         # at its end. lad4 (2026-09-05) pressed `use_until_gui` at a table that was
@@ -122,18 +172,17 @@ def streaks(rows: list[dict[str, Any]], *, min_len: int = 3,
     action has not worked in its last nine calls" while other entries in between (a
     craft, a pickup of dirt) did change something. Kinds in `ignore` are bookkeeping
     (look, equip, open/close a screen) whose "no change" is their normal outcome. A
-    run whose last call is older than the `recent` most recent COUNTED rows -- the ones
-    that could be part of a streak, so bookkeeping and never-ran entries do not age it
-    -- is history, not a loop, and is not reported (three failed `stow_items` at step
-    3094 are not news at step 6700). lad6b (2026-09-05): 39 rows of equip / open /
-    deferred craft / close between two `harvest_tree` calls made an eight-call plank
-    loop "stale" by the raw count, and its second refusal never came."""
+    run whose last call is older than the `recent` most recent rows is history, not a
+    loop, and is not reported (three failed `stow_items` at step 3094 are not news at
+    step 6700). Hotbar selection (`hotbar_only`) is excluded whatever the caller's
+    `ignore` says: pressing a slot key changes nothing by design."""
     skip, movers, openers = set(ignore), set(movers), set(openers)
     by_kind: dict[str, list[dict[str, Any]]] = {}
     counted = 0
     for r in rows:
         k = r.get("action_kind")
-        if r.get("kind") != "episode" or not k or k in skip or not ran(r):
+        if (r.get("kind") != "episode" or not k or k in skip or hotbar_only(k)
+                or not ran(r) or raw_nudge(r)):
             continue
         by_kind.setdefault(k, []).append((counted, r))
         counted += 1
@@ -231,95 +280,38 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None,
                  f"({ok['id']}: {_action(ok)}){_where(ok, pos)}.")
     else:
         line += ". It has never changed anything."
+    if _frame(last):
+        line += f" Frame: {_frame(last)}"
     return line
 
 
-def uncollected(rows: list[dict[str, Any]], root: Path | str | None,
-                drops: dict[str, str], *, recent: int = 12) -> list[dict[str, Any]]:
-    """Blocks broken in the last `recent` episodes whose drops were never picked up:
-    [{item, broke, picked, row}] with the episode that broke them. `drops` maps the
-    block to what it drops ({"iron_ore": "iron_ore", "coal_ore": "coal"}); from the
-    adapter's events ("mine_block X +n", "pickup Y +n"). lad8_mfmrr (2026-09-06)
-    broke five iron ore and picked up none -- the drops lay in the dark cavity while
-    every later aim swung at the empty hole; lad6b and lad7a did the same with one."""
-    if root is None:
-        return []
-    root = Path(root)
-    eps = [r for r in rows if r.get("kind") == "episode"][-recent:]
-    broke: dict[str, tuple[int, dict]] = {}
-    picked: dict[str, int] = {}
-    for r in eps:
-        for e in events_of(root, r):
-            parts = e.split()
-            if len(parts) < 2:
-                continue
-            try:
-                n = int(parts[2].lstrip("+")) if len(parts) > 2 else 1
-            except ValueError:
-                n = 1
-            if parts[0] == "mine_block" and parts[1] in drops:
-                item = drops[parts[1]]
-                prev = broke.get(item, (0, r))
-                broke[item] = (prev[0] + n, r)
-            elif parts[0] == "pickup" and parts[1] in drops.values():
-                picked[parts[1]] = picked.get(parts[1], 0) + n
-    out = []
-    for item, (n, row) in broke.items():
-        if n > picked.get(item, 0):
-            out.append({"item": item, "broke": n, "picked": picked.get(item, 0), "row": row})
-    return out
+def _frame(row: dict[str, Any]) -> str:
+    """The frame path of a row (the index's `image`, else the conventional path)."""
+    img = row.get("image")
+    if img:
+        return str(img)
+    rid = row.get("id")
+    return f"episodes/{rid}/observation/image.png" if rid else ""
 
 
-def override_of(root: Path | str | None, row: dict[str, Any]) -> str | None:
-    """The `why` the agent put on this episode's entry to run it past a refusal, from
-    its action.json; None when there was none (or the file is not there)."""
-    if root is None or not row.get("path"):
-        return None
+def bearing(pos: tuple[float, float] | None, row: dict[str, Any]) -> str:
+    """Where a cited episode lies from `pos`: "4 blocks NE", "here" under a block.
+    Minecraft axes: +x east, +z south. og14-og22 re-targeted a recalled place 0 times
+    in 30 sampled turns (analysis/recall-usage.md): a citation without a direction is
+    a fact, not a move."""
     try:
-        a = json.loads((Path(root) / row["path"] / "action.json").read_text())
-    except (OSError, ValueError):
-        return None
-    entry = a.get("entry") if isinstance(a.get("entry"), dict) else a
-    why = entry.get("why")
-    return str(why) if why else None
-
-
-def burned_override(root: Path | str | None, run: list[dict[str, Any]]) -> tuple[dict, str] | None:
-    """The most recent episode in a streak's run that the agent ran past a refusal
-    with a `why`, and what it said -- it ran, and changed nothing, so the claim is
-    spent (lad6b, 2026-09-05: "a spruce trunk is directly ahead", 300 ticks, none)."""
-    for r in reversed(run):
-        why = override_of(root, r)
-        if why:
-            return r, why
-    return None
-
-
-def _where(row: dict[str, Any], pos: dict | tuple | None) -> str:
-    """" at (x, y, z), N blocks E and M blocks S of here" for a row with a position."""
-    if row.get("x") is None or row.get("z") is None:
+        x, z = float(row["x"]), float(row["z"])
+    except (KeyError, TypeError, ValueError):
         return ""
-    x, z = float(row["x"]), float(row["z"])
-    y = row.get("y")
-    at = f" at ({x:.0f}, {float(y):.0f}, {z:.0f})" if y is not None else f" at (x {x:.0f}, z {z:.0f})"
     if pos is None:
-        return at
-    if isinstance(pos, dict):
-        px, pz = pos.get("x"), pos.get("z")
-    else:
-        px, pz = pos[0], pos[-1]
-    if px is None or pz is None:
-        return at
-    dx, dz = x - float(px), z - float(pz)
-    dist = (dx * dx + dz * dz) ** 0.5
-    if dist < 1.5:
-        return at + ", where you stand"
-    parts = []
-    if abs(dx) >= 1:
-        parts.append(f"{abs(dx):.0f} {'east' if dx > 0 else 'west'}")
-    if abs(dz) >= 1:
-        parts.append(f"{abs(dz):.0f} {'south' if dz > 0 else 'north'}")
-    return at + f", {dist:.0f} blocks from here ({' and '.join(parts)})"
+        return ""
+    dx, dz = x - pos[0], z - pos[1]
+    d = (dx * dx + dz * dz) ** 0.5
+    if d < 1.0:
+        return "here"
+    ang = (math.degrees(math.atan2(dx, -dz)) + 360.0) % 360.0     # 0 = north (-z)
+    names = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+    return f"{d:.0f} blocks {names[int((ang + 22.5) // 45) % 8]}"
 
 
 def here_before(rows: list[dict[str, Any]], pos: tuple[float, float] | None, *,
@@ -373,19 +365,242 @@ def milestone_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [r for r in rows if "milestone" in (r.get("tags") or [])]
 
 
+# -- plan grain ------------------------------------------------------------------
+#
+# The store already keeps what a plan-grain view needs, one level below the index: every
+# episode's `action.json` carries the `turn` it belongs to, and the first entry of each
+# turn also carries that turn's `briefing` and `plan` (the text after `[PLAN]`, EXPECT
+# line included). of3r's record: 2,256 action.json, all with a turn, 388 turns, all 388
+# with a plan and an EXPECT line. Nothing is added to the index for this; `turns_of`
+# reads the tail's action.json the way `repeated_note` reads the tail's outcome.json,
+# which also means the six finished lives can be read with the same code.
+
+PLAN_RECENT = 200
+
+_EXPECT_RE = re.compile(r"^\s*EXPECT:\s*(.+?)\s*$", re.M)
+
+
+def _action_json(root: Path | None, row: dict[str, Any]) -> dict[str, Any]:
+    if root is None or not row.get("path"):
+        return {}
+    try:
+        obj = json.loads((Path(root) / row["path"] / "action.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return obj if isinstance(obj, dict) else {}
+
+
+def expect_of(plan_text: str | None) -> str:
+    """The `EXPECT:` line of a plan, or "" when the briefing had none."""
+    m = _EXPECT_RE.search(str(plan_text or ""))
+    return m.group(1).strip() if m else ""
+
+
+def turns_of(rows: list[dict[str, Any]], root: Path | str | None = None, *,
+             recent: int = PLAN_RECENT) -> list[dict[str, Any]]:
+    """The last `recent` rows grouped into the model turns that issued them, oldest
+    first. One record per turn:
+
+        turn        the turn number (`agent.codex.calls`)
+        expect      that turn's EXPECT line ("" when the briefing had none)
+        plan        the plan text after `[PLAN]`, whitespace collapsed
+        moved       blocks moved over the turn's entries (the summaries' `moved`)
+        inventory   True when any entry scored or moved the inventory
+        first_step / last_step / rows
+
+    A row already carrying `turn`/`expect`/`plan` keys is used as it stands (a caller
+    that stores them in the index, and the tests, need no disk); otherwise the fields
+    come from the episode's `action.json`."""
+    tail = rows[-recent:] if recent > 0 else list(rows)
+    out: list[dict[str, Any]] = []
+    by_turn: dict[Any, dict[str, Any]] = {}
+    for r in tail:
+        if r.get("kind") != "episode":
+            continue
+        a = r if "turn" in r else _action_json(root, r)
+        t = a.get("turn")
+        if t is None:
+            continue
+        rec = by_turn.get(t)
+        if rec is None:
+            rec = {"turn": t, "expect": "", "plan": "", "moved": 0.0, "inventory": False,
+                   "first_step": r.get("first_step"), "last_step": r.get("last_step"),
+                   "rows": []}
+            by_turn[t] = rec
+            out.append(rec)
+        plan_text = str(a.get("plan") or "")
+        expect = str(a.get("expect") or "") or expect_of(plan_text)
+        if (plan_text or expect) and not (rec["plan"] or rec["expect"]):
+            rec["plan"] = " ".join(plan_text.split())
+            rec["expect"] = expect
+        rec["moved"] += moved_of(r) or 0.0
+        if CHANGE_TAGS & set(r.get("tags") or []):
+            rec["inventory"] = True
+        rec["last_step"] = r.get("last_step", rec["last_step"])
+        rec["rows"].append(r)
+    return out
+
+
+def _plan_key(turn: dict[str, Any]) -> tuple[str, str]:
+    """(normalised text, which field it came from) for a turn, ("", "") when neither
+    the EXPECT line nor the plan text is there."""
+    text = str(turn.get("expect") or "").strip()
+    src = "EXPECT"
+    if not text:
+        text, src = str(turn.get("plan") or "").strip(), "PLAN"
+    if not text:
+        return "", ""
+    return " ".join(text.split()).lower(), src
+
+
+def plan_repeats(turns: list[dict[str, Any]], min_len: int = 3) -> dict[str, Any] | None:
+    """The run of consecutive turns, ending at the latest one, that re-issued the same
+    EXPECT line (or, without one, the same plan text) while nothing happened: the run's
+    entries moved less than 0.5 blocks in total and none of them scored or moved the
+    inventory. None when the run is shorter than `min_len`.
+
+    A turn that moved, or that changed the inventory, ends the run at that point rather
+    than disqualifying what came after it, so a stall that began after a successful turn
+    is still reported -- and a repeat that IS getting somewhere is never reported.
+
+    Pure: `turns` is what `turns_of` returns (or any list of such records)."""
+    if not turns:
+        return None
+    key, src = _plan_key(turns[-1])
+    if not key:
+        return None
+    run: list[dict[str, Any]] = []
+    moved = 0.0
+    for t in reversed(turns):
+        if _plan_key(t)[0] != key or t.get("inventory"):
+            break
+        moved += float(t.get("moved") or 0.0)
+        if moved >= 0.5:
+            break
+        run.append(t)
+    if len(run) < min_len:
+        return None
+    run.reverse()
+    last = run[-1]
+    last_rows = last.get("rows") or []
+    row = last_rows[-1] if last_rows else {}
+    text = str(last.get("expect") if src == "EXPECT" else last.get("plan") or "")
+    return {"n": len(run), "source": src, "text": " ".join(text.split()),
+            "first_step": run[0].get("first_step"), "last_step": last.get("last_step"),
+            "first_turn": run[0].get("turn"), "last_turn": last.get("turn"),
+            "moved": round(moved, 2), "id": row.get("id"), "frame": _frame(row) if row else "",
+            "turns": run}
+
+
+_NUMS = re.compile(r"-?\d+(?:\.\d+)?")
+#: A plan of this many entries that changed nothing is reported on its own (of3r's
+#: 21-entry plan at steps 24067-24188, moved 0.0; 43% of its entries sat in such plans).
+LONG_PLAN = 12
+
+
+def plan_stall(turns: list[dict[str, Any]], min_turns: int = 3,
+               long_plan: int = LONG_PLAN) -> dict[str, Any] | None:
+    """The run of latest consecutive turns in which NOTHING happened -- each moved less
+    than 0.5 blocks and none scored or moved the inventory -- reported when it is
+    `min_turns` long, or when the latest turn alone ran `long_plan` or more entries to
+    no effect. Outcome-based, not text-based: the six full-task lives (2026-09-09,
+    analysis/worker_recall_2026-09-09.md) never re-issued an identical EXPECT three
+    turns running, but 34-43% of their plan entries sat inside long plans that achieved
+    nothing, and consecutive EXPECT lines were near-identical with the numbers changed.
+    `same_text` says whether the run's EXPECT (or plan) lines are one text once numbers
+    are stripped. None when there is nothing to say. Pure: `turns` is `turns_of`'s output."""
+    if not turns:
+        return None
+    run: list[dict[str, Any]] = []
+    moved = 0.0
+    for t in reversed(turns):
+        m = float(t.get("moved") or 0.0)
+        if t.get("inventory") or m >= 0.5:
+            break
+        moved += m
+        run.append(t)
+    if not run:
+        return None
+    run.reverse()
+    last = run[-1]
+    entries = len(last.get("rows") or [])
+    if len(run) < min_turns and entries < long_plan:
+        return None
+    keys = {" ".join(_NUMS.sub("#", str(t.get("expect") or t.get("plan") or "")).split()).lower()
+            for t in run}
+    last_rows = last.get("rows") or []
+    row = last_rows[-1] if last_rows else {}
+    text = str(last.get("expect") or last.get("plan") or "")
+    return {"n": len(run), "entries": entries, "long_plan": entries >= long_plan,
+            "same_text": len(run) > 1 and len(keys) == 1 and "" not in keys,
+            "text": " ".join(text.split()), "first_step": run[0].get("first_step"),
+            "last_step": last.get("last_step"), "first_turn": run[0].get("turn"),
+            "last_turn": last.get("turn"), "moved": round(moved, 2), "id": row.get("id"),
+            "frame": _frame(row) if row else "", "turns": run}
+
+
+def plan_stall_line(run: dict[str, Any], root: Path | str | None = None,
+                    limit: int = 120) -> str:
+    """The stall as one sentence for the recall block: what did not happen, over how many
+    turns and entries, and the EXPECT the model keeps writing."""
+    text = run.get("text") or ""
+    if len(text) > limit:
+        text = text[: limit - 3].rstrip() + "..."
+    if run["n"] == 1:
+        line = (f"Your last plan ran {run['entries']} entries (steps {run['first_step']}-"
+                f"{run['last_step']}) and changed nothing: moved={run['moved']:.1f}, no "
+                f"inventory change")
+    else:
+        line = (f"Nothing happened for {run['n']} turns (turns {run['first_turn']}-"
+                f"{run['last_turn']}, steps {run['first_step']}-{run['last_step']}): "
+                f"moved={run['moved']:.1f}, no inventory change")
+        if run.get("long_plan"):
+            line += f"; the last plan ran {run['entries']} entries to no effect"
+        if run.get("same_text"):
+            line += ", the same EXPECT each time (numbers aside)"
+    if text:
+        line += f". Latest EXPECT: `{text}`"
+    if run.get("frame"):
+        line += f". Latest frame: {run['frame']}"
+    return line
+
+
+def plan_repeat_line(run: dict[str, Any], root: Path | str | None = None,
+                     limit: int = 120) -> str:
+    """The plan repeat as one sentence for the recall block. `root` is accepted for
+    symmetry with `streak_line`; the frame path the line quotes is log-relative."""
+    text = run.get("text") or ""
+    if len(text) > limit:
+        text = text[: limit - 3].rstrip() + "..."
+    line = (f"The same {run['source']} {run['n']} turns running "
+            f"(turns {run['first_turn']}-{run['last_turn']}, steps {run['first_step']}-"
+            f"{run['last_step']}) with moved={run['moved']:.1f} and no inventory change: "
+            f"`{text}`")
+    if run.get("frame"):
+        line += f". Latest frame: {run['frame']}"
+    return line
+
+
 def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                  pos: tuple[float, float] | None = None, radius: float = 6.0,
-                 streak_min: int = 3, ignore_kinds: Iterable[str] = (),
+                 streak_min: int = 4, ignore_kinds: Iterable[str] = (),
                  movers: Iterable[str] = (), openers: Iterable[str] = (),
                  exclude_last: int = 6, streak_recent: int = 30, repeat_min: int = 3,
-                 max_streaks: int = 3, max_here: int = 3, max_milestones: int = 10) -> str:
+                 max_streaks: int = 2, max_here: int = 3, max_milestones: int = 0,
+                 plan_repeat_min: int = 3, plan_recent: int = PLAN_RECENT) -> str:
     """The retrieval block for one turn, or "" when there is nothing to say.
 
-    Three parts, each present only when it has content; every line names the episode
-    ids it is computed from so the model can open them (`./tools/episodes.py --steps`,
-    or the directory directly)."""
+    Parts, each present only when it has content; every line names the episode ids it is
+    computed from so the model can open them (`./tools/episodes.py --steps`, or the
+    directory directly). The plan repeat goes first when there is one: it is the largest
+    unit of not-getting-anywhere the record can see, and the atom-grain lines under it
+    are symptoms of it."""
     root = Path(root) if root is not None else None
     lines: list[str] = []
+
+    stall = plan_stall(turns_of(rows, root, recent=plan_recent), min_turns=plan_repeat_min)
+    if stall is not None:
+        lines.append("- " + plan_stall_line(stall, root))
 
     movers, openers = set(movers), set(openers)
     for s in streaks(rows, min_len=streak_min, ignore=ignore_kinds,
@@ -416,11 +631,16 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                 f"{kinds_txt}; {len(did)} changed something, {len(stuck)} stuck.")
         cite = did[-max_here:] if did else stuck[-max_here:]
         for r in cite:
-            line += (f"\n    {r['id']} step {r.get('first_step')}: {_action(r)} -> "
-                     f"{_outcome_tail(r) or 'no change'}")
+            where = bearing(pos, r)
+            line += (f"\n    {r['id']} step {r.get('first_step')}"
+                     + (f", {where}" if where else "") + f": {_action(r)} -> "
+                     f"{_outcome_tail(r) or 'no change'}"
+                     + (f" (frame: {_frame(r)})" if _frame(r) else ""))
         lines.append(line)
 
-    ms = milestone_rows(rows)
+    # The milestone line is off by default since 2026-09-08: it repeated the ledger in
+    # [STATE] every turn (recall-usage.md case 7) and was never acted on.
+    ms = milestone_rows(rows) if max_milestones > 0 else []
     if ms:
         shown = ms[-max_milestones:]
         items = [f"{_milestone_name(r)} step {r.get('first_step')} "
@@ -431,7 +651,9 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
     if not lines:
         return ""
     return ("[RECALL] computed from episodes/ by the harness -- what you did, not "
-            "advice:\n" + "\n".join(lines))
+            "advice:\n" + "\n".join(lines)
+            + "\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
+              "what you will see there.)")
 
 
 def _milestone_name(row: dict[str, Any]) -> str:

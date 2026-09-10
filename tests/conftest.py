@@ -15,7 +15,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MCU = ROOT / "MCU"
+# MFM_MCU_ROOT: test another checkout of the MCU code (a merge worktree) without
+# touching the one a running arm imports from.
+MCU = Path(os.environ.get("MFM_MCU_ROOT", ROOT / "MCU"))
 KICAD = ROOT / "CUA-KiCad"
 PINS = ROOT / "tests" / "pins"
 FAKE_CODEX = ROOT / "tests" / "fake_codex.py"
@@ -89,23 +91,15 @@ def fake_codex(tmp_path: Path):
         os.environ.pop(k, None)
 
 
-@pytest.fixture(autouse=True)
-def _reset_visible_procedures():
-    """Keep `mcu_worldmodel.procedures.VISIBLE` out of the pins.
-
-    That global decides which procedures the contract shows, and every
-    `WorldModelAgent.__init__` sets it (`--atoms` / `--visual-only` / `--human-play`
-    restrict it, a plain agent clears it). A test that builds a restricted agent
-    therefore changed the AGENTS.md every LATER test rendered, and the tests that build
-    no agent at all -- the ones that hash `prompts.act_prompt` directly -- inherited
-    whatever ran before them. The recorded pins then depended on the order the files
-    were handed to pytest, which is the one thing a pin must not depend on.
-    """
-    try:
-        from mcu_worldmodel import procedures
-    except Exception:                       # KiCad-only runs have no MCU checkout
-        yield
+def pytest_collection_modifyitems(config, items):
+    """Without the CUA-KiCad submodule (`gym_codex`) the kicad pin tests and test_carry
+    cannot import their subject: report them as skipped with the reason, not as failures
+    that hide a real one (2026-09-09; the submodule is a private repo this host cannot
+    clone -- `git submodule update --init CUA-KiCad` from a host with access)."""
+    if (KICAD / "gym_codex").is_dir():
         return
-    procedures.set_visible(None)
-    yield
-    procedures.set_visible(None)
+    skip = pytest.mark.skip(reason="CUA-KiCad submodule not checked out (gym_codex missing)")
+    for it in items:
+        path = it.nodeid.split("::")[0]
+        if path.endswith("tests/test_carry.py") or "::test_kicad" in it.nodeid:
+            it.add_marker(skip)
