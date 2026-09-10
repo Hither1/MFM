@@ -1569,3 +1569,18 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   viewed to re-find the surface exit from the table/furnace station. Working.md: diamond target life_2 ep_000952
   (-3096,11,-5546), lava frontier (-3217,11,-5576), portal guide from life_2. Thread 14.0M input (12.4M cached),
   130k output, 7 compactions, context 76.6k.
+
+## 2026-09-10 08:07 -- of3m_mfm +2h go/no-go: GO
+- Alive. 62 turns, step 9569, 9/24 (iron_pickaxe 5293 @ +59 min). The 16/24 run at the same wall (+2h07): step 9800,
+  78 turns, 9/24 (iron_pickaxe 6060 @ +69 min) -- identical step pace, fewer and longer turns (median 114 s, 154
+  steps/turn overall, ~75 over the last 23 turns while it hunts food on the surface).
+- Pre-registered cell criterion (no kind > 0.3/turn except read_log/write) is NOT met: read_prev 1.79, read_log 1.41,
+  read_ref 1.39, query 1.16, look 0.93 per turn; output tokens median 2662/turn vs of3r's 197 (of3r first 61 turns:
+  read_log 0.98, read_ref 0.66, read_prev 0.21, query 0.03). Judged not blocking: step pace equals of3r's and the
+  reads are the intended memory use, not gen-3-style contract reading (read_skill 0.25).
+- Expected signal met: then-now on the way to the shallow iron -- T0019-T0023 (steps 3656-4231) each ran
+  `--then-now previous/life_2/episodes/ep_000219/226/233/255/267`; at step 4097 "The position matches; I'll open the
+  cell beside iron" -> mine_iron_ore at 4231 at the predicted position, furnace opened where recorded. Candidate
+  showcase cases. 108+ view_image calls; zoom crops at 8507/8577 found pigs across the river (food pursuit).
+- Food/health 20/20 all 62 turns, no [REFLEX starving] line, no animal killed yet (pigs sighted, crossing the river);
+  one [REFLEX fell]; 0 deaths; 0 errors. Thread ~14M+ input, 7+ compactions. Decision: continue to the wall.
