@@ -45,11 +45,12 @@ export MCU_CODEX_ROOT="$C/codex-homes"
 export no_proxy="127.0.0.1,localhost${no_proxy:+,$no_proxy}" NO_PROXY="127.0.0.1,localhost${NO_PROXY:+,$NO_PROXY}"
 ST="${SESSION_TURNS:-0}"; CM=0; [ "$ST" = "0" ] && CM=1
 BASE="--expect --frames --retrieval --no-event-sheet --frame-size $FS --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills"
-# The logbook baseline keeps the chassis (executor, perception, caps, expect protocol, frame
-# size) and sheds every memory mechanism: no frames tool, no retrieval, no minimal/mfm
-# contract, no skills, no own files, no reflexes of either kind. Its contract is the
-# logbook one ("your memory is one append-only log").
-[ "$AGENT" = logbook ] && BASE="--expect --no-event-sheet --frame-size $FS --no-harness-reflexes"
+# The logbook baseline keeps the chassis (executor, perception, caps, frame size) and sheds
+# every memory mechanism: no frames tool, no retrieval, no expect protocol, no minimal/mfm
+# contract, no skills, no own files or reflexes (the purple agent refuses those flags
+# outside --memory mfm; the harness's own lava/fall stops stay, as in every logbook run so
+# far). Its contract is the logbook one ("your memory is one append-only log").
+[ "$AGENT" = logbook ] && BASE="--frame-size $FS"
 EFF=high
 if [ "$CLI" = claude ]; then MID="${MID:-claude-opus-5}"; else MID="${MID:-gpt-6-astra}"; fi
 MODEL="--model $MID --reasoning-effort $EFF"
