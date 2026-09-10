@@ -1584,3 +1584,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   showcase cases. 108+ view_image calls; zoom crops at 8507/8577 found pigs across the river (food pursuit).
 - Food/health 20/20 all 62 turns, no [REFLEX starving] line, no animal killed yet (pigs sighted, crossing the river);
   one [REFLEX fell]; 0 deaths; 0 errors. Thread ~14M+ input, 7+ compactions. Decision: continue to the wall.
+- 08:28 hourly (of3m_mfm): alive, 73 turns, step 10845, 148 steps/turn. 10/24: flint_and_steel at step 9995 (08:12,
+  +2h13) -- the 16/24 run banked it at step 28009 (+6h43), so this life is ~4.5 h ahead on that milestone. First food:
+  pig killed at step 9128, 1 raw porkchop carried; food/health still 20/20, no starving fire. After banking it,
+  turn 65: "return toward the known diamond approach; checked the old entrance and diamond frames"; turns 70-73
+  then-now vs life_2 ep_000530 at the old stair entrance (-3012.8,68,-5553.7), tunnel reset, fresh staircase started
+  (Y65). 182 view_image calls; 12 compactions; thread 24.0M input (21.3M cached), 224k output; 0 deaths, 0 errors.
