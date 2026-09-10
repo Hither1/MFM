@@ -1642,3 +1642,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   at the portal, and previous.py's _DIED regex would tell the next life this life died at its portal. Fix idea:
   also require a health drop or a dimension change check (y/8 coordinate ratio) before calling a jump a death.
   status_g4.sh now counts YOU DIED notes (it grepped "died", case-sensitive, and showed 0).
+- 17:28 hourly (of3m_mfm): still 16/24; 408 turns, step 41195, 100 steps/turn; nether (-437,45,-770) on a placed
+  cobblestone support between a lava drop (east) and unknown footing (west), creeping west; 4th lava_ahead fire
+  (4.7%); health/food 20/24 -> 20/20 throughout, 0 real deaths, 0 errors; 496 view_image calls (this life's nether
+  frames only); thread 109.9M input (94.3M cached), 1.16M output, 57 compactions. 2.5 h of wall left.
