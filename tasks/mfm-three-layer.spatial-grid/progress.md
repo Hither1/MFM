@@ -1654,3 +1654,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   health 9 -> 12 with natural healing back. Cost noted by the model: the eat unequipped the shield with the piglin
   in view. Now pillaring up 2 blocks; no food left, health 12/20. 5 lava_ahead fires total, 0 deaths, 0 errors;
   530 view_image calls; thread 118M input (100M cached), 1.26M output, 62 compactions. 1.5 h of wall left.
+- 19:28 hourly (of3m_mfm): still 16/24; 462 turns, step 46401, 100 steps/turn. Recovered from the piglin: health 12 ->
+  15, food 17 (no food carried; the 3rd starving note is the "nothing to eat" warning), shield up, crouched, bridging
+  north at Y48 to (-437,48,-803) one support at a time, canopy ahead. 597 view_image calls, thread 127M input
+  (108M cached), 1.37M output, 68 compactions, 0 deaths, 0 errors. 30 min of wall left; final expected 16/24.
