@@ -1646,3 +1646,11 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   cobblestone support between a lava drop (east) and unknown footing (west), creeping west; 4th lava_ahead fire
   (4.7%); health/food 20/24 -> 20/20 throughout, 0 real deaths, 0 errors; 496 view_image calls (this life's nether
   frames only); thread 109.9M input (94.3M cached), 1.16M output, 57 compactions. 2.5 h of wall left.
+- 18:28 hourly (of3m_mfm): still 16/24; 436 turns, step 42654, 97 steps/turn; nether (-437,48,-778). FIRST DAMAGE
+  and the reflex chain worked end to end: step 42264 it struck a piglin, took 11.4 (health 8.6), [REFLEX hit]
+  dropped 176 actions; it raised the shield and backed along its cobblestone bridge (turns 433-435, then-now on its
+  own bridge frames ep_002612/2591 to confirm footing), edited its lava reflex to keep the shield up during a
+  low-health retreat; food dipped below 18 and [REFLEX starving] ate the last porkchop (123 actions dropped) ->
+  health 9 -> 12 with natural healing back. Cost noted by the model: the eat unequipped the shield with the piglin
+  in view. Now pillaring up 2 blocks; no food left, health 12/20. 5 lava_ahead fires total, 0 deaths, 0 errors;
+  530 view_image calls; thread 118M input (100M cached), 1.26M output, 62 compactions. 1.5 h of wall left.
