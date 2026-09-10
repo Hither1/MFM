@@ -1630,3 +1630,15 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   check a route around them before leaving the pillar"; turn 310 creeping east, zoom crops of the flames
   (/tmp/flame36297.png). 310 turns, step 36297, 117 steps/turn; 422 view_image calls (a then-now at 06:07Z);
   thread 86.5M input (76.0M cached), 861k output, 44 compactions, 0 errors.
+- 15:28 hourly (of3m_mfm): still 16/24, 343 turns, step 37586, 109 steps/turn, health/food 20/20, 0 real deaths,
+  0 errors; in the nether at (-418,41,-738) bridging toward a shoreline with sneak + a placed-block guard. The
+  model's own lava_ahead reflex fired 3x (7.2/9.3/11.7% lava in the lower view), each dropping the plan (14/20/16
+  actions) -- the carried reflex working where life_2 died. 439 view_image calls; thread 94.2M input (82.3M
+  cached), 962k output, 48 compactions.
+  HARNESS FALSE POSITIVE (fix after the run): at step 35121 the portal trip was taken with raw `forward x5` +
+  `watch`, not enter_portal, so no `_dimcheck` headed the queue and the 5631-block jump at full health was
+  logged "YOU DIED at (-3211,11,-5578) and respawned at (-403,42,-696)" (agent.py:702). The model dismissed it
+  ("conflicts with full health and unchanged gear") and lost nothing, but cursor_stats.deaths=1, a grid hazard
+  at the portal, and previous.py's _DIED regex would tell the next life this life died at its portal. Fix idea:
+  also require a health drop or a dimension change check (y/8 coordinate ratio) before calling a jump a death.
+  status_g4.sh now counts YOU DIED notes (it grepped "died", case-sensitive, and showed 0).
