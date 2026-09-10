@@ -255,7 +255,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.then_now:
         out, label = then_now(root, args.then_now, args.now, Path(args.out))
         q = args.q or "(no --q given: what question does this look answer?)"
-        print(f"wrote {out}: {label} | NOW. Q: {q}. View it with view_image.")
+        # The image tool's name depends on the CLI running this shell: codex's view_image,
+        # or Read under Claude Code (the harness sets MFM_IMAGE_TOOL for that channel).
+        print(f"wrote {out}: {label} | NOW. Q: {q}. View it with "
+              f"{os.environ.get('MFM_IMAGE_TOOL', 'view_image')}.")
         return 0
     rows = read_index(root, previous=args.previous)
     if args.same_screen:
