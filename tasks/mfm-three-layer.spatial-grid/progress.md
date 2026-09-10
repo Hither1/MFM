@@ -1624,3 +1624,9 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   the portal frame at (-3211,11,-5578): placement checked frame by frame (a block that landed one level high was
   found in the frame and repaired), 4 obsidian left. 370 view_image calls; thread 76.6M input (67.4M cached),
   757k output, 39 compactions. Next: portal lit -> nether (the 16/24 run died there to a piglin at food 16).
+- 14:28 hourly (of3m_mfm): 16/24 -- netherrack at step 35204 (13:53, +7h53; the 16/24 run banked its 16th at +11h19).
+  The record is tied with 6 h of wall left. In the nether at (-410,43,-710), i.e. within 6 blocks of life_2's death
+  spot (-408,43,-704); health/food 20/20, no reflex fire, 0 deaths. Turn 309: "distant figures look piglin-like ...
+  check a route around them before leaving the pillar"; turn 310 creeping east, zoom crops of the flames
+  (/tmp/flame36297.png). 310 turns, step 36297, 117 steps/turn; 422 view_image calls (a then-now at 06:07Z);
+  thread 86.5M input (76.0M cached), 861k output, 44 compactions, 0 errors.
