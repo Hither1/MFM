@@ -1617,3 +1617,10 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   ("falling cancels the break"); $1.69 for 2 turns, ~143 s/turn. Haiku plumbing smoke kept as
   g4smoke_cc_mfm.haiku. Launcher: `bash launch_g4.sh cc|lb` (ports 9134/9144, 9135/9145), SMOKE=150.
 - Open: VISTA-mode design; whether to start the 14 h cc and lb runs (cost ~ $20/h Opus, ~$28/h gpt-6).
+- 13:28 hourly (of3m_mfm): 15/24 -- mine_obsidian at step 30994 (12:46, +6h46; the 16/24 run: +7h41). 278 turns,
+  step 34140, 122 steps/turn, health/food 20/20, no starving fire, no lava/hit reflex at the lava frontier, 0 deaths,
+  0 errors. Arrival at the lava: two self-made compare sheets (mine/lava_approach_compare.png, lava_arrival_compare
+  .png) against life_2 ep_001696, bucket poured and refilled, obsidian mined with the diamond pickaxe. Now building
+  the portal frame at (-3211,11,-5578): placement checked frame by frame (a block that landed one level high was
+  found in the frame and repaired), 4 obsidian left. 370 view_image calls; thread 76.6M input (67.4M cached),
+  757k output, 39 compactions. Next: portal lit -> nether (the 16/24 run died there to a piglin at food 16).
