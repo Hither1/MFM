@@ -103,3 +103,25 @@ def pytest_collection_modifyitems(config, items):
         path = it.nodeid.split("::")[0]
         if path.endswith("tests/test_carry.py") or "::test_kicad" in it.nodeid:
             it.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _reset_visible_procedures():
+    """Keep `mcu_worldmodel.procedures.VISIBLE` out of the pins.
+
+    That global decides which procedures the contract shows, and every
+    `WorldModelAgent.__init__` sets it (`--atoms` / `--visual-only` / `--human-play`
+    restrict it, a plain agent clears it). A test that builds a restricted agent
+    therefore changed the AGENTS.md every LATER test rendered, and the tests that build
+    no agent at all -- the ones that hash `prompts.act_prompt` directly -- inherited
+    whatever ran before them. The recorded pins then depended on the order the files
+    were handed to pytest, which is the one thing a pin must not depend on.
+    """
+    try:
+        from mcu_worldmodel import procedures
+    except Exception:                       # KiCad-only runs have no MCU checkout
+        yield
+        return
+    procedures.set_visible(None)
+    yield
+    procedures.set_visible(None)

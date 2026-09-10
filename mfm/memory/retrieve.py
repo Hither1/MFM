@@ -361,6 +361,94 @@ def left_behind(rows: list[dict[str, Any]], root: Path | str | None, *,
     return out
 
 
+def uncollected(rows: list[dict[str, Any]], root: Path | str | None,
+                drops: dict[str, str], *, recent: int = 12) -> list[dict[str, Any]]:
+    """Blocks broken in the last `recent` episodes whose drops were never picked up:
+    [{item, broke, picked, row}] with the episode that broke them. `drops` maps the
+    block to what it drops ({"iron_ore": "iron_ore", "coal_ore": "coal"}); from the
+    adapter's events ("mine_block X +n", "pickup Y +n"). lad8_mfmrr (2026-09-06)
+    broke five iron ore and picked up none -- the drops lay in the dark cavity while
+    every later aim swung at the empty hole; lad6b and lad7a did the same with one."""
+    if root is None:
+        return []
+    root = Path(root)
+    eps = [r for r in rows if r.get("kind") == "episode"][-recent:]
+    broke: dict[str, tuple[int, dict]] = {}
+    picked: dict[str, int] = {}
+    for r in eps:
+        for e in events_of(root, r):
+            parts = e.split()
+            if len(parts) < 2:
+                continue
+            try:
+                n = int(parts[2].lstrip("+")) if len(parts) > 2 else 1
+            except ValueError:
+                n = 1
+            if parts[0] == "mine_block" and parts[1] in drops:
+                item = drops[parts[1]]
+                prev = broke.get(item, (0, r))
+                broke[item] = (prev[0] + n, r)
+            elif parts[0] == "pickup" and parts[1] in drops.values():
+                picked[parts[1]] = picked.get(parts[1], 0) + n
+    out = []
+    for item, (n, row) in broke.items():
+        if n > picked.get(item, 0):
+            out.append({"item": item, "broke": n, "picked": picked.get(item, 0), "row": row})
+    return out
+
+
+def override_of(root: Path | str | None, row: dict[str, Any]) -> str | None:
+    """The `why` the agent put on this episode's entry to run it past a refusal, from
+    its action.json; None when there was none (or the file is not there)."""
+    if root is None or not row.get("path"):
+        return None
+    try:
+        a = json.loads((Path(root) / row["path"] / "action.json").read_text())
+    except (OSError, ValueError):
+        return None
+    entry = a.get("entry") if isinstance(a.get("entry"), dict) else a
+    why = entry.get("why")
+    return str(why) if why else None
+
+
+def burned_override(root: Path | str | None, run: list[dict[str, Any]]) -> tuple[dict, str] | None:
+    """The most recent episode in a streak's run that the agent ran past a refusal
+    with a `why`, and what it said -- it ran, and changed nothing, so the claim is
+    spent (lad6b, 2026-09-05: "a spruce trunk is directly ahead", 300 ticks, none)."""
+    for r in reversed(run):
+        why = override_of(root, r)
+        if why:
+            return r, why
+    return None
+
+
+def _where(row: dict[str, Any], pos: dict | tuple | None) -> str:
+    """" at (x, y, z), N blocks E and M blocks S of here" for a row with a position."""
+    if row.get("x") is None or row.get("z") is None:
+        return ""
+    x, z = float(row["x"]), float(row["z"])
+    y = row.get("y")
+    at = f" at ({x:.0f}, {float(y):.0f}, {z:.0f})" if y is not None else f" at (x {x:.0f}, z {z:.0f})"
+    if pos is None:
+        return at
+    if isinstance(pos, dict):
+        px, pz = pos.get("x"), pos.get("z")
+    else:
+        px, pz = pos[0], pos[-1]
+    if px is None or pz is None:
+        return at
+    dx, dz = x - float(px), z - float(pz)
+    dist = (dx * dx + dz * dz) ** 0.5
+    if dist < 1.5:
+        return at + ", where you stand"
+    parts = []
+    if abs(dx) >= 1:
+        parts.append(f"{abs(dx):.0f} {'east' if dx > 0 else 'west'}")
+    if abs(dz) >= 1:
+        parts.append(f"{abs(dz):.0f} {'south' if dz > 0 else 'north'}")
+    return at + f", {dist:.0f} blocks from here ({' and '.join(parts)})"
+
+
 def milestone_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [r for r in rows if "milestone" in (r.get("tags") or [])]
 

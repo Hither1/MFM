@@ -363,6 +363,10 @@ class EpisodeStore(MemorySink):
                "observation_hash": ep["observation_hash"],
                "attachment": ep["attachment"],
                **agent.episode_index_fields(ep["first_state"], ep["last_state"])}
+        if self.recall:
+            row.update({"perception": ep.get("perception"), "intent": ep.get("intent"),
+                        "effect": None, "dhash": ep.get("dhash"),
+                        "next_dhash": self._dhash(closing) if ep["kind"] == "episode" else None})
         # What the query tool asks of `outcome.json` most, kept in the row so `--grep`
         # and `--ores` read the index alone: opening every episode's outcome.json cost
         # ~40 ms a file on the shared storage, 85-120 s over a 2,800-episode life
