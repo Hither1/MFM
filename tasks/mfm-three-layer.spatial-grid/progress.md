@@ -1590,3 +1590,30 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   turn 65: "return toward the known diamond approach; checked the old entrance and diamond frames"; turns 70-73
   then-now vs life_2 ep_000530 at the old stair entrance (-3012.8,68,-5553.7), tunnel reset, fresh staircase started
   (Y65). 182 view_image calls; 12 compactions; thread 24.0M input (21.3M cached), 224k output; 0 deaths, 0 errors.
+
+## 2026-09-10 10:40 -- MIN at 14/24 (+4h18); Claude Code channel + logbook baseline built and smoked
+- of3m_mfm: mine_diamond_ore 18100 (10:07), diamond 18110, diamond_pickaxe 18295, diamond_sword 18490 (10:18, +4h18).
+  The 16/24 run reached 14/24 at +6h43. Step 18501, health/food 20/20, no starving fire yet, 0 deaths.
+- User decisions (10:0x): Opus must run through Claude Code (not codex+OpenRouter), account = OpenRouter or a
+  Claude subscription, isolation required; the text baseline is the logbook arm with nothing but logs.txt;
+  a VISTA-style baseline should carry VISTA's idea inside our framework (design still to agree).
+- Built on MCU branch gen4-cc (worktree MFM-grid-cc-mcu, = gen4-min 1c697dd8 + 4 commits, head 33709cca):
+  ClaudeTurn ported from branch claude-code-support (2026-08-30 work), + session_max_turns kwarg, codex's
+  secret scrub, settings apiKeyHelper (CLAUDE_API_KEY_HELPER), sandbox failIfUnavailable + denyRead (config
+  dir + secrets dir) + Read-tool deny rules, 2.1.257 degradation wording; agent/purple/run-arm/launch-og take
+  --cli codex|claude; claude-home.sh writes the OpenRouter key helper (MCU_CLAUDE_ACCOUNT=openrouter);
+  claude-openrouter.sh = proxy + bwrap/socat PATH (socat installed into Collab/tools/cc-sandbox-env via conda);
+  CLAUDE.md/.claude kept across the sweep (the first Opus smoke lost its contract after turn 1); every
+  harness text renames view_image -> Read for this channel; MFM_IMAGE_TOOL for the episodes tool
+  (MFM-grid-min gen4-min 8651823). Logbook contract gains one paragraph naming previous_expedition_log.txt.
+- Measured (2.1.257 via OpenRouter): key never in the model's env (apiKeySource=apiKeyHelper); secrets and
+  config dir unreadable from Bash and Read; writes outside the workspace refused; image blocks seen without
+  Read; --resume works; Anthropic cache hits (turn 2 of the Opus smoke: 944k cache reads, 46 uncached).
+- Smokes (150 steps): g4smoke_lb_logbook (gpt-6-astra): contract carries the previous-log paragraph, turn 1
+  grepped previous_expedition_log.txt and quoted life_2's iron (-3029,62,-5579) and diamond (-3096,11,-5546)
+  positions, wrote actions.json, 1 turn = 150 steps. g4smoke_cc_mfm (Opus 5 via Claude Code): workshop turn
+  20 tool calls / 3.5 min / $0.92 (skills, digests, reflexes copied, digest+working+notes written; no frame
+  viewed in the workshop); turn 2 zoomed ep_000008 and Read the crop to explain a failed mine_ahead
+  ("falling cancels the break"); $1.69 for 2 turns, ~143 s/turn. Haiku plumbing smoke kept as
+  g4smoke_cc_mfm.haiku. Launcher: `bash launch_g4.sh cc|lb` (ports 9134/9144, 9135/9145), SMOKE=150.
+- Open: VISTA-mode design; whether to start the 14 h cc and lb runs (cost ~ $20/h Opus, ~$28/h gpt-6).
