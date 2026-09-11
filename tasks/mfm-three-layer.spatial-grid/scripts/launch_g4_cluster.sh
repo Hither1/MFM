@@ -7,6 +7,8 @@
 #   bash launch_g4_cluster.sh smoke                    # three 150-step smokes: vista, logbook codex, logbook claude
 #   bash launch_g4_cluster.sh wave                     # all eight arms, staggered 3 min apart
 #   bash launch_g4_cluster.sh one vista   gpt6  dragon # one arm: <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond>
+#   MODELS="gpt56 gpt6" ... restricts the wave's logbook models; BEGIN0=<minutes> shifts every begin
+#   time (a second invocation must not start in the same minute as the first's arms).
 #   DRY=1 ... prints the sbatch lines; EXCLUDE=n1,n2 keeps the jobs off those nodes (added to the
 #   nodes running this user's mcu jobs at submit time -- two engines starting together on one
 #   node race for the display and /tmp/lwjgl).
@@ -40,7 +42,7 @@ export MCU_OPENROUTER_PROXY=""
 FS="${FRAME_SIZE:-320x180}"; EFF="${EFFORT:-high}"
 BUSY="$(squeue -u "$(id -un)" -h -t R -o %R 2>/dev/null | grep -v '(' | sort -u | paste -sd, -)"
 EXCL="${EXCLUDE:+$EXCLUDE,}${BUSY}"; EXCL="${EXCL%,}"
-N=0
+N="${BEGIN0:-0}"
 submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
   local agent="$1" mk="$2" tk="$3" steps="${4:-}"
   local cli=codex mid model task wall tlim arm
@@ -70,7 +72,7 @@ submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
           MCU_CLAUDE_BIN="$MCU_ROOT/scripts/claude-openrouter.sh" MCU_CLAUDE_REAL="$CLAUDE_REAL" MCU_CLAUDE_SANDBOX_TOOLS=/usr/bin)
     model="--model anthropic/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api"
   fi
-  local begin="--begin=now+$((N*3))minutes"; N=$((N+1))
+  local begin="--begin=now+${N}minutes"; N=$((N+3))
   local -a sb=(sbatch -J "$arm" -t "$tlim" -o "$MCU_ROOT/slurm/logs/%x-%j.out" -e "$MCU_ROOT/slurm/logs/%x-%j.err" "$begin"
                ${EXCL:+--exclude="$EXCL"}
                "$WALLSB" "$agent" "$arm" "$task" "$steps" "$wall"
@@ -83,7 +85,7 @@ submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
 }
 case "$MODE" in
   smoke)  SMOKE="${SMOKE:-150}"; submit vista gpt6 dragon; submit logbook gpt6 dragon; submit logbook opus dragon;;
-  wave)   for tk in dragon diamond; do submit vista gpt6 "$tk"; for mk in gpt56 gpt6 opus; do submit logbook "$mk" "$tk"; done; done;;
+  wave)   for tk in dragon diamond; do submit vista gpt6 "$tk"; for mk in ${MODELS:-gpt56 gpt6 opus}; do submit logbook "$mk" "$tk"; done; done;;
   one)    submit "${2:?agent}" "${3:?model}" "${4:?task}" "${5:-}";;
   *) echo "mode must be smoke, wave or one" >&2; exit 2;;
 esac
