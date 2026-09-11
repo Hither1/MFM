@@ -1677,3 +1677,28 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   cost estimate ~$379 at gpt-6-astra list prices. Run stopped by the wall watchdog at 20:00 (13 pids, 3 SIGKILL).
   Open: launch cc (Opus via Claude Code) and lb (append-only logbook) baselines; VISTA arm definition; the
   false-death fix in agent.py:702.
+
+## 2026-09-11 08:00-08:45 -- of3m_mfm (gen 4 min) staged and uploaded to HF (Ced-Collab/MCUData)
+
+- User: "整理一下我们最新跑的那个16/24的trajs和结果，以及这个结果中模型利用多模态记忆的各种case，上传到 .../MCUData ... 记录metadata等"
+  (branch named as "gen2-min"; the run is of3m_mfm on gen4-min = gen 2 + the three edits, MFM-grid-min-mcu 1c697dd8 / MFM-grid-min a87aa8d,
+  verified by the gen4-min reflog against the 06:00:43 launch).
+- `scripts/stage_hf_gen4min.py` (MFM-grid 59e37e3; reuses stage_hf_mfm_era / stage_hf_carry_only_era / look_cases) built and uploaded:
+  `carry-only-era/gen4min/of3m_mfm/` 1292 files 3.52 GB (trajectory with previous/ stripped + episodes.tar, hires.tar 49,570 frames, slimmed
+  rollouts 599 MB -> 147 MB, launcher logs, harness-code/ incl. launch_g4.sh + gen4 plan, profile.txt, provenance.json, **vision_use.json**);
+  `carry-only-era/look-cases/gen4min_of3m_mfm/` 46 turns (all 30 look_cases score-3 turns + 21 named episodes); `look_examples_of3m/` 9 curated
+  cases (51 files: hires frame per turn, the previous-life frame, the model's own compare sheets, then-now regenerated); `diff-gen2-to-gen4min/`;
+  carry-only-era README (three-generation table by wall time), manifest, runs.csv; stats/runs.csv row; the dated box on the root README.
+  HF commits 93b7b283 (run) ... 9f6caa40 (README); list_repo_tree = local staging file for file (carry-only-era 3857 files / 5.593 GB).
+- FINDING (vision_use.json): view_image is a codex tool call that `codex exec --json` never emits, so codex_turns/ has none and look_cases.py
+  saw only zoom/then-now cells; read from the rollout: 636 view_image calls in 333 turns -- 114 of life_2's frames, 1 of life_1's, 367 of its
+  own episodes, 75 then-now sheets, 39 current frame, 29 /tmp crops, 10 mine/ sheets; 494 distinct frames, 105 distinct previous-life frames.
+  then-now: 79 calls, 65 against previous/ (61 distinct targets), 14 against its own episodes. The report's codex.view_image_calls=3902 counts
+  text mentions. Turn 1 (workshop) viewed life_2 ep_000007 / ep_002597 / ep_000952 and the digest cites all three.
+- Corrections made while staging: the milestone tables count wall minutes from the FIRST CODEX TURN (06:03:05), so iron pickaxe is +56 (not
+  +59), flint +2h10, obsidian +6h43, netherrack +7h50 vs of3r's +67 / +6h41 / +7h40 / +11h17; the diamond quartet is NOT earlier than gen 2
+  (+245/247/252/255 vs +242/242/247/255 min) -- the README says "ahead at every milestone but the diamond quartet". `deaths` in provenance /
+  runs.csv set to 0 with `you_died_notes_in_log: 1` + `deaths_note` (the step-35121 portal false positive). `.patch`/`.diff` were not in the
+  module's TEXT_EXT, so `diff-gen2-to-gen3b/` on HF had 3 absolute-path lines; re-anonymised and re-uploaded (e93caf4d).
+- Not done: status_g4.sh is not in the launcher-repo commit before the launch (not archived); no evaluator video exists (wall-killed green);
+  the false-death fix in agent.py:702 is still open.
