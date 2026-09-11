@@ -45,7 +45,7 @@ EXCL="${EXCLUDE:+$EXCLUDE,}${BUSY}"; EXCL="${EXCL%,}"
 N="${BEGIN0:-0}"
 submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
   local agent="$1" mk="$2" tk="$3" steps="${4:-}"
-  local cli=codex mid model task wall tlim arm
+  local cli=codex mid model task wall tlim arm VISTA_OPUS=0
   case "$mk" in
     gpt56) mid=gpt-5.6-sol;  CW=400000;;
     gpt6)  mid=gpt-6-astra;  CW=1050000;;
@@ -57,8 +57,17 @@ submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
     diamond) task=mine_diamond_from_scratch; steps="${steps:-12000}";  wall="${WALL:-24h}"; tlim=25:30:00;;
     *) echo "task key $tk (dragon|diamond)" >&2; return 2;;
   esac
-  [ "$agent" = vista ] && [ "$cli" = claude ] && { echo "vista runs codex app-server only" >&2; return 2; }
-  if [ "$agent" = vista ]; then arm="g4v_${tk}"; else arm="g4l_${mk}_${tk}"; fi
+  if [ "$agent" = vista ] && [ "$cli" = claude ]; then
+    # VISTA is a codex app-server thread; there is no Claude Code twin of its protocol. With
+    # ALLOW_VISTA_OPUS_CODEX=1 the thread asks OpenRouter for anthropic/claude-opus-5 through the
+    # same codex channel -- a feasibility probe, NOT the "Opus through Claude Code" rule the mfm
+    # and logbook opus arms follow (user decision 2026-09-10).
+    [ "${ALLOW_VISTA_OPUS_CODEX:-0}" = 1 ] || { echo "vista runs codex app-server only (ALLOW_VISTA_OPUS_CODEX=1 to probe opus through it)" >&2; return 2; }
+    cli=codex; VISTA_OPUS=1; CW=200000
+  fi
+  # vista arm names carry the model since the gpt-5.6/opus arms (22:55); the first two gpt-6 arms
+  # launched 21:45 kept the short names g4v_dragon / g4v_diamond.
+  if [ "$agent" = vista ]; then arm="g4v_${mk}_${tk}"; else arm="g4l_${mk}_${tk}"; fi
   if [ -n "${SMOKE:-}" ]; then steps="$SMOKE"; arm="${arm}_smoke"; wall=40m; tlim=01:30:00; fi
   # The route, per CLI -- the same exports as launch_g4_fasrc.sh, so the arms share a channel.
   local -a envs=()
@@ -66,7 +75,8 @@ submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
     envs=(CODEX_BIN="$MCU_ROOT/scripts/codex-openrouter.sh" MCU_CODEX_REAL="$CODEX_REAL" MCU_CODEX_AUTH=none
           CODEX_LOCAL_AUTH_COMMAND="[\"sed\", \"-n\", \"s/^OPENROUTER_API_KEY=//p\", \"$KEYFILE\"]"
           CODEX_MODEL_CONTEXT_WINDOW="${CODEX_MODEL_CONTEXT_WINDOW:-$CW}")
-    model="--model openai/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api/v1"
+    local vendor=openai; [ "${VISTA_OPUS:-0}" = 1 ] && vendor=anthropic
+    model="--model $vendor/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api/v1"
   else
     envs=(MCU_CLAUDE_ROOT="${MCU_CLAUDE_ROOT:-$U/claude-homes}" MCU_CLAUDE_ACCOUNT=openrouter MCU_OPENROUTER_ENV="$KEYFILE"
           MCU_CLAUDE_BIN="$MCU_ROOT/scripts/claude-openrouter.sh" MCU_CLAUDE_REAL="$CLAUDE_REAL" MCU_CLAUDE_SANDBOX_TOOLS=/usr/bin)
