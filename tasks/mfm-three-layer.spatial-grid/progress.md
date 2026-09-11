@@ -1795,3 +1795,43 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   228 plays, 9 refused, 2 dropped-and-answered, 0 checkpoints. One real death after the score (Y11 -> spawn
   Y71 in the diamond mine, not the portal false positive). The first VISTA diamond life on gen-4: from
   scratch, no carry; lad12c (gpt-5.6-sol, three-layer chassis) had 9/10.
+- 22:43 END (g4_directc_opus_diamond, 45941203): the first of the four done -- 12000 steps in 62 min, 74 claude turns
+  (~160 steps/turn), FINAL 6/10 milestones (result.json total_score 60.0), 0 tracebacks. Milestone pace: 3/10 by
+  step 1000, 6/10 by 2600, then 9400 steps without a 7th. Others at 22:43: sol dragon 6/24 @4600, opus dragon
+  5/24 @4400, sol diamond 2/10 @2200.
+- 23:32 END (g4_direct_sol_diamond, 45941180): 12000 steps in 1h51, 373 codex turns (~32 steps/turn), FINAL 2/10
+  (mine_log 201, crafting_table 669, never a wooden pickaxe; result.json total_score 20.0), 0 tracebacks, 373
+  rollouts copied. Opus direct on the same task: 6/10 in 74 turns. Dragon arms at 23:32: sol 6/24 @32400
+  (251 turns, stuck since mine_iron_ore 4083), opus 5/24 @7400 (320 turns, ~23 steps/turn, stuck since
+  stone_pickaxe 3938); both end at the 14 h wall ~11:40 on 09-11.
+
+## 2026-09-10 23:45-23:59 -- the MFM arm (gpt-6-astra) on diamond, FASRC
+- The user's ask: a job testing the latest MFM + gpt-6 on the diamond task. launch_g4_fasrc.sh gained `mfm`: the
+  gen-4 MIN arm exactly as launch_g4.sh min runs it (BASE verbatim: --expect --frames --retrieval --no-event-sheet
+  --frame-size 320x180 --thin --minimal --atoms --own --own-reflexes --no-harness-reflexes --skills; --session-turns
+  0 --compact; gpt-6-astra high via OpenRouter on codex 0.153.4; CODEX_MODEL_CONTEXT_WINDOW 1050000), mfm package
+  from MFM main (fc04332 at launch), MCU-gen4-vista @ 6dd70f4. No carry: no gen-4 diamond life exists to seed from
+  (SEEDS=... adds --seed-memory and a _carry suffix when there is one).
+- Smoke g4smoke_mfm_gpt6_diamond (45957789, holy8a26110): turn 1 at 23:56, turns 2-4 resume=yes on the one thread;
+  after 3 turns the workspace had 8 episodes + index rows, 4 own .py scripts under mine/, 4 skills, logs.txt --
+  the machinery is live. Full run submitted before the smoke ended: g4_mfm_gpt6_diamond 45958221 on holy8a26204
+  (mine_diamond_from_scratch, 12000 steps, WALL 24h, -t 25:30), persistent monitor armed. Nine other arms of the
+  user's other session (g4l_*, g4v_*) were running at the time; every busy node was excluded.
+
+## 2026-09-11 00:40 -- gen-4 diamond baselines complete (mine_diamond_from_scratch, 12k steps, no carry, FASRC, OpenRouter)
+  | arm | evaluator | last milestone | act turns |
+  |---|---|---|---|
+  | VISTA gpt-6-astra (g4v_diamond) | **100.0** | diamond @10600 | 239 |
+  | VISTA gpt-5.6-sol (g4v_gpt56_diamond) | 90.0 | iron_pickaxe @8854 | 211 |
+  | logbook gpt-6-astra | 90.0 | iron_pickaxe @5534 | 65 |
+  | logbook gpt-5.6-sol | 80.0 | iron_ingot @9773 | 83 |
+  | logbook opus-5 (Claude Code) | 80.0 | iron_ingot @10574 | 68 |
+  | direct opus-5 (Claude Code, other session) | 60.0 | furnace @2220 | 74 |
+  | direct gpt-5.6-sol (other session) | 20.0 | crafting_table @669 | 373 |
+  0 failed turns anywhere. Reading: VISTA >= logbook >= direct on every model; the lad-era VISTA scores
+  (lad12c 90, lad12d 60, gpt-5.6-sol, three-layer chassis, 640x360) sit at the gpt-5.6 row. No
+  VISTA opus arm yet: VISTA is a codex app-server thread; the g4v_opus_dragon_smoke probe (anthropic/
+  claude-opus-5 through that thread via OpenRouter) worked -- 149 steps, 9 act turns, 8 plays, mine_log
+  @127, no errors -- awaiting the user's call on whether that counts as an opus arm.
+  Dragon at 00:40: vista gpt-6 15/24 @40000, logbook gpt-6 15/24 @25600, logbook gpt-5.6 12/24 @22600,
+  vista gpt-5.6 9/24 @21200, logbook opus 7/24 @10000.
