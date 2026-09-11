@@ -1770,6 +1770,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   g4v_diamond 45942064, g4l_gpt56_diamond 45942065, g4l_gpt6_diamond 45942096 (12k steps, 24 h wall).
   Settings as of3m_mfm: effort high, 320x180, --session-turns 0 --compact (vista ignores), OpenRouter,
   codex 0.153.4. NO carry on any arm (the of3r seed lives are not on this host; vista has no seed).
-  Opus logbook arms (g4l_opus_dragon/diamond, Claude Code 2.1.266 via OpenRouter) follow their smoke.
+  g4l_opus_dragon_smoke passed (2 act turns, resume=yes, 0 tool errors); g4l_opus_dragon and g4l_opus_diamond
+  (Claude Code 2.1.266 via OpenRouter) launched 21:54, begin +9/+12 min.
   The direct arms (g4_direct_sol_*, g4_directc_opus_*) were launched 21:40 from the other session
   (launch_g4_fasrc.sh) on the same worktree, route and key.
