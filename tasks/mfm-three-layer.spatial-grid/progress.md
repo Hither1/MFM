@@ -1702,3 +1702,74 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   module's TEXT_EXT, so `diff-gen2-to-gen3b/` on HF had 3 absolute-path lines; re-anonymised and re-uploaded (e93caf4d).
 - Not done: status_g4.sh is not in the launcher-repo commit before the launch (not archived); no evaluator video exists (wall-killed green);
   the false-death fix in agent.py:702 is still open.
+
+## 2026-09-10 21:19 -- launch_g4.sh direct: the no-memory baseline arm on the gen-4 chassis
+- The user's ask: with gen4-min on MCU, make sure there is a launcher for the direct evaluation. There was none:
+  launch_g4.sh had min/full/cc/lb/vista; the chassis has had `--agent direct` since the ladder (run-arm.sh's
+  direct case, worldmodel_purple_agent --memory direct: read-only codex, `tools=()` on claude, no filesystem,
+  no event sheet, --thin dropped, --seed-*/--playbook refused, and agent.py forces session_max_turns=1
+  whatever the launcher passes). Untouched by the vista port (gen4-cc -> gen4-min-vista diff of run-arm.sh
+  is the vista case + two usage strings).
+- Added `bash launch_g4.sh direct` = of3d_direct, ports 9146/9156 (smoke 9147/9157), MCU=MFM-grid-cc-mcu
+  and MFM_ROOT=MFM-grid-min as lb (NEED 33709cca), gpt-6-astra high via OpenRouter, frames 320x180,
+  WM_EXTRA = model flags + --frame-size only (as lb), NO_SEEDS=1, SESSION_TURNS=1 COMPACT=0 forced in the
+  launcher (what the agent enforces anyway; the launch log now says so instead of "resumed without limit").
+  The of3r seed check is skipped for direct alone (it never touches the seed); lb still requires it.
+- Verified on the FASRC side with a stubbed C (a --shared clone of MCU gen4-min-vista as MFM-grid-cc-mcu,
+  launch-og.sh replaced by an echo): direct and SMOKE direct trace as above; SESSION_TURNS=0 in the env still
+  yields 1/0; direct launches with the seed dir removed, lb fails on it as before; lb smoke unchanged.
+  Not launched: the real paths are on the collab host. Open: a claude-channel twin (CLI=claude direct) for the
+  Opus row if lb gets one; direct shares lb's recorded asymmetry (harness lava/fall reflexes ON) and, like lb,
+  runs the full macro set rather than --atoms.
+
+## 2026-09-10 21:3x -- launch_g4.sh lbc / directc: the Opus-row twins of the two text baselines
+- The user's ask, on the open item above: fix that the Opus row had no baseline twin. Added `lbc` (of3lc_lb,
+  9148/9158, smoke 9149/9159) and `directc` (of3dc_direct, 9150/9160, smoke 9151/9161): byte-for-byte the lb
+  and direct cases with CLI=claude, which the existing ACCOUNT=openrouter branch turns into the cc route
+  (claude-openrouter.sh, MCU_CLAUDE_ROOT/ACCOUNT, `--model anthropic/claude-opus-5 --base-url
+  https://openrouter.ai/api`). lbc builds and passes the same two-lives seed log as lb; directc passes
+  SESSION_TURNS=1 COMPACT=0 NO_SEEDS=1 like direct. MID=claude-haiku-4.5 SMOKE=150 works for both as for cc.
+- Chassis support was already there: run-arm.sh passes --cli to every worldmodel_purple_agent case, and
+  claude_backend.py's init sequence names the direct arm explicitly (`tools=()`; codex can only go read-only --
+  that is the one recorded asymmetry between the rows' direct arms). Rows now: Opus = cc/lbc/directc,
+  GPT = min/lb/direct/vista; the header says to compare within a row only.
+- Stubbed trace (same rig as 21:19): lbc/directc/cc smokes, directc full-size and the haiku smoke all carry
+  the expected agent, CLI, model flags, ports, session policy and seeds; cc's line is unchanged. Not launched.
+
+## 2026-09-10 21:20-21:45 -- direct baselines launched on FASRC: gpt-5.6-sol high and opus-5 high, dragon and diamond
+- The user's ask: start direct evaluation on gpt-5.6 high and opus 5 high for Diamond and Dragon now. launch_g4.sh's
+  paths are the collab host's, so this side got a twin: scripts/launch_g4_fasrc.sh (env for the OpenRouter route on
+  either CLI, then sbatch) + scripts/arm_wall.sbatch (MCU's slurm/arm.sbatch under a WALL watchdog that runs
+  stop_arm.py --go, the launch-og.sh semantics; arm.sbatch itself untouched because jobs execute it). Route facts
+  on FASRC: key ~/.codex-eval/openrouter.env, no proxy (MCU_OPENROUTER_PROXY=""), codex = codex-node-0.153/bin
+  (0.153.4, what the gen-4 collab runs used), claude = nvm 2.1.266, bwrap+socat from /usr/bin; OpenRouter lists
+  openai/gpt-5.6-sol and anthropic/claude-opus-5. MCU = MCU-gen4-vista @ 6dd70f4 (.venv -> MCU/.venv).
+- Smokes first (150 steps, WALL 40m), each on its own node: g4smoke_direct_sol_dragon (45940231, holy8a24206):
+  7 codex turns, turn 1 answered in 13 s with a parsed plan, COMPLETED 5:32; g4smoke_directc_opus_dragon
+  (45940186, holy8a24112): 4 claude turns, turn 1 in ~40 s, COMPLETED 6:11. 0 FileNotFoundError, 0 tracebacks,
+  result.json written, wall watchdog terminated cleanly. (A first direct smoke, 45940139, was cancelled: it had
+  landed on holy8a24111 beside another session's g4l/g4lc logbook smokes -- the co-scheduling hazard.)
+- Full runs, submitted one at a time with --exclude of every node holding an engine (scratch seq_submit.sh):
+  g4_direct_sol_dragon 45940992 holy8a24207; g4_directc_opus_dragon 45941069 holy8a26106 (ender_dragon,
+  100000 steps, WALL 14h, -t 15:30); g4_direct_sol_diamond 45941180 holy8a26108; g4_directc_opus_diamond
+  45941203 holy8a26112 (mine_diamond_from_scratch, 12000 steps, WALL 24h, -t 25:30). All: 320x180 frames,
+  chassis flags only, --session-turns 1, no seeds, reasoning high. Persistent monitor armed (milestones,
+  errors, health at step 200+, job end). Not committed.
+
+## 2026-09-10 21:46 -- gen-4 baseline wave launched on FASRC (vista + logbook), OpenRouter route
+- VISTA ported onto the gen-4 MIN chassis: MCU branch gen4-min-vista (6dd70f44 = gen4-cc + the vista arm;
+  the five other modes' act_prompt hashes identical to gen4-cc's); VistaBridge takes --base-url and MFM
+  e87552c writes the OpenRouter provider (auth.command, context window) into the app-server config.toml.
+- Smokes (150 steps, ender_dragon, worktree MCU-gen4-vista): g4v_smoke (subscription route) 149 steps, 5 act
+  turns, 4 plays, 0 failures; g4v_dragon_smoke (OpenRouter, openai/gpt-6-astra) 8 act turns, 7 plays, 0
+  failures, only the harmless models-catalog stderr; g4l_gpt6_dragon_smoke (logbook, OpenRouter) 5 act turns,
+  resume=yes from turn 2, mine_log at step 126; g4l_opus_dragon_smoke (logbook, Claude Code via OpenRouter)
+  in flight.
+- Launched 21:45 (scripts/launch_g4_cluster.sh, MODELS="gpt56 gpt6" wave; arm_wall.sbatch caps the wall):
+  g4v_dragon 45942055, g4l_gpt56_dragon 45942062, g4l_gpt6_dragon 45942063 (100k steps, 14 h wall);
+  g4v_diamond 45942064, g4l_gpt56_diamond 45942065, g4l_gpt6_diamond 45942096 (12k steps, 24 h wall).
+  Settings as of3m_mfm: effort high, 320x180, --session-turns 0 --compact (vista ignores), OpenRouter,
+  codex 0.153.4. NO carry on any arm (the of3r seed lives are not on this host; vista has no seed).
+  Opus logbook arms (g4l_opus_dragon/diamond, Claude Code 2.1.266 via OpenRouter) follow their smoke.
+  The direct arms (g4_direct_sol_*, g4_directc_opus_*) were launched 21:40 from the other session
+  (launch_g4_fasrc.sh) on the same worktree, route and key.
