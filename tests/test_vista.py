@@ -544,3 +544,44 @@ def test_checkpoint_attempts_leave_room_to_correct():
     """At 2 the model got one correction and one chance to use it in the same breath."""
     from mfm.vista import session
     assert session.MAX_CHECKPOINT_ATTEMPTS >= 4
+
+
+def test_app_server_config_carries_the_base_url_provider(tmp_path, monkeypatch):
+    """The OpenRouter route (gen 4, 2026-09-10): the app-server thread takes no -c, so
+    its provider is written into config.toml -- the twin of codex_backend's -c set on
+    the exec arms. Without a base_url the file is what it was, byte for byte."""
+    import tomllib
+    from mfm.vista.runner import write_codex_config
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.delenv("CODEX_LOCAL_AUTH_COMMAND", raising=False)
+    monkeypatch.delenv("CODEX_MODEL_CONTEXT_WINDOW", raising=False)
+    plain = write_codex_config(home, tmp_path, 100000, "be brief").read_text()
+    assert "model_provider" not in plain
+    assert write_codex_config(home, tmp_path, 100000, "be brief", base_url=None).read_text() == plain
+    base = tomllib.loads(plain)
+    # no key command: env_key, as on a local server
+    local = tomllib.loads(write_codex_config(home, tmp_path, 100000, "be brief",
+                                             base_url="http://127.0.0.1:8000/v1").read_text())
+    assert local["model_providers"]["local"]["env_key"] == "LOCAL_API_KEY"
+    assert "model_context_window" not in local
+    # the OpenRouter route: the key by auth.command, the window named, nothing else touched
+    monkeypatch.setenv("CODEX_LOCAL_AUTH_COMMAND",
+                       json.dumps(["sed", "-n", "s/^OPENROUTER_API_KEY=//p", "/abs/openrouter.env"]))
+    monkeypatch.setenv("CODEX_MODEL_CONTEXT_WINDOW", "1050000")
+    text = write_codex_config(home, tmp_path, 100000, "be brief",
+                              base_url="https://openrouter.ai/api/v1").read_text()
+    cfg = tomllib.loads(text)
+    assert cfg["model_provider"] == "local" and cfg["model_context_window"] == 1050000
+    prov = cfg["model_providers"]["local"]
+    assert prov["name"] == "local" and prov["base_url"] == "https://openrouter.ai/api/v1"
+    assert prov["wire_api"] == "responses" and "env_key" not in prov
+    assert prov["auth"] == {"command": "sed",
+                            "args": ["-n", "s/^OPENROUTER_API_KEY=//p", "/abs/openrouter.env"]}
+    assert cfg["model_auto_compact_token_limit"] == 100000        # the runner's own, kept
+    assert {k: v for k, v in cfg.items() if k in base} == base
+    assert set(cfg) - set(base) == {"model_provider", "model_context_window", "model_providers"}
+    monkeypatch.setenv("CODEX_LOCAL_AUTH_COMMAND", "not json")
+    with pytest.raises(ValueError):
+        write_codex_config(home, tmp_path, 100000, "be brief", base_url="https://openrouter.ai/api/v1")
+

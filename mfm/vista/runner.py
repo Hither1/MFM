@@ -131,14 +131,47 @@ def prepare_codex_home(home: Path) -> Path:
     return home
 
 
+def provider_config(base_url: str | None) -> tuple[list[str], list[str]]:
+    """The --base-url provider for the app-server thread: (top-level lines, tables).
+
+    The twin of codex_backend's `-c` set on the exec arms (MCU mcu_worldmodel/codex_backend.py:
+    model_provider=local, name/base_url/wire_api="responses", provider_auth_args,
+    _metadata_args), written into config.toml because app-server takes no -c. The key
+    travels as codex's `auth.command` from CODEX_LOCAL_AUTH_COMMAND (a JSON list), so it
+    is never in any process's environment; without it, `env_key` LOCAL_API_KEY as on a
+    local server. CODEX_MODEL_CONTEXT_WINDOW names the window of a model codex has never
+    heard of. The auto-compaction limit stays the runner's own: unlike the exec arms,
+    this arm WANTS compaction -- the PreCompact hook is its checkpoint handoff.
+    Without a base_url nothing is added, byte for byte."""
+    if not base_url:
+        return [], []
+    top = ['model_provider = "local"']
+    window = os.environ.get("CODEX_MODEL_CONTEXT_WINDOW", "").strip()
+    if window:
+        top.append(f"model_context_window = {int(window)}")
+    tables = ["[model_providers.local]", 'name = "local"', f'base_url = "{base_url}"',
+              'wire_api = "responses"']
+    raw = os.environ.get("CODEX_LOCAL_AUTH_COMMAND", "").strip()
+    if raw:
+        cmd = json.loads(raw)
+        if not isinstance(cmd, list) or not cmd or not all(isinstance(c, str) for c in cmd):
+            raise ValueError("CODEX_LOCAL_AUTH_COMMAND must be a JSON list of strings")
+        tables += ["", "[model_providers.local.auth]", f"command = {json.dumps(cmd[0])}",
+                   f"args = {json.dumps(cmd[1:])}"]
+    else:
+        tables.append('env_key = "LOCAL_API_KEY"')
+    return top, tables + [""]
+
+
 def write_codex_config(codex_home: Path, workspace: Path, normal_auto_compact_limit: int,
-                       base_instructions: str) -> Path:
+                       base_instructions: str, base_url: str | None = None) -> Path:
     """The complete player-local codex configuration (upstream's, with the paths ours).
 
     Every generic capability is off: the model's tool list is the dynamic namespace and
     nothing else. `hooks = true` is what makes the PreCompact hook run."""
     instructions = codex_home / "player_instructions.md"
     instructions.write_text(base_instructions, encoding="utf-8")
+    provider_top, provider_tables = provider_config(base_url)
     config = codex_home / "config.toml"
     config.write_text("\n".join([
         f'model_instructions_file = "{instructions}"',
@@ -146,6 +179,7 @@ def write_codex_config(codex_home: Path, workspace: Path, normal_auto_compact_li
         'model_auto_compact_token_limit_scope = "total"',
         'personality = "none"',
         'web_search = "disabled"',
+        *provider_top,
         "",
         f'[projects."{workspace}"]',
         'trust_level = "trusted"',
@@ -179,6 +213,7 @@ def write_codex_config(codex_home: Path, workspace: Path, normal_auto_compact_li
         "enabled = false",
         f'direct_only_tool_namespaces = ["{PLAYER_TOOL_NAMESPACE}"]',
         "",
+        *provider_tables,
     ]), encoding="utf-8")
     return config
 
@@ -311,6 +346,7 @@ class AppServerRunner:
                  tools: tuple[dict[str, Any], ...], base_instructions: str,
                  developer_instructions: str, model: str | None,
                  reasoning_effort: str | None, codex_bin: str | None = None,
+                 base_url: str | None = None,
                  compact_thresholds: CompactThresholds | None = None,
                  task_timeout: float = 3 * 24 * 3600,
                  idle_timeout: float | None = DEFAULT_IDLE_TIMEOUT,
@@ -329,6 +365,7 @@ class AppServerRunner:
         self.model = model
         self.reasoning_effort = reasoning_effort
         self.codex_bin = resolve_codex_bin(codex_bin or os.environ.get("CODEX_BIN", "codex"))
+        self.base_url = base_url or None
         self.compact_thresholds = compact_thresholds or resolve_compact_thresholds(
             model, codex_home=self.codex_home)
         self.task_timeout = task_timeout
@@ -339,7 +376,8 @@ class AppServerRunner:
                                              working_path=self.working_path)
         prepare_codex_home(self.codex_home)
         write_codex_config(self.codex_home, self.workspace,
-                           self.compact_thresholds.normal_auto_compact_limit, base_instructions)
+                           self.compact_thresholds.normal_auto_compact_limit, base_instructions,
+                           base_url=self.base_url)
         write_compact_hook(self.workspace, self.codex_home)
         self._segment_index = 0
         self._rpc_id = 0
@@ -423,7 +461,8 @@ class AppServerRunner:
         stderr_path = self.io_dir / f"{stem}.stderr.txt"
         requests_path = self.io_dir / f"{stem}.requests.jsonl"
         (self.io_dir / f"{stem}.prompt.txt").write_text(prompt, encoding="utf-8")
-        write_codex_config(self.codex_home, self.workspace, compact_limit, self.base_instructions)
+        write_codex_config(self.codex_home, self.workspace, compact_limit, self.base_instructions,
+                           base_url=self.base_url)
         command = self._command()
         write_json(self.io_dir / f"{stem}.command.json", {"argv": command, "kind": kind,
                                                             "session_id": session_id})
@@ -776,7 +815,8 @@ class AppServerRunner:
         kinds: dict[str, int] = {}
         for s in self.segments:
             kinds[s.kind] = kinds.get(s.kind, 0) + 1
-        return {"codex_bin": self.codex_bin, "model": self.model, "effort": self.reasoning_effort,
+        return {"codex_bin": self.codex_bin, "base_url": self.base_url, "model": self.model,
+                "effort": self.reasoning_effort,
                 "compact_thresholds": self.compact_thresholds.__dict__,
                 "thread_bytes_budget": self.thread_bytes_budget,
                 "segments": len(self.segments), "segments_by_kind": kinds,
