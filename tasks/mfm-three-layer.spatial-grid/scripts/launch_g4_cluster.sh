@@ -1,67 +1,90 @@
 #!/usr/bin/env bash
-# The gen-4 baseline wave on the Harvard cluster (sbatch), 2026-09-10: VISTA and logbook
-# on the gen-4 MIN chassis (MCU branch gen4-min-vista = gen4-cc + the vista arm), for
-# ender_dragon and mine_diamond_from_scratch. The Collab-host twin is launch_g4.sh.
+# The gen-4 baseline wave on FASRC (sbatch), 2026-09-10: VISTA and logbook on the gen-4
+# MIN chassis (MCU worktree MCU-gen4-vista, branch gen4-min-vista = gen4-cc + the vista
+# arm, 6dd70f44), for ender_dragon and mine_diamond_from_scratch. The sibling of
+# launch_g4_fasrc.sh (the direct arms) and launch_g4.sh (the collab host).
 #
-#   bash launch_g4_cluster.sh smoke                 # the three 150-step smokes (vista, logbook codex, logbook claude)
-#   bash launch_g4_cluster.sh wave                  # all eight arms, staggered 3 min apart
-#   bash launch_g4_cluster.sh one vista   gpt6  dragon    # one arm: <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond>
-#   DRY=1 bash launch_g4_cluster.sh wave            # print the sbatch lines only
+#   bash launch_g4_cluster.sh smoke                    # three 150-step smokes: vista, logbook codex, logbook claude
+#   bash launch_g4_cluster.sh wave                     # all eight arms, staggered 3 min apart
+#   bash launch_g4_cluster.sh one vista   gpt6  dragon # one arm: <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond>
+#   DRY=1 ... prints the sbatch lines; EXCLUDE=n1,n2 keeps the jobs off those nodes (added to the
+#   nodes running this user's mcu jobs at submit time -- two engines starting together on one
+#   node race for the display and /tmp/lwjgl).
 #
-# Settings shared with of3m_mfm (the MIN reference, 2026-09-10): effort high, frames
+# Same settings as of3m_mfm (the MIN reference): the OpenRouter route (openai/<model>
+# via codex 0.153.4 with the key by auth.command, anthropic/claude-opus-5 via Claude Code
+# 2.1.266 with the key by apiKeyHelper; no proxy on this host), effort high, frames
 # 320x180, one thread per life compacted by codex (--session-turns 0 --compact; the vista
-# arm ignores both -- its thread lives by its own checkpoint protocol), dragon = 100,000
-# steps under a 14 h wall (here: sbatch -t 14:30, no stop_arm watchdog -- the report is
-# flushed every 200 steps and on the last step), diamond = 12,000 steps (the lad ladder's
-# budget). Route: the ChatGPT-subscription codex account through codex 0.153.4
-# (gpt-5.6-sol, gpt-6-astra) and the user's Claude login through Claude Code 2.1.266
-# (claude-opus-5, --cli claude). NOT the OpenRouter route of3m_mfm ran on -- a route
-# difference to record beside every score. NO carry for any arm here: the of3r seed lives
-# are not on this host, and vista has no previous-life seed anyway.
-# Every arm is its own sbatch job (own ports, display, codex/claude home); jobs are
-# staggered because two engines starting in the same second on one node race for :99
-# and /tmp/lwjgl (mcu-coscheduled-arms-collide). Tell-tale of a victim: COMPLETED in ~90 s.
+# arm ignores both -- its thread lives by its own checkpoint protocol), dragon 100,000
+# steps under a 14 h wall (arm_wall.sbatch: stop_arm.py at WALL, the report and log up
+# to then stand), diamond 12,000 steps under 24 h. Chassis flags only for these arms
+# (--frame-size): the purple agent refuses the mfm flags outside --memory mfm.
+# NO carry for any arm here: the of3r seed lives are not on this host, and vista has no
+# previous-life seed anyway. Record beside every score.
 set -euo pipefail
-MODE="${1:?usage: launch_g4_cluster.sh <smoke|wave|one ...>}"
+MODE="${1:?usage: launch_g4_cluster.sh <smoke|wave|one <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]>}"
 U=/n/holylfs06/LABS/sham_lab/Users/chloe00
-export MCU_ROOT="${MCU_ROOT:-$U/MCU-gen4-vista}"
-export PYTHONPATH="${MFM_ROOT:-$U/MFM}"
-export CODEX_BIN="${CODEX_BIN:-$U/codex-node-0.153/bin/codex}"
-export MCU_CODEX_AUTH="${MCU_CODEX_AUTH:-$HOME/.codex/runtime-home/auth.json}"
-export MCU_CLAUDE_AUTH="${MCU_CLAUDE_AUTH:-$HOME/.claude/.credentials.json}"
-cd "$MCU_ROOT"
-git merge-base --is-ancestor 6dd70f44 HEAD || { echo "$MCU_ROOT is not at gen4-min-vista (needs 6dd70f44)" >&2; exit 1; }
-[ -d "$PYTHONPATH/mfm/vista" ] || { echo "$PYTHONPATH carries no mfm/vista" >&2; exit 1; }
-[ -x "$CODEX_BIN" ] || { echo "no codex at $CODEX_BIN" >&2; exit 1; }
-[ -e "$MCU_CODEX_AUTH" ] || { echo "no codex credential at $MCU_CODEX_AUTH" >&2; exit 1; }
-[ -e "$MCU_CLAUDE_AUTH" ] || { echo "no claude credential at $MCU_CLAUDE_AUTH" >&2; exit 1; }
-mkdir -p logs output slurm/logs
+export MCU_ROOT="${MCU_ROOT:-$U/MCU-gen4-vista}" MFM_ROOT="${MFM_ROOT:-$U/MFM}"
+WALLSB="$(cd "$(dirname "$0")" && pwd)/arm_wall.sbatch"
+KEYFILE="${MCU_OPENROUTER_ENV:-$HOME/.codex-eval/openrouter.env}"
+[ -r "$KEYFILE" ] || { echo "no readable OpenRouter key file at $KEYFILE" >&2; exit 1; }
+[ -f "$WALLSB" ] || { echo "no $WALLSB (the wall-capped sbatch wrapper)" >&2; exit 1; }
+git -C "$MCU_ROOT" merge-base --is-ancestor 6dd70f44 HEAD || { echo "$MCU_ROOT is not at gen4-min-vista (needs 6dd70f44)" >&2; exit 1; }
+[ -z "$(git -C "$MCU_ROOT" status --porcelain -- mcu_worldmodel scripts slurm)" ] || { echo "$MCU_ROOT has uncommitted changes under mcu_worldmodel/, scripts/ or slurm/" >&2; exit 1; }
+[ -d "$MFM_ROOT/mfm/vista" ] || { echo "$MFM_ROOT carries no mfm/vista" >&2; exit 1; }
+git -C "$MFM_ROOT" merge-base --is-ancestor e87552c HEAD || { echo "$MFM_ROOT is behind MFM e87552c (the vista provider config)" >&2; exit 1; }
+CODEX_REAL="$U/codex-node-0.153/bin/codex"; CLAUDE_REAL="$HOME/.nvm/versions/node/v24.19.0/bin/claude"
+[ -x "$CODEX_REAL" ] && [ -x "$CLAUDE_REAL" ] || { echo "CLI binary missing ($CODEX_REAL / $CLAUDE_REAL)" >&2; exit 1; }
+mkdir -p "$MCU_ROOT/logs" "$MCU_ROOT/output" "$MCU_ROOT/slurm/logs"
+export MCU_OPENROUTER_PROXY=""
 FS="${FRAME_SIZE:-320x180}"; EFF="${EFFORT:-high}"
+BUSY="$(squeue -u "$(id -un)" -h -t R -o %R 2>/dev/null | grep -v '(' | sort -u | paste -sd, -)"
+EXCL="${EXCLUDE:+$EXCLUDE,}${BUSY}"; EXCL="${EXCL%,}"
 N=0
-submit() {  # submit <agent> <model-key> <task-key> [steps] [extra sbatch args...]
-  local agent="$1" mk="$2" tk="$3" steps="${4:-}"; shift 3; [ $# -gt 0 ] && shift
-  local mid cli=codex task arm tflag
-  case "$mk" in gpt56) mid=gpt-5.6-sol;; gpt6) mid=gpt-6-astra;; opus) mid=claude-opus-5; cli=claude;; *) echo "model key $mk" >&2; return 2;; esac
-  case "$tk" in dragon) task=ender_dragon; steps="${steps:-100000}"; tflag="-t ${WALL:-14:30:00}";; diamond) task=mine_diamond_from_scratch; steps="${steps:-12000}"; tflag="";; *) echo "task key $tk" >&2; return 2;; esac
+submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
+  local agent="$1" mk="$2" tk="$3" steps="${4:-}"
+  local cli=codex mid model task wall tlim arm
+  case "$mk" in
+    gpt56) mid=gpt-5.6-sol;  CW=400000;;
+    gpt6)  mid=gpt-6-astra;  CW=1050000;;
+    opus)  mid=claude-opus-5; cli=claude;;
+    *) echo "model key $mk (gpt56|gpt6|opus)" >&2; return 2;;
+  esac
+  case "$tk" in
+    dragon)  task=ender_dragon;             steps="${steps:-100000}"; wall="${WALL:-14h}"; tlim=15:30:00;;
+    diamond) task=mine_diamond_from_scratch; steps="${steps:-12000}";  wall="${WALL:-24h}"; tlim=25:30:00;;
+    *) echo "task key $tk (dragon|diamond)" >&2; return 2;;
+  esac
   [ "$agent" = vista ] && [ "$cli" = claude ] && { echo "vista runs codex app-server only" >&2; return 2; }
   if [ "$agent" = vista ]; then arm="g4v_${tk}"; else arm="g4l_${mk}_${tk}"; fi
-  [ -n "${ARM_SUFFIX:-}" ] && arm="${arm}${ARM_SUFFIX}"
+  if [ -n "${SMOKE:-}" ]; then steps="$SMOKE"; arm="${arm}_smoke"; wall=40m; tlim=01:30:00; fi
+  # The route, per CLI -- the same exports as launch_g4_fasrc.sh, so the arms share a channel.
+  local -a envs=()
+  if [ "$cli" = codex ]; then
+    envs=(CODEX_BIN="$MCU_ROOT/scripts/codex-openrouter.sh" MCU_CODEX_REAL="$CODEX_REAL" MCU_CODEX_AUTH=none
+          CODEX_LOCAL_AUTH_COMMAND="[\"sed\", \"-n\", \"s/^OPENROUTER_API_KEY=//p\", \"$KEYFILE\"]"
+          CODEX_MODEL_CONTEXT_WINDOW="${CODEX_MODEL_CONTEXT_WINDOW:-$CW}")
+    model="--model openai/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api/v1"
+  else
+    envs=(MCU_CLAUDE_ROOT="${MCU_CLAUDE_ROOT:-$U/claude-homes}" MCU_CLAUDE_ACCOUNT=openrouter MCU_OPENROUTER_ENV="$KEYFILE"
+          MCU_CLAUDE_BIN="$MCU_ROOT/scripts/claude-openrouter.sh" MCU_CLAUDE_REAL="$CLAUDE_REAL" MCU_CLAUDE_SANDBOX_TOOLS=/usr/bin)
+    model="--model anthropic/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api"
+  fi
   local begin="--begin=now+$((N*3))minutes"; N=$((N+1))
-  local cmd=(sbatch -J "mcu-$arm" $tflag $begin "$@" slurm/arm.sbatch "$agent" "$arm" "$task" "$steps"
-             --cli "$cli" --session-turns 0 --compact
-             --wm-extra "--model $mid --reasoning-effort $EFF --frame-size $FS")
-  echo "${cmd[*]}"
-  [ "${DRY:-0}" = 1 ] || "${cmd[@]}"
+  local -a sb=(sbatch -J "$arm" -t "$tlim" -o "$MCU_ROOT/slurm/logs/%x-%j.out" -e "$MCU_ROOT/slurm/logs/%x-%j.err" "$begin"
+               ${EXCL:+--exclude="$EXCL"}
+               "$WALLSB" "$agent" "$arm" "$task" "$steps" "$wall"
+               --cli "$cli" --session-turns 0 --compact --wm-extra "$model --frame-size $FS")
+  echo "arm=$arm agent=$agent cli=$cli model=$mid task=$task steps=$steps wall=$wall tlim=$tlim exclude=${EXCL:-none}"
+  echo "  ${sb[*]}"
+  [ "${DRY:-0}" = 1 ] && return 0
+  # The submitting shell is often a Claude Code session; its identity must not ride into the job.
+  env -u CLAUDECODE -u CLAUDE_CONFIG_DIR -u CLAUDE_CODE_SESSION_ID "${envs[@]}" "${sb[@]}"
 }
 case "$MODE" in
-  smoke)  ARM_SUFFIX=_smoke submit vista gpt6 dragon 150 -t 02:00:00
-          ARM_SUFFIX=_smoke submit logbook gpt6 dragon 150 -t 02:00:00
-          ARM_SUFFIX=_smoke submit logbook opus dragon 150 -t 02:00:00;;
-  wave)   for tk in dragon diamond; do
-            submit vista gpt6 "$tk"
-            for mk in gpt56 gpt6 opus; do submit logbook "$mk" "$tk"; done
-          done;;
+  smoke)  SMOKE="${SMOKE:-150}"; submit vista gpt6 dragon; submit logbook gpt6 dragon; submit logbook opus dragon;;
+  wave)   for tk in dragon diamond; do submit vista gpt6 "$tk"; for mk in gpt56 gpt6 opus; do submit logbook "$mk" "$tk"; done; done;;
   one)    submit "${2:?agent}" "${3:?model}" "${4:?task}" "${5:-}";;
   *) echo "mode must be smoke, wave or one" >&2; exit 2;;
 esac
-squeue -u "$(id -un)" -o "%.10i %.24j %.9T %.8M %.14R" 2>/dev/null | tail -n +1
+[ "${DRY:-0}" = 1 ] || squeue -u "$(id -un)" -o "%.10i %.26j %.9T %.8M %.14R"
