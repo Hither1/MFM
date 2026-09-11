@@ -1791,3 +1791,7 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   | g4_directc_opus_diamond | 11999 | 6/10 | ended (12k steps) |
   VISTA's dropped-entry answer (mcu_worldmodel/vista.py _dropped_outcome, previously test-only) fired in
   production on both vista arms (1 and 2 dropped entries) with no deadlock: the fix is confirmed live.
+- 22:48 g4v_diamond END: evaluator 100.0 (10/10, diamond at step 10600, 12k steps), 239 act turns, 0 failed,
+  228 plays, 9 refused, 2 dropped-and-answered, 0 checkpoints. One real death after the score (Y11 -> spawn
+  Y71 in the diamond mine, not the portal false positive). The first VISTA diamond life on gen-4: from
+  scratch, no carry; lad12c (gpt-5.6-sol, three-layer chassis) had 9/10.
