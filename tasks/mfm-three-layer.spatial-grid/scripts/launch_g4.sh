@@ -13,8 +13,14 @@
 #                            #   same chassis and model as MIN, memory = one append-only logs.txt, the two
 #                            #   earlier lives carried as ONE text file (--seed-log), no frames tool, no
 #                            #   skills/own/reflexes/retrieval
-#   SMOKE=150 bash launch_g4.sh min|full|cc|lb   # g4smoke_<arm>_*, 150 steps, ports 9127/9137 (min),
-#                            #   9126/9136 (full), 9128/9138 (cc), 9129/9139 (lb), WALL 30m
+#   bash launch_g4.sh vista  # of3v_vista 9131/9141: the VISTA baseline -- --agent vista on the same
+#                            #   chassis, model, route and frames as MIN (MCU branch gen4-min-vista =
+#                            #   gen4-cc + the vista arm, 6dd70f44); memory = one codex app-server thread
+#                            #   calling `play`, GUIDE.md/WORKING.md, checkpoint handoff at 4 MB of
+#                            #   frames; no files, no skills, no reflexes; NO carry (vista has no
+#                            #   previous-life seed: its first gen-4 life starts from nothing)
+#   SMOKE=150 bash launch_g4.sh min|full|cc|lb|vista   # g4smoke_<arm>_*, 150 steps, ports 9127/9137 (min),
+#                            #   9126/9136 (full), 9128/9138 (cc), 9129/9139 (lb), 9130/9140 (vista), WALL 30m
 #   MID=claude-haiku-4.5 SMOKE=150 bash launch_g4.sh cc   # a cheap plumbing smoke of the claude channel
 # Both arms: gpt-6-astra high through OpenRouter (ACCOUNT=openrouter default; api|nyu as in
 # launch_g3.sh), one codex thread for the life compacted by codex (SESSION_TURNS=0, COMPACT=1),
@@ -24,7 +30,7 @@
 # the starving example eats what you carry when the bar drops below 18, the hunger line in
 # Safety, then-now on arrival at a remembered place + the episode id beside each digest place.
 set -euo pipefail
-ARM_KIND="${1:?usage: launch_g4.sh <min|full|cc|lb>}"
+ARM_KIND="${1:?usage: launch_g4.sh <min|full|cc|lb|vista>}"
 C=/datapool/data3/storage/ruihan/data_share/jh/Collab
 CLI=codex; AGENT=mfm
 case "$ARM_KIND" in
@@ -32,10 +38,17 @@ case "$ARM_KIND" in
   full) MCU="$C/MFM-grid-merge-mcu"; export MFM_ROOT="$C/MFM-grid";     ARM=of3f_mfm; GP=9132; PP=9142; FS="${FRAME_SIZE:-640x360}"; NEED=a7dbe7ba; SGP=9126; SPP=9136;;
   cc)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3c_mfm; GP=9134; PP=9144; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9128; SPP=9138; CLI=claude;;
   lb)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3l_lb;  GP=9135; PP=9145; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9129; SPP=9139; AGENT=logbook;;
-  *) echo "arm must be min, full, cc or lb" >&2; exit 2;;
+  # vista imports mfm.vista from MFM_ROOT, which MFM-grid-min (branch gen4-min) does not carry: MFM main does.
+  vista) MCU="$C/MFM-grid-cc-mcu"; export MFM_ROOT="${MFM_VISTA_ROOT:-$C/MFM}"; ARM=of3v_vista; GP=9131; PP=9141; FS="${FRAME_SIZE:-320x180}"; NEED=6dd70f44; SGP=9130; SPP=9140; AGENT=vista;;
+  *) echo "arm must be min, full, cc, lb or vista" >&2; exit 2;;
 esac
 cd "$MCU"
 git -C . merge-base --is-ancestor "$NEED" HEAD || { echo "$MCU is not at the gen-4 $ARM_KIND code (needs $NEED)" >&2; exit 1; }
+if [ "$AGENT" = vista ]; then
+  # the app-server config takes the --base-url provider only from MFM e87552c5 on
+  [ -d "$MFM_ROOT/mfm/vista" ] || { echo "$MFM_ROOT carries no mfm/vista (MFM_VISTA_ROOT)" >&2; exit 1; }
+  git -C "$MFM_ROOT" merge-base --is-ancestor e87552c5 HEAD || { echo "$MFM_ROOT is behind MFM e87552c5 (the vista provider config)" >&2; exit 1; }
+fi
 [ -z "$(git -C . status --porcelain -- mcu_worldmodel scripts)" ] || { echo "$MCU has uncommitted changes under mcu_worldmodel/ or scripts/" >&2; exit 1; }
 export MCU_CODEX_ROOT="$C/codex-homes"
 # The launching shell may carry http_proxy/https_proxy (the host reaches OpenRouter through one);
@@ -51,6 +64,9 @@ BASE="--expect --frames --retrieval --no-event-sheet --frame-size $FS --thin --m
 # outside --memory mfm; the harness's own lava/fall stops stay, as in every logbook run so
 # far). Its contract is the logbook one ("your memory is one append-only log").
 [ "$AGENT" = logbook ] && BASE="--frame-size $FS"
+# The vista arm likewise: the chassis flags only; its memory knobs are its own
+# (--vista-thread-bytes 4000000 default = the 4 MB frame budget the mfm thread runs under).
+[ "$AGENT" = vista ] && BASE="--frame-size $FS"
 EFF=high
 if [ "$CLI" = claude ]; then MID="${MID:-claude-opus-5}"; else MID="${MID:-gpt-6-astra}"; fi
 MODEL="--model $MID --reasoning-effort $EFF"
@@ -107,6 +123,11 @@ echo "account=${ACCOUNT:-openrouter} cli=$CLI agent=$AGENT bin=${CODEX_BIN:-}${M
 if [ "$AGENT" = logbook ]; then
   TASK=ender_dragon ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-14h}" \
     AGENT=logbook CLI="$CLI" NO_SEEDS=1 SEED_LOG="$SEED_LOG" WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
+elif [ "$AGENT" = vista ]; then
+  # No carry: the conversation is this arm's memory and no earlier vista life exists on
+  # the gen-4 chassis. SESSION_TURNS/COMPACT are passed for argv shape; the arm ignores them.
+  TASK=ender_dragon ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-14h}" \
+    AGENT=vista CLI="$CLI" NO_SEEDS=1 WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
 else
   TASK=ender_dragon ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-14h}" \
     AGENT=mfm CLI="$CLI" EXTRA_ONLY=1 EXTRA_SEEDS="$SEED" WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
