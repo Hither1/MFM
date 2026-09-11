@@ -1774,3 +1774,20 @@ longer run -- the arms are stoppable/relaunchable from scripts/launch_og23_og24.
   (Claude Code 2.1.266 via OpenRouter) launched 21:54, begin +9/+12 min.
   The direct arms (g4_direct_sol_*, g4_directc_opus_*) were launched 21:40 from the other session
   (launch_g4_fasrc.sh) on the same worktree, route and key.
+- 22:45 hourly (all twelve gen-4 baseline arms on FASRC, no tracebacks, every logbook thread resuming):
+  | arm | step | score | notes |
+  |---|---|---|---|
+  | g4v_dragon (vista gpt-6) | 12600 | 13/24 | diamond_pickaxe 7726, mine_obsidian 11008 (of3m: 18295, 30994); 281 plays, 19 refused, 1 dropped-and-answered, 0 idle, 0 checkpoints |
+  | g4l_gpt56_dragon | 10200 | 7/24 | 60 turns, 59 resumed |
+  | g4l_gpt6_dragon | 10200 | 9/24 | 76 turns |
+  | g4l_opus_dragon | 2200 | 2/24 | 23 turns -- Opus turns are ~3x slower per step |
+  | g4v_diamond (vista gpt-6) | 11800 | **10/10** at step 10600 | iron_pickaxe 6248, diamond 10600; 1 YOU DIED note after the score (check: real or the portal-trip false positive) |
+  | g4l_gpt56_diamond | 7400 | 6/10 | |
+  | g4l_gpt6_diamond | 11400 | 9/10 | |
+  | g4l_opus_diamond | 3800 | 6/10 | |
+  | g4_direct_sol_dragon (other session) | 17600 | 6/24 | 275 one-turn sessions |
+  | g4_directc_opus_dragon | 6200 | 5/24 | |
+  | g4_direct_sol_diamond | 7400 | 2/10 | |
+  | g4_directc_opus_diamond | 11999 | 6/10 | ended (12k steps) |
+  VISTA's dropped-entry answer (mcu_worldmodel/vista.py _dropped_outcome, previously test-only) fired in
+  production on both vista arms (1 and 2 dropped entries) with no deadlock: the fix is confirmed live.
