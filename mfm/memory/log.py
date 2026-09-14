@@ -42,7 +42,9 @@ SEPARATOR = "=" * 80
 # tool a benchmark may install beside the frames (`install_zoom_tool`), and the netlist
 # read-back a benchmark may refresh from the environment (`netlist.txt`; KiCad's
 # `--netlist-readback`). Naming a file here costs nothing while no arm writes it.
-_HARNESS_FILES = {"logs.txt", "AGENTS.md", "tools/zoom.py", "netlist.txt"}
+# CLAUDE.md is AGENTS.md on the Claude Code channel (the system prompt file); a codex
+# workspace never holds one, so the codex arms' views are unchanged.
+_HARNESS_FILES = {"logs.txt", "AGENTS.md", "CLAUDE.md", "tools/zoom.py", "netlist.txt"}
 
 _ZOOM_SRC = Path(__file__).with_name("tools") / "zoom.py"
 
