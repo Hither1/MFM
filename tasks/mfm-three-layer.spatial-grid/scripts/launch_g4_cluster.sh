@@ -30,7 +30,7 @@
 # previous-life seed anyway. Record beside every score.
 set -euo pipefail
 MODE="${1:?usage: launch_g4_cluster.sh <smoke|wave|one <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]>}"
-U=/n/holylfs06/LABS/sham_lab/Users/chloe00
+U="${LAB_USER_ROOT:-/n/holylfs06/LABS/sham_lab/Users/$USER}"
 export MCU_ROOT="${MCU_ROOT:-$U/MCU-gen4-vista}" MFM_ROOT="${MFM_ROOT:-$U/MFM}"
 WALLSB="$(cd "$(dirname "$0")" && pwd)/arm_wall.sbatch"
 KEYFILE="${MCU_OPENROUTER_ENV:-$HOME/.codex-eval/openrouter.env}"

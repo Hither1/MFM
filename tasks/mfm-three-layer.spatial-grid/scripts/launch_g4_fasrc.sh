@@ -33,7 +33,7 @@
 set -euo pipefail
 KIND="${1:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc> <dragon|diamond|nether>}"
 TASK_KIND="${2:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc> <dragon|diamond|nether>}"
-U=/n/holylfs06/LABS/sham_lab/Users/chloe00
+U="${LAB_USER_ROOT:-/n/holylfs06/LABS/sham_lab/Users/$USER}"
 export MCU_ROOT="${MCU_ROOT:-$U/MCU-gen4-vista}" MFM_ROOT="${MFM_ROOT:-$U/MFM}"
 KEYFILE="${MCU_OPENROUTER_ENV:-$HOME/.codex-eval/openrouter.env}"
 need_key() { [ -r "$KEYFILE" ] || { echo "no readable OpenRouter key file at $KEYFILE" >&2; exit 1; }; }
