@@ -227,10 +227,10 @@ def test_claude_sandbox_confines_reads_writes_and_network(tmp_path):
     probe = (f"cat {secret} 2>&1; cat {lab_file} 2>&1 | head -1; "
              f"echo written > {ws}/inside.txt; echo nope > {tmp_path}/outside.txt 2>&1; "
              f"(exec 3<>/dev/tcp/1.1.1.1/80) 2>/dev/null && echo NET-OPEN || echo NET-CLOSED; "
-             f"echo HOME=$HOME; env | grep -c CLAUDE_CODE_OAUTH_TOKEN || true")
+             f"echo HOME=$HOME; echo TOKEN=${{CLAUDE_CODE_OAUTH_TOKEN:-unset}}")
     env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE")}
     env.update(CLAUDE_SANDBOX_EXEC="/bin/bash", CLAUDE_REAL_BIN="/bin/bash",
-               CLAUDE_SANDBOX_NO_AUTH="1", CLAUDE_CONFIG_DIR=str(tmp_path / "ws.claudehome"))
+               CLAUDE_CODE_OAUTH_TOKEN="tok-123", CLAUDE_CONFIG_DIR=str(tmp_path / "ws.claudehome"))
     proc = subprocess.run([str(WRAPPER), "-c", probe], cwd=ws, env=env, capture_output=True,
                           text=True, timeout=60)
     out = proc.stdout
@@ -240,3 +240,5 @@ def test_claude_sandbox_confines_reads_writes_and_network(tmp_path):
     assert not (tmp_path / "outside.txt").exists()
     assert "NET-CLOSED" in out
     assert f"HOME={tmp_path / 'ws.claudehome'}" in out
+    # The credential survives --clearenv (a --setenv before it is wiped: "Not logged in").
+    assert "TOKEN=tok-123" in out
