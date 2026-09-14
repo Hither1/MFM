@@ -242,3 +242,50 @@ def test_claude_sandbox_confines_reads_writes_and_network(tmp_path):
     assert f"HOME={tmp_path / 'ws.claudehome'}" in out
     # The credential survives --clearenv (a --setenv before it is wiped: "Not logged in").
     assert "TOKEN=tok-123" in out
+
+
+def test_usage_limit_waits_and_resends_the_same_turn(tmp_path, fake_claude, monkeypatch):
+    from prolong_search import claude_backend
+    slept = []
+    # subprocess polls with sub-second sleeps on the same module; keep the waits only.
+    monkeypatch.setattr(claude_backend.time, "sleep", lambda s: s >= 1 and slept.append(s))
+    monkeypatch.setenv("CLAUDE_QUOTA_WAIT", "600")
+    (tmp_path / "ws").mkdir()
+    turn = claude_backend.ClaudeTurn(tmp_path / "ws", model=MODEL)
+    fake_claude.reply(error="You've reached your usage limit · resets 3am")
+    fake_claude.reply(CLICK, "clicking")
+    result = turn.run("go", images=())
+    assert result["ok"] and json.loads(result["artifact"]) == CLICK
+    assert slept == [600.0] and turn.calls == 1
+    assert len(fake_claude.recorded()) == 2
+    audit = turn.audit()
+    assert audit["quota_hits"] == 1 and audit["quota_wait_s"] == 600
+
+
+def test_usage_limit_gives_up_past_its_budget(tmp_path, fake_claude, monkeypatch):
+    from prolong_search import claude_backend
+    monkeypatch.setattr(claude_backend.time, "sleep", lambda s: None)
+    monkeypatch.setenv("CLAUDE_QUOTA_WAIT", "600")
+    monkeypatch.setenv("CLAUDE_QUOTA_WAIT_MAX", "1200")
+    (tmp_path / "ws").mkdir()
+    turn = claude_backend.ClaudeTurn(tmp_path / "ws", model=MODEL)
+    fake_claude.reply(error="You've reached your usage limit")
+    result = turn.run("go", images=())
+    assert not result["ok"] and "usage limit" in result["error"]
+    assert len(fake_claude.recorded()) == 3      # the first call and two waits' re-sends
+
+
+def test_lost_credential_stops_the_run(tmp_path, fake_claude, monkeypatch):
+    from prolong_search import claude_backend
+    exits = []
+
+    def fake_exit(code):
+        exits.append(code)
+        raise SystemExit(code)
+    monkeypatch.setattr(claude_backend.os, "_exit", fake_exit)
+    (tmp_path / "ws").mkdir()
+    turn = claude_backend.ClaudeTurn(tmp_path / "ws", model=MODEL)
+    fake_claude.reply(error="Not logged in · Please run /login")
+    with pytest.raises(SystemExit):
+        turn.run("go", images=())
+    assert exits == [claude_backend.AUTH_EXIT_STATUS]
