@@ -546,6 +546,33 @@ def test_checkpoint_attempts_leave_room_to_correct():
     assert session.MAX_CHECKPOINT_ATTEMPTS >= 4
 
 
+def test_codex_home_survives_the_launchers_file_marker(tmp_path: Path):
+    """`skills/.system` may already be a plain FILE, seeded by MCU/scripts/codex-home.sh
+    to keep codex 0.153 from installing its bundled skills. Both seeders must leave it
+    standing rather than mkdir over it: on portal2_vista (2026-09-09) that mkdir raised
+    FileExistsError on every episode start, the adapter swallowed it into a noop, and
+    the arm held a node for 25 minutes without moving from spawn."""
+    from mfm.backend.codex_turn import ensure_system_skills_marker, prepare_codex_home
+    from mfm.vista.runner import prepare_codex_home as vista_prepare_codex_home
+
+    home = tmp_path / "home"
+    marker = home / "skills" / ".system"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("")
+
+    assert ensure_system_skills_marker(home) == marker
+    assert marker.is_file(), "the launcher's marker is the marker"
+    prepare_codex_home(home, hosted=False)
+    vista_prepare_codex_home(home)
+    assert marker.is_file()
+    assert (home / "sessions").is_dir() and (home / "tmp").is_dir()
+
+    # and with nothing there, the directory convention is seeded as before
+    fresh = tmp_path / "fresh"
+    vista_prepare_codex_home(fresh)
+    assert (fresh / "skills" / ".system" / ".codex-system-skills.marker").is_file()
+
+
 def test_app_server_config_carries_the_base_url_provider(tmp_path, monkeypatch):
     """The OpenRouter route (gen 4, 2026-09-10): the app-server thread takes no -c, so
     its provider is written into config.toml -- the twin of codex_backend's -c set on

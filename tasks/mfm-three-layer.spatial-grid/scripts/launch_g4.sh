@@ -19,9 +19,24 @@
 #                            #   calling `play`, GUIDE.md/WORKING.md, checkpoint handoff at 4 MB of
 #                            #   frames; no files, no skills, no reflexes; NO carry (vista has no
 #                            #   previous-life seed: its first gen-4 life starts from nothing)
-#   SMOKE=150 bash launch_g4.sh min|full|cc|lb|vista   # g4smoke_<arm>_*, 150 steps, ports 9127/9137 (min),
-#                            #   9126/9136 (full), 9128/9138 (cc), 9129/9139 (lb), 9130/9140 (vista), WALL 30m
-#   MID=claude-haiku-4.5 SMOKE=150 bash launch_g4.sh cc   # a cheap plumbing smoke of the claude channel
+#   bash launch_g4.sh direct # of3d_direct 9146/9156: the no-memory baseline -- --agent direct on the same
+#                            #   chassis, model, route and frames as MIN (MCU branch gen4-cc, as lb); NO
+#                            #   memory at all: read-only codex, 1-turn sessions (the agent forces them),
+#                            #   no files, no skills, no reflexes, no event sheet; each turn is the state
+#                            #   block plus the current view. No carry (the agent refuses --seed-*)
+#   bash launch_g4.sh lbc    # of3lc_lb 9148/9158: the lb baseline's Claude-channel twin -- the same
+#                            #   logbook arm, seed log and MCU dir, through Claude Code driving Opus 5 via
+#                            #   OpenRouter exactly as cc does (CLI=claude, apiKeyHelper, sandbox on)
+#   bash launch_g4.sh directc # of3dc_direct 9150/9160: the direct baseline's Claude-channel twin (the
+#                            #   claude side sheds the tool surface entirely, `tools=()`, where codex can
+#                            #   only run read-only -- the recorded asymmetry between the two rows)
+#   SMOKE=150 bash launch_g4.sh min|full|cc|lb|vista|direct|lbc|directc   # g4smoke_<arm>_*, 150 steps, ports
+#                            #   9127/9137 (min), 9126/9136 (full), 9128/9138 (cc), 9129/9139 (lb),
+#                            #   9130/9140 (vista), 9147/9157 (direct), 9149/9159 (lbc), 9151/9161 (directc),
+#                            #   WALL 30m
+#   MID=claude-haiku-4.5 SMOKE=150 bash launch_g4.sh cc|lbc|directc   # a cheap plumbing smoke of the claude channel
+# The Opus row is cc / lbc / directc (all CLI=claude); the GPT row is min / lb / direct / vista (codex).
+# Compare within a row only.
 # Both arms: gpt-6-astra high through OpenRouter (ACCOUNT=openrouter default; api|nyu as in
 # launch_g3.sh), one codex thread for the life compacted by codex (SESSION_TURNS=0, COMPACT=1),
 # STEPS=100000, WALL 14h (WALL env overrides), TASK=ender_dragon, carry-only seeding
@@ -30,7 +45,7 @@
 # the starving example eats what you carry when the bar drops below 18, the hunger line in
 # Safety, then-now on arrival at a remembered place + the episode id beside each digest place.
 set -euo pipefail
-ARM_KIND="${1:?usage: launch_g4.sh <min|full|cc|lb|vista>}"
+ARM_KIND="${1:?usage: launch_g4.sh <min|full|cc|lb|vista|direct|lbc|directc>}"
 C=/datapool/data3/storage/ruihan/data_share/jh/Collab
 CLI=codex; AGENT=mfm
 case "$ARM_KIND" in
@@ -40,7 +55,12 @@ case "$ARM_KIND" in
   lb)   MCU="$C/MFM-grid-cc-mcu";    export MFM_ROOT="$C/MFM-grid-min"; ARM=of3l_lb;  GP=9135; PP=9145; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9129; SPP=9139; AGENT=logbook;;
   # vista imports mfm.vista from MFM_ROOT, which MFM-grid-min (branch gen4-min) does not carry: MFM main does.
   vista) MCU="$C/MFM-grid-cc-mcu"; export MFM_ROOT="${MFM_VISTA_ROOT:-$C/MFM}"; ARM=of3v_vista; GP=9131; PP=9141; FS="${FRAME_SIZE:-320x180}"; NEED=6dd70f44; SGP=9130; SPP=9140; AGENT=vista;;
-  *) echo "arm must be min, full, cc, lb or vista" >&2; exit 2;;
+  # direct is on the chassis since before gen 4 (run-arm.sh --agent direct); same MCU dir and code as lb.
+  direct) MCU="$C/MFM-grid-cc-mcu"; export MFM_ROOT="$C/MFM-grid-min"; ARM=of3d_direct; GP=9146; PP=9156; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9147; SPP=9157; AGENT=direct;;
+  # The Opus-row twins of lb and direct: identical to those cases but CLI=claude (the cc route).
+  lbc)     MCU="$C/MFM-grid-cc-mcu"; export MFM_ROOT="$C/MFM-grid-min"; ARM=of3lc_lb;     GP=9148; PP=9158; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9149; SPP=9159; AGENT=logbook; CLI=claude;;
+  directc) MCU="$C/MFM-grid-cc-mcu"; export MFM_ROOT="$C/MFM-grid-min"; ARM=of3dc_direct; GP=9150; PP=9160; FS="${FRAME_SIZE:-320x180}"; NEED=33709cca; SGP=9151; SPP=9161; AGENT=direct;  CLI=claude;;
+  *) echo "arm must be min, full, cc, lb, vista, direct, lbc or directc" >&2; exit 2;;
 esac
 cd "$MCU"
 git -C . merge-base --is-ancestor "$NEED" HEAD || { echo "$MCU is not at the gen-4 $ARM_KIND code (needs $NEED)" >&2; exit 1; }
@@ -67,6 +87,11 @@ BASE="--expect --frames --retrieval --no-event-sheet --frame-size $FS --thin --m
 # The vista arm likewise: the chassis flags only; its memory knobs are its own
 # (--vista-thread-bytes 4000000 default = the 4 MB frame budget the mfm thread runs under).
 [ "$AGENT" = vista ] && BASE="--frame-size $FS"
+# The direct arm: the chassis flags only, as lb (the purple agent refuses every mfm flag and
+# drops --thin for --memory direct). It has no session policy to choose: the agent forces
+# 1-turn sessions whatever --session-turns says (agent.py, "forcing 1-turn codex sessions"),
+# so the launcher passes 1 and no --compact rather than a knob the arm would silently override.
+if [ "$AGENT" = direct ]; then BASE="--frame-size $FS"; ST=1; CM=0; fi
 EFF=high
 if [ "$CLI" = claude ]; then MID="${MID:-claude-opus-5}"; else MID="${MID:-gpt-6-astra}"; fi
 MODEL="--model $MID --reasoning-effort $EFF"
@@ -101,8 +126,12 @@ case "${ACCOUNT:-openrouter}" in
   *) echo "ACCOUNT must be openrouter, subscription, api or nyu" >&2; exit 2;;
 esac
 SEED="$C/MFM-grid/MCU/output/of3r_mfm/episode_001/memory"
-[ -f "$SEED/logs.txt" ] || { echo "seed $SEED has no logs.txt" >&2; exit 1; }
-[ -d "$SEED/previous/life_1" ] || { echo "seed $SEED carries no life_1" >&2; exit 1; }
+# direct never touches the seed (the agent refuses --seed-log/--seed-memory), so its absence
+# must not stop that arm.
+if [ "$AGENT" != direct ]; then
+  [ -f "$SEED/logs.txt" ] || { echo "seed $SEED has no logs.txt" >&2; exit 1; }
+  [ -d "$SEED/previous/life_1" ] || { echo "seed $SEED carries no life_1" >&2; exit 1; }
+fi
 SEED_LOG=""
 if [ "$AGENT" = logbook ]; then
   # The two earlier lives as one text file, oldest first -- the whole carry-over of the
@@ -123,6 +152,11 @@ echo "account=${ACCOUNT:-openrouter} cli=$CLI agent=$AGENT bin=${CODEX_BIN:-}${M
 if [ "$AGENT" = logbook ]; then
   TASK=ender_dragon ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-14h}" \
     AGENT=logbook CLI="$CLI" NO_SEEDS=1 SEED_LOG="$SEED_LOG" WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
+elif [ "$AGENT" = direct ]; then
+  # No carry and no seeds: the arm has no memory to seed. SESSION_TURNS=1 COMPACT=0 are what
+  # the agent enforces anyway; passing them keeps the launch log honest about it.
+  TASK=ender_dragon ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS="$ST" COMPACT="$CM" WALL="${WALL:-14h}" \
+    AGENT=direct CLI="$CLI" NO_SEEDS=1 WM_EXTRA="$MODEL $BASE" bash scripts/launch-og.sh
 elif [ "$AGENT" = vista ]; then
   # No carry: the conversation is this arm's memory and no earlier vista life exists on
   # the gen-4 chassis. SESSION_TURNS/COMPACT are passed for argv shape; the arm ignores them.

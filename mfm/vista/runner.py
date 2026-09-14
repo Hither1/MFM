@@ -122,12 +122,14 @@ class CodexResult:
 def prepare_codex_home(home: Path) -> Path:
     """The arm's codex home: sessions and the system-skills marker (no skills injected),
     like the benchmarks' wrappers seed theirs. Auth is the launcher's business."""
+    from mfm.backend.codex_turn import ensure_system_skills_marker
+
     home = Path(home)
     (home / "sessions").mkdir(parents=True, exist_ok=True)
     (home / "tmp").mkdir(parents=True, exist_ok=True)
-    marker = home / "skills" / ".system"
-    marker.mkdir(parents=True, exist_ok=True)
-    (marker / ".codex-system-skills.marker").touch()
+    # Shared with the backend: the launcher may already have put a FILE at
+    # skills/.system, and mkdir on a file is what took portal2_vista down.
+    ensure_system_skills_marker(home)
     return home
 
 

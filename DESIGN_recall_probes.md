@@ -573,3 +573,23 @@ text arm beating `mfm` by reasoning from later inventory deltas. A probe asking 
 shaft did you dig first" or "where were you when your pickaxe broke" belongs in the suite
 for the same reason a placebo does: without it, this is a set of probes we win, rather than
 a map of which channel carries what.
+
+---
+
+## 14. The nether portal (2026-09-09) -- the case where the un-expressible feature is ten integers
+
+`DESIGN_portal_case_study.md`, `MCU_benchmark/task_configs/tasks/nether_portal{,_slack}/`.
+
+Every probe above builds a world in which the discriminating feature is hard to write
+down: a texture at distance, an item icon in a chest, four identical cabins. The portal
+task is the same argument with the difficulty removed from the perception and put
+entirely in the bookkeeping. The feature is not subtle at all -- it is which ten cells
+hold obsidian -- and yet no channel the agent can read carries it: `inventory` counts
+blocks, `use_item` counts placements, `mine_block` counts undoings, and none of them
+says where. An arm that keeps its frames can check by looking; an arm that keeps a text
+trace has recorded that ten blocks were spent.
+
+It is also the only probe in this set drawn from an observed failure rather than
+designed: arm `of3r` placed all ten obsidian, believed the frame finished, and spent
+8,900 steps and 812 log entries recovering. That makes it the natural first thing to
+show, and the scoring is a cell list rather than a score.

@@ -9,6 +9,11 @@
 #   bash launch_g4_cluster.sh one vista   gpt6  dragon # one arm: <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond>
 #   MODELS="gpt56 gpt6" ... restricts the wave's logbook models; BEGIN0=<minutes> shifts every begin
 #   time (a second invocation must not start in the same minute as the first's arms).
+#   ACCOUNT=nyu ... runs the codex arms through the NYU ChatGPT-plan login instead of OpenRouter.
+#   SUFFIX=s1 ... appends _s1 to the arm name (a second life of the same kind; the bare name would
+#   erase the first's output). MCU_WORLD_SEED=<int> ... fixes the Minecraft world seed and the reset's
+#   spawn draw (green agent, 2026-09-12); unset = a random world, as every arm before that date.
+#   EFFORT=low|medium|high|xhigh ... the reasoning effort (default high).
 #   DRY=1 ... prints the sbatch lines; EXCLUDE=n1,n2 keeps the jobs off those nodes (added to the
 #   nodes running this user's mcu jobs at submit time -- two engines starting together on one
 #   node race for the display and /tmp/lwjgl).
@@ -35,6 +40,14 @@ git -C "$MCU_ROOT" merge-base --is-ancestor 6dd70f44 HEAD || { echo "$MCU_ROOT i
 [ -z "$(git -C "$MCU_ROOT" status --porcelain -- mcu_worldmodel scripts slurm)" ] || { echo "$MCU_ROOT has uncommitted changes under mcu_worldmodel/, scripts/ or slurm/" >&2; exit 1; }
 [ -d "$MFM_ROOT/mfm/vista" ] || { echo "$MFM_ROOT carries no mfm/vista" >&2; exit 1; }
 git -C "$MFM_ROOT" merge-base --is-ancestor e87552c HEAD || { echo "$MFM_ROOT is behind MFM e87552c (the vista provider config)" >&2; exit 1; }
+# The codex arms' model channel, by ACCOUNT -- launch_g4_fasrc.sh's interface, verbatim
+# (2026-09-12): openrouter (the key by auth.command) or nyu (the logged-in ChatGPT-plan
+# account, auth.json symlinked into the arm's home by codex-home.sh). The vista-opus probe
+# (anthropic/... through codex) and every Claude Code arm always need OpenRouter.
+ACCOUNT="${ACCOUNT:-openrouter}"
+case "$ACCOUNT" in openrouter|nyu) ;; *) echo "ACCOUNT must be openrouter or nyu" >&2; exit 2;; esac
+NYU_AUTH="${MCU_CODEX_AUTH:-$HOME/.codex/runtime-home/auth.json}"
+[ "$ACCOUNT" = nyu ] && [ ! -e "$NYU_AUTH" ] && { echo "no codex login at $NYU_AUTH (codex login, then symlink runtime-home/auth.json)" >&2; exit 1; }
 CODEX_REAL="$U/codex-node-0.153/bin/codex"; CLAUDE_REAL="$HOME/.nvm/versions/node/v24.19.0/bin/claude"
 [ -x "$CODEX_REAL" ] && [ -x "$CLAUDE_REAL" ] || { echo "CLI binary missing ($CODEX_REAL / $CLAUDE_REAL)" >&2; exit 1; }
 mkdir -p "$MCU_ROOT/logs" "$MCU_ROOT/output" "$MCU_ROOT/slurm/logs"
@@ -45,7 +58,7 @@ EXCL="${EXCLUDE:+$EXCLUDE,}${BUSY}"; EXCL="${EXCL%,}"
 N="${BEGIN0:-0}"
 submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
   local agent="$1" mk="$2" tk="$3" steps="${4:-}"
-  local cli=codex mid model task wall tlim arm VISTA_OPUS=0
+  local cli=codex mid model task wall tlim arm route=openrouter VISTA_OPUS=0
   case "$mk" in
     gpt56) mid=gpt-5.6-sol;  CW=400000;;
     gpt6)  mid=gpt-6-astra;  CW=1050000;;
@@ -68,26 +81,37 @@ submit() {  # submit <vista|logbook> <gpt56|gpt6|opus> <dragon|diamond> [steps]
   # vista arm names carry the model since the gpt-5.6/opus arms (22:55); the first two gpt-6 arms
   # launched 21:45 kept the short names g4v_dragon / g4v_diamond.
   if [ "$agent" = vista ]; then arm="g4v_${mk}_${tk}"; else arm="g4l_${mk}_${tk}"; fi
+  arm="${arm}${SUFFIX:+_$SUFFIX}"
   if [ -n "${SMOKE:-}" ]; then steps="$SMOKE"; arm="${arm}_smoke"; wall=40m; tlim=01:30:00; fi
   # The route, per CLI -- the same exports as launch_g4_fasrc.sh, so the arms share a channel.
   local -a envs=()
   if [ "$cli" = codex ]; then
-    envs=(CODEX_BIN="$MCU_ROOT/scripts/codex-openrouter.sh" MCU_CODEX_REAL="$CODEX_REAL" MCU_CODEX_AUTH=none
-          CODEX_LOCAL_AUTH_COMMAND="[\"sed\", \"-n\", \"s/^OPENROUTER_API_KEY=//p\", \"$KEYFILE\"]"
+    envs=(CODEX_BIN="$MCU_ROOT/scripts/codex-openrouter.sh" MCU_CODEX_REAL="$CODEX_REAL"
           CODEX_MODEL_CONTEXT_WINDOW="${CODEX_MODEL_CONTEXT_WINDOW:-$CW}")
-    local vendor=openai; [ "${VISTA_OPUS:-0}" = 1 ] && vendor=anthropic
-    model="--model $vendor/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api/v1"
+    if [ "$ACCOUNT" = nyu ] && [ "${VISTA_OPUS:-0}" != 1 ]; then
+      envs+=(MCU_CODEX_AUTH="$NYU_AUTH")
+      model="--model $mid --reasoning-effort $EFF"
+      route=nyu
+    else
+      envs+=(MCU_CODEX_AUTH=none
+             CODEX_LOCAL_AUTH_COMMAND="[\"sed\", \"-n\", \"s/^OPENROUTER_API_KEY=//p\", \"$KEYFILE\"]")
+      local vendor=openai; [ "${VISTA_OPUS:-0}" = 1 ] && vendor=anthropic
+      model="--model $vendor/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api/v1"
+      route=openrouter
+    fi
   else
     envs=(MCU_CLAUDE_ROOT="${MCU_CLAUDE_ROOT:-$U/claude-homes}" MCU_CLAUDE_ACCOUNT=openrouter MCU_OPENROUTER_ENV="$KEYFILE"
           MCU_CLAUDE_BIN="$MCU_ROOT/scripts/claude-openrouter.sh" MCU_CLAUDE_REAL="$CLAUDE_REAL" MCU_CLAUDE_SANDBOX_TOOLS=/usr/bin)
     model="--model anthropic/$mid --reasoning-effort $EFF --base-url https://openrouter.ai/api"
+    route=openrouter
   fi
+  [ -n "${MCU_WORLD_SEED:-}" ] && envs+=(MCU_WORLD_SEED="$MCU_WORLD_SEED")
   local begin="--begin=now+${N}minutes"; N=$((N+3))
   local -a sb=(sbatch -J "$arm" -t "$tlim" -o "$MCU_ROOT/slurm/logs/%x-%j.out" -e "$MCU_ROOT/slurm/logs/%x-%j.err" "$begin"
                ${EXCL:+--exclude="$EXCL"}
                "$WALLSB" "$agent" "$arm" "$task" "$steps" "$wall"
                --cli "$cli" --session-turns 0 --compact --wm-extra "$model --frame-size $FS")
-  echo "arm=$arm agent=$agent cli=$cli model=$mid task=$task steps=$steps wall=$wall tlim=$tlim exclude=${EXCL:-none}"
+  echo "arm=$arm agent=$agent cli=$cli route=$route model=$mid effort=$EFF seed=${MCU_WORLD_SEED:-random} task=$task steps=$steps wall=$wall tlim=$tlim exclude=${EXCL:-none}"
   echo "  ${sb[*]}"
   [ "${DRY:-0}" = 1 ] && return 0
   # The submitting shell is often a Claude Code session; its identity must not ride into the job.

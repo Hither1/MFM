@@ -48,6 +48,30 @@ def resolve_codex_bin(bin_str: str) -> str:
     return bin_str
 
 
+def ensure_system_skills_marker(home: Path) -> Path:
+    """Tell codex its system skills are already installed (as nothing), so none are.
+
+    Two conventions exist for the same intent and both must be left standing. This
+    package seeds a DIRECTORY `skills/.system` holding the marker file, the way the
+    codex_sandbox wrapper does. The MCU launcher (`MCU/scripts/codex-home.sh`,
+    2026-09-09) instead seeds a plain FILE at that path: codex 0.153 installs its bundled
+    skills there at every start, and a file makes that install fail harmlessly.
+
+    `mkdir(exist_ok=True)` raises FileExistsError when the path is a file, and the VISTA
+    arm calls this on every episode start: on portal2_vista the adapter swallowed that
+    exception, returned a noop, and retried `start` on the next step -- 5,910 identical
+    failures, the player never leaving spawn, a node held for 25 minutes with nothing in
+    the log calling it an error. A file already there is the launcher's marker, and it
+    serves.
+    """
+    marker = Path(home) / "skills" / ".system"
+    if marker.exists() and not marker.is_dir():
+        return marker
+    marker.mkdir(parents=True, exist_ok=True)
+    (marker / ".codex-system-skills.marker").touch()
+    return marker
+
+
 def prepare_codex_home(home: Path, *, hosted: bool) -> Path:
     """Create and seed a per-episode (or throwaway) CODEX_HOME the way
     `codex_sandbox.sh` does, so the bare-binary path gets the same state isolation as
@@ -66,9 +90,7 @@ def prepare_codex_home(home: Path, *, hosted: bool) -> Path:
     master home ($CODEX_EVAL_HOME, else ~/.codex) rather than copied, so no token is
     written into the run tree.
     """
-    marker_dir = home / "skills" / ".system"
-    marker_dir.mkdir(parents=True, exist_ok=True)
-    (marker_dir / ".codex-system-skills.marker").touch()
+    ensure_system_skills_marker(home)
     if hosted and not (home / "auth.json").exists():
         masters = [Path(os.environ["CODEX_EVAL_HOME"])] if os.environ.get("CODEX_EVAL_HOME") \
             else [Path.home() / ".codex-eval", Path.home() / ".codex"]
@@ -722,6 +744,7 @@ class CodexTurn(LocalServerGate):
         transcript_dir: Path | None = None,
         context_window: int | None = None,
         session_max_turns: int | None = None,
+        session_max_bytes: int | None = None,
         # Benchmark policy (module docstring). Defaults are the KiCad arm's; the MCU
         # shim passes MCU_POLICY so that arm's argv and lifecycle do not move.
         derive_codex_home: bool = True,
@@ -833,6 +856,18 @@ class CodexTurn(LocalServerGate):
             if session_max_turns is None else int(session_max_turns))
         self.session_turns = 0
         self.age_resets = 0
+        # The same synthesised cold start, triggered by the frames the resumed thread
+        # carries instead of by its age. Codex re-sends every earlier attachment on each
+        # call, so a resumed session's payload grows ~0.48 MB an act turn and past ~5.5 MB
+        # on the wire every turn stalls near the timeout (MCU run-arm.sh, 2026-08-25). A
+        # turn cap of 1 sidestepped that by giving up the conversation entirely; this
+        # keeps one thread until the NEXT turn's frame would carry it past the budget,
+        # then hands off to a fresh one -- VISTA's `thread_bytes_budget`, with the
+        # filesystem as the checkpoint. 0 disables (CODEX_SESSION_MAX_BYTES, default 0).
+        self.session_max_bytes = (
+            int(os.environ.get("CODEX_SESSION_MAX_BYTES", "0") or 0)
+            if session_max_bytes is None else int(session_max_bytes))
+        self.bytes_resets = 0
         # A session can be left unusable by something that is not an overflow -- codex
         # 0.148's failed pre-sampling compaction is the case this exists for: every turn
         # on the poisoned session returned the same 400, `is_overflow` did not match it,
@@ -1060,10 +1095,22 @@ class CodexTurn(LocalServerGate):
             logger.error("[codex] turn %d: %d attachment(s) do not exist and will not be "
                          "sent: %s", self.calls + 1, len(missing), missing)
         images = [p for p in images if p.exists()]
+        # 4/3 for base64, which is how the payload travels and where the wall was measured.
+        incoming = sum(p.stat().st_size for p in images) * 4 // 3
+        if (
+            self.session_id
+            and self.session_max_bytes
+            and self.session_attachment_bytes + incoming > self.session_max_bytes
+        ):
+            self._discard_session(
+                f"its frames would reach "
+                f"{(self.session_attachment_bytes + incoming) / 1e6:.2f} MB on the wire, "
+                f"budget {self.session_max_bytes / 1e6:.2f} MB",
+                "bytes_resets",
+            )
         args = self._args(images)
         self.images_attached += len(images)
-        # 4/3 for base64, which is how the payload travels and where the wall was measured.
-        self.session_attachment_bytes += sum(p.stat().st_size for p in images) * 4 // 3
+        self.session_attachment_bytes += incoming
         self.peak_attachment_bytes = max(
             self.peak_attachment_bytes, self.session_attachment_bytes)
         logger.info(
@@ -1317,6 +1364,9 @@ class CodexTurn(LocalServerGate):
             "empty_resets": self.empty_resets,
             "age_resets": self.age_resets,
             "session_max_turns": self.session_max_turns,
+            # Only when the byte budget is on: the baseline arm's audit keys do not move.
+            **({"session_max_bytes": self.session_max_bytes,
+                "bytes_resets": self.bytes_resets} if self.session_max_bytes else {}),
             "sessions": len(seen),
             "peak_attachment_bytes": self.peak_attachment_bytes,
             # The overflow policy in force: None means the far-above-the-window default
@@ -1368,6 +1418,9 @@ class CodexTurn(LocalServerGate):
             "compactions": a["compactions"],
             "overflow_resets": a["overflow_resets"],
             "age_resets": a["age_resets"],
+            # Only when the byte budget is on: the baseline arm's audit keys do not move.
+            **({"session_max_bytes": a["session_max_bytes"],
+                "bytes_resets": a["bytes_resets"]} if self.session_max_bytes else {}),
             "timeout_resets": a["timeout_resets"],
             "empty_resets": a["empty_resets"],
             # The subscription account's usage limit: turns it refused, and calls the
