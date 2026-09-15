@@ -83,7 +83,7 @@ _EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSW|CREDENTIAL", re.I)
 ENV_KEEP = frozenset({"CLAUDE_CODE_OAUTH_TOKEN"})
 _QUOTA_RE = re.compile(r"usage limit|out of (?:extra )?usage", re.I)
-_AUTH_RE = re.compile(r"Not logged in|Please run /login|OAuth token (?:has )?expired|"
+_AUTH_RE = re.compile(r"Not logged in|Please run /login|OAuth (?:access )?token (?:has )?expired|"
                       r"authentication_error|Invalid (?:API key|bearer token)|"
                       r"OAuth (?:access )?token has been revoked", re.I)
 AUTH_EXIT_STATUS = 75
