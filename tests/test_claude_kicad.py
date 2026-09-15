@@ -204,7 +204,7 @@ def test_cli_flag_reaches_the_agents_only_when_claude(tmp_path, monkeypatch):
 
     assert run_eval._cli_error(_args()) is None
     assert run_eval._cli_error(_args(cli="claude")) is None
-    assert "codex only" in run_eval._cli_error(_args(cli="claude", agent="vista"))
+    assert run_eval._cli_error(_args(cli="claude", agent="vista")) is None   # mfm/vista/claude_runner.py
     assert "codex only" in run_eval._cli_error(_args(cli="claude", agent="worldmodel"))
     assert "--arc-agent" in run_eval._cli_error(_args(cli="claude", agent="arc"))
     assert "base-url" in run_eval._cli_error(_args(cli="claude", codex_base_url="http://x"))
