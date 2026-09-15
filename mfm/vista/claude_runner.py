@@ -343,6 +343,9 @@ class ClaudeCodeRunner:
         # The bridge script travels in the config dir: inside the sandbox that is one of
         # the two paths that exist besides the system.
         self.bridge_path = self.config_dir / "mcp_bridge.py"
+        # Replaced on every construction (a resumed task reuses its config dir, and the
+        # copy is read-only: copying over it raised PermissionError, 2026-09-15).
+        self.bridge_path.unlink(missing_ok=True)
         shutil.copyfile(BRIDGE_SOURCE, self.bridge_path)
         self.bridge_path.chmod(0o500)
         self.tool_server = _ToolServer(self)
