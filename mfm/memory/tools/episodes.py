@@ -233,7 +233,11 @@ def describe_ore(r: dict, hits: list[str]) -> str:
     pos = (f"({float(r['x']):.0f},{float(r['y']):.0f},{float(r['z']):.0f})"
            if all(r.get(k) is not None for k in "xyz") else "(?)")
     life = f"  life {r['life']}" if r.get("life") is not None else ""
-    frame = r.get("image") or f"{r.get('path')}/observation/image.png"
+    # A row whose `image` is explicitly None comes from a record that keeps no frames
+    # (the "without historical images" ablation): point at the episode, not at a file
+    # that is not there. A row without the key is an older life: the conventional path.
+    frame = (r.get("image") or (f"{r.get('path')}/" if "image" in r
+                                 else f"{r.get('path')}/observation/image.png"))
     return (f"{r['id']}  step {r.get('first_step')}  y={_fmt_y(r)}  pos={pos}{life}  "
             f"{', '.join(hits)}  -> {frame}")
 
@@ -365,6 +369,19 @@ def then_now(root: Path, then: str, now: str | None, out: Path,
     return out, label
 
 
+def frameless(rows: list[dict]) -> bool:
+    """True when the record keeps no frames: every row carries `image: None` (the
+    store writes the key on every row; a record with images has paths there). An
+    empty record, or one whose rows predate the key, is not frameless."""
+    rows = [r for r in rows if r.get("kind") != "initial"] or list(rows)
+    return bool(rows) and all("image" in r and r.get("image") is None for r in rows)
+
+
+NO_FRAMES = ("this run keeps no frames in its record (episodes/ holds state, action and "
+             "outcome only; the current view is the image attached to your turn): "
+             "--sheet and --then-now have nothing to show")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=".", help="workspace holding index.jsonl and episodes/")
@@ -398,6 +415,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="what this look is meant to answer; printed back so the record keeps it")
     args = ap.parse_args(argv)
     root = Path(args.root)
+    if (args.then_now or args.sheet) and frameless(read_index(root) + read_index(root, previous=True)):
+        raise SystemExit(NO_FRAMES)
     if args.then_now:
         out, label = then_now(root, args.then_now, args.now, Path(args.out))
         q = args.q or "(no --q given: what question does this look answer?)"

@@ -25,6 +25,13 @@
 #                                             #   Claude subscription (MCU_CLAUDE_OAUTH_TOKEN preferred over the live file)
 #                                             #   (~/.codex/runtime-home/auth.json, codex 0.153 directly, no OpenRouter);
 #                                             #   the default ACCOUNT=openrouter is unchanged (2026-09-12)
+#   ABL=noimg|flat|nocons bash launch_g4_fasrc.sh mfm|mfmc diamond|dragon   # ONE ablation of the MFM arm (2026-09-19),
+#                                             #   the full flag set otherwise; the arm is tagged g4_mfm_<model>_<task>_<abl>:
+#                                             #   noimg  = --no-history-images  (without historical images)
+#                                             #   flat   = --flat-retrieval     (without structured episode retrieval;
+#                                             #            --retrieval is dropped from the flag set, [RECALL] needs the index)
+#                                             #   nocons = --no-consolidation   (without long-term consolidation)
+#                                             #   a comma list (ABL=noimg,flat) stacks them; see worldmodel_purple_agent.py --help
 #   MID=... overrides the model id; EXCLUDE=node1,node2 keeps the job off those nodes (two
 #   arms on one node share the engine's xvfb-run -a display: never co-schedule); DRY=1 prints.
 # Differences from the collab host, all infrastructure: no egress proxy (MCU_OPENROUTER_PROXY
@@ -134,6 +141,20 @@ esac
 # 70k steps; MCU-gen4-vista's recorder now streams the mp4, so 48G holds for a 100k-step life.)
 case "$WALL" in *h) H="${WALL%h}"; case "$H" in ''|*[!0-9]*) ;; *) TLIM="$(( (H*60+90)/60 )):$(printf %02d $(( (H*60+90)%60 ))):00";; esac;; esac
 ARM="g4_${KIND}_${TAG}_${TASK_KIND}"
+# ABL: the MFM ablations, appended to the full flag set (mfm/mfmc only). `flat` also
+# removes --retrieval: the [RECALL] block is computed from the index it takes away.
+if [ -n "${ABL:-}" ]; then
+  case "$KIND" in mfm|mfmc) ;; *) echo "ABL applies to the mfm/mfmc kinds only" >&2; exit 2;; esac
+  for a in ${ABL//,/ }; do
+    case "$a" in
+      noimg)  BASE="$BASE --no-history-images";;
+      flat)   BASE="${BASE/--retrieval /}"; BASE="$BASE --flat-retrieval";;
+      nocons) BASE="$BASE --no-consolidation";;
+      *) echo "ABL must be a comma list of noimg, flat, nocons (got $a)" >&2; exit 2;;
+    esac
+    ARM="${ARM}_$a"
+  done
+fi
 [ -n "${SEEDS:-}" ] && ARM="${ARM}_carry"
 # ARM_SUFFIX=_v2: a second launch of the same arm kind while the first still runs (its output/
 # and logs/ are named by ARM, and a codex home too).
