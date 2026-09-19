@@ -310,5 +310,5 @@ def test_no_history_images_closes_the_hires_channel_and_the_event_sheet(tmp_path
     full._step = 7
     full._keep_hires(base64.b64encode(buf.getvalue()).decode())
     assert stat.S_IMODE((full._hires_dir / "0000007.jpg").stat().st_mode) & stat.S_IRUSR
-    agent, _ = drive_chassis(tmp_path / "a", "mfm", history_images=False, event_sheet=True, **{**LAUNCHED, "event_sheet": True})
+    agent, _ = drive_chassis(tmp_path / "a", "mfm", history_images=False, **{**LAUNCHED, "event_sheet": True})
     assert agent.event_sheet is False and agent.report()["mfm_options"]["event_sheet"] is False
