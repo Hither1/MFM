@@ -9,7 +9,7 @@
 #                                                  #   ports 9873-9875/10873-10875, displays :73-:75 (launch_g4_fasrc.sh's dragon row)
 #   SMOKE=150 bash launch_ablations_collab.sh <abl>   # g4smoke_sol_diamond_<abl>, ports +10, WALL 40m
 #   SUFFIX=v2 appends _v2 to the arm name (a second life; the bare name would erase the first).
-#   MID=... overrides the model id; WALL (default 24h) the wall-clock cap.
+#   MID=... overrides the model id; WALL (default 24h) the wall-clock cap; PROXY=0 skips the egress proxy.
 # Code: MCU-ablate (branch gen4-min-vista, b931052) + MFM (kicad-results-0913, c644349) as MFM_ROOT.
 # Each arm gets its own Xvfb display number (MCU_DISPLAY_NUM) so three arms can share this host
 # without racing `xvfb-run -a`; launch-og.sh detaches the arm and writes logs/<arm>_launch.{log,pid}.
@@ -26,7 +26,10 @@ git -C "$MFM_ROOT" merge-base --is-ancestor c644349 HEAD || { echo "$MFM_ROOT is
 export MCU_CODEX_ROOT="$C/codex-homes"
 export no_proxy="127.0.0.1,localhost${no_proxy:+,$no_proxy}" NO_PROXY="127.0.0.1,localhost${NO_PROXY:+,$NO_PROXY}"
 # The API-key account: ~/ccr/bin/codex with codex-home.sh's default credential (~/ccr/.codex/auth.json).
-export CODEX_BIN="$HOME/ccr/bin/codex"; unset MCU_CODEX_AUTH
+# PROXY=1 (default since 2026-09-20, when the direct route died): the same binary and credential
+# through the host's egress proxy (codex-withproxy.sh); PROXY=0 runs it direct.
+if [ "${PROXY:-1}" = 1 ]; then export CODEX_BIN="$(cd "$(dirname "$0")" && pwd)/codex-withproxy.sh"; else export CODEX_BIN="$HOME/ccr/bin/codex"; fi
+unset MCU_CODEX_AUTH
 MID="${MID:-gpt-5.6-sol}"; EFF=high; FS="${FRAME_SIZE:-320x180}"
 MODEL="--model $MID --reasoning-effort $EFF"
 # The reference arm's flag set, verbatim (ABLATIONS_RUNBOOK.md section 3).
