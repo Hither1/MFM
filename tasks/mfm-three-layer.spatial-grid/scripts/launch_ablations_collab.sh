@@ -17,6 +17,7 @@ set -euo pipefail
 ABL="${1:?usage: launch_ablations_collab.sh <noimg|flat|nocons> [diamond|dragon]}"
 TASK_KIND="${2:-diamond}"
 C=/datapool/data3/storage/ruihan/data_share/jh/Collab
+HERE="$(cd "$(dirname "$0")" && pwd)"     # resolved before the cd below: $0 may be relative
 MCU="$C/MCU-ablate"; export MFM_ROOT="$C/MFM"
 cd "$MCU"
 git -C . merge-base --is-ancestor b931052d HEAD || { echo "$MCU is not at gen4-min-vista b931052" >&2; exit 1; }
@@ -28,7 +29,7 @@ export no_proxy="127.0.0.1,localhost${no_proxy:+,$no_proxy}" NO_PROXY="127.0.0.1
 # The API-key account: ~/ccr/bin/codex with codex-home.sh's default credential (~/ccr/.codex/auth.json).
 # PROXY=1 (default since 2026-09-20, when the direct route died): the same binary and credential
 # through the host's egress proxy (codex-withproxy.sh); PROXY=0 runs it direct.
-if [ "${PROXY:-1}" = 1 ]; then export CODEX_BIN="$(cd "$(dirname "$0")" && pwd)/codex-withproxy.sh"; else export CODEX_BIN="$HOME/ccr/bin/codex"; fi
+if [ "${PROXY:-1}" = 1 ]; then export CODEX_BIN="$HERE/codex-withproxy.sh"; else export CODEX_BIN="$HOME/ccr/bin/codex"; fi
 unset MCU_CODEX_AUTH
 MID="${MID:-gpt-5.6-sol}"; EFF=high; FS="${FRAME_SIZE:-320x180}"
 MODEL="--model $MID --reasoning-effort $EFF"
@@ -53,6 +54,7 @@ for p in "$GP" "$PP"; do ss -ltn 2>/dev/null | awk '{print $4}' | grep -q ":$p\$
 [ -e "/tmp/.X${DISP}-lock" ] && { echo "display :$DISP is taken (/tmp/.X${DISP}-lock)" >&2; exit 1; }
 export MCU_DISPLAY_NUM="$DISP"
 echo "arm=$ARM abl=$ABL task=$TASK mcu=$MCU @ $(git -C . rev-parse --short HEAD) mfm=$MFM_ROOT @ $(git -C "$MFM_ROOT" rev-parse --short HEAD)"
+[ -x "$CODEX_BIN" ] || { echo "CODEX_BIN $CODEX_BIN is not executable" >&2; exit 1; }
 echo "account=api bin=$CODEX_BIN ($("$CODEX_BIN" --version 2>/dev/null | head -1)) model: $MODEL frames: $FS steps: $STEPS wall: $WALL ports: $GP/$PP display: :$DISP"
 TASK="$TASK" ARM="$ARM" GP="$GP" PP="$PP" STEPS="$STEPS" SESSION_TURNS=0 COMPACT=1 WALL="$WALL" \
   AGENT=mfm CLI=codex NO_SEEDS=1 WM_EXTRA="$MODEL $BASE $EXTRA" bash scripts/launch-og.sh
