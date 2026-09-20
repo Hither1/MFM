@@ -165,3 +165,51 @@ reference lives: 30-40 past-frame looks each, median age 14-146 steps, p90 up to
   reference lives scored 90 six times out of eight with 100 twice. Read the milestone
   timings (iron pickaxe step, first step at y<=12, blocks mined at depth) alongside the
   final score, not the score alone.
+
+## 8. Results (collab host a219, 2026-09-20)
+
+Code as in section 1 (MCU b931052, MFM c644349 + the collab launcher commits through e3b309a).
+Launcher: `scripts/launch_ablations_collab.sh <noimg|flat|nocons> [diamond|dragon]`, API-key
+codex `~/ccr/bin/codex` (codex-cli 0.154.0) with `--model gpt-5.6-sol --reasoning-effort high`,
+from 10:36 through the egress proxy wrapper `scripts/codex-withproxy.sh` (the direct route to
+api.openai.com died at ~09:37; the first dragon/diamond-v2 wave stalled on 480 s turn timeouts
+and was restarted from scratch). World seed random in every life; one life per row.
+Flag line in each purple log and `mfm_options.ablations` in each report matched the arm;
+no `turn.failed` in any life.
+
+### Diamond (mine_diamond_from_scratch, 12,000 steps, no carry)
+
+| arm    | life | score | turns | milestone timing (step at N/10)                | report accounting                                                         |
+|--------|------|-------|-------|------------------------------------------------|---------------------------------------------------------------------------|
+| noimg  | v1   | 80    | 98    | 8/10 @ 5800                                    | history_images=false, history_image_views=0, history_image_sweeps=0      |
+| noimg  | v2   | 60    | 95    | 6/10 @ 4600, then stuck on mine_iron_ore       | history_image_views=0, record_search_calls=25, sweeps=0                  |
+| flat   | v1   | 100   | 81    | 8/10 @ 7000, 9/10 @ 8800, 10/10 @ 11200        | structured_retrieval=false, record_search_calls=94, image views 39       |
+| flat   | v2   | 90    | 89    | 9/10 @ 10200, no diamond by 12000              | structured_retrieval=false, record_search_calls=47, image views 38       |
+| nocons | v1   | 80    | 117   | 8/10 @ 7400                                    | consolidation removed=0 restored=0 snapshot_files=0 (mine/ never written)|
+| nocons | v2   | 60    | 100   | 6/10 @ 4800, then stuck on mine_iron_ore       | consolidation removed=1 restored=0 snapshot_files=0                      |
+
+Reference no-carry lives (g4_mfm_gpt6_diamond_v1..v8): 90 x6, 60, 100 (mean 87.5).
+Two-life means: flat 95, noimg 70, nocons 70. Read with section 7: the flat arm shows no
+loss on this task; the noimg and nocons drops each rest on one 60 life, and both v2 60s are
+the same failure (no iron ore after step ~4700), which the reference set also contains once.
+The nocons v1 life never triggered consolidation (removed=0), so only its v2 life is an
+actual test of the switch.
+
+Outputs: `MCU-ablate/output/g4_mfm_sol_diamond_<abl>[_v2]/`, logs `MCU-ablate/logs/`,
+`logs/<arm>_result.json` for the scores above.
+
+### Dragon (ender_dragon, budget 100,000 steps, stopped by hand at ~8 h 20 min)
+
+Launched 10:36-10:40, stopped 19:00 on request (WALL was 14 h; no `result.json`, the count
+below is the last `Environment-verified progress` line of the purple log, score = count/24).
+
+| arm    | steps at stop | milestones | score | next unmet        | turns | report accounting                                              |
+|--------|---------------|------------|-------|-------------------|-------|----------------------------------------------------------------|
+| noimg  | 43,000        | 9/24       | 37.5  | mine_diamond_ore  | 410   | history_image_views=0, record_search_calls=580, sweeps=0       |
+| flat   | 30,800        | 8/24       | 33.3  | iron_pickaxe      | 591   | structured_retrieval=false, image views 200, record_search=493 |
+| nocons | 45,600        | 8/24       | 33.3  | iron_pickaxe      | 454   | consolidation removed=0 restored=0 (switch never exercised)    |
+
+Milestone reach steps: noimg 8/24 @ 9600, 9/24 @ 14400 (flat for the remaining 28k steps);
+flat 6/24 @ 3000, 7/24 @ 24400, 8/24 @ 25000; nocons 8/24 @ 11600 (flat for 34k steps).
+Reference dragon record 11/24 (45.83). None of the three reached the obsidian layer. Single
+partial lives: directional only.
