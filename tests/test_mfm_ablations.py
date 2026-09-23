@@ -173,8 +173,7 @@ def _drive_no_consolidation(root: Path, raw: dict[int, dict[str, bytes]], script
     for rel, data in (seed_mine or {}).items():                  # the life's initial memory
         (ws / rel).parent.mkdir(parents=True, exist_ok=True)
         (ws / rel).write_bytes(data)
-    agent = WorldModelAgent(workspace=ws, task_text="an iron pickaxe", ledger=MilestoneLedger(cfg, "t"),
-                            induction_every=10, step_cap=50, memory_mode="mfm",
+    agent = WorldModelAgent(workspace=ws, task_text="an iron pickaxe", ledger=MilestoneLedger(cfg, "t"), step_cap=50, memory_mode="mfm",
                             platform_prompt="HOST REFERENCE", consolidation=False, **LAUNCHED)
     agent.codex = _RawFakeCodex(FakeCodex(agent.memory.root, script), raw)
     info = fake_info(inventory={"oak_log": 1})
@@ -312,3 +311,95 @@ def test_no_history_images_closes_the_hires_channel_and_the_event_sheet(tmp_path
     assert stat.S_IMODE((full._hires_dir / "0000007.jpg").stat().st_mode) & stat.S_IRUSR
     agent, _ = drive_chassis(tmp_path / "a", "mfm", history_images=False, **{**LAUNCHED, "event_sheet": True})
     assert agent.event_sheet is False and agent.report()["mfm_options"]["event_sheet"] is False
+
+
+# -- 4. without agent-written procedures (2026-09-23) ---------------------------------
+
+def _drive_ablated(root: Path, raw: dict[int, dict[str, bytes]], script, **flags):
+    """Like _drive_no_consolidation, for any ablation flag set on top of LAUNCHED."""
+    from mcu_worldmodel.agent import WorldModelAgent
+    from mcu_worldmodel.milestones import MilestoneLedger
+    from mcu_worldmodel.selftest import FakeCodex, fake_info
+
+    cfg = [{"event": "craft_item", "identity": "iron_pickaxe", "objects": ["iron_pickaxe"],
+            "reward": 1.0, "max_reward_times": 1}]
+    agent = WorldModelAgent(workspace=root / "ws", task_text="an iron pickaxe", ledger=MilestoneLedger(cfg, "t"),
+                            step_cap=50, memory_mode="mfm", platform_prompt="HOST REFERENCE", **{**LAUNCHED, **flags})
+    agent.codex = _RawFakeCodex(FakeCodex(agent.memory.root, script), raw)
+    info = fake_info(inventory={"oak_log": 1})
+    info["pov"] = _pov(0)
+    agent.start(info)
+    for step in range(1, 80):
+        agent.next_action(info)
+        info = fake_info(inventory={"oak_log": 1})
+        info["location_stats"]["xpos"] = np.array(1.0 + 0.3 * step)
+        info["pov"] = _pov(step)
+        agent.observe(info, step)
+    return agent
+
+
+def test_no_own_procedures_keeps_mine_but_never_runs_a_script(tmp_path: Path):
+    from mcu_worldmodel import skills
+
+    skills.write_skills(tmp_path / "ref")                           # the full arm's examples
+    torch = (tmp_path / "ref" / "skills" / "procedures" / "scripts" / "torch_wall.py").read_bytes()
+    lava = (tmp_path / "ref" / "skills" / "reflexes" / "scripts" / "lava_ahead.py").read_bytes()
+    foo = b'"""foo: a new procedure."""\nimport json\nprint(json.dumps({"actions": [{"action": {"jump": 1}, "repeat": 2}]}))\n'
+    raw = {1: {"mine/notes.md": b"recipe: look, then mine_ahead 70\n",
+               "mine/digest.md": b"# digest\n",
+               "mine/working.md": b"plan: chop, then dig\n",
+               "mine/procedures/foo.py": foo,                     # the model's own script
+               "mine/procedures/tw.py": torch,                    # an unchanged harness example
+               "mine/reflexes/lava_ahead.py": lava}}              # a reflex: still allowed
+    script = [{"actions": {"actions": [{"procedure": "foo"}, {"procedure": "tw"},
+                                       {"action": {"attack": 1}, "repeat": 6}]},
+               "message": "[PLAN]\nwrite files, call foo and tw"}] + [CHOP] * 20
+    agent = _drive_ablated(tmp_path, raw, script, own_procedures=False)
+    ws = agent.memory.root
+    # Neither script ran -- not the model's own, not the unchanged example -- with the reason.
+    log = (ws / "logs.txt").read_text()
+    assert "foo (mine/procedures/foo.py) FAILED, nothing ran: not run in this run" in log
+    assert "tw (mine/procedures/tw.py) FAILED, nothing ran: not run in this run" in log
+    assert "agent-written procedures are ablated" in log
+    # mine/ is kept whole: the notes, the digest, the scripts and the reflex all survive.
+    kept = {p.relative_to(ws).as_posix() for p in (ws / "mine").rglob("*") if p.is_file()}
+    assert {"mine/notes.md", "mine/digest.md", "mine/working.md", "mine/procedures/foo.py",
+            "mine/procedures/tw.py", "mine/reflexes/lava_ahead.py"} <= kept, kept
+    # The turn prompt lists the scripts as NOT callable, and the working note still shows.
+    text = "\n=====\n".join(agent.codex.prompts)
+    assert "`foo` -- NOT callable: not run in this run" in text
+    assert "`tw` -- NOT callable: not run in this run" in text
+    assert "[WORKING] mine/working.md" in text and "plan: chop, then dig" in text
+    # What the model is told, everywhere it would look.
+    md = (ws / "AGENTS.md").read_text()
+    assert "a composition cannot be kept as a procedure of your own" in md
+    assert "no script under `mine/procedures/` runs in this run" in md
+    assert "reflexes only: in this run NO script under `mine/procedures/` runs" in md
+    own_md = (ws / "references" / "own.md").read_text()
+    assert "procedures are not run in this run" in own_md and "NOT callable" in own_md
+    assert "[WORKING]" in own_md                                       # the working note contract is unchanged
+    for name in ("procedures", "harness"):
+        assert "## This run" in (ws / "skills" / name / "SKILL.md").read_text(), name
+    assert "## This run" not in (ws / "skills" / "reflexes" / "SKILL.md").read_text()
+    mem = (ws / "skills" / "memory" / "SKILL.md").read_text()
+    assert "`mine/procedures/` is NOT run in" in mem and "copy the reflexes worth keeping" in mem
+    assert not (ws / "skills" / "procedures" / "scripts").exists()     # no runnable example shipped
+    assert (ws / "skills" / "reflexes" / "scripts" / "lava_ahead.py").exists()
+    # The report names the ablation and shows zero calls.
+    rep = agent.report()
+    assert rep["mfm_options"]["ablations"] == ["no_own_procedures"]
+    assert rep["own"]["procedures_run"] is False and rep["own"]["calls"] == {}
+    assert rep["own"]["procedures"] == 2
+    # The record itself is untouched.
+    assert (ws / "tools" / "episodes.py").exists() and list((ws / "episodes").rglob("image.png"))
+
+
+def test_no_own_procedures_needs_own_and_does_not_touch_the_full_arm(tmp_path: Path):
+    with pytest.raises(ValueError):
+        drive_chassis(tmp_path / "x", "mfm", own_procedures=False)
+    agent, _ = drive_chassis(tmp_path / "z", "mfm", retrieval=True, **LAUNCHED)
+    rep = agent.report()
+    assert "ablations" not in rep["mfm_options"] and "procedures_run" not in rep["own"]
+    from mcu_worldmodel import own, skills
+    assert own.own_note() == own.MFM_OWN_NOTE and skills.skills_note() == skills.SKILLS_NOTE
+    assert own.atoms_line() == own.ATOMS_LINE

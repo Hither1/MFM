@@ -25,12 +25,14 @@
 #                                             #   Claude subscription (MCU_CLAUDE_OAUTH_TOKEN preferred over the live file)
 #                                             #   (~/.codex/runtime-home/auth.json, codex 0.153 directly, no OpenRouter);
 #                                             #   the default ACCOUNT=openrouter is unchanged (2026-09-12)
-#   ABL=noimg|flat|nocons bash launch_g4_fasrc.sh mfm|mfmc diamond|dragon   # ONE ablation of the MFM arm (2026-09-19),
+#   ABL=noimg|flat|nocons|noprocs bash launch_g4_fasrc.sh mfm|mfmc diamond|dragon   # ONE ablation of the MFM arm (2026-09-19),
 #                                             #   the full flag set otherwise; the arm is tagged g4_mfm_<model>_<task>_<abl>:
 #                                             #   noimg  = --no-history-images  (without historical images)
 #                                             #   flat   = --flat-retrieval     (without structured episode retrieval;
 #                                             #            --retrieval is dropped from the flag set, [RECALL] needs the index)
 #                                             #   nocons = --no-consolidation   (without long-term consolidation)
+#                                             #   noprocs = --no-own-procedures (without agent-written procedures, 2026-09-23:
+#                                             #            mine/ kept, no script under mine/procedures/ ever runs)
 #                                             #   a comma list (ABL=noimg,flat) stacks them; see worldmodel_purple_agent.py --help
 #   MID=... overrides the model id; EXCLUDE=node1,node2 keeps the job off those nodes (two
 #   arms on one node share the engine's xvfb-run -a display: never co-schedule); DRY=1 prints.
@@ -150,7 +152,8 @@ if [ -n "${ABL:-}" ]; then
       noimg)  BASE="$BASE --no-history-images";;
       flat)   BASE="${BASE/--retrieval /}"; BASE="$BASE --flat-retrieval";;
       nocons) BASE="$BASE --no-consolidation";;
-      *) echo "ABL must be a comma list of noimg, flat, nocons (got $a)" >&2; exit 2;;
+      noprocs) BASE="$BASE --no-own-procedures";;
+      *) echo "ABL must be a comma list of noimg, flat, nocons, noprocs (got $a)" >&2; exit 2;;
     esac
     ARM="${ARM}_$a"
   done
