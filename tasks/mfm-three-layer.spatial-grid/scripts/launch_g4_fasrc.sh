@@ -34,14 +34,26 @@
 #                                             #   noprocs = --no-own-procedures (without agent-written procedures, 2026-09-23:
 #                                             #            mine/ kept, no script under mine/procedures/ ever runs)
 #                                             #   a comma list (ABL=noimg,flat) stacks them; see worldmodel_purple_agent.py --help
+#   bash launch_g4_fasrc.sh jev dragon|diamond   # the JEV + Astra arm (rmalde/minecraft-agent's two-tier
+#                                             #   loop). MID names the PLANNER (default gpt-6-astra).
+#                                             #   Two channels, each with its own route:
+#                                             #   JEV_ROUTE=typesafe (default) puts the SELECTOR on
+#                                             #     TypeSafe's own API (~/.codex-eval/jev.env, JEV_API_KEY=),
+#                                             #     openrouter on the resale decisions endpoint;
+#                                             #   PLANNER_ROUTE=codex (default) runs the PLANNER as
+#                                             #     `codex exec` on the NYU login -- the route with credit
+#                                             #     on 09-27 -- openrouter|openai are the HTTP ones;
+#                                             #   NOPLANNER=1 drops the planner entirely (the selector sets
+#                                             #     its own objective from the ledger): one credential, one
+#                                             #     model, tagged g4_jev_jevonly_<task>.
 #   MID=... overrides the model id; EXCLUDE=node1,node2 keeps the job off those nodes (two
 #   arms on one node share the engine's xvfb-run -a display: never co-schedule); DRY=1 prints.
 # Differences from the collab host, all infrastructure: no egress proxy (MCU_OPENROUTER_PROXY
 # empty), the CLIs are the FASRC installs (MCU_CODEX_REAL / MCU_CLAUDE_REAL), bwrap+socat are
 # system binaries (/usr/bin), and the key file is ~/.codex-eval/openrouter.env.
 set -euo pipefail
-KIND="${1:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc> <dragon|diamond|nether>}"
-TASK_KIND="${2:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc> <dragon|diamond|nether>}"
+KIND="${1:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc|jev> <dragon|diamond|nether>}"
+TASK_KIND="${2:?usage: launch_g4_fasrc.sh <direct|directc|mfm|mfmc|jev> <dragon|diamond|nether>}"
 U="${LAB_USER_ROOT:-/n/holylfs06/LABS/sham_lab/Users/$USER}"
 export MCU_ROOT="${MCU_ROOT:-$U/MCU-gen4-vista}" MFM_ROOT="${MFM_ROOT:-$U/MFM}"
 KEYFILE="${MCU_OPENROUTER_ENV:-$HOME/.codex-eval/openrouter.env}"
@@ -121,13 +133,60 @@ case "$KIND" in
     for d in ${SEEDS:-}; do [ -d "$d" ] || { echo "missing seed $d" >&2; exit 1; }; SEEDARGS+=(--seed-memory "$d"); done
     [ -d "$MFM_ROOT/mfm" ] || { echo "$MFM_ROOT carries no mfm package" >&2; exit 1; }
     claude_route;;
+  jev)
+    # The JEV + Astra arm (2026-09-27, mcu_worldmodel/jev.py). Two model channels, not
+    # one, so no --base-url and no codex_route: each side picks its own route.
+    #
+    #   SELECTOR  typesafe (default) = TypeSafe's own API, POST /v1/systemone, model
+    #             jev-1.13.0, keyed from $JEVKEY through MCU_JEV_ENV -- it does not touch
+    #             the OpenRouter budget. JEV_ROUTE=openrouter uses the resale route
+    #             (POST /alpha/decisions) and needs OpenRouter credit.
+    #   PLANNER   PLANNER_ROUTE: codex (default) = `codex exec` on the NYU subscription
+    #             login, the route with credit on 2026-09-27 (OpenRouter is over its
+    #             $5000 lifetime cap, the OpenAI org has none); openrouter or openai are
+    #             the HTTP routes upstream uses when there is budget.
+    AGENT=jev; CLI=codex; MID="${MID:-gpt-6-astra}"; TAG="$(tag_of "$MID")"
+    JEV_ROUTE="${JEV_ROUTE:-typesafe}"
+    case "$JEV_ROUTE" in
+      typesafe)
+        JEVKEY="${MCU_JEV_ENV:-$HOME/.codex-eval/jev.env}"
+        [ -r "$JEVKEY" ] || { echo "no readable Jev key file at $JEVKEY -- write a JEV_API_KEY= line into it (chmod 600), or JEV_ROUTE=openrouter" >&2; exit 1; }
+        grep -q '^JEV_API_KEY=.' "$JEVKEY" || { echo "$JEVKEY has no JEV_API_KEY= line" >&2; exit 1; }
+        export MCU_JEV_ENV="$JEVKEY";;
+      openrouter) need_key; export MCU_OPENROUTER_ENV="$KEYFILE";;
+      *) echo "JEV_ROUTE must be typesafe or openrouter" >&2; exit 2;;
+    esac
+    # NOPLANNER=1: the planner-free variant (--jev-no-planner). The selector sets its own
+    # objective from the ledger, so no planner credential is needed at all -- the one shape
+    # that runs on a Jev key alone. Tagged jevonly, never gpt6: no Astra is involved.
+    if [ -n "${NOPLANNER:-}" ]; then
+      TAG=jevonly
+      BASE="$BASE --jev-no-planner"
+      PLANNER_ROUTE=none
+      MODEL_ECHO="jev-1.13.0 (the selector alone; --model is unused)"
+    fi
+    case "${PLANNER_ROUTE:-codex}" in
+      none) ;;
+      codex)
+        AUTH="${MCU_CODEX_AUTH:-$HOME/.codex/runtime-home/auth.json}"
+        [ -e "$AUTH" ] || { echo "no codex login at $AUTH (codex login, then symlink runtime-home/auth.json)" >&2; exit 1; }
+        export CODEX_BIN="$U/codex-node-0.153/bin/codex" MCU_CODEX_AUTH="$AUTH"
+        unset MCU_CODEX_REAL CODEX_LOCAL_AUTH_COMMAND CODEX_MODEL_CONTEXT_WINDOW;;
+      openrouter) need_key; export MCU_OPENROUTER_ENV="$KEYFILE";;
+      openai) [ -n "${OPENAI_API_KEY:-}" ] || { echo "PLANNER_ROUTE=openai needs OPENAI_API_KEY" >&2; exit 1; };;
+      *) echo "PLANNER_ROUTE must be codex, openrouter or openai" >&2; exit 2;;
+    esac
+    MODEL="--model $MID --reasoning-effort $EFF"
+    BASE="$BASE --jev-provider $JEV_ROUTE"
+    [ "${PLANNER_ROUTE:-codex}" = none ] || BASE="$BASE --jev-planner-provider ${PLANNER_ROUTE:-codex}"
+    SESS=(--session-turns 0);;
   direct)
     CLI=codex; MID="${MID:-gpt-5.6-sol}"; TAG="$(tag_of "$MID")"
     codex_route;;
   directc)
     CLI=claude; MID="${MID:-claude-opus-5}"; TAG="$(tag_of "$MID")"
     claude_route;;
-  *) echo "kind must be direct, directc, mfm or mfmc" >&2; exit 2;;
+  *) echo "kind must be direct, directc, mfm, mfmc or jev" >&2; exit 2;;
 esac
 case "$TASK_KIND" in
   dragon)  TASK=ender_dragon;             STEPS="${STEPS:-100000}"; WALL="${WALL:-14h}"; TLIM=15:30:00;;
@@ -172,7 +231,8 @@ SB=(sbatch -J "$ARM" -t "$TLIM" -o "$MCU_ROOT/slurm/logs/%x-%j.out" -e "$MCU_ROO
     ${EXCLUDE:+--exclude="$EXCLUDE"} ${MEM:+--mem="$MEM"}
     "$(cd "$(dirname "$0")" && pwd)/arm_wall.sbatch" "$AGENT" "$ARM" "$TASK" "$STEPS" "$WALL"
     --cli "$CLI" "${SESS[@]}" --wm-extra "$MODEL $BASE" "${SEEDARGS[@]}")
-echo "arm=$ARM agent=$AGENT cli=$CLI route=${ACCOUNT:-openrouter} model=$MID task=$TASK steps=$STEPS wall=$WALL tlim=$TLIM mcu=$MCU_ROOT @ $(git -C "$MCU_ROOT" rev-parse --short HEAD) mfm=$MFM_ROOT @ $(git -C "$MFM_ROOT" rev-parse --short HEAD)"
+ROUTE="${ACCOUNT:-openrouter}"; [ "$KIND" = jev ] && ROUTE="selector=$JEV_ROUTE planner=${PLANNER_ROUTE:-codex}"
+echo "arm=$ARM agent=$AGENT cli=$CLI route=$ROUTE model=${MODEL_ECHO:-$MID} task=$TASK steps=$STEPS wall=$WALL tlim=$TLIM mcu=$MCU_ROOT @ $(git -C "$MCU_ROOT" rev-parse --short HEAD) mfm=$MFM_ROOT @ $(git -C "$MFM_ROOT" rev-parse --short HEAD)"
 echo "  ${SB[*]}"
 [ -n "${DRY:-}" ] && exit 0
 # The submitting shell is often a Claude Code session; its CLAUDE* identity must not ride
