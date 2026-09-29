@@ -1,7 +1,0 @@
-{
- "log_window": 3,
- "stateless": false,
- "ablation_enforced": true,
- "frames_visible": 4,
- "files_removed": 7
-}

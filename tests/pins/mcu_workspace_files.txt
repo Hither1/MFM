@@ -1,4 +1,0 @@
-AGENTS.md
-actions.json
-last_message.txt
-logs.txt

@@ -1,4 +1,4 @@
-"""Pin 2: the system prompts (AGENTS.md) and turn prompts, verbatim, per benchmark.
+"""The KiCad system prompts (AGENTS.md) and turn prompts, verbatim.
 
 The MFM arm may append one paragraph to the system prompt; the baseline arms must
 render exactly these bytes.
@@ -9,25 +9,6 @@ from conftest import check_pin
 
 TASK = "Mine a diamond from scratch."
 PLATFORM = "Platform note: keys are MineRL wire keys."
-
-
-def test_mcu_prompts():
-    from prolong_mc import prompts
-    out = []
-    for window, stateless, hint in ((None, False, True), (None, False, False),
-                                    (5, False, True), (None, True, True)):  # window=-1 system prompt: pre-existing TypeError in prompts.py:340, not pinned
-        out.append(f"##### system window={window} stateless={stateless} milestone_hint={hint}\n")
-        out.append(prompts.build_system_prompt(
-            task_text=TASK, action_cap=15, step_cap=40, repeat_cap=20, log_window=window,
-            stateless=stateless, milestone_hint=hint, platform_prompt=PLATFORM))
-        out.append("\n")
-    for window, first, attached in ((None, True, True), (None, False, True),
-                                    (5, False, True), (0, False, False), (-1, True, True), (-1, False, True)):
-        out.append(f"##### turn window={window} first={first} attached={attached}\n")
-        out.append(prompts.build_turn_prompt("logs.txt", first, window, attached,
-                                             state_text="[STATE] pos=(1.00, 64.00, 2.00)"))
-        out.append("\n")
-    check_pin("prompts_mcu.txt", "".join(out))
 
 
 def test_kicad_prompts():

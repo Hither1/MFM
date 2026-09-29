@@ -24,36 +24,6 @@ def _tree(root: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def test_mcu_store(tmp_path, fake_codex):
-    from mc_agent.action_space import MinerRLActionSpace
-    from mc_agent.prolong_agent import ProlongAgent
-    from prolong_mc.mfm_prompts import MFM_MEMORY_NOTE
-
-    ws = tmp_path / "ws"
-    agent = ProlongAgent(
-        action_space=MinerRLActionSpace(), provider=None, model="gpt-5.6-sol",
-        workspace=ws, transcript_dir=None, reasoning_effort="low", base_url=None,
-        codex_home=tmp_path / "home", action_cap=15, repeat_cap=20, step_cap=40,
-        analyzer_retries=5, milestone_hint=True, episodes=True)
-    outputs = R.drive_mcu(agent, fake_codex)
-    agent.save_state(tmp_path)
-
-    assert R._norm((ws / "logs.txt").read_text(), tmp_path) == pin_path("mcu_logs.txt").read_text()
-    baseline_agents = pin_path("mcu_agents.md").read_text()
-    assert (ws / "AGENTS.md").read_text() == baseline_agents.rstrip("\n") + "\n\n" + MFM_MEMORY_NOTE.strip() + "\n"
-    assert json.dumps(outputs, indent=1) == pin_path("mcu_outputs.json").read_text()
-    calls = json.loads(R._dump_calls(fake_codex, tmp_path))
-    pinned = json.loads(pin_path("mcu_calls.json").read_text())
-    assert [c["prompt"] for c in calls] == [c["prompt"] for c in pinned]
-    assert [c["argv"] for c in calls] == [c["argv"] for c in pinned]
-    audit = json.loads((tmp_path / "prolong_vision_audit.json").read_text())
-    audit.pop("vision_audit_source", None)
-    assert set(audit) - set(json.loads(pin_path("mcu_audit_keys.json").read_text())) == {"mfm"}
-    assert audit["mfm"]["n"] == len([l for l in (ws / "index.jsonl").read_text().splitlines() if l])
-    assert (ws / "tools" / "episodes.py").exists()
-    check_pin("mcu_episodes.txt", _tree(ws / "episodes") + "### index.jsonl\n" + (ws / "index.jsonl").read_text())
-
-
 def test_kicad_store(tmp_path, fake_codex, monkeypatch):
     from gym_codex.mfm_prompts import MFM_MEMORY_NOTE
     from gym_codex.prolong_agent import ProlongGuiAgent
