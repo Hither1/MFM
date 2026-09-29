@@ -13,7 +13,7 @@ VISTA) and direct evaluation, on the two benchmarks of the paper:
 
 | benchmark | directory | arms |
 |---|---|---|
-| MCU-AgentBeats (Minecraft): Mine Diamond from Scratch, Ender Dragon, the Nether portal case study | `MCU/` | `direct`, `logbook` (PRO-LONG), `vista`, `mfm` (MFM), `mfm-matched` (MFM on the baselines' harness) |
+| MCU-AgentBeats (Minecraft): Mine Diamond from Scratch, Ender Dragon, the Nether portal case study | `MCU/` | `direct`, `logbook` (PRO-LONG), `vista`, `mfm` (MFM), `mfm-matched` (MFM without procedures of its own) |
 | CUABench-KiCad (25 tasks) | `CUA-KiCad/` | `direct`, `prolong-logonly` (PRO-LONG), `vista`, `mfm` (no cross-task memory), `mfm-carry` (MFM) |
 
 ## Layout
@@ -83,17 +83,21 @@ bash scripts/run-arm.sh --arm mfm_diamond_s0 --memory mfm \
 | reasoning effort | `--effort high` (default) |
 | an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm and mfm-matched, repeatable), `--seed-log <logs.txt>` (logbook) |
 
+Every arm reads a short contract (12 to 18 KB) and acts through raw actions and the same
+28 primitive procedures (`procedures.ATOMS`); no arm is given a task-shaped macro (a
+tree, a strip mine, a shaft, the portal). The arms that can read files (`logbook`, `mfm`,
+`mfm-matched`) have the longer rules under `references/`; `direct` and `vista` cannot,
+and have the procedures' full descriptions in the contract instead.
+
 The two MFM arms have the same memory (the log, the episodes with their frames, the
 index and its query tool, the carried lives) and differ in the harness around it:
 
 - `mfm` is the arm of the paper's tables. The model writes its own procedures and
-  reflexes under `mine/`, works from the short contract with the 28 primitive
-  procedures, and the runner's own guards are off.
-- `mfm-matched` has the contract, the procedure library and the runner guards of
-  `direct` and `logbook`, so that what it adds to `logbook` is the memory alone (the
-  `MFM_MEMORY` settings of `mcu_worldmodel/arms.py`). It writes no procedures and has
-  no `mine/`. No result of the paper was
-  recorded with it.
+  reflexes under `mine/`, has the skill package, and the runner's own guards are off.
+- `mfm-matched` has the contract and the runner guards of `logbook`, so that what it
+  adds to `logbook` is the memory alone (the `MFM_MEMORY` settings of
+  `mcu_worldmodel/arms.py`). It writes no procedures and has no `mine/`. No result of
+  the paper was recorded with it.
 
 The result is `logs/<arm>_result.json`; the workspace, with the whole memory of the
 life, is `output/<arm>/episode_001/memory/`. The header of `scripts/run-arm.sh`

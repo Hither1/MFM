@@ -61,8 +61,9 @@ never edits those files and never rewrites the episodic record.
 | Direct evaluation | `--memory direct` (Minecraft), `--agent direct` (KiCad) |
 | PRO-LONG | `--memory logbook`, `--agent prolong-logonly`: the append-only log is the only memory |
 | VISTA | `--memory vista`, `--agent vista`: `mfm/vista/`, adapters `MCU/mcu_worldmodel/vista.py`, `CUA-KiCad/gym_codex/vista_agent.py` |
-| MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py` (`--memory mfm-matched` is the same memory on the baselines' harness, see difference 2); `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
+| MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py` (`--memory mfm-matched` is the same memory without procedures of its own, see difference 2); `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
 | MFM (no cross-task memory), Table 3 | `--agent mfm` |
+| Table 5: the standing brief, the procedure set | every arm has the short contract and the 28 atoms (`SHARED` in `MCU/mcu_worldmodel/arms.py`, `procedures.ATOMS`); sizes in difference 2 |
 | Step budgets: Diamond 12,000, Ender Dragon 36,000 | defaults of `MCU/scripts/run-arm.sh` by task |
 | Seeds: the Minecraft world, the KiCad task order | `--world-seed` (`MCU/src/util.py` `load_world_spec`), `--task-order-seed` (`CUA-KiCad/gym_codex/run_eval.py`) |
 | Milestone scoring | the benchmark's own `MilestoneTrackerCallback`; the chassis keeps the same count in `MCU/mcu_worldmodel/milestones.py` |
@@ -74,18 +75,24 @@ never edits those files and never rewrites the episodic record.
 1. **Table 4 is not reproducible from this release.** The four ablation switches (no
    visual observations, flat log, no agent procedures, no consolidation) were removed;
    the code runs the full method and the baselines only.
-2. **The arms do not share one contract on Minecraft.** The `mfm` arm runs the short
-   contract with the primitive procedure set (28 atoms), the skill package, its own
-   procedures and reflexes, and with the runner's own guards (the lava stop, the
-   pillar on a hit, the refusals) switched off. `direct`, `logbook` and `vista` run the full contract
-   with the macro procedure library and the runner's guards on. Shared by all four:
-   the executor, the perception, the plan caps, the frame size (320x180), the model
-   and its reasoning effort, the milestone ledger. Table 5 of the appendix lists the
-   12 KB brief and the 28 atoms for every method; in the recorded runs and in this
-   code they are the `mfm` arm's (its contract is 11,947 bytes, those of `direct` and
-   `logbook` 76,144 and 77,341). `--memory mfm-matched` is the arm that removes the difference: the memory
-   of `mfm` on the contract, procedure library and guards of the baselines, without
-   procedures of its own. No result of the paper was recorded with it.
+2. **What the arms share on Minecraft, and what they do not.** Shared by every arm, as
+   in Table 5: a short contract, the 28 atoms as the whole procedure set (no
+   task-shaped macro), the executor, the perception, the plan caps, the frame size
+   (320x180), the model and its reasoning effort, the milestone ledger. Not shared:
+   - The contracts are short but not one text, and not 12 KB each: `mfm` 11,947 bytes,
+     `logbook` 12,954, `direct` 14,942, `vista` 15,772 (`tests/pins_release/*_contract.md`).
+     `logbook` and `mfm` read the longer rules under `references/`; `direct` and `vista`
+     have no file access, so their contract carries the full descriptions of the
+     procedures, and the GUI, skills and survival references are left out for them.
+   - `mfm` alone has the skill package, its own procedures and reflexes, and runs with
+     the runner's own guards (the lava stop, the pillar on a hit, the refusals)
+     switched off; the baselines run with them on.
+   - The baseline results of the paper were recorded with an earlier configuration of
+     the baselines (the full contract of 76 to 77 KB and the macro procedure library);
+     this release runs them as the paper describes them.
+
+   `--memory mfm-matched` is the memory of `mfm` on the contract and guards of
+   `logbook`, without procedures of its own. No result of the paper was recorded with it.
 3. **The MFM arms on KiCad have a design call.** Before the first action the `mfm` and
    `mfm-carry` arms make one call at reasoning effort `high` that writes `design.md`
    and `intent.json`, and their system prompt carries a paragraph of schematic

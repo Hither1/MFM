@@ -46,7 +46,7 @@ T : one resumable codex thread rooted at W (sandbox: workspace-write, view_image
 Q : deque of (env_action, entry_index)        the plan being executed
 L : milestone ledger (rules, achieved set, stat stream)
 ATOMS : the 28 primitive procedures the model may call (look, move, mine_ahead,
-        place_at, pillar_up, ...); the 13 endgame macros are withheld
+        place_at, pillar_up, ...); the task-shaped macros are withheld
 ```
 
 ```

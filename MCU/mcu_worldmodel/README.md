@@ -10,9 +10,15 @@ model is given and the contract that describes it.
 | `logbook` | PRO-LONG | one append-only `logs.txt` it greps |
 | `vista` | VISTA | one long thread calling `play`; the frame archive behind `inspect`; `GUIDE.md` / `WORKING.md`; a checkpoint handoff when the thread fills |
 | `mfm` | MFM | the log, one episode per plan entry with its frame, the index and its query tool, the carried lives, its own procedures and reflexes |
-| `mfm-matched` | (not in the paper) | the memory of `mfm` on the harness of the baselines: their contract, procedure library and runner guards; no procedures of its own, no `mine/` |
+| `mfm-matched` | (not in the paper) | the memory of `mfm` on the harness of the baselines: their contract and runner guards; no procedures of its own, no `mine/` |
 
-The settings of the two MFM arms are in `arms.py` and nowhere else.
+Every arm reads a short contract and has the same procedure set, the 28 closed-loop
+primitives of `procedures.ATOMS`; a call of any other procedure is refused with a note.
+`logbook` and the MFM arms read the longer rules under `references/`; `direct` and
+`vista` have no file access, so their contract carries the procedures' full
+descriptions and the other references are left out.
+
+The settings of the arms are in `arms.py` and nowhere else.
 
 ## One turn
 
@@ -55,14 +61,14 @@ the harness computes from the index (`mfm/memory/retrieve.py`).
 
 | module | what it is |
 |---|---|
-| `arms.py` | the arms and the settings of `mfm` and `mfm-matched` |
+| `arms.py` | the arms and their settings |
 | `agent.py` | the turn loop, the executor and its guards |
 | `prompts.py` | the contract and the action reference each arm reads |
 | `memory.py`, `episodes.py`, `previous.py` | the workspace, the episode store adapter, the carried lives |
 | `own.py`, `skills.py` | the model's own procedures and reflexes; the skill package |
 | `vista.py` | the VISTA arm's adapter |
 | `codex_backend.py`, `claude_backend.py` | one model turn through either CLI |
-| `actions.py`, `procedures.py`, `macros*.py`, `harvest.py` | plan validation and the closed-loop procedures |
+| `actions.py`, `procedures.py`, `macros*.py`, `harvest.py` | plan validation and the closed-loop procedures (the arms are given the 28 of `procedures.ATOMS`) |
 | `milestones.py` | the ledger: what the game's statistics say has happened |
 | `grid.py`, `governor.py` | the cell map; the stall watchdog |
 | `vision.py`, `vision_nether.py`, `cursor.py`, `gui.py`, `camera.py` | frame detectors, GUI geometry, camera arithmetic |
