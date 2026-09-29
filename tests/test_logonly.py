@@ -1,5 +1,5 @@
-"""The log-only ablation of PRO-LONG on KiCad (`prolong-logonly`): the log and the
-frames persist, the model's own files do not, and the log itself is the baseline's."""
+"""PRO-LONG on KiCad (`prolong-logonly`): the log and the frames persist, the model's
+own files do not, and the log itself is that of the agent without the log-only view."""
 from __future__ import annotations
 
 import json
@@ -9,13 +9,13 @@ import test_pins_replay as R
 from conftest import pin_path
 
 
-def _agent(tmp_path: Path, monkeypatch, kind: str = "prolong-logonly"):
-    from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
-    return memory_agents.make_agent(
-        kind, workspace=tmp_path / "ws", model="gpt-5.6-sol", effort="low", max_steps=8,
-        transcript_dir=None, codex_home=str(tmp_path / "home"), session_turns=None,
-        base_url=None)
+def _agent(tmp_path: Path, monkeypatch, log_only: bool = True):
+    from gym_codex.prolong_agent import ProlongGuiAgent
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    return ProlongGuiAgent(
+        log_only=log_only, workspace=tmp_path / "ws", model="gpt-5.6-sol", effort="low",
+        max_steps=8, transcript_dir=None, codex_home=str(tmp_path / "home"),
+        session_turns=None, base_url=None)
 
 
 def test_log_only_takes_the_models_files_back_each_turn(tmp_path, fake_codex, monkeypatch):
@@ -78,8 +78,8 @@ def test_log_only_takes_the_models_files_back_each_turn(tmp_path, fake_codex, mo
     assert agent.log.log_only and not agent.log.stateless and agent.log_window is None
 
 
-def test_baseline_prolong_still_keeps_its_files(tmp_path, fake_codex, monkeypatch):
-    agent = _agent(tmp_path, monkeypatch, kind="prolong")
+def test_without_the_log_only_view_the_files_are_kept(tmp_path, fake_codex, monkeypatch):
+    agent = _agent(tmp_path, monkeypatch, log_only=False)
     fake_codex.reply({"actions": [{"action": "click", "coordinate": [1, 1]}]},
                      "[PLAN]\none", files={"plan.txt": "keep me\n"})
     fake_codex.reply({"terminate": {"status": "success", "reason": "x"}}, "done")

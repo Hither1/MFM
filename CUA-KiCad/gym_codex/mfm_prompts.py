@@ -36,48 +36,6 @@ retrieved for this moment; if the chain matches what you intend, queue its steps
 one plan."""
 
 
-NETLIST_NOTE = """\
-`./netlist.txt` is the netlist exported from your saved project the way the evaluator \
-exports it, refreshed by the runner whenever the saved schematic changes. It is what \
-your work amounts to in the only form that is scored: the components with their \
-reference designators, values and library parts, and the nets with the pins on them. \
-It is not a score and says nothing about whether the values or the topology are the \
-ones the task asked for -- only what you actually built. It is empty until you save \
-the project, and stale for anything you have changed since. Read it before you \
-terminate, and check it against the task: every part the task names present, every \
-connection the task describes on one net. A part you meant to place that is missing \
-from it was never placed, and a wire that did not land on a pin is a net that is not \
-there."""
-
-
-NETLIST_VERIFY_NOTE = """\
-Your first `terminate` with status success does not end the episode. It is held once: \
-`netlist.txt` is refreshed from your saved project at that moment and the turn after it \
-asks you to check what you built against what the task asked for. Save the schematic \
-before you terminate, or there is nothing to refresh and nothing to check. Terminating \
-a second time ends the episode whatever the netlist says -- the hold is a chance to look, \
-not a verdict, and nothing in it tells you whether you are right."""
-
-#: Queued as turn feedback when a terminate(success) is held and the project was saved.
-NETLIST_VERIFY_FEEDBACK = (
-    "terminate(success) held once, and not executed. `netlist.txt` has just been "
-    "refreshed from your saved project: it is exactly what would be scored if you "
-    "stopped now. Before you terminate again, go through the task line by line -- every "
-    "component it names, with its value, and every connection it describes -- and find "
-    "each one in `netlist.txt`. A part the task names that is not in the component list "
-    "was never placed. Two pins the task says are joined that appear on different nets "
-    "are not wired, and a pin missing from every net is a wire that did not land. Fix "
-    "what is wrong, save, and then terminate; terminating now ends the episode.")
-
-#: Queued instead when the hold found no saved project to export.
-NETLIST_VERIFY_FEEDBACK_UNSAVED = (
-    "terminate(success) held once, and not executed. Nothing could be exported from "
-    "your project directory: there is no saved schematic there, so stopping now scores "
-    "nothing whatever is on the screen. Save the schematic into the project directory, "
-    "then read the refreshed `netlist.txt` and check it against the task before you "
-    "terminate again.")
-
-
 CONVENTIONS_NOTE = """\
 Schematic conventions the netlist comparison is sensitive to:
 - Ground is the plain `GND` power symbol on every return, a battery's or connector's \

@@ -66,7 +66,7 @@ def _episode(kind: str, cli: str, task: str, tmp: Path, fake_codex):
 @pytest.mark.parametrize("kind", sorted(ARMS))
 def test_kicad_arm(tmp_path, fake_codex, monkeypatch, kind):
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     agent, outputs = _episode(kind, "codex", "task_a", tmp_path, fake_codex)
     if kind.endswith("-carry"):          # the second task sees the first one's record
         agent, outputs = _episode(kind, "codex", "task_b", tmp_path, fake_codex)

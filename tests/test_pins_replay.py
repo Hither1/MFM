@@ -139,12 +139,12 @@ def drive_kicad(agent, fake_codex) -> list[dict]:
 
 
 def test_kicad_replay(tmp_path, fake_codex, monkeypatch):
-    from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    from gym_codex.prolong_agent import ProlongGuiAgent
+    monkeypatch.setattr("time.sleep", lambda s: None)
 
     ws = tmp_path / "ws"
-    agent = memory_agents.make_agent(
-        "prolong", workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,
+    agent = ProlongGuiAgent(
+        workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,
         transcript_dir=None, codex_home=str(tmp_path / "home"), session_turns=None,
         base_url=None)
 

@@ -35,7 +35,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from gym_codex import mfm_prompts  # noqa: E402
 from gym_codex.codex_gui_agent import CodexGuiAgent  # noqa: E402
 from gym_codex.memory_agents import make_agent  # noqa: E402
 
@@ -91,37 +90,6 @@ def _order_rows(rows: list[dict], seed: int | None, out_dir: Path) -> list[dict]
     return rows
 
 
-
-def _apply_implications(args):
-    """Flags that turn other flags on, applied once after parsing.
-
-    `--netlist-verify` implies `--netlist-readback`, and must: the hold refreshes
-    `netlist.txt` itself, but the per-step refresh is what makes it a live surface. With
-    only the hold, the model builds the whole schematic blind and is handed its work once,
-    when it has already decided it is finished -- measured in `kicad_mfmverify_pilot`,
-    which ran with `netlist_refreshes=1` on every task and whose turns kept saying
-    "netlist.txt is not yet available".
-    """
-    if args.netlist_verify:
-        args.netlist_readback = True
-
-
-def _hold_terminate(args, done: bool, calls: list[dict], holds: int,
-                    held_unsaved: bool) -> bool:
-    """Whether this batch is a terminate(success) the verification gate should hold.
-
-    Held once per episode, and a second time only when the first hold found nothing
-    saved to export: that hold showed the model an empty netlist, so the look it was
-    given was not a look at its own work. A terminate(failure) is the model giving up
-    and is never held.
-    """
-    if not (args.netlist_verify and done and calls):
-        return False
-    if holds >= (2 if held_unsaved else 1):
-        return False
-    fn = calls[0].get("function") or {}
-    args_ = fn.get("arguments") or {}
-    return fn.get("name") == "terminate" and args_.get("status") == "success"
 
 #: One boot at a time: concurrent desktop boots race on llvmpipe CPU (measured on
 #: lite.osworld: some landed in a degraded GNOME session). Episodes still run
@@ -189,17 +157,13 @@ def _cli_error(args) -> str | None:
     """Why this `--cli claude` combination cannot run, or None."""
     if getattr(args, "cli", "codex") != "claude":
         return None
-    if args.agent == "worldmodel":
-        return "--cli claude: the worldmodel arm runs on codex only"
-    if args.agent == "arc":
-        return "--cli does not apply to arc; use --arc-agent claude"
     if args.codex_base_url:
         return "--cli claude takes no --codex-base-url (an OpenAI-compatible endpoint)"
     return None
 
 
 def _make_agent(args, task_dir: Path):
-    """The scaffold-control axis: same codex, same action contract, three memories."""
+    """One agent per task: the same model channel and action contract, four memories."""
     if args.agent == "direct":
         return CodexGuiAgent(model=args.model, effort=args.effort, env_id=args.env_id,
                              transcript_dir=str(task_dir / "codex"),
@@ -212,14 +176,6 @@ def _make_agent(args, task_dir: Path):
         kw["timeout"] = args.codex_timeout
     if args.agent.startswith(("prolong", "mfm")):
         kw.update(_cli_kw(args))
-    if args.agent == "arc":
-        # arc-code (gym_codex/arc_agent.py): one long coding-agent session in the
-        # workspace whose only actuator is `./act do`; the harness log is its log.
-        from gym_codex.arc_agent import ArcGuiAgent
-        return ArcGuiAgent(workspace=task_dir / "workspace", model=args.model, effort=args.effort,
-                           max_steps=args.max_steps, transcript_dir=task_dir / "arc_sessions",
-                           timeout=args.arc_turn_ceiling, base_url=args.codex_base_url,
-                           arc_agent=args.arc_agent, max_sessions=args.arc_max_sessions)
     if args.agent == "vista":
         # VISTA (gym_codex/vista_agent.py): one codex app-server thread, `play` one
         # batch at a time, no shell; the same action contract as every other arm.
@@ -229,10 +185,6 @@ def _make_agent(args, task_dir: Path):
                              timeout=args.codex_timeout or 900, base_url=args.codex_base_url,
                              thread_bytes=args.vista_thread_bytes,
                              idle_timeout=args.vista_idle_timeout, **_cli_kw(args))
-    if (args.netlist_readback or args.netlist_verify) \
-            and args.agent.startswith(("prolong", "mfm")):
-        kw["netlist"] = True
-        kw["netlist_verify"] = args.netlist_verify
     if args.agent.startswith(("prolong", "mfm")):
         # The two prompt-level levers are keyword-only when on, so an arm without
         # them is constructed with exactly the baseline's arguments.
@@ -245,17 +197,6 @@ def _make_agent(args, task_dir: Path):
         kw["carry_dir"] = task_dir.parent / "carry"
         kw["task_id"] = task_dir.name
         kw["carry_outcomes"] = args.carry_outcomes
-    if args.agent == "worldmodel":
-        kw["induction_every"] = args.induction_every
-        kw["task_id"] = task_dir.name
-        # The v2 levers, each its own flag (see --wm-v2 for the preset). The v1 arm
-        # is what a bare --agent worldmodel still runs.
-        kw["session_turns"] = args.wm_session_turns
-        kw["parallel_induction"] = args.wm_parallel_induction
-        kw["verify_before_terminate"] = args.wm_verify_before_terminate
-        kw["final_induction"] = args.wm_final_induction
-        if args.wm_scope == "campaign":
-            kw["campaign_dir"] = task_dir.parent / "campaign_world_model"
     return make_agent(args.agent, **kw)
 
 
@@ -401,10 +342,6 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
                 back = None
             result["design_seeded"] = bool(back) and agent.seed_design(back[0])
         step_error: str | None = None
-        netlist_stamp: str | None = None
-        netlist_refreshes = 0
-        netlist_holds = 0
-        held_unsaved = False
         for step_idx in range(args.max_steps):
             if screenshot and args.save_screens:
                 (task_dir / f"step_{step_idx:02d}.png").write_bytes(screenshot)
@@ -434,32 +371,6 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
             if not calls:            # unparseable turn: burn the step, feedback queued
                 result["steps"] = step_idx + 1
                 continue
-            if _hold_terminate(args, done, calls, netlist_holds, held_unsaved):
-                # The episode's first terminate(success) is not executed: the netlist
-                # is refreshed from the saved project *now* (unconditionally -- the
-                # stamp gate is for the per-step refresh, and this moment is the one
-                # that matters) and the turn goes back with the check note. A second
-                # hold happens only when the first found nothing saved, so a model
-                # that saves in answer to it still gets one look at a real netlist.
-                netlist_holds += 1
-                try:
-                    back = await _read_back_netlist(env)
-                except Exception as exc:  # noqa: BLE001 -- a read-back is never fatal
-                    logger.warning("[%s] netlist read-back failed at the hold: %s",
-                                   task_id, exc)
-                    back = None
-                if back:
-                    netlist_stamp = back[1]
-                    await asyncio.to_thread(agent.update_netlist, back[0])
-                    netlist_refreshes += 1
-                held_unsaved = back is None
-                agent.add_feedback(mfm_prompts.NETLIST_VERIFY_FEEDBACK_UNSAVED if back is None
-                                   else mfm_prompts.NETLIST_VERIFY_FEEDBACK)
-                steps[-1]["held"] = "unsaved" if back is None else "netlist"
-                logger.info("[%s] step %d: terminate(success) held (%s)", task_id,
-                            step_idx, "nothing saved" if back is None else "netlist refreshed")
-                result["steps"] = step_idx + 1
-                continue
             try:
                 sr = await env.step(calls)
             except Exception as exc:  # noqa: BLE001 — env hiccup: stop acting, still evaluate
@@ -468,18 +379,6 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
                                task_id, step_idx, step_error)
                 break
             result["steps"] = step_idx + 1
-            if args.netlist_readback and hasattr(agent, "update_netlist"):
-                # Only after the saved project changed: the export costs a kicad-cli
-                # run and most steps do not save.
-                try:
-                    back = await _read_back_netlist(env)
-                except Exception as exc:  # noqa: BLE001 — a read-back is never fatal
-                    logger.warning("[%s] netlist read-back failed: %s", task_id, exc)
-                    back = None
-                if back and back[1] != netlist_stamp:
-                    netlist_stamp = back[1]
-                    await asyncio.to_thread(agent.update_netlist, back[0])
-                    netlist_refreshes += 1
             for r in sr.results:
                 if r.images:
                     screenshot = r.images[-1]
@@ -501,10 +400,6 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
             result["reward"] = sr.reward
             if step_error:
                 result["error"] = f"step error (evaluated anyway): {step_error}"
-        if args.netlist_readback or args.netlist_verify:
-            result["netlist_refreshes"] = netlist_refreshes
-        if args.netlist_verify:
-            result["netlist_holds"] = netlist_holds
         if args.env_id.endswith(".kicad"):
             try:
                 result["grader_inputs"] = await _save_grader_inputs(env, task_dir)
@@ -523,9 +418,9 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
             except Exception:
                 logger.warning("[%s] env.close failed", task_id, exc_info=True)
     if hasattr(agent, "finish"):
-        # The world-model arm's episode-end work (a final induction pass, publishing
-        # the campaign-scoped documents) happens after the env is closed, so its
-        # cost is on the agent's clock and not the container's.
+        # A carry arm's episode-end work (publishing this task's record for the next
+        # one) happens after the env is closed, so its cost is on the agent's clock
+        # and not the container's.
         try:
             await asyncio.to_thread(agent.finish, result["reward"], result["error"])
         except Exception:  # noqa: BLE001 -- the score is already in hand
@@ -563,32 +458,23 @@ async def main() -> int:
                    help="step budget; default = the benchmark's standard "
                         "(kicad 200, workflows 100, else 30)")
     p.add_argument("--concurrency", type=int, default=3)
-    p.add_argument("--agent", choices=("direct", "prolong", "prolong-logonly", "mfm", "prolong-carry",
-                                        "mfm-carry", "worldmodel", "vista", "arc"), default="direct",
-                   help="memory arm: direct (memoryless), prolong (append-only log + "
-                        "resumed thread), mfm (prolong + the episode store and a "
-                        "multi-batch plan queue), prolong-carry / mfm-carry (the same "
-                        "arms with the finished tasks' records and a persistent notes/ "
-                        "carried into each task's workspace under <out>/carry; tasks run "
-                        "in order at concurrency 1), worldmodel (compiled docs + belief "
-                        "graph + induction passes; fresh conversation per call), vista "
+    p.add_argument("--agent", choices=("direct", "prolong-logonly", "vista", "mfm", "mfm-carry"),
+                   default="direct",
+                   help="memory arm: direct (no persistent memory), prolong-logonly "
+                        "(PRO-LONG: an append-only log is the only memory), vista "
                         "(VISTA: one codex app-server thread, play one batch at a time, "
                         "inspect over the archived screenshots, GUIDE.md/WORKING.md, a "
-                        "checkpoint handoff when the context fills; no shell)")
+                        "checkpoint handoff when the context fills; no shell), mfm (the "
+                        "log plus the episode store and a multi-batch plan queue), "
+                        "mfm-carry (mfm with the finished tasks' records and a persistent "
+                        "notes/ carried into each task's workspace under <out>/carry; "
+                        "tasks run in order at concurrency 1)")
     p.add_argument("--cli", choices=("codex", "claude"), default="codex",
-                   help="which CLI carries the model for direct / prolong* / mfm* / vista: codex "
+                   help="which CLI carries the model: codex "
                         "(default), or claude -- Anthropic models through Claude Code "
                         "(prolong_search/claude_backend.py; memory arms under "
                         "CLAUDE_BIN=prolong_search/claude_sandbox.sh). Rows and summary "
                         "carry `cli` only when it is claude.")
-    p.add_argument("--arc-agent", choices=("codex", "claude"), default="codex",
-                   help="arc arm: which coding-agent CLI runs the session")
-    p.add_argument("--arc-max-sessions", type=int, default=25,
-                   help="arc arm: how many sessions may be started before the episode is "
-                        "left to run out (upstream's resume loop)")
-    p.add_argument("--arc-turn-ceiling", type=float, default=900.0,
-                   help="arc arm: how long a step waits for the next `./act do` before "
-                        "running as a no-op")
     p.add_argument("--vista-thread-bytes", type=int, default=4_000_000,
                    help="vista only: base64 screenshot bytes one codex thread may carry "
                         "before the checkpoint handoff (0 = off; the wire stalls near 5.5 MB)")
@@ -603,88 +489,40 @@ async def main() -> int:
     p.add_argument("--codex-timeout", type=int, default=None,
                    help="per-call ceiling in s (default 360 direct, 900 memory arms)")
     p.add_argument("--session-turns", type=int, default=None,
-                   help="prolong only: cold-start the codex thread every N turns "
+                   help="prolong-logonly / mfm: cold-start the codex thread every N turns "
                         "(default 6, the screenshot attachment wall)")
-    p.add_argument("--induction-every", type=int, default=25,
-                   help="worldmodel only: act turns between induction passes")
-    wm = p.add_argument_group("worldmodel v2 levers (each ablatable; --wm-v2 sets all)")
-    wm.add_argument("--wm-scope", choices=("episode", "campaign"), default="episode",
-                    help="campaign: the five documents persist across the campaign's "
-                         "tasks (<out>/campaign_world_model), seeded at episode start "
-                         "and published at episode end; needs --concurrency 1")
-    wm.add_argument("--wm-session-turns", type=int, default=None,
-                    help="resume the codex thread across N act turns (default 1: a "
-                         "fresh conversation per call, the v1 arm); dropped after "
-                         "every induction pass regardless")
-    wm.add_argument("--wm-parallel-induction", action="store_true",
-                    help="run a pass's five document calls concurrently")
-    wm.add_argument("--wm-verify-before-terminate", action="store_true",
-                    help="hold the first terminate(success) for one verification call")
-    wm.add_argument("--wm-final-induction", action="store_true",
-                    help="a document-only pass after the episode ends (campaign scope)")
-    wm.add_argument("--wm-v2", action="store_true",
-                    help="preset: --wm-scope campaign --wm-session-turns 6 "
-                         "--wm-parallel-induction --wm-verify-before-terminate "
-                         "--wm-final-induction")
     p.add_argument("--kicad-project-hint", action="store_true",
                    help="cua.bench kicad: pre-create the grader's /home/cua/kicad_project "
                         "and append its location to the instruction (the from-scratch "
                         "tasks are unscorable without it; see _KICAD_PROJECT_HINT)")
-    p.add_argument("--netlist-readback", action="store_true",
-                   help="cua.bench kicad: refresh `netlist.txt` in the agent's workspace "
-                        "from the saved project after every step that changes it, the way "
-                        "the grader exports it (gym_codex.mfm_prompts.NETLIST_NOTE). The "
-                        "agent drives the GUI and otherwise never sees what it built; this "
-                        "is its own artifact read back, not the reference and not a score. "
-                        "Applies to the prolong/mfm arms, which have a shell to read it.")
-    p.add_argument("--netlist-verify", action="store_true",
-                   help="cua.bench kicad: hold the episode's first terminate(success), "
-                        "refresh `netlist.txt` from the saved project at that moment and "
-                        "hand the turn back once with a check-what-you-built note "
-                        "(gym_codex.mfm_prompts.NETLIST_VERIFY_NOTE). Implies "
-                        "--netlist-readback. The agent terminates believing it is done on "
-                        "every task it scores zero on and stops well inside the step "
-                        "budget; this spends one turn of that budget looking at its own "
-                        "artifact. It carries no score and no reference. Applies to the "
-                        "prolong/mfm arms; both take it or neither does.")
     p.add_argument("--design-turn", action="store_true",
-                   help="cua.bench kicad, prolong/mfm arms: one design call before the "
+                   help="cua.bench kicad, mfm arms: one design call before the "
                         "first action turn, at --design-effort on a codex thread of its "
                         "own, writing `design.md` + `intent.json` in the workspace "
                         "(gym_codex.mfm_prompts.DESIGN_PROMPT); the action turns build "
                         "from them (DESIGN_NOTE). Every design error on the from-scratch "
                         "tasks was in the plan the model wrote at effort low and then "
                         "executed faithfully; this spends one high-effort call on the plan. "
-                        "No reference, no score. Not combinable with prolong-logonly.")
+                        "No reference, no score.")
     p.add_argument("--design-effort", default="high",
                    help="reasoning effort of the design call (default high)")
     p.add_argument("--conventions", action="store_true",
-                   help="cua.bench kicad, prolong/mfm arms: append "
+                   help="cua.bench kicad, mfm arms: append "
                         "gym_codex.mfm_prompts.CONVENTIONS_NOTE to the system prompt -- GND "
                         "symbol on every return, no labels the task does not ask for, "
-                        "designators in the task's order. Both arms take it or neither does.")
+                        "designators in the task's order.")
     p.add_argument("--carry-outcomes", action="store_true",
-                   help="carry arms: write `previous/outcomes.md` -- each finished task's "
+                   help="mfm-carry: write `previous/outcomes.md` -- each finished task's "
                         "score with its task text (mfm.memory.carry.CARRY_OUTCOMES_NOTE). "
                         "Without it the carried notes are the model's own belief about "
                         "what worked, never checked; the reference and the per-check "
-                        "verdicts are still not shown. A protocol decision: both carry "
-                        "arms take it or neither does.")
+                        "verdicts are still not shown.")
     p.add_argument("--save-screens", action="store_true", default=True)
     p.add_argument("--resume", action="store_true", default=True)
     p.add_argument("--out", required=True)
     args = p.parse_args()
     if args.max_steps is None:
         args.max_steps = _DEFAULT_BUDGETS.get(args.env_id, _FALLBACK_BUDGET)
-    _apply_implications(args)
-    if args.wm_v2:
-        args.wm_scope = "campaign"
-        args.wm_session_turns = args.wm_session_turns or 6
-        args.wm_parallel_induction = True
-        args.wm_verify_before_terminate = True
-        args.wm_final_induction = True
-    if args.agent == "worldmodel" and args.wm_scope == "campaign" and args.concurrency != 1:
-        p.error("--wm-scope campaign is single-writer: use --concurrency 1")
     if args.design_turn and args.agent == "prolong-logonly":
         p.error("--design-turn writes design files the log-only arm takes back every turn")
     if _cli_error(args):
@@ -698,7 +536,7 @@ async def main() -> int:
     results_path = out_dir / "results.jsonl"
     done_ids: set[str] = set()
     if args.agent.endswith("-carry") and args.concurrency != 1:
-        p.error("--agent *-carry carries memory from task to task in order; it needs "
+        p.error("--agent mfm-carry carries memory from task to task in order; it needs "
                 "--concurrency 1")
     if args.resume and results_path.exists():
         for line in results_path.read_text().splitlines():
@@ -747,19 +585,10 @@ async def main() -> int:
                "max_steps": args.max_steps, "domain": args.domain, "env_id": args.env_id,
                "task_order_seed": args.task_order_seed}
     summary.update(_cli_kw(args))
-    if args.netlist_readback or args.netlist_verify:
-        summary["netlist"] = {"readback": args.netlist_readback,
-                              "verify": args.netlist_verify}
     if args.design_turn or args.conventions:
         summary["design"] = {"design_turn": args.design_turn,
                              "design_effort": args.design_effort if args.design_turn else None,
                              "conventions": args.conventions}
-    if args.agent == "worldmodel":
-        summary["wm"] = {"scope": args.wm_scope, "session_turns": args.wm_session_turns or 1,
-                         "parallel_induction": args.wm_parallel_induction,
-                         "verify_before_terminate": args.wm_verify_before_terminate,
-                         "final_induction": args.wm_final_induction,
-                         "induction_every": args.induction_every}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     logger.info("SUMMARY %s", json.dumps(summary))
     return 0 if not errors else 1

@@ -33,7 +33,7 @@ from typing import Any, Optional
 from gym_codex import prompts_prolong
 from gym_codex.actions import ParsedBatch, parse_batch
 from gym_codex.mfm_prompts import (CONVENTIONS_NOTE, DESIGN_EXISTING, DESIGN_NOTE,
-                                   DESIGN_PROMPT, MFM_MEMORY_NOTE, NETLIST_NOTE, NETLIST_VERIFY_NOTE,
+                                   DESIGN_PROMPT, MFM_MEMORY_NOTE,
                                    PLAN_QUEUE_NOTE, RECALL_NOTE)
 from mfm.agent.base import MemoryAgent, Observation, Plan
 from mfm.backend import errors as backend_errors
@@ -100,28 +100,16 @@ class ProlongGuiAgent(MemoryAgent):
                  episodes: bool = False, plan_queue: bool = False,
                  carry_dir: Optional[Path] = None, task_id: Optional[str] = None,
                  recall: bool = False, log_only: bool = False,
-                 netlist: bool = False, netlist_verify: bool = False,
                  carry_outcomes: bool = False,
                  design: bool = False, design_effort: str = "high",
                  conventions: bool = False, cli: str = "codex") -> None:
-        # The log-only ablation (`prolong-logonly`): the record lives beside the
-        # workspace Codex works in, and `EpisodeLog.publish` takes the model's own files
-        # back every turn (mfm/memory/log.py). Everything else is the baseline.
+        # PRO-LONG (`prolong-logonly`): the record lives beside the workspace the model
+        # works in, and `EpisodeLog.publish` takes the model's own files back every
+        # turn (mfm/memory/log.py), so the log is the only memory.
         self.log_only = log_only
         # Which CLI carries the model (`run_eval.py --cli`): codex, or Anthropic models
         # through Claude Code on the same workspace, prompt, log and actions.json.
         self.cli = cli
-        # The netlist read-back (`--netlist-readback`): the runner refreshes
-        # `netlist.txt` in the workspace from the environment whenever the saved
-        # schematic changes, so the model can read what it actually built instead of
-        # inferring it from screenshots. Both arms get it when it is on; it carries no
-        # score and no reference, only the agent's own exported netlist.
-        self.netlist = netlist
-        # The verification gate (`--netlist-verify`): the driver holds the episode's
-        # first terminate(success), refreshes `netlist.txt` and hands the turn back
-        # once. Only the extra prompt paragraph lives here; the hold is the driver's,
-        # because only it can reach the container. Both arms get it when it is on.
-        self.netlist_verify = netlist_verify
         # The design turn (`--design-turn`): one call at its own reasoning effort
         # before the first action turn, on a CodexTurn of its own in the same
         # workspace, whose output is `design.md` + `intent.json`. The action turns
@@ -136,8 +124,7 @@ class ProlongGuiAgent(MemoryAgent):
         # call is shown (DESIGN_EXISTING); None on a from-scratch task.
         self.design_existing: str | None = None
         # The conventions paragraph (`--conventions`): GND symbol on every return, no
-        # labels the task does not ask for, designators in the task's order. Both
-        # arms take it or neither does.
+        # labels the task does not ask for, designators in the task's order.
         self.conventions = conventions
         visible, record = prepare_workspace(Path(workspace), ablated=log_only)
         log = EpisodeLog(record, attachment_markers=("SCREEN",), attachment_dirs=("frames",),
@@ -147,7 +134,7 @@ class ProlongGuiAgent(MemoryAgent):
         if visible != record:
             install_zoom_tool(visible)
         # The MFM arm: the episode store beside the log, and (its one deliberate
-        # deviation from this arm's protocol, PLAN_episodic_memory.md section 4) a
+        # deviation from the log arm's protocol) a
         # multi-batch plan drained one batch per step with the flush rules below.
         self.store = EpisodeStore(record, recall=recall) if episodes else None
         self.plan_queue = plan_queue
@@ -280,12 +267,6 @@ class ProlongGuiAgent(MemoryAgent):
         text = prompts_prolong.build_system_prompt(self.max_steps)
         if self.log_only:
             text = _log_only_edit(text, _LOG_ONLY_SYSTEM_EDITS)
-        if self.netlist:
-            # Not a memory note: the read-back is an observation of the environment,
-            # so it belongs to the benchmark's prompt and both arms carry it.
-            text = text.rstrip("\n") + "\n\n" + NETLIST_NOTE + "\n"
-        if self.netlist_verify:
-            text = text.rstrip("\n") + "\n\n" + NETLIST_VERIFY_NOTE + "\n"
         if self.conventions:
             text = text.rstrip("\n") + "\n\n" + CONVENTIONS_NOTE + "\n"
         if self.design:
@@ -369,18 +350,6 @@ class ProlongGuiAgent(MemoryAgent):
                       f"produced no ./design.md ({result.get('error') or 'no file'}); "
                       f"design as you build")
         logger.info("[%s] design turn: %s", self.arm, json.dumps(self.design_result))
-
-    def update_netlist(self, text: str) -> None:
-        """Write the environment's current netlist into the workspace (`netlist.txt`).
-
-        Called by the driver after a step whose save changed the schematic. A harness
-        file (`mfm.memory.log._HARNESS_FILES`), so the log-only view keeps it and the
-        integrity check does not read it as the model's own.
-        """
-        if not self.netlist:
-            return
-        for root in {self.record_dir, self.visible}:
-            (Path(root) / "netlist.txt").write_text(text, encoding="utf-8")
 
     def initial_section(self, obs: Observation) -> tuple[str, list[str]]:
         assert self._task is not None

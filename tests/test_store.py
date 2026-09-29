@@ -55,13 +55,13 @@ def test_mcu_store(tmp_path, fake_codex):
 
 
 def test_kicad_store(tmp_path, fake_codex, monkeypatch):
-    from gym_codex import memory_agents
     from gym_codex.mfm_prompts import MFM_MEMORY_NOTE
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    from gym_codex.prolong_agent import ProlongGuiAgent
+    monkeypatch.setattr("time.sleep", lambda s: None)
 
     ws = tmp_path / "ws"
-    agent = memory_agents.make_agent(
-        "prolong", workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,
+    agent = ProlongGuiAgent(
+        workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,
         transcript_dir=None, codex_home=str(tmp_path / "home"), session_turns=None,
         base_url=None, episodes=True)          # the store alone: the plan queue is section 4
     outputs = R.drive_kicad(agent, fake_codex)
@@ -83,7 +83,7 @@ def test_kicad_plan_queue(tmp_path, fake_codex, monkeypatch):
     """The MFM arm's queue: three batches from one call, a flush on an unchanged screen
     after an input batch, and a queued terminate re-decided on the current screen."""
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     agent = memory_agents.make_agent(
         "mfm", workspace=tmp_path / "ws", model="gpt-5.6-sol", effort="low", max_steps=10,
         transcript_dir=None, codex_home=str(tmp_path / "home"), session_turns=None, base_url=None)
@@ -119,8 +119,8 @@ def test_kicad_workspace_has_the_promised_zoom_tool(tmp_path, fake_codex, monkey
     import sys
 
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
-    for arm in ("prolong", "mfm"):
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    for arm in ("prolong-logonly", "mfm"):
         ws = tmp_path / arm
         memory_agents.make_agent(
             arm, workspace=ws, model="gpt-5.6-sol", effort="low", max_steps=8,

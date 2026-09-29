@@ -20,7 +20,7 @@ PNG = bytes([137, 80, 78, 71, 13, 10, 26, 10]) + bytes(32)
 
 def _agent(tmp_path: Path, monkeypatch, kind: str = "mfm", **kw):
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     return memory_agents.make_agent(
         kind, workspace=tmp_path / "ws", model="gpt-6-astra", effort="low", max_steps=8,
         transcript_dir=tmp_path / "codex", codex_home=str(tmp_path / "home"),
@@ -33,7 +33,7 @@ def test_notes_only_reach_the_prompt_when_the_flags_are_on():
 
     def prompt(**kw):
         a = ProlongGuiAgent.__new__(ProlongGuiAgent)
-        a.max_steps, a.log_only, a.netlist, a.netlist_verify = 200, False, False, False
+        a.max_steps, a.log_only = 200, False
         for k, v in kw.items():
             setattr(a, k, v)
         return a.system_prompt()
@@ -129,7 +129,7 @@ def test_baseline_arm_makes_no_design_call(tmp_path, fake_codex, monkeypatch):
 def _args(**over):
     base = dict(agent="mfm", model="gpt-6-astra", effort="low", max_steps=200,
                 codex_timeout=None, session_turns=None, codex_base_url=None,
-                netlist_readback=False, netlist_verify=False, carry_outcomes=False,
+                carry_outcomes=False,
                 design_turn=False, design_effort="high", conventions=False,
                 env_id="cua.bench.local.kicad")
     base.update(over)
@@ -147,7 +147,7 @@ def test_flags_reach_the_agent_only_when_on(tmp_path, monkeypatch):
     assert seen["design"] is True and seen["design_effort"] == "medium"
     assert seen["conventions"] is True
     seen.clear()
-    run_eval._make_agent(_args(agent="prolong", conventions=True), tmp_path / "t")
+    run_eval._make_agent(_args(agent="prolong-logonly", conventions=True), tmp_path / "t")
     assert seen["conventions"] is True and "design" not in seen
 
 

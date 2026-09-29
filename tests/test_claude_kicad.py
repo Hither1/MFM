@@ -57,7 +57,7 @@ def fake_claude(tmp_path: Path, monkeypatch):
 
 def _agent(tmp_path: Path, monkeypatch, kind: str, **kw):
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     return memory_agents.make_agent(
         kind, workspace=tmp_path / "ws", model=MODEL, effort="low", max_steps=8,
         transcript_dir=tmp_path / "codex", codex_home=None, session_turns=None,
@@ -164,7 +164,7 @@ def test_codex_stays_the_default(tmp_path, monkeypatch):
     from gym_codex import memory_agents
     from gym_codex.codex_gui_agent import CodexGuiAgent
     from prolong_search.codex_backend import CodexTurn
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     agent = memory_agents.make_agent(
         "prolong-logonly", workspace=tmp_path / "ws", model="gpt-6-astra", effort="low",
         max_steps=8, transcript_dir=tmp_path / "codex", codex_home=str(tmp_path / "home"),
@@ -176,7 +176,7 @@ def test_codex_stays_the_default(tmp_path, monkeypatch):
 def _args(**over):
     base = dict(agent="prolong-logonly", model=MODEL, effort="low", max_steps=200,
                 codex_timeout=None, session_turns=None, codex_base_url=None,
-                netlist_readback=False, netlist_verify=False, carry_outcomes=False,
+                carry_outcomes=False,
                 design_turn=False, design_effort="high", conventions=False,
                 env_id="cua.bench.local.kicad")
     base.update(over)
@@ -205,8 +205,6 @@ def test_cli_flag_reaches_the_agents_only_when_claude(tmp_path, monkeypatch):
     assert run_eval._cli_error(_args()) is None
     assert run_eval._cli_error(_args(cli="claude")) is None
     assert run_eval._cli_error(_args(cli="claude", agent="vista")) is None   # mfm/vista/claude_runner.py
-    assert "codex only" in run_eval._cli_error(_args(cli="claude", agent="worldmodel"))
-    assert "--arc-agent" in run_eval._cli_error(_args(cli="claude", agent="arc"))
     assert "base-url" in run_eval._cli_error(_args(cli="claude", codex_base_url="http://x"))
 
 

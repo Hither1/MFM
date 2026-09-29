@@ -100,7 +100,7 @@ def test_situations_table_and_markdown():
 
 def _agent(tmp_path: Path, kind: str, task: str, monkeypatch, **extra):
     from gym_codex import memory_agents
-    monkeypatch.setattr(memory_agents.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     task_dir = tmp_path / "out" / task
     kw = dict(workspace=task_dir / "workspace", model="gpt-5.6-sol", effort="low",
               max_steps=12, transcript_dir=None, codex_home=str(tmp_path / "home"),
