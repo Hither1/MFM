@@ -25,6 +25,47 @@ def extract_info(yaml_content: str, filename: str) -> tuple:
     task = filename[:-5]
     return task, commands, text, reward_cfg, milestone_reward_cfg
 
+def load_portal_probe(task_category: str) -> dict:
+    """`portal_probe` for one task category: {window, every, snapshots}.
+
+    Empty for every task that does not set it, so no callback is added there and the
+    callback list is exactly what it was. Only the nether-portal case study sets it;
+    see MCU_benchmark/task_configs/tasks/nether_portal/ and
+    mcu_worldmodel/portal_probe.py for what it observes and why the observation never
+    reaches the agent.
+    """
+    tasks_dir = root_dir / 'MCU_benchmark' / 'task_configs' / 'tasks' / task_category
+    if tasks_dir.is_dir():
+        for task_file in sorted(tasks_dir.glob('*.yaml')):
+            data = yaml.safe_load(task_file.read_text(encoding='utf-8')) or {}
+            spec = data.get('portal_probe')
+            if spec:
+                return dict(spec)
+    return {}
+
+
+def load_world_spec(task_category: str) -> dict:
+    """`world_seed` and `spawn_biome` for one task category, for the MinecraftSim call.
+
+    A task config may pin both. MCU_WORLD_SEED overrides the config, so a launcher can
+    sweep world seeds across runs (one episode per process) without editing task files.
+    Absent both, the returned dict is empty and MinecraftSim's own defaults apply.
+    """
+    spec: dict = {}
+    tasks_dir = root_dir / 'MCU_benchmark' / 'task_configs' / 'tasks' / task_category
+    if tasks_dir.is_dir():
+        for task_file in sorted(tasks_dir.glob('*.yaml')):
+            data = yaml.safe_load(task_file.read_text(encoding='utf-8')) or {}
+            if 'world_seed' in data:
+                spec['seed'] = int(data['world_seed'])
+            if data.get('spawn_biome'):
+                spec['preferred_spawn_biome'] = str(data['spawn_biome'])
+    env_seed = os.environ.get('MCU_WORLD_SEED')
+    if env_seed:
+        spec['seed'] = int(env_seed)
+    return spec
+
+
 def get_tasks(task_category: str) -> list[tuple]:
     # Resolve task configs directory relative to this file's project root
     tasks_dir = root_dir / 'MCU_benchmark' / 'task_configs' / 'tasks' / task_category
