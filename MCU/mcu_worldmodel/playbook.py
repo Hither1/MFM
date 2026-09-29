@@ -97,7 +97,7 @@ def extract_playbook(logs_txt: Path, until_step: int) -> list[dict[str, Any]]:
 
     `Plan Step i/k` is written per executed entry; i==1 (or i folding back) marks a
     turn boundary. Entries after `until_step` are dropped, and so is anything that
-    is not an [ACTION] line -- initial state, notes.
+    is not an [ACTION] line -- initial state, induction summaries, notes.
     """
     turns: list[list[dict[str, Any]]] = []
     cur: list[dict[str, Any]] = []
@@ -142,7 +142,9 @@ class PlaybookCodex:
 
     Wraps the real backend and answers act turns from the playbook until it is
     exhausted; every later call passes straight through. `on_exhausted` fires
-    once at the handover.
+    once at the handover -- the executor uses it to re-enable induction, which
+    is suppressed during replay because a replayed prefix has nothing to induce
+    that the seeded memory does not already carry.
     """
 
     def __init__(self, real: Any, turns: list[dict[str, Any]],
@@ -186,6 +188,11 @@ class PlaybookCodex:
             if self._on_exhausted:
                 self._on_exhausted()
         return self._real.run(prompt, images, expect_actions=expect_actions)
+
+    def read_outputs(self) -> dict:
+        if self.replaying:
+            return {"hypotheses_ops": None, "claim": None, "errors": []}
+        return self._real.read_outputs()
 
     def split_briefing(self, message: str):
         return self._real.split_briefing(message)

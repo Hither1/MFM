@@ -175,14 +175,14 @@ is scripted rather than described.
 
 ```bash
 # One arm.
-scripts/run-arm.sh --arm dm_lb --agent logbook \
+scripts/run-arm.sh --arm dm_wm --agent worldmodel \
                    --task mine_diamond_from_scratch \
                    --green-port 9053 --purple-port 9063
 
 # Three arms at once. Different ports, different --arm names, nothing else shared.
-scripts/run-arm.sh --arm dm_pl  --agent prolong --green-port 9051 --purple-port 9061 &
-scripts/run-arm.sh --arm dm_lb  --agent logbook --green-port 9053 --purple-port 9063 &
-scripts/run-arm.sh --arm dm_lbc --agent logbook --green-port 9055 --purple-port 9065 --session-turns 12 --compact &
+scripts/run-arm.sh --arm dm_pl  --agent prolong    --green-port 9051 --purple-port 9061 &
+scripts/run-arm.sh --arm dm_wm  --agent worldmodel --green-port 9053 --purple-port 9063 &
+scripts/run-arm.sh --arm dm_wmc --agent worldmodel --green-port 9055 --purple-port 9065 --session-turns 12 --compact &
 wait
 ```
 
@@ -191,14 +191,13 @@ wait
 | Option | Default | What it decides |
 | --- | --- | --- |
 | `--arm NAME` | required | `output/NAME`, the log prefix, and the codex home |
-| `--agent KIND` | required | `logbook`, `mfm`, `vista`, `arc`, `direct` (the no-memory baseline: read-only codex, no filesystem memory, a rolling reply window as the only past), `prolong`, or `steve1` |
+| `--agent KIND` | required | `worldmodel`, `wmlite`, `logbook`, `direct` (the no-memory baseline: read-only codex, no filesystem memory, a rolling reply window as the only past), `prolong`, or `steve1` |
 | `--task NAME` | `mine_diamond_from_scratch` | task category |
 | `--green-port` / `--purple-port` | required | A2A ports; must be free |
 | `--steps N` | `12000` | `max_steps` |
 | `--step-timeout SEC` | `600` | seconds per observation |
-| `--session-turns N` | `0` | turns a codex session is resumed for before it is dropped; `0` is one thread for the episode, bounded by `--session-bytes`. `1` reproduces the arms measured up to 2026-09-09 — see below |
-| `--session-bytes B` | `4000000` | base64 bytes of frames one resumed session may carry; the turn whose frame would cross it cold-starts instead (`0` = no budget, which hits the wall below) |
-| `--compact` | off | on a full conversation, summarise and carry on instead of cold-starting. Only does anything with `--session-turns` other than 1 |
+| `--session-turns N` | `1` | turns a codex session is resumed for before it is dropped; `0` is unbounded and does not work — see below |
+| `--compact` | off | on a full conversation, summarise and carry on instead of cold-starting. Only does anything above one session turn |
 
 Nothing in these scripts kills anything. Ports are checked as free and the run aborts if
 one is taken. A `pkill` in a launcher has taken out four running arms on this project
@@ -268,9 +267,9 @@ test.
   sets it explicitly — leaving it unset hands the choice to whatever codex defaults to,
   which is neither measured nor guaranteed equal between two runs. `worldmodel_report.json`
   reports the limit in force alongside `compactions` and `overflow_resets`, so check there
-  rather than inferring from logs. Under the byte budget a thread is cold-started before
-  the token side ever fills, so this flag is inert under the default too; it only becomes
-  a real choice with `--session-bytes 0`, and even then the byte wall above arrives first. Measured: a 258 K window,
+  rather than inferring from logs. At one session turn neither can ever fire, which makes
+  this flag inert under the default; it only becomes a real choice once `--session-turns`
+  is raised, and even then the byte wall above arrives first. Measured: a 258 K window,
   ~1.9 K tokens a turn, so the token budget is 27 % used at the point the payload has
   already stalled the arm.
 
@@ -278,7 +277,7 @@ test.
   milliseconds. A planning agent spends a whole model turn on the step where it re-plans,
   and at 60 s those steps silently become noops. 600 is the working value here.
 
-- **`--session-turns` / `--session-bytes`: one thread, byte-budgeted.** Every act turn attaches the current
+- **`--session-turns`, and why it defaults to 1.** Every act turn attaches the current
   frame, because the observation here is pixels rather than text. On a resumed session the
   old frames stay in the thread and codex re-sends the whole conversation on every call, so
   the request grows about 0.4 MB a turn with nothing to bound it. Measured on three
@@ -291,17 +290,11 @@ test.
   1,878 consecutive single-turn sessions showed no latency drift (53–71 s median
   throughout) and cost about 513 KB each on disk.
 
-  Until 2026-09-09 every arm ran `--session-turns 1` — a constant 0.48 MB payload, the wall
-  unreachable, and no conversation memory at all: every turn rebuilt its state from the
-  filesystem. The ladder's VISTA arm keeps one thread and hands off to a fresh one on a
-  byte budget, so the memory arms now run the same way: the default `--session-turns 0
-  --session-bytes 4000000` keeps a thread for ~8 act turns and cold-starts it *before* the
-  frame that would cross the budget. The audit reports `bytes_resets` and
-  `session_max_bytes` when the budget is on; `age_resets` stays 0. Both agents are built to
-  survive a handoff: `_discard_session` already drops a thread on any unclean ending,
-  precisely because `logs.txt` and the episode store live on the filesystem. The direct arm ignores both knobs and keeps its
-  forced 1-turn sessions. Scores under the two policies are different arms; pass
-  `--session-turns 1` to reproduce the earlier waves, and do not average across them.
+  Both agents are built to survive this. `_discard_session` already drops a thread on any
+  unclean ending, precisely because `logs.txt`, the world model documents and the hypothesis
+  graph live on the filesystem. Raising `--session-turns` is how you measure what the
+  conversation adds on top of that — it is roughly free up to ~5 turns, costs about
+  `+3.4 h per MB` of session payload over a full episode, and hits the wall above ~12.
 
   Note the counters are token-based and this failure is byte-based: at the point the arms
   stalled, the token budget was 27 % used while the wire payload was already past the wall.
@@ -326,7 +319,7 @@ logs/<arm>_result.json   the score
 output/<arm>/episode_001/
     logs.txt                 every action and the state that followed
     frames/                  the first-person view per step
-    memory/                  the arm's memory: logs.txt, episodes/ (mfm), mine/ (--own)
+    memory/                  world-model arms only: hypotheses, world_model/, procedures/
     worldmodel_report.json   milestones with the step each landed, turn counts, codex audit
 ```
 
@@ -745,8 +738,10 @@ attempted**:
   when it breaks blocks without gaining ground.
 - `chop_tree` stops after two non-wood breaks and says you are on leaves.
 
-A GUI sequence that lands is written down (the briefing, or `mine/` with `--own`), addressed
-by slot number, so a recipe is solved once rather than every time.
+Repeated guard-stops accumulate into streak notices the planner reads as facts, which is what
+triggers a diagnosis pass. A GUI sequence that lands becomes a file in `procedures/`, addressed
+by slot number, so a recipe is solved once rather than every time; a procedure that stops
+working is a belief to be revised like any other.
 
 ### The GUI cursor is measured, never integrated
 

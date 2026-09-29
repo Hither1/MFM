@@ -222,3 +222,20 @@ class Governor:
                    "old, go to a known site, or bank what you already hold."
                    if stalled >= SWITCH_STEPS else ""))
 
+    def summary(self, *, step: int, y: float | None, budget: int) -> str:
+        if not self._recent:
+            return ""
+        events = sum(e for _, e, _ in self._recent)
+        nulls = sum(1 for _, _, n in self._recent if n)
+        total = len(self._recent)
+        span = min(WINDOW_STEPS, step - self._recent[0][0] + 1) if total else 0
+        parts = [f"Ledger, last {span} steps: {events} world-changing events across "
+                 f"{total} entries; {nulls} entries changed nothing."]
+        if self._milestone_step is not None:
+            parts.append(f"Last milestone was {step - self._milestone_step} steps ago.")
+        elif step > 1500:
+            parts.append(f"No milestone yet in {step} steps.")
+        if y is not None:
+            parts.append(f"y={y:.0f}.")
+        parts.append(f"Step {step} of {budget}.")
+        return " ".join(parts)

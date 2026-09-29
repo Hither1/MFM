@@ -104,7 +104,6 @@ class ProlongAgent(MemoryAgent):
         # CODEX_SESSION_MAX_TURNS got: sessions resumed forever and turns 12-18+ ran
         # 600 s each.
         session_max_turns: int | None = None,
-        session_max_bytes: int | None = None,
         timeout: int | None = None,
     ) -> None:
         self.action_space = action_space
@@ -139,8 +138,6 @@ class ProlongAgent(MemoryAgent):
             transcript_dir=Path(transcript_dir) if transcript_dir else None,
             **({"session_max_turns": int(session_max_turns)}
                if session_max_turns is not None else {}),
-            **({"session_max_bytes": int(session_max_bytes)}
-               if session_max_bytes is not None else {}),
             **({"timeout": int(timeout)} if timeout is not None else {}),
         )
         # The MFM arm: the same history a second time, structured, one directory per

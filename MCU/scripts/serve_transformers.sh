@@ -16,8 +16,8 @@
 set -uo pipefail
 
 ROOT_DIR=${MCU_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-PYTHON_BIN=${TF_PYTHON:-$HOME/miniforge3/envs/vla/bin/python}
-MODEL_ID=${MODEL_ID:-/n/netscratch/sham_lab/Lab/$USER/Qwen3.8-27B}
+PYTHON_BIN=${TF_PYTHON:-/n/home13/chloe00/miniforge3/envs/vla/bin/python}
+MODEL_ID=${MODEL_ID:-/n/netscratch/sham_lab/Lab/chloe00/Qwen3.8-27B}
 PORT=${TF_PORT:-$(( 30000 + ${SLURM_JOB_ID:-$$} % 10000 ))}
 # sdpa, never flash_attention_2. flash-attn is precompiled against a CUDA runtime this
 # driver does not support -- it is the exact kernel that killed all four vLLM attempts.
@@ -41,7 +41,7 @@ READY_TIMEOUT=${TF_READY_TIMEOUT:-3600}
 LOG=${ART_DIR:-$ROOT_DIR/artifacts}/tf-server-${SLURM_JOB_ID:-local}.log
 
 export PYTHONNOUSERSITE=1
-export HF_HOME=${HF_HOME:-/n/netscratch/sham_lab/Lab/$USER/huggingface}
+export HF_HOME=${HF_HOME:-/n/netscratch/sham_lab/Lab/chloe00/huggingface}
 export TOKENIZERS_PARALLELISM=false
 
 mkdir -p "$DISCOVERY_DIR" "$(dirname "$LOG")"

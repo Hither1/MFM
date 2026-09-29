@@ -1,14 +1,14 @@
-"""The act-turn prompts: the standing contract (AGENTS.md) per memory mode, and the shared
-action reference every arm reads.
+"""Prompts for the two kinds of turn.
 
-An act turn is cheap and frequent: look at the current view and the turn's state block,
-write `actions.json`. What the model may keep between turns is the memory mode's
-contract -- the logbook's append-only log, the mfm arm's episode store beside it,
-VISTA's thread and tools, arc-code's workspace, or nothing (direct); everything else in
-the contract is shared word for word, so a diff between two modes' prompts is exactly
-the memory claim (the pins in tests/pins hold that).
+An **act turn** is cheap and frequent: look at the current view and the world model,
+write `actions.json`. An **induction turn** is expensive and periodic: read the
+accumulated filesystem and rewrite the five structured documents. Splitting them is the
+architectural claim of this system -- the act turn stays fast because it reads a
+*compiled* world model rather than re-deriving one from raw log lines, and the induction
+turn can afford to be slow because it happens every few hundred steps rather than every
+turn.
 
-Wording that the arms share is defined once. The action reference is kept close to
+Wording that the two share is defined once. The action reference is kept close to
 MineExplorer's so that a run here and a run there are comparing agents rather than
 comparing prompts, minus the four keys MCU's action space does not have.
 """
@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import re
 
+import os
+
 from mcu_worldmodel import gui as G
 from mcu_worldmodel import procedures as P
 
-#: `--atoms`: the procedure example in the action reference names an atom.
+#: `--atoms` / `--visual-only`: the procedure example in the action reference names an atom.
 _DIG_EXAMPLE = '{"procedure": "dig_down", "args": {"n": 40}}'
 _ATOM_EXAMPLE = '{"procedure": "mine_ahead", "args": {"n": 100}}'
 
@@ -103,7 +105,7 @@ GUI tick's image -- so you never need to track or visually re-check the cursor. 
    are retrieved with `stow_items(grid=..., cells=[...])` (banks the cursor stack too).
 
 **A close that would drop items is refused.** Closing a screen while something is
-off-inventory throws it on the floor -- a stack of logs, gone -- so
+off-inventory throws it on the floor -- it cost a previous run four of its five logs -- so
 the runner turns that toggle into a no-op and writes a [NOTE]. Put the stack back in a
 slot (`stow_items`), then close. If you *mean* to drop it, `{{"procedure":
 "close_inventory", "args": {{"force": true}}}}`. A furnace KEEPS its cells across a close.
@@ -131,7 +133,7 @@ Recipes available:
 
 {procedure_notes}
 
-**Survival** (a death loses everything you carry):{survival_rule}
+**Survival** (a previous run died twice and lost everything):{survival_rule}
 - A big health drop interrupts your plan with a [NOTE]; find the danger before resuming.
 - If you die, the harness [NOTE] gives the death coordinates. Your items despawn there
   after ~6000 ticks: recover by stairs (never jump into a shaft) or rebuild -- decide by
@@ -368,141 +370,6 @@ _CHAIN_SECTION = """\
   quarter).
 """
 
-#: `--atoms` (2026-09-09, the user: "general rules, not recipes; the harness never decides"):
-#: references/skills.md without the macro library. The situations reference above names
-#: task-shaped macros (harvest_tree, strip_mine, fight_blaze, throw_eye, ...) that the atoms
-#: run does not have; the models read a list of functions they could not call. This is the
-#: same knowledge as what each stage needs IN THIS ENGINE -- what is verified how, which
-#: channel carries what -- with nothing task-shaped prescribed. Game rules live in
-#: `skills/minecraft`, the search doctrine in `skills/mining`.
-SITUATIONS_ATOMS = """\
-**Skills by situation** -- what each stage needs in this engine. Nothing task-shaped is built
-in: a tree, a mine, the obsidian, the portal, the Nether, the End are yours to compose from
-the atoms and your own procedures. The game's rules are in `skills/minecraft/SKILL.md`, how
-to search for ore in `skills/mining/SKILL.md`.
-- **How progress is verified.** Milestones come from the game's statistics, not from what
-  you believe: `mine_cobblestone` counts breaking a COBBLESTONE block (natural stone drops
-  the item but scores nothing -- place one and re-mine it); `pickup` counts items taken OFF
-  THE GROUND, while a furnace's or a grid's output is `craft_item` (a goal that literally
-  asks for a pickup of something you crafted: `drop_and_pickup(slot)`). Tools wear out
-  (wooden 59 uses, stone 131, iron 250, diamond 1561); the `Held:` line shows what is left.
-- **Building is by coordinate.** You stand in cell (floor(x), floor(y), floor(z)) of
-  [STATE]; "one block ahead" is z+1 at yaw 0, x-1 at yaw 90, x+1 at yaw -90, z-1 at yaw 180.
-  `place_at(x, y, z, item)` fills a cell by clicking a face of its neighbour (default: the
-  block below), verified on `use_item`; a cell that is occupied, more than 4 blocks from
-  your eye or inside your own body is refused with the reason. Things that hang on a SIDE
-  (torches, ladders, signs) go through `use_at(x, y, z, item, face=...)`, `face` naming the
-  neighbour clicked. A door or a bed needs two free cells. A structure is checked by looking
-  at what stands, not by counting what you placed.
-- **Using items on blocks.** `use_at(x, y, z, item)`: a water or lava bucket pours onto the
-  clicked face, an empty bucket scoops a SOURCE block, flint_and_steel lights the top face,
-  a hoe tills, seeds go on farmland, shears carve a pumpkin, bone meal grows; a bed, door,
-  chest, table or furnace is used with `item` omitted. `use_held(item, hold)` holds
-  right-click: a bow (hold 25+ fires where you aim), a potion (32 ticks), a shield (blocks
-  while held). `throw(item)` for pearls, eyes, snowballs. `eat()` eats the best food carried
-  while the bar is below 20. `fill_bucket()` sweeps the crosshair over the water ahead until
-  a water_bucket appears -- no cell to guess, but it reaches 4 blocks: stand at the shore.
-- **Screens.** A table, furnace, chest or brewing stand opens with `look_at(its centre)` +
-  `use_until_gui` holding a NON-placeable item; the inventory screen with `open_inventory`.
-  [GRID] then reads the cells; `craft`, `furnace_load`, `furnace_take` do the clicking.
-  2x2 recipes (planks, sticks, table, torches, flint_and_steel, blaze_powder, eye of ender)
-  work in your own inventory; 3x3 ones (tools, weapons, furnace, bucket, armour) need the
-  table. A furnace or chest keeps its contents when its screen closes; smelting takes ~200
-  ticks an item with the screen open or shut, and the `pickup` of the ingot is the
-  milestone -- take the output. Write the coordinates of anything you place and mean to
-  reopen; a table you walked away from is gone for practical purposes, so carry a table,
-  planks and 8+ cobblestone down with you: a fresh table beside the ore is one placement, a
-  trip up for one is thousands of steps.
-- **Entities are reported on no channel.** Mobs, animals and boats exist only in the
-  frame: motion, colour, silhouette. Animals are your food. A mob is hit by TAPPING attack
-  (a held attack never lands); `kill_entity` and `damage_dealt` in the statistics prove a
-  fight is landing. Underground, a second hit within 30 ticks is a melee mob at arm's
-  length: face the shove and swing, a sprint down a one-wide tunnel does not outrun it. Keep
-  a sword in the hotbar whenever you dig. Tall mobs cannot reach what stands two blocks
-  below their feet; ranged ones lose you behind a wall.
-- **Finding things.** Look around (eight headings with `look_abs`), higher ground or a
-  pillar doubles the view, then `go_to(x, z)` toward what you saw and verify arrival on
-  [STATE]. On water a boat is placed with `use_at(<water block>, item=boat)` and boarded by
-  right-clicking it: forward drives, sneak leaves. A compass points to the world spawn.
-- **Wood, stone, iron.** A trunk holds 4-6 logs and 4 logs cover the wooden phase; leaves
-  always mark a trunk. Iron ore needs a stone pickaxe; below y ~63 depth costs nothing for
-  iron, and y 11-12 is where diamonds sit in the same walls above the lava lakes. Unlit
-  tunnel walls render near-black (~4% brightness): torches (coal or charcoal = a smelted
-  log, + a stick, 4 a craft) are eyes and armour, so make them before the descent. The
-  bucket (3 ingots) comes right after the iron pickaxe, filled at still water on the
-  surface and carried down; never dig a shaft beside the water you filled at.
-- **Lava, obsidian, the portal.** Obsidian is made where lava LAKES are -- the open orange
-  pools at y <= 10 -- by pouring water on the lake once the lava is IN VIEW (a pour on
-  stone in the dark makes nothing and loses the water), scooping the water back, and mining the black block
-  with the DIAMOND pickaxe (~190 ticks). The portal needs 10 obsidian and flint and steel
-  (an ingot and a flint from gravel); its shape and lighting are in `skills/minecraft`.
-- **The Nether.** Coordinates there are the Overworld's divided by 8; the portal you came
-  through is the way back. Netherrack is the ground: mine one block and pick it up. A
-  fortress is a long dark red-brown structure running along one axis, so travelling along
-  the other axis crosses it; blazes live there. Endermen wander the blue (warped) forests
-  and the Overworld at night; a pearl per kill about one time in two. Blaze powder = one
-  rod in the 2x2; eye of ender = powder + pearl. Carry 16+ blocks and a pickaxe: lava is
-  bridged, walls are tunnelled, nothing is walked down.
-- **The stronghold and the End.** A thrown eye flies toward the nearest stronghold and is
-  used up: when it CLIMBS the stronghold is far that way (travel, throw again); when it
-  DROPS it is below you (dig down there). Carry spare eyes on top of the twelve-minus-
-  prefilled the portal room takes. The room is stone brick with 12 frames around a 3x3 lava
-  pit; an eye is placed by using it on a frame; when all twelve hold one, jump in. You land
-  on an obsidian platform near x 100, z 0; the island lies toward x 0 and its pale ground
-  is end_stone (mine and pick one up). The dragon heals from the crystals on the obsidian
-  towers: break them first, from a distance or from cover, then hit the dragon's head when
-  it perches on the bedrock fountain at the centre.
-- **Time and weather are not on the wire.** Read the sky in the frame. A bed works only at
-  night and sets your respawn point (`skills/minecraft`).
-"""
-
-#: The references-tail description of skills.md under `--atoms`.
-ATOMS_SKILLS_DESC = ("the situations -- what each stage needs in this engine, what is verified how, "
-                     "which channel carries what -- and what to write down")
-
-_RECIPES_HEAD = "Recipes available:"
-_WRITE_DOWN_HEAD = "**Write down what worked"
-
-
-def situations_atoms(original: str) -> str:
-    """The atoms run's references/skills.md: SITUATIONS_ATOMS in place of the macro-shaped
-    situations and chain sections, keeping the original's recipe list and its "write down
-    what worked" section (the parts that are not about macros)."""
-    keep: list[str] = []
-    i = original.find(_RECIPES_HEAD)
-    if i >= 0:
-        j = original.find("\n\n", i)
-        keep.append(original[i:j if j >= 0 else len(original)].rstrip())
-    k = original.find(_WRITE_DOWN_HEAD)
-    if k >= 0:
-        keep.append(original[k:].rstrip())
-    return "\n\n".join([SITUATIONS_ATOMS.rstrip()] + keep) + "\n"
-
-
-_MOVEMENT_MACRO_LINES = (
-    ("  block breaks: the leftover ticks are refunded and a [NOTE] says so. To mine several\n"
-     "  blocks in a row use `mine_forward` / `strip_mine` / `stair_down`, which re-aim.\n"
-     "- Mining macros VERIFY their own movement (foot block, eye block, walk in, repeat) and\n"
-     "  end with a [NOTE] like \"broke 9 blocks, advanced 4.1 blocks\". Trust that number over\n"
-     "  your dead reckoning. \"STOPPED EARLY ... did not move\" means the passage is not\n"
-     "  opening: re-aim or change heading -- re-issuing the same call will stall the same way.\n"),
-    ("  block breaks: the leftover ticks are refunded and a [NOTE] says so. To mine several\n"
-     "  blocks in a row queue one `mine_ahead` per block, or a procedure of yours that re-aims.\n"
-     "- Your own mining procedures should verify their movement the way the runner's atoms\n"
-     "  verify theirs: read [STATE] before and after and say in their note how far you got.\n"
-     "  `moved=0.00` across a whole plan means the passage is not opening: re-aim or change\n"
-     "  heading -- re-issuing the same plan will stall the same way.\n"),
-)
-
-
-def survival_atoms(text: str) -> str:
-    """references/survival.md under `--atoms`: the Movement bullets that name the macro
-    library (mine_forward / strip_mine / stair_down, the macros' own [NOTE]s) say what
-    the atoms run has instead. Unchanged when the lines are not there."""
-    old, new = _MOVEMENT_MACRO_LINES
-    return text.replace(old, new)
-
-
 # -- per-memory-mode substitutions for the shared reference ---------------------------
 #
 # The action/perception reference above is the SHARED substrate of the claim-M
@@ -512,8 +379,13 @@ def survival_atoms(text: str) -> str:
 # diff of this block *is* the protocol difference.
 
 _GROUND_TRUTH_CHANNELS = {
+    "worldmodel": "[INV] in `logs.txt` and the stat lines in `events/events.jsonl`",
     "logbook": "The [INV] and [EVENT] lines in `logs.txt`",
 }
+# The lite arm keeps the logbook's substrate (no events.jsonl, no visited.csv), so the
+# shared lines are the SAME OBJECTS as the logbook's -- the diff against either arm is
+# exactly the one compiled document.
+_GROUND_TRUTH_CHANNELS["wmlite"] = _GROUND_TRUTH_CHANNELS["logbook"]
 # The direct arm has no filesystem and no feedback lines: the game's own numbers reach
 # it only as the present state of each turn message.
 _GROUND_TRUTH_CHANNELS["direct"] = ("The Milestones block and the Inventory line in "
@@ -526,9 +398,11 @@ _GROUND_TRUTH_CHANNELS["vista"] = ("The `inventory_delta` and `events` fields of
 # it as `actions.json`; the direct arm has no tools, so the same JSON travels in the
 # reply's last fenced block.
 _ACTIONS_CHANNEL = {
+    "worldmodel": "`actions.json`",
     "logbook": "`actions.json`",
     "direct": "your actions JSON",
 }
+_ACTIONS_CHANNEL["wmlite"] = _ACTIONS_CHANNEL["logbook"]
 _ACTIONS_CHANNEL["vista"] = "a `play` call (exactly ONE entry per call)"
 
 # The worked example is identical in both arms on purpose: the *practice* of writing
@@ -543,6 +417,17 @@ _PROC_NOTE_EXAMPLE = """\
     Failure seen: place_and_open on a slope put the table out of reach -- flat ground first."""
 
 _PROCEDURE_NOTES = {
+    "worldmodel": f"""\
+**Write down what worked.** The moment a GUI sequence lands -- a recipe crafted, an item
+moved where you wanted it -- write `procedures/<name>.md` before the detail is gone. Not a
+summary of the recipe layout; `world_model/procedural.md` already carries those. What goes
+here is the part you cannot re-derive from a picture:
+
+{_PROC_NOTE_EXAMPLE}
+
+Address slots and cells by number, not by offset. One file per recipe or per reusable
+manipulation; grep `procedures/` before crafting anything a second time. This is the
+difference between solving a recipe once and solving it every time.""",
     "logbook": f"""\
 **Write down what worked.** The moment a GUI sequence lands -- a recipe crafted, an item
 moved where you wanted it -- put it in your briefing before the detail is gone: the
@@ -564,6 +449,7 @@ cannot re-derive from a picture is the exact route through it -- for example:
 
 {_PROC_NOTE_EXAMPLE}""",
 }
+_PROCEDURE_NOTES["wmlite"] = _PROCEDURE_NOTES["logbook"]
 # The vista arm's only durable place for it is GUIDE.md (a whole-file replace: read it,
 # add the recipe, write it back).
 _PROCEDURE_NOTES["vista"] = f"""\
@@ -579,12 +465,70 @@ Address slots and cells by number, not by offset. Re-read GUIDE.md before crafti
 anything a second time. This is the difference between solving a recipe once and solving
 it every time."""
 
+_MEMORY_CONTRACT = """\
+**Your memory is a filesystem, not this prompt.** `./` persists for the whole episode and
+across turns. You are expected to read it programmatically -- it is far too large to read
+by eye, and reading it by eye is exactly the error this design exists to avoid.
+
+    logs.txt              append-only: every action, the state that followed, your own
+                          prior analyses. GREP THIS. Do not read it whole. `rg -n` line
+                          numbers are NOT step numbers -- the step is in each block's
+                          "Action N | Step M" header. A previous run wrote line numbers
+                          into its world model as steps and chased events that never
+                          happened.
+    events/events.jsonl   ground truth from the game's own statistics: one line for
+                          EVERY stat that moves (mine_block, craft_item, pickup,
+                          use_item, break_item, kill_entity), plus the milestone lines.
+                          A craft that does not appear here did not happen. You cannot
+                          write here.
+    maps/visited.csv      every position you have occupied, with the step number.
+    episodes/*/frames/    the first-person view at each step, as PNG. The newest is
+                          attached to this call; open older ones when you want to compare.
+    world_model/          the five documents below -- your compiled understanding.
+    hypotheses/           one .md per belief, plus graph.json. Grep before proposing.
+    procedures/           one .md per action sequence you got to work, in enough detail to
+                          replay it. Grep here before solving anything twice.
+    entities/ locations/  yours to write and organise.
+    tools/zoom.py         ./tools/zoom.py <frame.png> <x> <y> <w> <h> [out.png] crops
+                          that region and magnifies it 4x into out.png (default
+                          ./zoom.png); open the result with view_image. Use it whenever
+                          a full frame is too coarse to answer the question -- reading
+                          ore textures in a tunnel wall, checking what an item icon is,
+                          verifying a grid cell's contents. A previous run strip-mined
+                          past walls it never actually read.
+    tools/frames.py       the frame INDEX: `./tools/frames.py --near <x> <z>` lists the
+                          frames saved within 6 blocks of a place (with the position
+                          and facing at each), `--steps A B` those in a step range,
+                          `--sheet out.png` tiles up to 8 of them into one image for
+                          view_image. This is how you look back at a place before
+                          walking to it, compare a wall before and after, or check
+                          what a harness node's `frame:` pointer shows.
+
+**Tools**: Read, Write, Edit, Bash, Grep, Glob. Everything here accumulates except
+`actions.json`, which is **deleted before your turn starts**. Create it; do not edit it.
+An edit is an update to a file that is not there, it is rejected, and you spend the
+retry -- 77% of turns in one run were paying for this.
+"""
+
+_WORLD_MODEL_DOCS = """\
+**The six documents in `world_model/`** (rewritten by your induction turns, read by every
+act turn):
+- `spatial.md`   where things are: coordinates, topology, routes, what is near what.
+- `semantic.md`  what things are: entities, attributes, affordances.
+- `dynamics.md`  how the world responds: action -> consequence, timings, costs.
+- `procedural.md` recipes that worked: ordered steps, with preconditions.
+- `causal.md`    why things happen: what must be true before what.
+- `rules.md`     standing constraints distilled from failures: one line each,
+  prescriptive ("do X" / "never Y here until Z"), each ending with a `[xN]` count of
+  how often it has been confirmed. The act turn obeys these before anything else.
+"""
+
 # PRO-LONG's memory protocol, restated for this substrate: one append-only log the model
 # greps and NOTHING else -- no frame archive, no tools, no files of its own (anything it
 # creates is swept when the turn ends), no imposed documents, no belief graph, no
-# induction pass. The logs.txt grep rule and the actions.json lifecycle were kept
-# word-for-word identical to the structured world-model contract this arm was the
-# control for (removed 2026-09-21), so the recorded pins still hold.
+# induction pass. The logs.txt grep rule and the actions.json lifecycle are kept
+# word-for-word identical to the world-model contract above, so the contract diff is
+# exactly the memory claim.
 _LOGBOOK_CONTRACT = """\
 **Your memory is one append-only log.** `./logs.txt` persists for the whole episode and
 across turns, and it is the ONLY thing that does. You are expected to read it
@@ -613,8 +557,9 @@ one run were paying for this.
 
 # Strategy distilled from this project's own failed runs -- resource planning, route
 # discipline, endgame ordering. Everything the agent could in principle re-derive in
-# episode. Every scored run has shipped it (the MCU_WM_STRATEGY ablation switch was
-# removed on 2026-09-21, never having been launched).
+# episode through its own induction. Gated so an ablation arm can measure exactly that:
+# MCU_WM_STRATEGY=0 removes the advice while keeping every game/task constant and every
+# harness-mechanics line. The default ships it, as every scored run so far has.
 _STRATEGY_BULLETS = """
 - **Plan your wood trip once**: the early tree needs ~3 logs (4 planks for the table,
   3 planks + 2 sticks for the pickaxe, 1 log spare). Chop them from ONE tree before
@@ -743,7 +688,7 @@ _SURVIVAL_OWN = """
 - **What kills runs: monsters in unlit tunnels, drops into caves and ravines, lava met
   while moving, and in the Nether every ledge into the lava sea.** Monsters are reported
   on no channel; the health drop is the only warning, and a plan standing still under
-  hits (digging, sweeping, clicking) is how a death begins. In THIS run the runner
+  hits (digging, sweeping, clicking) is how most deaths began. In THIS run the runner
   does not act for you: no stop at lava, no pillar or bunker on a hit, no swim-up, no
   refusal of a repeated plan. Your reflexes under `mine/reflexes/` are the tick layer
   (`skills/reflexes/SKILL.md`), and your plans carry the doctrine: torches and a 1x2
@@ -754,6 +699,37 @@ _SURVIVAL_OWN = """
   moving, dig the way down, bridge over lava. Verify ARRIVAL at a remembered place
   against the live position readout before drawing conclusions about the site."""
 
+
+_WMLITE_DOC_BLURB = """\
+**The one document in `world_model/`** (rewritten by your induction turns, read by every
+act turn): `world.md` -- your compiled world model. Where things are, what worked and
+what failed, action -> consequence numbers, dependencies, open questions.
+"""
+
+#: The lite arm's single-document cap, chars, applied when the act turn reads
+#: `world.md` and stated to its induction pass. Half the full arm's 5 x 2000 on-disk
+#: budget: a smaller compiled surface is the simplification under test, not a handicap
+#: (the full arm's act-turn view is itself capped at 5 x per_doc_chars).
+WMLITE_DOC_CHARS = 4000
+
+_WMLITE_CONTRACT = _LOGBOOK_CONTRACT.replace(
+    """Nothing else persists: any other file or directory you create in `./` is removed when
+your turn ends,""",
+    """    world_model/world.md  your compiled world model -- ONE document, rewritten by your
+                          induction turns, read by every act turn. What you know, kept
+                          current: where things are (coordinates, routes, regions already
+                          searched), recipes that worked and failures with their causes,
+                          action -> consequence numbers, dependencies, and your open
+                          questions with the observation that would settle each.
+
+Nothing else persists beyond `world_model/world.md`: any other file or directory you
+create in `./` is removed when your turn ends,""").replace(
+    """**Your memory is one append-only log.** `./logs.txt` persists for the whole episode and
+across turns, and it is the ONLY thing that does.""",
+    """**Your memory is one append-only log plus one compiled document.** `./logs.txt` and
+`./world_model/world.md` persist for the whole episode and across turns, and they are
+the ONLY things that do.""")
+assert _WMLITE_CONTRACT != _LOGBOOK_CONTRACT, "wmlite contract substitution failed"
 
 # The direct arm's contract: no memory of any kind -- no filesystem, no tools, no
 # window of earlier turns, no feedback from the last batch. The model plays each turn
@@ -781,10 +757,114 @@ The LAST fenced JSON block in your reply is the one executed. Do not write files
 have no tools; a reply with no valid fenced JSON block executes nothing and costs the
 turn."""
 
-#: The blank lines after `{memory_contract}` and after the ground-truth bullet are where
-#: the structured arm's `{world_model_docs}`, `{belief_rules}`, graph, plan and notice
-#: sections rendered as "" for every other arm (removed 2026-09-21). They stay, so the
-#: rendered logbook/direct/mfm contracts are byte-identical to the recorded pins.
+WMLITE_INDUCTION_PROMPT = """\
+You are the world-model induction pass for an embodied Minecraft agent.
+
+**Task the agent is working on**: {task_text}
+
+You are NOT choosing actions this turn. Your job is to read what the agent has
+accumulated and rewrite its compiled understanding of the world, so that the next few
+hundred steps of acting can consult one current document instead of re-deriving
+everything from raw log lines.
+
+{progress_block}
+
+{memory_contract}
+
+**Rewrite `world_model/world.md`** -- one document, everything you know that still
+matters, superseded claims deleted rather than kept beside their replacements:
+- where things are: coordinates for anything worth walking back to, routes that worked,
+  regions already searched ("covered x in [-200,50], z in [0,300]" is worth more than
+  "explored a lot");
+- recipes and manipulations that worked, with preconditions and the [EVENT] evidence;
+  failures too, marked as failures, with what happened instead;
+- action -> consequence with *numbers*: attack ticks per log, blocks per travel entry.
+  These are the constants plans are built against, and getting them wrong is the most
+  common reason a plan does nothing;
+- dependencies: what must be true before what, with the milestone list as the spine;
+- open questions, each with the one observation that would settle it.
+
+**Method**:
+1. Grep, do not read whole files. `logs.txt` is thousands of lines.
+2. Cross-check every claim against the [EVENT] and [INV] lines in `logs.txt`. A belief
+   contradicted by the ground-truth lines is wrong, however well the log narrates it.
+3. **Compact.** The document is truncated to ~{per_doc_chars} characters when the act
+   turn reads it, so text past that length is losing its tail.
+
+**Then re-evaluate the goal itself.** You are the only pass that does this: the act
+turns execute the current objective, they do not question it. The score is a COUNT of
+milestones in any order, under the hard step budget shown above. End `world.md` with a
+`## Goal check` section of 3-5 lines: the milestone portfolio the next few hundred
+steps should pursue, its estimated step cost against the remaining budget, and the
+single cheapest unmet milestone to bank first if the budget is tighter than the plan.
+If the recent stretch pursued something this arithmetic says is wrong, say so plainly
+and redirect: flawless execution of a stale goal scores zero.
+
+Write the document, then a one-paragraph summary of what changed and why.
+
+**One write.** Replace `world.md` by writing its full new contents in a single
+operation. Do not delete it and create it again, and do not send two edits to the same
+path in one patch -- that is rejected whole and costs you the turn's first attempt.
+"""
+
+WMLITE_INDUCTION_STALL_PROMPT = """\
+You are the world-model induction pass for an embodied Minecraft agent, called EARLY
+because nothing has verifiably changed for {stall_turns} act turns. This is a diagnosis
+turn, not a housekeeping turn.
+
+**Task the agent is working on**: {task_text}
+
+{progress_block}
+
+{memory_contract}
+
+**Guard-stop streaks this episode** (counted by the harness; each was also a [NOTE] in
+`logs.txt` at the step it happened):
+{failure_lines}
+
+**Do exactly this**:
+1. Find what is actually failing. Grep `logs.txt` for the [NOTE] lines behind the
+   streaks above and read the sections around them; open the frames those sections name
+   when the words are ambiguous. Do not read files whole.
+2. Write the diagnosis into `world_model/world.md` where the act turns will see it:
+   name the failing procedure, the evidence (step numbers, [EVENT]/[INV]/[CURSOR]
+   lines), your best current explanation, and -- most important -- **the one
+   observation that would separate your explanation from the next best one**. Replace
+   any superseded claim about the same thing.
+3. Re-price the current approach in the same document: what has this subgoal cost so
+   far versus what you previously wrote it would cost, and what the alternative path to
+   the SAME milestone count is. If the alternative is now cheaper, say so plainly.
+4. Touch only what the diagnosis touches. The document is truncated to
+   ~{per_doc_chars} characters when read; delete superseded text rather than
+   appending.
+5. You are NOT choosing actions this turn, and `actions.json` will be ignored.
+"""
+
+
+def wmlite_induction_prompt(*, task_text: str, progress_block: str,
+                            per_doc_chars: int) -> str:
+    return WMLITE_INDUCTION_PROMPT.format(
+        task_text=task_text, progress_block=progress_block,
+        memory_contract=_WMLITE_CONTRACT, per_doc_chars=per_doc_chars,
+    )
+
+
+def wmlite_induction_stall_prompt(*, task_text: str, progress_block: str,
+                                  per_doc_chars: int, stall_turns: int,
+                                  failure_lines: str) -> str:
+    return WMLITE_INDUCTION_STALL_PROMPT.format(
+        task_text=task_text, progress_block=progress_block,
+        memory_contract=_WMLITE_CONTRACT, per_doc_chars=per_doc_chars,
+        stall_turns=stall_turns, failure_lines=failure_lines,
+    )
+
+
+def strategy_enabled() -> bool:
+    """The ablation switch. Read at prompt-build time (AGENTS.md is written once per
+    episode), so the launcher's environment decides per arm."""
+    return os.environ.get("MCU_WM_STRATEGY", "1") != "0"
+
+
 ACT_PROMPT = """\
 You are an embodied agent playing Minecraft, controlling a player by writing action plans.
 
@@ -796,7 +876,7 @@ You are an embodied agent playing Minecraft, controlling a player by writing act
 
 {memory_contract}
 
-
+{world_model_docs}
 
 **What you can rely on**:
 - `[STATE]`'s yaw is CUMULATIVE, not wrapped: after enough turning it reads values like
@@ -805,10 +885,10 @@ You are an embodied agent playing Minecraft, controlling a player by writing act
 - Coordinates and facing in `[STATE]` are ground truth. Your read of a frame is not proof
   an action worked.
 - {ground_truth_bullet}
-
-
-
-
+{belief_rules}
+{graph_section}
+{plan_section}
+{discipline_section}
 
 **Response format**: a short strategic briefing, then
 
@@ -845,9 +925,12 @@ def task_family(milestone_cfg) -> str:
 
 
 _GROUND_TRUTH_BULLET = {
+    "worldmodel": "`events/events.jsonl` is ground truth. "
+                  "Your memory of what you crafted is not.",
     "logbook": "The [EVENT] lines in `logs.txt` are ground truth. "
                "Your memory of what you crafted is not.",
 }
+_GROUND_TRUTH_BULLET["wmlite"] = _GROUND_TRUTH_BULLET["logbook"]
 _GROUND_TRUTH_BULLET["mfm"] = _GROUND_TRUTH_BULLET["logbook"]
 _GROUND_TRUTH_BULLET["direct"] = ("The Milestones block and the Inventory line in your "
                                   "turn message are ground truth. A craft that does not "
@@ -856,42 +939,54 @@ _GROUND_TRUTH_BULLET["vista"] = ("The `events` field of a `play` result is groun
                                  "(the game's own statistics): a craft with no event did not "
                                  "happen. Your memory of what you crafted is not.")
 
+# The belief-DAG rules and the two extra output files exist only where there is a graph
+# for them to govern. The logbook arm's response contract stops at actions.json.
+_BELIEF_RULES = """\
+- A goal hypothesis you mark "confirmed" that the environment has not verified is reverted
+  by the harness, and its statement is marked unverified. Use confidence (up to 0.9) to
+  say how sure you are instead.
+
+**Beliefs**: maintain a DAG of hypotheses about the world. Give each a `kind`:
+"goal" (a milestone), "location" (where something is), "mechanism" (how the world responds
+to an action), "state" (what you have done), "resource" (a quantity you hold or need), or
+"other". Use `depends_on` for both refinement ("this ore vein is iron" depends on "there is
+a vein here") and task order ("craft a stone pickaxe" depends on "mine cobblestone").
+One id = one claim about one specific thing; do not bundle two sub-goals into one node,
+and give a new candidate a new id rather than reusing an old one.
+
+Send an op only for a hypothesis that actually changed this turn -- a new one, or an id
+whose confidence moved by >= 0.1, whose status changed, or whose statement you rewrote.
+**Re-sending a node you did not change is discarded and does not refresh it.** The graph
+view is already in front of you; copying it back costs you a turn's thinking.
+"""
+
 _PLAN_LINE = {
+    "worldmodel": "<2-3 sentences: what you are doing next and which belief it tests>",
     "logbook": "<2-3 sentences: what you are doing next and what observation will tell "
                "you it worked>",
 }
+_PLAN_LINE["wmlite"] = _PLAN_LINE["logbook"]
 _PLAN_LINE["mfm"] = _PLAN_LINE["logbook"]
 _PLAN_LINE["direct"] = _PLAN_LINE["logbook"]
 _PLAN_LINE["vista"] = _PLAN_LINE["logbook"]
 
-# The arc arm (mcu_worldmodel/arc.py): the logbook's channels -- the same log, read with
-# grep -- plus arc-code's departures: the plan is a `./act do` batch, the notes go in
-# the model's own notes.md (which persists), and every section names its frame.
-_GROUND_TRUTH_CHANNELS["arc"] = _GROUND_TRUTH_CHANNELS["logbook"]
-_ACTIONS_CHANNEL["arc"] = "a `./act do` batch"
-_GROUND_TRUTH_BULLET["arc"] = _GROUND_TRUTH_BULLET["logbook"]
-_PLAN_LINE["arc"] = _PLAN_LINE["logbook"]
-_PROCEDURE_NOTES["arc"] = f"""\
-**Write down what worked.** The moment a GUI sequence lands -- a recipe crafted, an item
-moved where you wanted it -- put it in `notes.md` before the detail is gone: your context
-may compact, and the files are what survive. Not a summary of the recipe layout; what goes
-in is the part you cannot re-derive from a picture:
-
-{_PROC_NOTE_EXAMPLE}
-
-Address slots and cells by number, not by offset. Read `notes.md` and grep the log for
-your own earlier plans before crafting anything a second time. This is the difference
-between solving a recipe once and solving it every time."""
-
 _OUTPUT_FILES = {
+    "worldmodel": """\
+- `./actions.json` -- REQUIRED. `{"actions": [...]}`, see below.
+- `./hypotheses_ops.json` -- optional. `{"hypotheses": [{"id": ..., "statement": ...,
+  "confidence": ..., "status": ..., "kind": ..., "depends_on": [...],
+  "evidence": "..."}], "testing": "<id or null>"}`
+- `./claim.json` -- optional, only when you believe a milestone is now done:
+  `{"completed": ["mine_log"]}`. A false claim locks those goals.""",
     "logbook": """\
 - `./actions.json` -- REQUIRED. `{"actions": [...]}`, see below.""",
 }
+_OUTPUT_FILES["wmlite"] = _OUTPUT_FILES["logbook"]
 
 # The MFM arm: the logbook contract with ONE paragraph swapped -- the "nothing else
 # persists" clause becomes the description of `episodes/` -- and every shared segment
 # the same object as the logbook's, so the prompt diff against the logbook arm is
-# exactly the memory claim. The paragraph itself lives
+# exactly the memory claim (the way wmlite is built above). The paragraph itself lives
 # in mcu_worldmodel/episodes.py beside the store it describes.
 _LOGBOOK_NOTHING_ELSE = """\
 Nothing else persists: any other file or directory you create in `./` is removed when
@@ -900,6 +995,26 @@ call and it is the only image you have. Whatever you will want to find again goe
 your briefing and [PLAN], which the harness writes into the log.
 """
 assert _LOGBOOK_NOTHING_ELSE in _LOGBOOK_CONTRACT
+
+# The logbook arm's one channel to an earlier life: the harness copies that life's whole
+# logs.txt beside this one (worldmodel_purple_agent --seed-log ->
+# `previous_expedition_log.txt`) and this paragraph says so. Nothing else is carried --
+# no frames, no notes, no digest -- so the carry-over is exactly PRO-LONG's: a log to grep.
+# The wording is the mfm arm's world sentence (previous.py) so both arms hear the same
+# thing about what a reset keeps.
+_LOGBOOK_PREVIOUS_NOTE = """`./previous_expedition_log.txt` is the complete log of an earlier life in this same
+world -- same seed, same spawn: the terrain, the ores and the water are where they were;
+anything built, placed or dug is reset. Grep it the way you grep `logs.txt`; you cannot
+edit it.
+"""
+
+
+def _logbook_contract_with_previous() -> str:
+    """The logbook contract plus the previous-life paragraph, placed right after the
+    `logs.txt` block and before "Nothing else persists"."""
+    assert _LOGBOOK_NOTHING_ELSE in _LOGBOOK_CONTRACT
+    return _LOGBOOK_CONTRACT.replace(
+        _LOGBOOK_NOTHING_ELSE, _LOGBOOK_PREVIOUS_NOTE + "\n" + _LOGBOOK_NOTHING_ELSE, 1)
 
 #: The logbook arm's tool line (no image tool: it has no frames) and the mfm arm's, which
 #: names `view_image` and what it can be pointed at. Until 2026-09-08 the mfm contract
@@ -916,28 +1031,62 @@ _MFM_TOOLS_LINE = ("**Tools**: Read, Bash, Grep, Glob to read the log and the ep
                    "to create `actions.json`, which")
 
 
+#: The obsidian paragraph's two sentences about the [KNOWN SITES] block (`--sites` only).
+_OBSIDIAN_SITES_A = """A `[KNOWN SITES]` block in the turn
+  message, when present, lists lakes and water earlier lives verified with their
+  coordinates: go to the LARGEST lake line (never merely the nearest one), and """
+_OBSIDIAN_SITES_B = """ A line carrying a DEATH warning is a
+  mob cave: torches on the walls and the sword one slot away before the pour."""
+
+
+_OBSIDIAN_ANCHOR_A = "with the DIAMOND pickaxe. Pour\n  only once"
+_OBSIDIAN_ANCHOR_B = "two died there).\n  `find_lava()`"
+
+
+def _with_sites(text: str) -> str:
+    """The obsidian paragraph with its two [KNOWN SITES] sentences (`--sites`)."""
+    assert text.count(_OBSIDIAN_ANCHOR_A) == 1 and text.count(_OBSIDIAN_ANCHOR_B) == 1
+    return (text.replace(_OBSIDIAN_ANCHOR_A, "with the DIAMOND pickaxe. " + _OBSIDIAN_SITES_A
+                         + "pour\n  only once")
+            .replace(_OBSIDIAN_ANCHOR_B, "two died there)." + _OBSIDIAN_SITES_B
+                     + "\n  `find_lava()`"))
+
 
 def _own_mod():
     from mcu_worldmodel import own
     return own
 
 
+def _visual_mod():
+    from mcu_worldmodel import visual
+    return visual
+
+
 def _mfm_contract(retrieval: bool = False, refusal: bool = False,
                   previous: bool = False, expect: bool = False,
-                  frames: bool = False, own: bool = False,
-                  own_reflexes: bool = False, harness_reflexes: bool = True) -> str:
-    from mcu_worldmodel.episodes import (MFM_EXPECT_NOTE, MFM_FRAMES_NOTE, MFM_MEMORY_NOTE,
+                  frames: bool = False, corridors: bool = False,
+                  sites: bool = False, own: bool = False,
+                  visual: bool = False, own_reflexes: bool = False,
+                  harness_reflexes: bool = True) -> str:
+    from mcu_worldmodel.episodes import (MFM_EXPECT_NOTE, MFM_FRAMES_NOTE,
+                                         MFM_FRAMES_SITES_NOTE, MFM_MEMORY_NOTE,
                                          MFM_REFUSAL_NOTE, MFM_RETRIEVAL_NOTE)
-    from mcu_worldmodel.previous import MFM_DIGEST_NOTE, MFM_PREVIOUS_NOTE
+    from mcu_worldmodel.previous import (MFM_CORRIDOR_NOTE, MFM_DIGEST_NOTE,
+                                         MFM_PREVIOUS_NOTE, MFM_SITES_NOTE)
+    sites = bool(previous and sites)
     note = (MFM_MEMORY_NOTE + ("\n\n" + MFM_RETRIEVAL_NOTE if retrieval else "")
             + ("\n\n" + MFM_REFUSAL_NOTE if refusal else "")
             + ("\n\n" + MFM_PREVIOUS_NOTE if previous else "")
             + ("\n" + MFM_DIGEST_NOTE if (previous and own) else "")
+            + ("\n" + MFM_SITES_NOTE if sites else "")
+            + ("\n\n" + MFM_CORRIDOR_NOTE if (sites and corridors) else "")
             + ("\n\n" + MFM_EXPECT_NOTE if expect else "")
             + ("\n\n" + MFM_FRAMES_NOTE if frames else "")
+            + ("\n" + MFM_FRAMES_SITES_NOTE if (frames and sites) else "")
             + ("\n\n" + _own_mod().MFM_OWN_NOTE if own else "")
             + ("\n\n" + _own_mod().MFM_WORKING_NOTE if own else "")
-            + ("\n\n" + _own_mod().reflex_note(harness_reflexes) if (own and own_reflexes) else ""))
+            + ("\n\n" + _own_mod().reflex_note(harness_reflexes) if (own and own_reflexes) else "")
+            + ("\n\n" + _visual_mod().VISUAL_NOTE if visual else ""))
     scope = "outside `mine/` " if own else ""
     text = _LOGBOOK_CONTRACT.replace(
         _LOGBOOK_TOOLS_LINE,
@@ -955,87 +1104,110 @@ harness writes into the log and into the episode{", or in `mine/`" if own else "
 for _d in (_GROUND_TRUTH_CHANNELS, _ACTIONS_CHANNEL, _PROCEDURE_NOTES, _OUTPUT_FILES):
     _d["mfm"] = _d["logbook"]
 
-# The vista arm's contract (mcu_worldmodel/vista.py): VISTA's own nine-line prompt --
-# the task, the objective, the three method sentences, the tools -- and then the shared
-# action reference every rung of the ladder reads. No memory practice of ours is added;
-# what the model keeps and how is the method under test.
-VISTA_OBJECTIVE = ("Complete as many of the task's milestones as you can within the step "
-                   "budget: every play spends the ticks its entry takes, and the episode "
-                   "ends at the budget.")
-VISTA_ACT_PROMPT = """\
-You are an embodied agent playing Minecraft through a visual interface: one `play` call
-executes one entry -- a named procedure or a raw action held for N ticks -- and returns
-what it changed and the view afterwards.
+INDUCTION_PROMPT = """\
+You are the world-model induction pass for an embodied Minecraft agent.
 
-**Task**: {task_text}
+**Task the agent is working on**: {task_text}
 
-{scoring_line}
+You are NOT choosing actions this turn. Your job is to read what the agent has
+accumulated and rewrite its compiled understanding of the world, so that the next few
+hundred steps of acting can consult a structured model instead of re-deriving one from
+raw log lines.
 
 {progress_block}
 
-{objective}
+{memory_contract}
 
-{method}
+**What to induce**, and where each belongs:
 
-**What you can rely on**:
-- The `state` line of a play result is ground truth: coordinates, pitch and yaw, and
-  `moved`, the distance the entry covered. Your read of a frame is not proof an action
-  worked. The yaw there is CUMULATIVE, not wrapped: after enough turning it reads values
-  like 810 (= 810 - 720 = 90); reduce it mod 360 before any heading arithmetic of your
-  own -- the closed-loop skills (look_abs, look_at, go_to) already handle it.
-- {ground_truth_bullet}
-- A play result's `notes` are the harness's own record of the entry: a procedure that
-  stopped early says why there, a guard that refused a close, a hit that interrupted
-  the plan. Every result also carries the step budget and `stall_turns`, how many plays
-  have passed since anything verifiably changed (a milestone or the inventory).
+- `world_model/spatial.md` -- entities and structures with coordinates; the topology of
+  what connects to what; routes that worked; regions already searched (cite
+  `maps/visited.csv` -- "covered x in [-200,50], z in [0,300]" is worth more than "explored
+  a lot"). Include a coordinate for anything you may need to walk back to.
+  One class of fact is EXEMPT from compaction: a verified ore or resource sighting
+  (coordinates + y + the event line that proved it) is a PERMANENT fact in this world --
+  append it to `locations/ore_registry.md` and never delete or supersede an entry there.
+  A later expedition inherited a run whose documents had compacted away the one iron
+  vein its ancestor found, and re-searched the same ground seven blocks off. The
+  registry outlives every rewrite; spatial.md may compact freely around it.
+  Record exhaustion only as an annotation on the entry ("exhausted this run at step
+  N"), never as the site's standing status: the world regenerates from the same seed
+  every run, so an ancestor's mined-out vein greets the next expedition FULL. Two
+  runs inherited documents that had retired their parent's proven iron pocket as
+  "exhausted -- retire that location" and each spent its last 7,000 steps searching
+  blind, twenty-one blocks from a full vein. The coin has a second face: label
+  anything a run MADE -- a dug shaft, a placed table or furnace, a dropped cache --
+  as this-run-only, because the reset refills the shaft and erases the cache; an
+  heir reading "the deep shaft connects y64 to y12" walks to a solid wall.
+- `world_model/semantic.md` -- what kinds of thing exist here and what they afford. An
+  entity's attributes, what it drops, what it takes to break, what tool tier it needs.
+- `world_model/dynamics.md` -- action -> consequence with *numbers*: how many attack ticks
+  a log takes, how far one `travel` entry moves you, what a camera delta of 15 does. These
+  are the constants the act turn plans against, and getting them wrong is the most common
+  reason a plan does nothing.
+- `world_model/procedural.md` -- ordered recipes that actually worked, with preconditions
+  and the evidence they worked (an events.jsonl line). A procedure that failed belongs
+  here too, marked as failed, with what happened instead.
+- `world_model/causal.md` -- dependencies: what must be true before what. The milestone
+  list is the spine; add what you have learned about why a step blocked.
+- `world_model/rules.md` -- standing constraints, distilled from what failed. Sources:
+  `governor:` and guard-stop [NOTE] lines in `logs.txt`, and any belief the evidence
+  falsified this pass. Write each as ONE prescriptive line -- the condition and the
+  instruction, not the story ("stone-pick strips at y61+ have hit iron once in 4k
+  ticks; below y40 commit to until_y digs [x2]"), ending with a `[xN]` confirmation
+  count. Lifecycle, strictly: raise the count when this pass re-confirms a rule, cut
+  it when the evidence contradicts one, DELETE any rule at zero or superseded -- the
+  file is capped at ~15 lines, so keep the smallest set that covers the failures
+  actually observed, never an archive. Never paste failure transcripts here:
+  transcripts of errors re-teach the error; a rule teaches the exit.
 
-{action_reference}
+**Method**:
+1. Grep, do not read whole files. `logs.txt` is thousands of lines.
+2. Cross-check every claim against `events/events.jsonl` and `maps/visited.csv`. A belief
+   contradicted by the ground-truth channel is wrong, however well the log narrates it.
+3. Look at frames where something changed -- a milestone fired, `moved` went to 0 and
+   stayed there, health dropped. `episodes/*/frames/step_NNNN.png`.
+4. **Compact.** Each document is truncated to ~{per_doc_chars} characters when the act turn
+   reads it, so a document past that length is losing its tail. Prefer deleting a
+   superseded claim over appending a new one beside it. Contradictions are the thing to
+   resolve, not to accumulate.
+5. Where two readings of the evidence are both live, say so explicitly and say what
+   observation would separate them -- that is what the next act turns should go get.
+
+**Then re-evaluate the goal AND the approach.** You are the only pass that does this:
+the act turns execute the current objective by the current method, they question
+neither. The score is a COUNT of milestones in any order, under the hard step budget
+shown above. Using your own numbers -- what each unmet milestone still needs
+(causal.md) and what those steps cost (dynamics.md), plus the harness coverage and
+hazard facts in the graph -- finish `world_model/causal.md` with a `## Goal check`
+section in exactly this shape:
+- Objective: the milestone(s) the next few hundred steps pursue, and the single
+  cheapest unmet milestone to bank first if the budget is tighter than the plan.
+- Approach: HOW they are being pursued right now (e.g. "strip-mining at y12 heading
+  90 from the shaft at (x, z)"), and its SUNK COST -- steps spent on this approach
+  with no verified result, counted from the events and the harness coverage line.
+- Alternatives: at least ONE concrete different approach with its estimated cost
+  (e.g. "relocate 30 blocks and strip at y11: ~400 ticks", "place a fresh furnace at
+  the face: 8 cobblestone, ~150 ticks").
+- Verdict: `KEEP` or `SWITCH to <alternative>`, with the observable that would flip it
+  (e.g. "no sighting in the next 600 ticks of lit strip -> switch").
+Then copy the Verdict as the FIRST line of `world_model/rules.md`, prefixed exactly
+`APPROACH:` -- the act turns see that line pinned above the graph. A sunk cost is not a
+reason to continue; flawless execution of a stale goal or a cold approach scores zero.
+
+**Also revise the beliefs.** Write `./hypotheses_ops.json` with ops for hypotheses that the
+accumulated evidence confirms, refutes, or that should be retired as stale. This is the
+turn where a belief formed 400 steps ago and never revisited gets settled.
+
+Write the five documents, then a one-paragraph summary of what changed and why.
+
+**One write per document.** Replace a document by writing its full new contents in a
+single operation. Do not delete it and create it again, and do not send two edits to the
+same path in one patch -- that is rejected whole (`multiple operations target ...`) and
+costs you the turn's first attempt every time.
 """
 
-# The arc arm's contract (mcu_worldmodel/arc.py): the brief -- what this environment is,
-# what `./act` accepts, the log's section format -- then arc-code's own method
-# (mfm/arc/prompt.py, upstream's PROMPT.md with its ARC nouns replaced), and then the
-# shared action reference every rung of the ladder reads. No memory practice of ours is
-# added beyond the shared "write down what worked" note; what the model keeps, and what
-# it builds, is the method under test.
-ARC_ACT_PROMPT = """\
-You are an embodied agent playing Minecraft through a shell. `./act do ENTRY [ENTRY ...]`
-plays plan entries in order -- procedures from the reference below written as
-`name(key=value, ...)`, or entries as JSON objects (a raw action is
-`{{"action": {{...}}, "repeat": N}}`) -- and prints the log sections they produced.
-`./act status` prints where you are, the budget and the milestones. `./act view` prints
-the path of the current view, a PNG you can look at with your image tool. `./act --help`
-has the details.
 
-**Task**: {task_text}
-
-{scoring_line}
-
-{progress_block}
-
-**The log.** `logs.txt` is written by the harness, one section per entry:
-
-    ================================================================================
-    Action N | Step S | Plan Step i/k | v/m verified
-    [PLAN] <the --plan you gave the batch>
-    [ACTION] <the entry as it ran> -> T ticks
-    [STATE] pos=(x, y, z) pitch=P yaw=Y moved=D
-    [GUI] open=False
-    [INV] <what the entry changed in your inventory>
-    [EVENT] <the game's own statistics: mine_block, craft_item, pickup, MILESTONE ... verified>
-    [NOTE] <the harness's record: why a procedure stopped, what a guard refused>
-    [FRAME] frames/step_S.png
-
-`Step` in the header is the environment tick, not a line number. `moved` is the
-distance the entry covered. The yaw is CUMULATIVE, not wrapped: after enough turning it
-reads values like 810 (= 810 - 720 = 90); reduce it mod 360 before any heading
-arithmetic of your own -- the closed-loop skills (look_abs, look_at, go_to) already
-handle it. {ground_truth_bullet}
-
-{method}
-
-{action_reference}
-"""
 
 #: `--thin`: the standing contract keeps the task, the memory protocol, the response
 #: format, the action schema and the procedure index; these sections (by their heading)
@@ -1130,7 +1302,8 @@ def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
                 kept.append(head)
                 kept.append(P.index())
                 if P.VISIBLE is not None:
-                    kept.append(_own_mod().ATOMS_LINE)
+                    kept.append(_visual_mod().VISUAL_LINE if P.VISIBLE == set(P.VISUAL_ATOMS)
+                                else _own_mod().ATOMS_LINE)
                 kept.append("Full descriptions, preconditions and the notes on each: "
                             "`references/procedures.md`.")
                 kept.append("")
@@ -1222,63 +1395,18 @@ if it works). Then write the file:
 {tools_line} is **deleted before your turn starts**: create it, do not edit it.
 
 **Memory.** `./logs.txt` and `episodes/` are the complete record of this life
-(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text | --ores
-| --y-profile [--sheet out.png] [--then-now <id>] --q "<question>"`);{previous_clause} `mine/`
-is yours and is carried to your next life; `mine/working.md` (what you are doing now, under
-40 lines) and `mine/digest.md` (what is true of this world across lives) are put in front of
-you every turn. Your context does not persist between turns (a fresh session or a
-compaction): what you did not write into `mine/` or cannot read back from the log is gone.
-The log knows where; the frame knows what: `view_image` a frame before you walk to a
-remembered place, after a hit, and when a plan's outcome surprised you.
+(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
+[--sheet out.png] [--then-now <id>] --q "<question>"`);{previous_clause} `mine/` is yours
+and is carried to your next life, and `mine/working.md` is put in front of you every turn. The log knows where; the frame
+knows what: `view_image` a frame before you walk to a remembered place and, on arrival,
+`./tools/episodes.py --then-now <that episode> --q "..."` once (this life's, or an earlier
+life's under `previous/`); look after a hit, and when a plan's outcome surprised you.
 {previous_note}
 {safety_line}
 
-**Routines** -- a trigger, a file, an action; do them unasked:
-{workshop_routine}- After `YOU DIED`, before rebuilding anything: `skills/memory/scripts/death_sheet.py`, view
-  it, one line in `mine/digest.md` (step, place, cause, what you refuse next time), and
-  `skills/reflexes/scripts/known_hazards.py` copied into `mine/reflexes/` if it is not there.
-- Health dropped and you cannot name the source: `view_image` the frame of the entry that
-  took the hit before the next plan.
-- A plan that ran many entries and changed nothing, or three plans in a row that moved
-  you nowhere and banked nothing (the `[RECALL]` block names it): stop -- grep your own
-  logs.txt for what you tried, change the target, the tool or the place, and say in the
-  briefing what is different. Long plans that check nothing on the way spend entries
-  for nothing.
-- Before descending below y 40: food in the inventory, torches, a stack of blocks, a sword,
-  and the way back written in `mine/notes.md`. Before the Nether: the same, healthy, and
-  the portal's coordinates in `mine/digest.md`.
-- Before walking to a remembered place: it is a hypothesis until `[STATE]` confirms it;
-  `--then-now` on arrival.
-- When you write `mine/notes.md`, update `mine/digest.md` with what holds across lives.
-
-**Rules of play**:
-- Stop a plan the moment terrain, inventory or the GUI differs from what it assumed;
-  continue from a fresh observation, and never replay a resource-consuming sequence (a
-  placement, a pour, a craft) after a stall.
-- Budget tools, materials, lighting and the return route before committing to a longer
-  route.
-- Verify clearance before advancing; use the right tool for the visible material
-  (obsidian: the diamond pickaxe only); inspect footing, tool and surroundings after a hold.
-- Before crafting, inspect ingredients, recipe layout, quantities, cursor contents and
-  destination slots; afterwards verify the output in the inventory -- a panel outline
-  confirms the layout, not the item.
-- Separate camera alignment from sustained mining; a geometry task (a frame, a pillar, a
-  stair) is verified by looking at what stands, not by counting what you placed.
-- No natural healing below 18 food: kill animals and cook before the first descent; eat
-  when the bar drops.
-- The game rules (tools, ore depths, hunger, water and lava, the portal, the Nether, the
-  End): `skills/minecraft`; how to search for ore you have never seen: `skills/mining`.
-
-**Improve yourself.** You are a coding agent. A hazard that hurt you and has no reflex:
-write the reflex now (`mine/reflexes/`). A question you asked your record twice: write the
-script that answers it (`mine/`). A composition that worked twice: a procedure
-(`mine/procedures/`). Doctrine that earned its keep across a life: a skill,
-`mine/skills/<name>/SKILL.md` with a `description:` saying when to use it -- it is in your
-skill catalog from the next turn and travels with `mine/` to your next life.
-
 {reference_head}
-**Procedures** (name and arguments, defaults where they exist; the full descriptions,
-preconditions and notes on each: `references/procedures.md`):
+**Procedures** (name, arguments, one line each; full descriptions, preconditions and
+the notes on each: `references/procedures.md`):
 {procedures}
 {atoms_line}
 {references_tail}
@@ -1292,7 +1420,9 @@ _MINIMAL_SAFETY = {
             "pillar on a hit, no refusal. Your reflexes under `mine/reflexes/` are the tick "
             "layer, and none is installed for you: `skills/reflexes/SKILL.md` names the classes, "
             "`skills/reflexes/scripts/` holds examples to copy into `mine/reflexes/` in your "
-            "first turn."),
+            "first turn. Natural healing needs the food bar at 18+; here it falls about a point "
+            "per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat "
+            "when the bar is below 18 (the starving example does it when you carry food)."),
 }
 
 
@@ -1319,26 +1449,63 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         task_text=task_text,
         previous_clause=(" `previous/life_<i>/` the earlier lives in this same world;"
                          if previous else ""),
-        previous_note=("\n**Previous lives.** " + _previous_note() + "\n") if previous else "",
-        workshop_routine=(("- Turn 1 of a life with `previous/` is the workshop turn "
-                           "(`skills/memory/SKILL.md`): read the lives' digests, notes and death "
-                           "lines, run the query tool over them, write `mine/digest.md`, copy the "
-                           "scripts and reflexes worth keeping, then plan.\n") if previous else ""),
+        previous_note=(("\n**Previous lives.** " + _previous_note() + "\nYour first turn is the "
+                        "workshop turn (`skills/memory/SKILL.md`): read them before you play.\n")
+                       if previous else ""),
         scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
         progress_block=progress_block,
         tools_line=tools_line,
         safety_line=_MINIMAL_SAFETY[bool(harness_reflexes)],
         reference_head=head.rstrip() + "\n",
-        procedures=P.index(compact=True),
+        procedures=P.index(),
         atoms_line=("\n" + _own_mod().ATOMS_LINE) if atoms else "",
         references_tail=("\n" + references_tail.strip() + "\n") if references_tail.strip() else "",
     )
 
 
+# The vista arm's contract (mcu_worldmodel/vista.py): VISTA's own nine-line prompt --
+# the task, the objective, the three method sentences, the tools -- and then the shared
+# action reference every rung of the ladder reads. No memory practice of ours is added;
+# what the model keeps and how is the method under test.
+VISTA_OBJECTIVE = ("Complete as many of the task's milestones as you can within the step "
+                   "budget: every play spends the ticks its entry takes, and the episode "
+                   "ends at the budget.")
+VISTA_ACT_PROMPT = """\
+You are an embodied agent playing Minecraft through a visual interface: one `play` call
+executes one entry -- a named procedure or a raw action held for N ticks -- and returns
+what it changed and the view afterwards.
+
+**Task**: {task_text}
+
+{scoring_line}
+
+{progress_block}
+
+{objective}
+
+{method}
+
+**What you can rely on**:
+- The `state` line of a play result is ground truth: coordinates, pitch and yaw, and
+  `moved`, the distance the entry covered. Your read of a frame is not proof an action
+  worked. The yaw there is CUMULATIVE, not wrapped: after enough turning it reads values
+  like 810 (= 810 - 720 = 90); reduce it mod 360 before any heading arithmetic of your
+  own -- the closed-loop skills (look_abs, look_at, go_to) already handle it.
+- {ground_truth_bullet}
+- A play result's `notes` are the harness's own record of the entry: a procedure that
+  stopped early says why there, a guard that refused a close, a hit that interrupted
+  the plan. Every result also carries the step budget and `stall_turns`, how many plays
+  have passed since anything verifiably changed (a milestone or the inventory).
+
+{action_reference}
+"""
+
+
 def action_reference(*, entry_cap: int, step_cap: int,
-                     memory_mode: str = "logbook",
+                     memory_mode: str = "worldmodel",
                      task_family: str = "from_scratch",
-                     atoms: bool = False, harness_reflexes: bool = True) -> str:
+                     sites: bool = False, atoms: bool = False,
+                     visual: bool = False, harness_reflexes: bool = True) -> str:
     """The shared action/perception reference, rendered for one memory mode.
 
     One function for all arms on purpose: everything except the explicitly per-mode
@@ -1346,18 +1513,23 @@ def action_reference(*, entry_cap: int, step_cap: int,
     checkable rather than aspirational (selftest compares the rendered segments)."""
     ref = ACTION_REFERENCE.format(
         entry_cap=entry_cap, step_cap=step_cap,
-        procedures=P.reference() + (("\n\n" + _own_mod().ATOMS_LINE) if atoms else ""),
+        procedures=P.reference() + (("\n\n" + (_visual_mod().VISUAL_LINE if visual
+                                              else _own_mod().ATOMS_LINE))
+                                    if (atoms or visual) else ""),
         recipes=G.reference(),
         actions_channel=_ACTIONS_CHANNEL[memory_mode],
         ground_truth_channels=_GROUND_TRUTH_CHANNELS[memory_mode],
         procedure_notes=_PROCEDURE_NOTES[memory_mode],
         skills_section=SKILLS_SECTION,
-        chain_section=(_CHAIN_SECTION.format(strategy_bullets=_STRATEGY_BULLETS)
-                       if task_family == "from_scratch" else ""),
+        chain_section=((_with_sites(_CHAIN_SECTION) if sites
+                        else _CHAIN_SECTION).format(
+            strategy_bullets=_STRATEGY_BULLETS if strategy_enabled() else "")
+            if task_family == "from_scratch" else ""),
         survival_rule=(_SURVIVAL_OWN if not harness_reflexes else
-                       _SURVIVAL_RULE if task_family == "from_scratch" else _SURVIVAL_GENERIC),
+                       (_SURVIVAL_RULE if strategy_enabled() else "")
+                       if task_family == "from_scratch" else _SURVIVAL_GENERIC),
     )
-    if atoms:
+    if atoms or visual:
         ref = ref.replace(_DIG_EXAMPLE, _ATOM_EXAMPLE)
     if memory_mode == "vista":
         # The vista arm has the archive but not the tool: the same two checks through
@@ -1374,45 +1546,33 @@ def action_reference(*, entry_cap: int, step_cap: int,
             f"One entry per `play` call, of at most {step_cap} environment ticks (a longer "
             f"procedure is cut at the cap and its [NOTE] says so; call it again to continue).")
         return ref
-    if memory_mode == "arc":
-        # The arc arm has the archive and a shell but no tool of ours: the same two
-        # checks against the section's [FRAME] file; and a `./act do` batch in place of
-        # the plan file.
+    if memory_mode != "worldmodel":
+        # The procedures reference documents chop_tree's aim check as a zoom.py recipe,
+        # and the ore-flag bullet points at a saved frame; only the structured arm has
+        # the tool and the archive. Same advice, toolless wording for every other arm
+        # -- and selftest's "no zoom in the logbook/direct prompt" checks fail loudly
+        # if the upstream wording drifts past these substitutions.
         ref = ref.replace(
             "(zoom the frame centre to verify: ./tools/zoom.py <frame> 288 148 64 64)",
-            "(look at the frame centre to verify: crop the section's [FRAME] file with "
-            "Python/PIL, or view it with your image tool)")
+            "(look closely at the attached frame's centre to verify)")
         ref = ref.replace(
             "the [NOTE] names the file; zoom that one if in doubt",
-            "the [NOTE] names the file; look at that one if in doubt")
-        ref = ref.replace(
-            f"A list of at most {entry_cap} entries, totalling at most {step_cap} environment ticks.",
-            f"One `./act do` batch: at most {entry_cap} entries, totalling at most {step_cap} "
-            f"environment ticks (a longer batch is cut at the cap and its [NOTE] says so).")
-        return ref
-    # The procedures reference documents chop_tree's aim check as a zoom.py recipe, and
-    # the ore-flag bullet points at a saved frame -- wording from the structured arm,
-    # which had the tool and the archive. Same advice, toolless wording for every arm
-    # -- and selftest's "no zoom in the logbook/direct prompt" checks fail loudly if
-    # the upstream wording drifts past these substitutions.
-    ref = ref.replace(
-        "(zoom the frame centre to verify: ./tools/zoom.py <frame> 288 148 64 64)",
-        "(look closely at the attached frame's centre to verify)")
-    ref = ref.replace(
-        "the [NOTE] names the file; zoom that one if in doubt",
-        "the [NOTE] says so; look closely at the current view if in doubt")
+            "the [NOTE] says so; look closely at the current view if in doubt")
     return ref
 
 
-def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
+def act_prompt(*, task_text: str, progress_block: str, graph_summary: str,
+               plan_summary: str, discipline_summary: str, entry_cap: int,
                step_cap: int, platform_prompt: str = "",
-               memory_mode: str = "logbook",
+               memory_mode: str = "worldmodel",
                task_family: str = "from_scratch",
                scored_by_milestones: bool = True,
                retrieval: bool = False, refusal: bool = False,
                previous: bool = False, expect: bool = False,
-               frames: bool = False, own: bool = False, atoms: bool = False,
-               own_reflexes: bool = False, harness_reflexes: bool = True) -> str:
+               frames: bool = False, corridors: bool = False,
+               sites: bool = False, own: bool = False, atoms: bool = False,
+               visual_only: bool = False, own_reflexes: bool = False,
+               harness_reflexes: bool = True) -> str:
     if memory_mode == "vista":
         from mfm.vista.prompt import method_lines
         return VISTA_ACT_PROMPT.format(
@@ -1427,25 +1587,40 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                                                memory_mode="vista", task_family=task_family)
                               + platform_block(platform_prompt, "your `play` call")),
         )
-    if memory_mode == "arc":
-        from mfm.arc.prompt import METHOD
-        return ARC_ACT_PROMPT.format(
-            task_text=task_text,
-            scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
-            progress_block=progress_block,
-            ground_truth_bullet=_GROUND_TRUTH_BULLET["arc"],
-            method=METHOD.rstrip("\n"),
-            action_reference=(action_reference(entry_cap=entry_cap, step_cap=step_cap,
-                                               memory_mode="arc", task_family=task_family)
-                              + platform_block(platform_prompt, "your `./act do` batch")),
+    if memory_mode in ("logbook", "direct", "mfm"):
+        # PRO-LONG's protocol: no graph, no plan echo, no discipline flags -- the log is
+        # where all of that lives, and grep is how it comes back. The direct arm drops
+        # them for the harder reason that they ARE memory surfaces.
+        graph_section = plan_section = disc = ""
+    elif memory_mode == "wmlite":
+        # The lite arm compiles but does not keep a belief graph: plan echo and notices
+        # stay (they are how a wm-family prompt serves the present), the graph section
+        # goes.
+        graph_section = ""
+        plan_section = (f"\n**Your current plan**:\n{plan_summary}"
+                        if plan_summary.strip() else "")
+        disc = (f"\n**Harness notices** (facts, enforced -- not advice):\n"
+                f"{discipline_summary}") if discipline_summary.strip() else ""
+    else:
+        graph_section = (
+            f"**Your hypothesis graph** (a view; the full DAG is in `hypotheses/`):\n"
+            f"{graph_summary}" if graph_summary.strip()
+            else "**Your hypothesis graph** is empty -- open one hypothesis per milestone "
+                 "you are working toward, at low confidence (0.2-0.3), as a map of the "
+                 "task."
         )
-    # PRO-LONG's protocol: no graph, no plan echo, no discipline flags -- the log is
-    # where all of that lives, and grep is how it comes back. The direct arm drops
-    # them for the harder reason that they ARE memory surfaces.
-    contract = {"logbook": _LOGBOOK_CONTRACT,
+        plan_section = (f"\n**Your current plan**:\n{plan_summary}"
+                        if plan_summary.strip() else "")
+        disc = (f"\n**Harness notices** (facts about your own graph, enforced -- not "
+                f"advice):\n{discipline_summary}") if discipline_summary.strip() else ""
+    contract = {"worldmodel": _MEMORY_CONTRACT,
+                "logbook": (_logbook_contract_with_previous() if previous
+                            else _LOGBOOK_CONTRACT),
+                "wmlite": _WMLITE_CONTRACT,
                 "direct": _DIRECT_CONTRACT,
-                "mfm": (_mfm_contract(retrieval, refusal, previous, expect, frames, own,
-                                      own_reflexes, harness_reflexes=harness_reflexes)
+                "mfm": (_mfm_contract(retrieval, refusal, previous, expect, frames,
+                                      corridors, sites, own, visual_only, own_reflexes,
+                                      harness_reflexes=harness_reflexes)
                         if memory_mode == "mfm" else "")}[memory_mode]
     output_contract = (_DIRECT_OUTPUT_CONTRACT if memory_mode == "direct"
                        else "Then write these files:\n" + _OUTPUT_FILES[memory_mode])
@@ -1454,12 +1629,20 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
         scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
         progress_block=progress_block,
         memory_contract=contract,
+        world_model_docs=("" if memory_mode in ("logbook", "direct", "mfm")
+                          else _WMLITE_DOC_BLURB if memory_mode == "wmlite"
+                          else _WORLD_MODEL_DOCS),
         ground_truth_bullet=_GROUND_TRUTH_BULLET[memory_mode],
+        belief_rules=_BELIEF_RULES if memory_mode == "worldmodel" else "",
+        graph_section=graph_section,
+        plan_section=plan_section,
+        discipline_section=disc,
         plan_line=_PLAN_LINE[memory_mode],
         output_contract=output_contract,
         action_reference=(action_reference(entry_cap=entry_cap, step_cap=step_cap,
                                            memory_mode=memory_mode,
-                                           task_family=task_family, atoms=atoms,
+                                           task_family=task_family, sites=bool(sites and previous),
+                                           atoms=atoms, visual=visual_only,
                                            harness_reflexes=harness_reflexes)
                           + platform_block(
                               platform_prompt,
@@ -1467,3 +1650,94 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                               else "your `actions.json`")),
     )
 
+
+INDUCTION_STALL_PROMPT = """\
+You are the world-model induction pass for an embodied Minecraft agent, called EARLY
+because nothing has verifiably changed for {stall_turns} act turns. This is a diagnosis
+turn, not a housekeeping turn.
+
+**Task the agent is working on**: {task_text}
+
+{progress_block}
+
+{memory_contract}
+
+**Guard-stop streaks this episode** (counted by the harness; each was also a [NOTE] in
+`logs.txt` at the step it happened):
+{failure_lines}
+
+**Do exactly this**:
+1. Find what is actually failing. Grep `logs.txt` for the [NOTE] lines behind the
+   streaks above and read the sections around them; open the frames those sections name
+   when the words are ambiguous. Do not read files whole.
+2. Write the diagnosis where the act turns will see it: name the failing procedure, the
+   evidence (step numbers, [EVENT]/[INV]/[CURSOR] lines), your best current explanation,
+   and -- most important -- **the one observation that would separate your explanation
+   from the next best one**. Put it in the document it belongs to (usually
+   `world_model/dynamics.md` or `procedural.md`), replacing any superseded claim about
+   the same thing.
+3. Re-price the current approach in `world_model/causal.md`: what has this subgoal cost
+   so far versus what you previously wrote it would cost, and what the alternative path
+   to the SAME milestone count is. If the alternative is now cheaper, say so plainly.
+4. Update only the documents the diagnosis touches. Each is truncated to
+   ~{per_doc_chars} characters when read; delete superseded text rather than appending.
+5. You are NOT choosing actions this turn, and `actions.json` will be ignored.
+"""
+
+
+def induction_prompt(*, task_text: str, progress_block: str, per_doc_chars: int) -> str:
+    return INDUCTION_PROMPT.format(
+        task_text=task_text, progress_block=progress_block,
+        memory_contract=_MEMORY_CONTRACT, per_doc_chars=per_doc_chars,
+    )
+
+
+def induction_stall_prompt(*, task_text: str, progress_block: str, per_doc_chars: int,
+                           stall_turns: int, failure_lines: str) -> str:
+    return INDUCTION_STALL_PROMPT.format(
+        task_text=task_text, progress_block=progress_block,
+        memory_contract=_MEMORY_CONTRACT, per_doc_chars=per_doc_chars,
+        stall_turns=stall_turns, failure_lines=failure_lines,
+    )
+
+
+def human_contract(*, task_text: str, progress_block: str, entry_cap: int, step_cap: int,
+                   retrieval: bool = False, expect: bool = False, frames: bool = False,
+                   previous: bool = False, own_reflexes: bool = False) -> str:
+    """The `--human-play` contract (mcu_worldmodel/human.py): the task, the loop, what the
+    turn message carries, the raw action schema with the few primitives, the invitation
+    to invent skills, and the memory protocol. No skills, no recipes, no advice."""
+    from mcu_worldmodel import human as H
+    from mcu_worldmodel import procedures as P
+    from mcu_worldmodel.episodes import (MFM_EXPECT_NOTE, MFM_FRAMES_NOTE, MFM_MEMORY_NOTE,
+                                         MFM_RETRIEVAL_NOTE)
+    from mcu_worldmodel.previous import MFM_DIGEST_NOTE, MFM_PREVIOUS_NOTE
+    frames_note = MFM_FRAMES_NOTE
+    i, j = frames_note.find("Each turn's second image"), frames_note.find("Frames are FILES")
+    if 0 <= i < j:
+        frames_note = frames_note[:i] + frames_note[j:]
+    memory = (MFM_MEMORY_NOTE + ("\n\n" + MFM_RETRIEVAL_NOTE if retrieval else "")
+              + ("\n\n" + MFM_PREVIOUS_NOTE if previous else "")
+              + ("\n" + MFM_DIGEST_NOTE if previous else "")
+              + ("\n\n" + MFM_EXPECT_NOTE if expect else "")
+              + ("\n\n" + frames_note if frames else "")
+              + "\n\n" + _own_mod().MFM_OWN_NOTE
+              + ("\n\n" + _own_mod().reflex_note(False) if own_reflexes else ""))
+    return (
+        "You are playing Minecraft the way a person does: you see the game through the "
+        "attached frame and the turn message, you press keys, and you learn the game by "
+        "playing it. There are no built-in skills in this run and no advice -- whatever you "
+        "need beyond the raw keys, the GUI cursor and `watch`, you invent, test and keep.\n\n"
+        f"**Task**: {task_text}\n\n{_SCORING_LINE[True]}\n\n{progress_block}\n\n"
+        + _THIN_LOOP + "\n" + H.WHAT_YOU_GET + "\n\n"
+        + H.RAW_SCHEMA.format(entry_cap=entry_cap, step_cap=step_cap) + "\n"
+        + P.index() + "\n" + H.GUI_ADDRESSING + "\n\n" + H.HUMAN_NOTE + "\n\n"
+        + memory + "\n\n"
+        "Any other file or directory you create in `./` outside `mine/` is removed when your "
+        "turn ends; the current view is attached to this call, and the earlier views are the "
+        "episodes' images.\n\n"
+        "**Response format**: a short briefing that begins `OBSERVED vs EXPECTED: ...` (did the "
+        "last plan do what you expected, and what differs), then\n\n[PLAN]\n"
+        + _PLAN_LINE["mfm"] + "\n\nend the briefing with `EXPECT: ...` for this plan, then "
+        "write these files:\n" + _OUTPUT_FILES["mfm"] + "\n"
+    )

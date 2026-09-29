@@ -100,8 +100,8 @@ class Rig:
                                 render_size=(640, 360), callbacks=[])
         self.agent = WorldModelAgent(
             workspace=self.out / "memory", task_text=task["text"],
-            ledger=MilestoneLedger(cfg, task["name"]),
-            step_cap=step_cap, max_steps=max_steps, memory_mode="logbook",
+            ledger=MilestoneLedger(cfg, task["name"]), induction_every=0,
+            step_cap=step_cap, max_steps=max_steps, memory_mode="worldmodel",
             extended_actions=False)
         self.codex = ScriptedCodex(self.agent.memory.root)
         self.agent.codex = self.codex

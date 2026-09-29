@@ -21,13 +21,9 @@ slurm/logs/
 .*_jid
 .*_jids
 
-# planning-with-files task state: coordination, not a deliverable.
-# Anchored. Unanchored, `tasks/` also matches MCU_benchmark/task_configs/tasks/ -- the
-# benchmark's own task definitions. The 88 files already there stayed tracked because
-# they predate the rule, so nothing looked wrong until a new task config was added and
-# silently never committed.
-/tasks/
-/archive/
+# planning-with-files task state: coordination, not a deliverable
+tasks/
+archive/
 
 # MCUData: re-fetchable from the Hub, so only the provenance files are tracked.
 # hf download Ced-Collab/MCUData --repo-type dataset --local-dir data/MCUData

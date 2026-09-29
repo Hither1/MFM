@@ -4,9 +4,9 @@ Neither dependency is available to a quick check -- the simulator needs Java, a 
 and a 466 MB engine jar, and Codex needs a network round trip per turn -- so both are
 replaced by scripted stand-ins and everything between them is exercised for real. What
 this covers is the part most likely to be wrong: the bookkeeping. The filesystem layout,
-the log, the milestone deltas, the guards and reflexes, which are the ones that only fire
-when the agent misbehaves and would otherwise go untested until an agent misbehaved at
-step 4,000 of a real run.
+the ground-truth channel, the milestone deltas, the belief graph, and above all the
+discipline rules, which are the ones that only fire when the agent misbehaves and would
+otherwise go untested until an agent misbehaved at step 4,000 of a real run.
 
     python -m mcu_worldmodel.selftest
 """
@@ -26,6 +26,8 @@ _agent_mod.RETRY_SLEEP = lambda _s: None   # scripted failures must not wait out
 
 from mcu_worldmodel import camera as _camera
 from mcu_worldmodel.actions import parse_actions
+from mcu_worldmodel.discipline import UNVERIFIED_MARK, Discipline
+from mcu_worldmodel.hypotheses import CycleError, HypothesisGraph
 from mcu_worldmodel.memory import MultimodalMemory
 from mcu_worldmodel.milestones import (
     MilestoneLedger, hotbar_line, inventory_counts, location, nearby_mobs, vitals,
@@ -73,11 +75,15 @@ def fake_info(inventory=None, **stats) -> dict:
 # -- 1. the memory filesystem -------------------------------------------
 
 def test_memory(root: Path) -> None:
-    print("\n[memory] layout, the log, and who may write what")
+    print("\n[memory] layout, the ground-truth channel, and who may write what")
     mem = MultimodalMemory(root / "mem")
-    check("the logbook workspace is the log and nothing else",
-          sorted(p.name for p in mem.root.iterdir()) == ["logs.txt"],
-          sorted(p.name for p in mem.root.iterdir()))
+    mem.seed_world_model("test task")
+    for d in ("entities", "locations", "maps", "events", "procedures",
+              "hypotheses", "world_model"):
+        check(f"{d}/ exists", (mem.root / d).is_dir())
+    check("six world-model docs seeded",
+          len(list((mem.root / "world_model").glob("*.md"))) == 6
+          and (mem.root / "world_model" / "rules.md").exists())
 
     mem.write_initial("test task", {"x": 0, "y": 64, "z": 0}, "f0.png")
     mem.set_plan("go north", "briefing text")
@@ -92,12 +98,25 @@ def test_memory(root: Path) -> None:
     check("moved is computed from position", "moved=5.00" in log,
           [l for l in log.splitlines() if "moved" in l])
 
+    mem.append_events(5, [{"kind": "milestone", "identity": "mine_log"}])
+    check("events.jsonl is append-only jsonl", len(mem.read_events()) == 1)
+
     before = mem.snapshot_harness_files()
     check("intact when untouched", mem.assert_harness_files_intact(before) == [])
     mem.logs_path.write_text("truncated")
     check("a shrunk harness file is detected",
           mem.assert_harness_files_intact(before) != [])
 
+    # Per-document truncation, which is what keeps one grown document from evicting the
+    # other four out of the act turn's prompt. The budget is chosen above the seeded
+    # length so that only the oversized document is the one that gets cut.
+    (mem.root / "world_model" / "causal.md").write_text("# Causal model\n" + "C" * 5000)
+    summ = mem.world_model_summary(per_doc_chars=400)
+    check("only the oversized doc is truncated", summ.count("truncated") == 1,
+          summ.count("truncated"))
+    check("all five docs survive an oversized one",
+          all(n in summ for n in ("Spatial", "Semantic", "Dynamics",
+                                  "Procedural", "Causal")), summ[:200])
 
 
 # -- 2. milestones ------------------------------------------------------
@@ -193,6 +212,111 @@ def test_milestones() -> None:
           nearby_mobs(fake_info()) == "none reported")
     loc = location(fake_info())
     check("location maps xpos->x", loc and loc["x"] == 1.0 and loc["y"] == 64.0, loc)
+
+
+# -- 3. the belief graph ------------------------------------------------
+
+def test_graph() -> None:
+    print("\n[hypotheses] the DAG, and the no-op accounting the prompt promises")
+    g = HypothesisGraph()
+    g.add_or_update(id="h1", statement="there is iron below y=40", confidence=0.4,
+                    kind="location", step=1)
+    g.add_or_update(id="h2", statement="mine iron ore", kind="goal", step=1)
+    g.add_dependency("h2", "h1", step=1)
+    check("dependency recorded", g.nodes["h2"].depends_on == ["h1"])
+    try:
+        g.add_dependency("h1", "h2", step=2)
+        check("a cycle is refused", False)
+    except CycleError:
+        check("a cycle is refused", True)
+
+    # A re-send that changes nothing must not look fresh: `updated_step` drives both the
+    # frontier tie-break and which nodes hold the prompt's remaining slots.
+    before = g.nodes["h1"].updated_step
+    g.add_or_update(id="h1", statement="there is iron below y=40", confidence=0.4, step=9)
+    check("a no-op op does not refresh updated_step",
+          g.nodes["h1"].updated_step == before)
+    check("no-op ops are counted", g.noop_updates == 1)
+    g.add_or_update(id="h1", confidence=0.8, step=10)
+    check("a real change does refresh", g.nodes["h1"].updated_step == 10)
+
+    g.add_or_update(id="h3", statement="x", status="locked", step=1)
+    check("an unrecognised status is dropped", g.nodes["h3"].status == "active")
+
+    for i in range(30):
+        g.add_or_update(id=f"m{i}", statement=f"mech {i}", kind="mechanism", step=i)
+    view = g.to_prompt_summary(max_items=12)
+    check("the view is bounded", len([l for l in view.splitlines()
+                                      if l.startswith("- [")]) <= 12)
+    check("mechanisms are capped in the view",
+          sum(1 for l in view.splitlines() if "(mechanism," in l) <= 4)
+    check("the view says it is a view", "not shown" in view)
+
+    ev = ["e"] * 20
+    g.add_or_update(id="h1", evidence=ev, step=11)
+    check("evidence is bounded and deduplicated", len(g.nodes["h1"].evidence) <= 8)
+
+
+# -- 4. discipline ------------------------------------------------------
+
+def test_discipline(root: Path) -> None:
+    print("\n[discipline] the rules that only fire when the agent misbehaves")
+    cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
+            "reward": 1.0, "max_reward_times": 1},
+           {"event": "craft_item", "identity": "crafting_table",
+            "objects": ["crafting_table"], "reward": 1.0, "max_reward_times": 1}]
+    led = MilestoneLedger(cfg, "t")
+    led.reset(fake_info())
+    g = HypothesisGraph()
+    d = Discipline(g, led)
+
+    # The core rule: the model confirms its own goal, the environment has not.
+    g.add_or_update(id="mine_log", statement="I have mined a log", kind="goal",
+                    status="confirmed", confidence=0.99, step=5)
+    d.enforce(["mine_log"], 5)
+    n = g.nodes["mine_log"]
+    check("a self-confirmed goal is reverted to active", n.status == "active")
+    check("its confidence drops to the reverted band", n.confidence <= 0.6, n.confidence)
+    check("its STATEMENT is marked, not just its status",
+          n.statement.startswith(UNVERIFIED_MARK), n.statement)
+    check("the revert is counted", d.counters["goal_confirm_reverted"] == 1)
+
+    # ... and once the environment agrees, the mark comes off.
+    led.update(fake_info(mine_block={"oak_log": 1}), 6)
+    d.enforce([], 6)
+    check("verification clears the unverified mark",
+          not g.nodes["mine_log"].statement.startswith(UNVERIFIED_MARK))
+
+    # An unverified goal cannot sit above the ceiling the prompt states.
+    g.add_or_update(id="crafting_table", statement="table made", kind="goal",
+                    confidence=0.99, step=7)
+    d.enforce([], 7)
+    check("an unverified goal is held to the ceiling",
+          g.nodes["crafting_table"].confidence <= 0.9)
+
+    # The claim gate: what replaces ESC-gating, since MCU has no ESC.
+    note = d.check_claim({"completed": ["crafting_table"]}, 8)
+    check("a false completion claim is rejected", note is not None)
+    check("the claimed goal is locked", "crafting_table" in d.locked)
+    check("a locked goal is capped at 0.5",
+          g.nodes["crafting_table"].confidence <= 0.5)
+    check("locked goals appear in the prompt flags",
+          d.flags(8).get("crafting_table") == "locked")
+    check("a true claim is not rejected", d.check_claim({"completed": ["mine_log"]}, 9)
+          is None)
+
+    # The test budget.
+    g.add_or_update(id="h9", statement="stuck belief", confidence=0.5, kind="location",
+                    step=10)
+    check("first sighting starts the clock", d.track_testing("h9", 10) is None)
+    check("still inside the budget", d.track_testing("h9", 100) is None)
+    note = d.track_testing("h9", 10 + 121)
+    check("the budget retires a motionless test", note is not None)
+    check("it is marked stale", g.nodes["h9"].status == "stale")
+
+    summ = d.summary()
+    check("the summary reports what fired",
+          "reverted" in summ and "claim" in summ.lower(), summ)
 
 
 # -- 4b. GUI geometry and recipe-driven crafting -------------------------
@@ -420,7 +544,7 @@ class FakeCodex:
         self.prompts.append(prompt)
         self.images_attached += len(images)
         # The real CodexTurn clears these before every turn; a fake that does not would
-        # let turn 2's actions.json be re-read on turns 3..N and make this test pass or
+        # let turn 2's claim.json be re-read on turns 3..N and make this test pass or
         # fail for reasons the real backend never has.
         from mcu_worldmodel.codex_backend import TURN_ARTEFACTS
         for stale in TURN_ARTEFACTS:
@@ -431,6 +555,15 @@ class FakeCodex:
         return {"actions_json": json.dumps(turn["actions"]) if "actions" in turn else None,
                 "message": turn.get("message", ""), "ok": "actions" in turn,
                 "error": None, "overflow": False}
+
+    def read_outputs(self):
+        out = {"hypotheses_ops": None, "claim": None, "errors": []}
+        for key, name in (("hypotheses_ops", "hypotheses_ops.json"), ("claim", "claim.json")):
+            p = self.workspace / name
+            if p.exists():
+                out[key] = json.loads(p.read_text())
+                p.unlink()          # consumed on read, as the real backend does
+        return out
 
     @staticmethod
     def split_briefing(message):
@@ -548,7 +681,7 @@ def test_gui_feedback(root: Path) -> None:
                             "objects": ["crafting_table"], "reward": 1.0,
                             "max_reward_times": 1}], "t")
     agent = WorldModelAgent(workspace=root / "gws", task_text="craft a table",
-                            ledger=led, step_cap=50)
+                            ledger=led, induction_every=0, step_cap=50)
     agent.codex = FakeCodex(agent.memory.root, [
         {"actions": {"actions": [{"procedure": "open_inventory"},
                                  {"procedure": "cursor_to_slot", "args": {"slot": 0}},
@@ -589,7 +722,7 @@ def test_gui_feedback(root: Path) -> None:
 
 
 def test_loop(root: Path) -> None:
-    print("\n[loop] act turns, the queue, and end-to-end bookkeeping")
+    print("\n[loop] act turns, the queue, induction, and end-to-end bookkeeping")
     from mcu_worldmodel.agent import WorldModelAgent
 
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
@@ -598,12 +731,20 @@ def test_loop(root: Path) -> None:
             "objects": ["crafting_table"], "reward": 1.0, "max_reward_times": 1}]
     led = MilestoneLedger(cfg, "t")
     agent = WorldModelAgent(workspace=root / "ws", task_text="get a log",
-                            ledger=led, step_cap=50)
+                            ledger=led, induction_every=10, step_cap=50)
     script = [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5}]},
-         "message": "briefing one\n[PLAN]\nwalk to the trees"},
+         "message": "briefing one\n[PLAN]\nwalk to the trees",
+         "files": {"hypotheses_ops.json": {
+             "hypotheses": [{"id": "mine_log", "statement": "a log is gettable",
+                             "kind": "goal", "confidence": 0.3},
+                            {"id": "trees_north", "statement": "trees to the north",
+                             "kind": "location", "confidence": 0.5,
+                             "depends_on": ["mine_log"]}],
+             "testing": "trees_north"}}},
         {"actions": {"actions": [{"procedure": "chop_tree", "args": {"n": 5}}]},
-         "message": "briefing two\n[PLAN]\nchop"},
+         "message": "briefing two\n[PLAN]\nchop",
+         "files": {"claim.json": {"completed": ["crafting_table"]}}},
     ] + [{"actions": {"actions": [{"action": {"attack": 1}, "repeat": 5}]},
           "message": "[PLAN]\nkeep going"} for _ in range(12)]
     agent.codex = FakeCodex(agent.memory.root, script)
@@ -624,10 +765,25 @@ def test_loop(root: Path) -> None:
 
     check("act turns fired only when the queue ran dry",
           2 <= agent.turns["act"] <= 8, agent.turns)
+    check("induction turns fired on schedule", agent.turns["induction"] >= 2,
+          agent.turns)
     check("the milestone was picked up from info", led.is_verified("mine_log"))
+    check("the graph persisted to disk", (agent.memory.graph_path).exists())
+    check("one .md per belief was projected",
+          len(list((agent.memory.root / "hypotheses").glob("*.md"))) >= 2)
+    check("dependencies survived the round trip",
+          agent.graph.nodes["trees_north"].depends_on == ["mine_log"])
+
+    # The claim in turn 2 named a milestone the environment never verified.
+    check("the false claim was rejected", agent.discipline.counters["claim_rejected"] == 1)
     log = agent.memory.logs_path.read_text()
+    check("the rejection reached the log as a NOTE", "[NOTE]" in log and "claimed" in log)
     check("the briefing reached the log", "briefing one" in log)
     check("milestone events reached the log", "MILESTONE mine_log" in log)
+
+    # An induction turn must not leave an executable actions.json behind.
+    check("induction leaves no stale actions.json",
+          not (agent.memory.root / "actions.json").exists())
 
     # The bug this guards: logging at planning time used the same position for `pos` and
     # `prev_pos`, so every [STATE] line read moved=0.00 -- the one number the prompt tells
@@ -645,8 +801,9 @@ def test_loop(root: Path) -> None:
           (log.count("[ACTION]"), agent.turns["act"]))
 
     rep = agent.report()
-    check("the report carries the milestones",
-          rep["milestones"]["milestones_achieved"] == 1, rep)
+    check("the report carries milestones, beliefs and discipline",
+          rep["milestones"]["milestones_achieved"] == 1
+          and rep["hypotheses"]["n"] >= 2 and "claim_rejected" in rep["discipline"], rep)
 
 
 def test_closed_loop(root: Path) -> None:
@@ -670,7 +827,8 @@ def test_closed_loop(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "cl", task_text="t",
-                            ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                            ledger=MilestoneLedger(cfg, "t"),
+                            induction_every=0, step_cap=400)
     agent.codex = FakeCodex(agent.memory.root, [
         {"actions": {"actions": [
             {"procedure": "open_inventory"},
@@ -752,6 +910,9 @@ def test_closed_loop(root: Path) -> None:
     check("dig stopped at its target depth, not at its 200-tick budget",
           cs.get("dig_reached_depth") == 1 and st["y"] <= 60.5
           and st["dig_ticks"] < 60, str(st))
+    check("stat events reached events.jsonl",
+          '"kind":"stat"' in (agent.memory.root / "events"
+                              / "events.jsonl").read_text(encoding="utf-8"))
     # look_at: pure trigonometry against [STATE] ground truth. The oracle is live data:
     # the wmv3 agent measured "yaw about -15" for spawn -> first trunk, and MC's yaw
     # convention (0 = +z, positive clockwise) must reproduce it.
@@ -769,7 +930,8 @@ def test_closed_loop(root: Path) -> None:
 
     # use_until_gui: the screen opens on the second press; the marker must stop there.
     agent2 = WorldModelAgent(workspace=root / "ug", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                             ledger=MilestoneLedger(cfg, "t"),
+                             induction_every=0, step_cap=400)
     agent2.codex = FakeCodex(agent2.memory.root, [
         {"actions": {"actions": [{"procedure": "use_until_gui", "args": {"n": 5}}]},
          "message": "[PLAN]\nopen the table"},
@@ -797,7 +959,8 @@ def test_closed_loop(root: Path) -> None:
     # note only after the 20-tick grace.
     for late, opens in ((12, True), (99, False)):
         agent3 = WorldModelAgent(workspace=root / f"ug{late}", task_text="t",
-                                 ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                                 ledger=MilestoneLedger(cfg, "t"),
+                                 induction_every=0, step_cap=400)
         agent3.codex = FakeCodex(agent3.memory.root, [
             {"actions": {"actions": [{"procedure": "use_until_gui", "args": {"n": 2}}]},
              "message": "[PLAN]\nopen the furnace"},
@@ -834,7 +997,8 @@ def test_closed_loop(root: Path) -> None:
     # Miss-fast chop: the env breaks leaves, never wood; the macro must name the wrong
     # target and stop within a few ticks instead of running its 120-tick budget.
     agent_m = WorldModelAgent(workspace=root / "mf", task_text="t",
-                              ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                              ledger=MilestoneLedger(cfg, "t"),
+                              induction_every=0, step_cap=400)
     agent_m.codex = FakeCodex(agent_m.memory.root, [
         {"actions": {"actions": [{"procedure": "chop_tree", "args": {"n": 120}}]},
          "message": "[PLAN]\nchop at leaves by mistake"},
@@ -868,7 +1032,8 @@ def test_closed_loop(root: Path) -> None:
             tex[yy:yy + 2, xx:xx + 2] = (196, 160, 133)
     ore_face = np.kron(tex, np.ones((2, 2, 1))).astype(np.uint8)
     agent_o = WorldModelAgent(workspace=root / "ore", task_text="t",
-                              ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                              ledger=MilestoneLedger(cfg, "t"),
+                              induction_every=0, step_cap=400)
     agent_o.codex = FakeCodex(agent_o.memory.root, [
         {"actions": {"actions": [{"procedure": "strip_mine", "args": {"length": 160}},
                                  {"procedure": "travel", "args": {"n": 40}}]},
@@ -902,7 +1067,8 @@ def test_closed_loop(root: Path) -> None:
             tex_d[yy:yy + 2, xx:xx + 2] = (87, 191, 182)
     dia_face = np.kron(tex_d, np.ones((2, 2, 1))).astype(np.uint8)
     agent_d = WorldModelAgent(workspace=root / "ore_d", task_text="t",
-                              ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                              ledger=MilestoneLedger(cfg, "t"),
+                              induction_every=0, step_cap=400)
     agent_d.codex = FakeCodex(agent_d.memory.root, [
         {"actions": {"actions": [{"procedure": "strip_mine", "args": {"length": 160}}]},
          "message": "[PLAN]\ntunnel"},
@@ -929,17 +1095,22 @@ def test_closed_loop(root: Path) -> None:
           and "diamond-ore-like speckles" in log_d,
           f"{ore_d} {agent_d.cursor_stats}")
     # The flag must also flush the QUEUED remainder of the plan (the travel entry) --
-    # ked3's sighting was walked off-screen by exactly such an entry. (The flag-time
-    # frame went into the structured arm's archive; no live arm keeps one.)
+    # ked3's sighting was walked off-screen by exactly such an entry -- and persist the
+    # flag-time frame under a name the [NOTE] hands to zoom.
+    ore_frames = list(agent_o.memory.frames_dir.glob("*_ore.png"))
     check("an ore flag drops the queued rest of the plan",
           agent_o.cursor_stats.get("ore_flush_dropped") == 1,
           str(agent_o.cursor_stats.get("ore_flush_dropped")))
+    check("the flag-time frame is saved and the [NOTE] names it",
+          len(ore_frames) == 1 and ore_frames[0].name in log_o,
+          f"{[f.name for f in ore_frames]}")
 
     # go_to: closed-loop walk. The env moves the player 0.2 blocks per forward tick
     # along the facing and applies camera yaw exactly; starting 40 degrees off-heading,
     # the walker must turn first, then walk, and stop within reach of the target.
     agent3 = WorldModelAgent(workspace=root / "gt", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                             ledger=MilestoneLedger(cfg, "t"),
+                             induction_every=0, step_cap=400)
     agent3.codex = FakeCodex(agent3.memory.root, [
         {"actions": {"actions": [{"procedure": "go_to",
                                   "args": {"x": 6.0, "z": 10.0, "n": 100}}]},
@@ -999,7 +1170,8 @@ def test_closed_loop(root: Path) -> None:
     # Death detection: a >15-block teleport with full health voids the plan and writes
     # the death coordinates; a 4-heart drop interrupts with a damage note.
     agent_d = WorldModelAgent(workspace=root / "dd", task_text="t",
-                              ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                              ledger=MilestoneLedger(cfg, "t"),
+                              induction_every=0, step_cap=400)
     agent_d.codex = FakeCodex(agent_d.memory.root, [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 30}]},
          "message": "[PLAN]\nwalk"},
@@ -1029,17 +1201,13 @@ def test_closed_loop(root: Path) -> None:
           agent_d.cursor_stats.get("deaths") == 1 and "YOU DIED at (-3007, 16" in log_d,
           str(agent_d.cursor_stats))
 
-    # tools/zoom.py: the mfm arm's `--frames` tool, written beside tools/episodes.py.
-    from PIL import Image as _Image
-    zmem = MultimodalMemory(root / "zoom_ws", episodes=True, zoom_tool=True)
-    zoom = zmem.root / "tools" / "zoom.py"
-    frame = zmem.root / "frame.png"
-    _Image.new("RGB", (640, 360), (40, 80, 120)).save(frame)
+    zoom = agent.memory.root / "tools" / "zoom.py"
+    frame = agent.memory.root / "episodes" / "ep_0000" / "frames" / "step_0000.png"
     ran = __import__("subprocess").run(
         [sys.executable, str(zoom), str(frame), "10", "10", "20", "15"],
-        cwd=zmem.root, capture_output=True)
+        cwd=agent.memory.root, capture_output=True)
     check("tools/zoom.py exists and magnifies a frame region",
-          ran.returncode == 0 and (zmem.root / "zoom.png").exists(),
+          ran.returncode == 0 and (agent.memory.root / "zoom.png").exists(),
           ran.stderr.decode()[:200])
 
 
@@ -1052,43 +1220,52 @@ def test_logbook(root: Path) -> None:
     procedures, perception guidance, strategy knowledge -- must be IDENTICAL across the
     two memory modes: any drift there is a confound, not a finding. (2) The memory
     surfaces must be fully absent: a logbook arm whose workspace still grows a belief
-    graph, an events channel or compiled documents is quietly running another
+    graph, an events channel or compiled documents is quietly running the other arm's
     design, and its score would be unreadable.
     """
-    print("\n[logbook] PRO-LONG's memory protocol on the shared chassis")
+    print("\n[logbook] PRO-LONG's memory protocol on the worldmodel chassis")
     from mcu_worldmodel import prompts
     from mcu_worldmodel.agent import WorldModelAgent
 
     # -- (1) the prompts: shared segments byte-equal, memory segments swapped --------
-    kw = dict(task_text="get a log", progress_block="0/2", entry_cap=20, step_cap=400,
+    kw = dict(task_text="get a log", progress_block="0/2", graph_summary="",
+              plan_summary="", discipline_summary="", entry_cap=20, step_cap=400,
               platform_prompt="HOST REFERENCE")
+    wm_p = prompts.act_prompt(**kw)
     lb_p = prompts.act_prompt(**kw, memory_mode="logbook")
-    mf_p = prompts.act_prompt(**kw, memory_mode="mfm")
     for marker in ("hypothes", "world_model/", "events.jsonl", "claim.json",
                    "zoom", "frames/", "view_image", "any file you save"):
         check(f"logbook prompt has no {marker!r}", marker not in lb_p)
+    for marker in ("hypotheses_ops.json", "world_model/", "events/events.jsonl",
+                   "zoom.py"):
+        check(f"worldmodel prompt keeps {marker!r}", marker in wm_p)
     for marker in ("stair_down", "cursor_to_slot", "append-only", "[EVENT]",
                    "HOST REFERENCE", "is removed when", "ONLY thing"):
         check(f"logbook prompt carries {marker!r}", marker in lb_p)
-    check("strategy knowledge is shared verbatim",
-          prompts._STRATEGY_BULLETS in mf_p and prompts._STRATEGY_BULLETS in lb_p)
+    if prompts.strategy_enabled():
+        check("strategy knowledge is shared verbatim",
+              prompts._STRATEGY_BULLETS in wm_p and prompts._STRATEGY_BULLETS in lb_p)
     seg = lambda s, a, b=None: s[s.index(a):(s.index(b) if b else len(s))]
     check("cursor mechanics identical across modes",
-          seg(mf_p, "**The harness measures", "3. ")
+          seg(wm_p, "**The harness measures", "3. ")
           == seg(lb_p, "**The harness measures", "3. "))
     check("movement..platform tail identical across modes",
-          seg(mf_p, "**Movement**") == seg(lb_p, "**Movement**"))
+          seg(wm_p, "**Movement**") == seg(lb_p, "**Movement**"))
 
-    # -- (2) the loop: no structured surfaces, foreign files swept -----------------
+    # -- (2) the loop: no structured surfaces, belief ops ignored, induction off -----
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "lb", task_text="get a log",
-                            ledger=MilestoneLedger(cfg, "t"), step_cap=50, memory_mode="logbook")
+                            ledger=MilestoneLedger(cfg, "t"),
+                            induction_every=10, step_cap=50, memory_mode="logbook")
     script = [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5}]},
          "message": "briefing lb\n[PLAN]\nwalk",
-         # A notes file the model tried to keep: swept when the turn ends.
-         "files": {"crafting_notes.md": {"table": "slot 4"}}},
+         "files": {"hypotheses_ops.json": {"hypotheses": [
+             {"id": "h1", "statement": "x", "kind": "goal", "confidence": 0.3}]},
+             "claim.json": {"completed": ["mine_log"]},
+             # A notes file the model tried to keep: swept when the turn ends.
+             "crafting_notes.md": {"table": "slot 4"}}},
     ] + [{"actions": {"actions": [{"action": {"attack": 1}, "repeat": 5}]},
           "message": "[PLAN]\nchop"} for _ in range(8)]
     agent.codex = FakeCodex(agent.memory.root, script)
@@ -1115,6 +1292,12 @@ def test_logbook(root: Path) -> None:
     check("the current view is attached from OUTSIDE the workspace",
           agent.memory.attach_dir.exists() and agent.memory.attach_dir.parent == ws.parent
           and not str(agent.memory.attach_dir).startswith(str(ws) + "/"))
+    check("belief ops were ignored (graph empty, nothing persisted)",
+          not agent.graph.nodes and not agent.memory.graph_path.exists())
+    check("the false claim did not reach discipline",
+          agent.discipline.counters.get("claim_rejected", 0) == 0)
+    check("induction never fires in logbook mode",
+          agent.induction_every == 0 and agent.turns["induction"] == 0)
     check("the milestone still verifies from the ledger",
           agent.ledger.is_verified("mine_log"))
     log = (ws / "logs.txt").read_text()
@@ -1136,6 +1319,72 @@ def test_logbook(root: Path) -> None:
     check("the report names the arm", rep["memory_mode"] == "logbook", rep.get("memory_mode"))
 
 
+def test_wmlite(root: Path) -> None:
+    """The simplification arm: one compiled document on the logbook substrate.
+
+    Three properties carry it. (1) Shared chassis segments stay byte-equal to both
+    existing arms. (2) The full arm's structured surfaces (graph, ops files, events
+    channel, five documents) are absent. (3) What remains of the treatment -- the
+    induction pass and one world.md read every act turn -- actually runs."""
+    print("\n[wmlite] one compiled document on the logbook substrate")
+    from mcu_worldmodel import prompts
+    from mcu_worldmodel.agent import WorldModelAgent
+
+    kw = dict(task_text="get a log", progress_block="0/2", graph_summary="",
+              plan_summary="", discipline_summary="", entry_cap=20, step_cap=400,
+              platform_prompt="HOST REFERENCE")
+    wm_p = prompts.act_prompt(**kw)
+    lb_p = prompts.act_prompt(**kw, memory_mode="logbook")
+    lt_p = prompts.act_prompt(**kw, memory_mode="wmlite")
+    for marker in ("hypothes", "events.jsonl", "claim.json", "spatial.md",
+                   "procedural.md"):
+        check(f"wmlite prompt has no {marker!r}", marker not in lt_p)
+    check("wmlite prompt keeps world.md", "world_model/world.md" in lt_p)
+    for marker in ("stair_down", "cursor_to_slot", "append-only",
+                   "[EVENT]", "HOST REFERENCE", "stow_items", "collect_drops"):
+        check(f"wmlite prompt carries shared {marker!r}", marker in lt_p)
+    check("wmlite prompt has no zoom/frames (the logbook substrate keeps none)",
+          "zoom" not in lt_p and "frames/" not in lt_p)
+    seg = lambda s, a, b=None: s[s.index(a):(s.index(b) if b else len(s))]
+    check("wmlite action tail identical to logbook's",
+          seg(lt_p, "**Movement**") == seg(lb_p, "**Movement**"))
+    check("wmlite cursor mechanics identical to worldmodel's",
+          seg(lt_p, "**The harness measures", "3. ")
+          == seg(wm_p, "**The harness measures", "3. "))
+    check("wmlite ground-truth bullet is the logbook's, same object",
+          prompts._GROUND_TRUTH_BULLET["wmlite"]
+          is prompts._GROUND_TRUTH_BULLET["logbook"])
+
+    cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
+            "reward": 1.0, "max_reward_times": 1}]
+    ag = WorldModelAgent(workspace=root / "lt", task_text="get a log",
+                         ledger=MilestoneLedger(cfg, "t"),
+                         induction_every=10, step_cap=50, memory_mode="wmlite")
+    check("wmlite keeps induction on", ag.induction_every == 10,
+          str(ag.induction_every))
+    check("wmlite is not structured", not ag.structured and ag.lite, "")
+    wm_dir = ag.memory.root / "world_model"
+    check("world.md seeded", (wm_dir / "world.md").exists(),
+          str(sorted(p.name for p in wm_dir.glob('*'))))
+    check("no five-document seeding", not (wm_dir / "spatial.md").exists(), "")
+    for absent in ("events", "hypotheses", "maps", "procedures", "entities", "tools",
+                   "episodes"):
+        check(f"no {absent}/ directory", not (ag.memory.root / absent).exists(), "")
+    (wm_dir / "world.md").write_text("# World model\n\nIron at (10, 40, -3).\n")
+    ag.codex = FakeCodex(ag.memory.root, [
+        {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "-"}] * 4)
+    ag.start(fake_info())
+    tp = ag._turn_prompt(fake_info())
+    check("turn prompt reads world.md", "Iron at (10, 40, -3)" in tp, tp[-400:])
+    check("turn prompt has no graph section", "hypothesis graph" not in tp, "")
+    ip = prompts.wmlite_induction_prompt(task_text="t", progress_block="p",
+                                         per_doc_chars=prompts.WMLITE_DOC_CHARS)
+    check("wmlite induction rewrites ONE document",
+          "world.md" in ip and "spatial.md" not in ip
+          and "hypotheses_ops" not in ip, "")
+    check("wmlite induction keeps the goal check", "## Goal check" in ip, "")
+
+
 def test_direct(root: Path) -> None:
     """The no-memory baseline on the shared substrate. Three properties carry it. (1)
     The shared surfaces must stay identical to the memory arms', or the baseline delta
@@ -1144,15 +1393,16 @@ def test_direct(root: Path) -> None:
     prompt text about memory at all: each turn is the present alone, served exactly as
     the memory arms see it. (3) The reply is the whole output channel: fenced JSON in,
     a reply without one retried with a nudge."""
-    print("\n[direct] the no-memory baseline on the shared chassis")
+    print("\n[direct] the no-memory baseline on the worldmodel chassis")
     from mcu_worldmodel import prompts
     from mcu_worldmodel.agent import WorldModelAgent, extract_actions_block
     from mcu_worldmodel.codex_backend import CodexTurn
 
     # -- (1)+(2a) the prompts ---------------------------------------------------------
-    kw = dict(task_text="get a log", progress_block="0/2", entry_cap=20, step_cap=400,
+    kw = dict(task_text="get a log", progress_block="0/2", graph_summary="",
+              plan_summary="", discipline_summary="", entry_cap=20, step_cap=400,
               platform_prompt="HOST REFERENCE")
-    lb_p = prompts.act_prompt(**kw, memory_mode="logbook")
+    wm_p = prompts.act_prompt(**kw)
     dr_p = prompts.act_prompt(**kw, memory_mode="direct")
     for marker in ("logs.txt", "hypothes", "world_model/", "events.jsonl",
                    "claim.json", "zoom", "grep", "actions.json", "Bash",
@@ -1162,18 +1412,19 @@ def test_direct(root: Path) -> None:
     for marker in ("stair_down", "cursor_to_slot", "HOST REFERENCE", "fenced",
                    "Address slots and cells by number"):
         check(f"direct prompt carries {marker!r}", marker in dr_p)
-    check("strategy knowledge is shared verbatim",
-          prompts._STRATEGY_BULLETS in dr_p)
+    if prompts.strategy_enabled():
+        check("strategy knowledge is shared verbatim",
+              prompts._STRATEGY_BULLETS in dr_p)
     seg = lambda s, a, b=None: s[s.index(a):(s.index(b) if b else len(s))]
-    check("cursor mechanics identical to the logbook arm's",
-          seg(lb_p, "**The harness measures", "3. ")
+    check("cursor mechanics identical to the worldmodel arm's",
+          seg(wm_p, "**The harness measures", "3. ")
           == seg(dr_p, "**The harness measures", "3. "))
     check("movement..strategy tail identical across modes",
-          seg(lb_p, "**Movement**", "# The benchmark's own control reference")
+          seg(wm_p, "**Movement**", "# The benchmark's own control reference")
           == seg(dr_p, "**Movement**", "# The benchmark's own control reference"))
     check("the platform wrapper names each arm's output channel",
           "ONE entry of your actions JSON" in dr_p
-          and "ONE entry of your `actions.json`" in lb_p)
+          and "ONE entry of your `actions.json`" in wm_p)
     # -- (2b)+(3) the loop ------------------------------------------------------------
     fence = lambda payload: "```json\n" + json.dumps(payload) + "\n```"
     # Two milestones, one forever unmet: with the full set verified the chassis would
@@ -1183,7 +1434,8 @@ def test_direct(root: Path) -> None:
            {"event": "mine_block", "identity": "mine_cobblestone",
             "objects": ["cobblestone"], "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "dr", task_text="get a log",
-                            ledger=MilestoneLedger(cfg, "t"), step_cap=50, memory_mode="direct")
+                            ledger=MilestoneLedger(cfg, "t"),
+                            induction_every=10, step_cap=50, memory_mode="direct")
     check("direct forces 1-turn codex sessions",
           agent.codex.session_max_turns == 1, str(agent.codex.session_max_turns))
     check("direct codex runs read-only",
@@ -1208,6 +1460,8 @@ def test_direct(root: Path) -> None:
     check("direct workspace is the system prompt and nothing else",
           sorted(p.name for p in ws.iterdir()) == ["AGENTS.md"],
           str(sorted(p.name for p in ws.iterdir())))
+    check("induction never fires in direct mode",
+          agent.induction_every == 0 and agent.turns["induction"] == 0)
     check("the milestone still verifies from the ledger",
           agent.ledger.is_verified("mine_log"))
     check("the direct turn message is the memory arms' present block, verbatim",
@@ -1327,7 +1581,8 @@ def test_stow_and_sweep(root: Path) -> None:
 
     def mk(tag: str) -> WorldModelAgent:
         ag = WorldModelAgent(workspace=root / f"sw_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                             ledger=MilestoneLedger(cfg, "t"),
+                             induction_every=0, step_cap=400)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "-"}
         ] * 8)
@@ -1511,6 +1766,29 @@ def test_stow_and_sweep(root: Path) -> None:
           and "SCREEN is open" in " | ".join(ag5.memory._pending_notes),
           str(ag5.cursor_stats))
 
+    # -- the plan-repetition streak and its notice
+    ag6 = mk("streak")
+    ag6._update_plan_streak("Collect the nearby log drops, testing the drop "
+                            "column. Once inventory confirms wood, craft planks "
+                            "and the crafting table.")
+    ag6._update_plan_streak("Collect the nearby log drops, testing the drop "
+                            "column. Once inventory confirms wood, craft planks "
+                            "and the crafting table.")
+    ag6._update_plan_streak("Collect the nearby log drops, sweeping the drop "
+                            "column. Once inventory confirms wood, craft planks "
+                            "and the crafting table.")
+    check("three near-identical plans -> streak 2", ag6._plan_repeat == 2,
+          str(ag6._plan_repeat))
+    ag6._stall_turns = 3
+    check("stalled streak renders the notice",
+          "near-identical" in ag6._notices(), ag6._notices())
+    ag6._update_plan_streak("Dig a staircase down to stone and mine cobblestone")
+    check("a new plan resets the streak", ag6._plan_repeat == 0,
+          str(ag6._plan_repeat))
+    ag6._stall_turns = 3
+    check("no streak, no notice", "near-identical" not in ag6._notices(),
+          ag6._notices())
+
     # -- the post-completion hold: every milestone verified -> no more model turns
     agH = mk("hold")
     base = agH.codex.calls
@@ -1667,7 +1945,8 @@ def test_systemics(root: Path) -> None:
     # -- the turn prompt carries the budget header and the held line
     led = MilestoneLedger([{"identity": "mine_log", "event": "mine_block",
                             "objects": ["log"], "max_reward_times": 1}], task_name="t")
-    ag = WorldModelAgent(workspace=root / "sy", task_text="t", ledger=led, step_cap=50, max_steps=6000)
+    ag = WorldModelAgent(workspace=root / "sy", task_text="t", ledger=led,
+                         induction_every=0, step_cap=50, max_steps=6000)
     ag.step = 5200
     p = ag._turn_prompt(i)
     check("prompt: budget header", "Step 5200/6000 -- 800 steps remain" in p,
@@ -1929,7 +2208,8 @@ def test_systemics(root: Path) -> None:
     # pickaxe, silently) and must be caught by the one-tick recheck.
     led_d = MilestoneLedger([{"identity": "mine_log", "event": "mine_block",
                               "objects": ["log"], "max_reward_times": 1}], task_name="t")
-    agd = WorldModelAgent(workspace=root / "drop", task_text="t", ledger=led_d, step_cap=400)
+    agd = WorldModelAgent(workspace=root / "drop", task_text="t", ledger=led_d,
+                          induction_every=0, step_cap=400)
     i_open = fake_info(inventory={"stone_pickaxe": 1})
     i_open["isGuiOpen"] = True
     agd.observe(i_open, 1)
@@ -1951,7 +2231,8 @@ def test_systemics(root: Path) -> None:
     # -- a raw attack-hold is refunded when the stat stream reports a break
     led2 = MilestoneLedger([{"identity": "mine_log", "event": "mine_block",
                              "objects": ["log"], "max_reward_times": 1}], task_name="t")
-    ag2 = WorldModelAgent(workspace=root / "sy2", task_text="t", ledger=led2, step_cap=400)
+    ag2 = WorldModelAgent(workspace=root / "sy2", task_text="t", ledger=led2,
+                          induction_every=0, step_cap=400)
     ag2.queue.extend([(act(attack=1), 3)] * 60)
     ag2.queue.append((act(forward=1), 4))
     a = ag2.next_action(fake_info())
@@ -2078,6 +2359,36 @@ def test_systemics(root: Path) -> None:
     while ticks < 30 and ag._aimtree_tick(at2, act) is not None:
         ticks += 1
     check("tree: miss-stops fast", ticks == 5, str(ticks))
+
+    # -- the strategy-knowledge gate: advice out, constants and mechanics stay
+    import os as _os
+    from mcu_worldmodel import prompts as _pr
+    _prev = _os.environ.get("MCU_WM_STRATEGY")
+    try:
+        _os.environ["MCU_WM_STRATEGY"] = "0"
+        p_off = _pr.act_prompt(task_text="t", progress_block="pb", graph_summary="",
+                               plan_summary="", discipline_summary="",
+                               entry_cap=20, step_cap=400)
+        check("ablation: strategy stripped",
+              "Plan your stone trip" not in p_off and "VERTICAL shaft" not in p_off
+              and "Bank the endgame" not in p_off, "")
+        check("ablation: constants kept",
+              "mine_cobblestone" in p_off and "Tools wear out" in p_off
+              and "Smelting" in p_off, "")
+        check("ablation: progress_line neutral",
+              "bank whichever" not in led.progress_line(), led.progress_line())
+        _os.environ["MCU_WM_STRATEGY"] = "1"
+        p_on = _pr.act_prompt(task_text="t", progress_block="pb", graph_summary="",
+                              plan_summary="", discipline_summary="",
+                              entry_cap=20, step_cap=400)
+        check("ablation: default ships strategy",
+              "Plan your stone trip" in p_on and "opens under your feet" in p_on
+              and "bank whichever" in led.progress_line(), "")
+    finally:
+        if _prev is None:
+            _os.environ.pop("MCU_WM_STRATEGY", None)
+        else:
+            _os.environ["MCU_WM_STRATEGY"] = _prev
 
     # -- short bursts (strip_mine shape) are NOT cut
     ag2.queue.extend([(act(attack=1), 9)] * 6)
@@ -2290,7 +2601,7 @@ def test_entities(root: Path) -> None:
 
     def drive(tag, plan, world, steps=600):
         ag = WorldModelAgent(workspace=root / f"ent_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"),
+                             ledger=MilestoneLedger(cfg, "t"), induction_every=0,
                              step_cap=400)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": plan}, "message": "[PLAN]\nentity"},
@@ -2389,7 +2700,8 @@ def test_harness_guards(root: Path) -> None:
 
     def mk(tag: str) -> WorldModelAgent:
         ag = WorldModelAgent(workspace=root / f"gd_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                             ledger=MilestoneLedger(cfg, "t"),
+                             induction_every=0, step_cap=400)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "-"}
         ] * 6)
@@ -2533,23 +2845,75 @@ def test_harness_guards(root: Path) -> None:
 
 
 def test_escalation(root: Path) -> None:
-    """The stall counter every arm's turn header carries."""
-    print("\n[escalation] stall header")
+    """G1/G2/G3: failure streaks, stall visibility, staleness, crisis induction."""
+    print("\n[escalation] failure streaks, stall header, staleness, crisis induction")
+    from mcu_worldmodel import prompts
     from mcu_worldmodel.agent import WorldModelAgent
+    from mcu_worldmodel.hypotheses import HypothesisGraph
 
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "esc", task_text="t",
-                         ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                         ledger=MilestoneLedger(cfg, "t"),
+                         induction_every=600, step_cap=400)
     ag.codex = FakeCodex(ag.memory.root, [
         {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "-"}
     ] * 4)
     ag.start(fake_info())
+
+    # -- G2a: the shared header names the stall counter, in both memory modes
     ag._stall_turns = 7
-    p = ag._turn_prompt(fake_info())
+    p_wm = ag._turn_prompt(fake_info())
     check("header carries the stall counter",
           "Act turns since anything verifiably changed (milestone or inventory): 7."
-          in p, p.splitlines()[1])
+          in p_wm, p_wm.splitlines()[1])
+    ag.structured = False
+    check("...identically in the logbook arm",
+          "Act turns since anything verifiably changed" in ag._turn_prompt(fake_info()))
+    ag.structured = True
+
+    # -- G1: two guard-stops become a notice; a mechanism hypothesis absorbs it
+    ag._note_failure("dig_down")
+    ag._note_failure("dig_down")
+    n = ag._notices()
+    check("streak of 2 renders a notice", "`dig_down` has been guard-stopped 2 times"
+          in n, n)
+    check("...flagging the missing mechanism hypothesis",
+          "no mechanism hypothesis mentions it" in n, n)
+    ag.graph.add_or_update(id="mech_dig", statement="dig ticks break nothing on gravel",
+                           confidence=0.4, status="active", kind="mechanism", step=5)
+    n = ag._notices()
+    check("a mechanism hypothesis absorbs the flag",
+          "no mechanism hypothesis mentions it" not in n, n)
+
+    # -- G1: verified progress clears the streaks (the act turn's marker moved)
+    ag._cur_inv = {"spruce_log": 2}
+    ag.next_action(fake_info())
+    check("progress clears the streaks", not ag._proc_fails, str(ag._proc_fails))
+
+    # -- G2b: stale active nodes say how stale they are
+    g = HypothesisGraph()
+    g.add_or_update(id="goal_x", statement="s", confidence=0.8, status="active",
+                    kind="goal", step=100)
+    view = g.to_prompt_summary(12, None, now_step=5000)
+    check("stale node dated", "updated 4900 steps ago" in view, view)
+    check("fresh node undated",
+          "updated" not in g.to_prompt_summary(12, None, now_step=250))
+
+    # -- G3: the stall trigger remembers why it fired and picks the focused prompt
+    ag._stall_turns, ag._last_induction = 12, ag.step - 250
+    check("stall trigger fires", ag._due_for_induction() is True)
+    check("...and is remembered as a stall", ag._induction_stalled is True)
+    ag._stall_turns, ag._last_induction = 0, ag.step - 601
+    check("periodic trigger fires", ag._due_for_induction() is True)
+    check("...and is not a stall", ag._induction_stalled is False)
+    sp = prompts.induction_stall_prompt(
+        task_text="t", progress_block="p", per_doc_chars=2000,
+        stall_turns=13, failure_lines="- `dig_down`: 3 consecutive guard-stops")
+    check("stall prompt is the diagnosis prompt",
+          "called EARLY" in sp and "not a housekeeping turn" in sp
+          and "Re-price" in sp)
+    check("stall prompt carries the streaks", "3 consecutive guard-stops" in sp)
 
 
 def test_seed_memory(root: Path) -> None:
@@ -2591,6 +2955,12 @@ def test_seed_memory(root: Path) -> None:
     check("seed: existing files win over the seed",
           (dest / "world_model" / "terrain.md").read_text() == "newer truth"
           and "world_model" not in copied2, f"copied2={copied2}")
+    # the memory module seeds around the inherited docs instead of overwriting
+    from mcu_worldmodel.memory import MultimodalMemory
+    mem = MultimodalMemory(dest, structured=True)
+    mem.seed_world_model("task text")
+    check("seed: seed_world_model keeps the inherited doc",
+          (dest / "world_model" / "terrain.md").read_text() == "newer truth", "")
 
 
 
@@ -2641,10 +3011,15 @@ def test_governor(root: Path) -> None:
     check("governor: tenure expires a stale ban",
           g4.check("look_at", cell, 141) is not None
           and g4.check("look_at", cell, 140 + 1501) is None, "")
+    line = g.summary(step=300, y=64.0, budget=12000)
+    check("governor: ledger line carries counts, y and budget",
+          "changed nothing" in line and "y=64" in line and "of 12000" in line, line)
+
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "gov", task_text="t",
-                         ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                         ledger=MilestoneLedger(cfg, "t"),
+                         induction_every=0, step_cap=400)
     ag.codex = FakeCodex(ag.memory.root, [
         {"actions": {"actions": [{"procedure": "look_abs",
                                   "args": {"pitch": 30, "ticks": 8}}]},
@@ -2681,6 +3056,8 @@ def test_governor(root: Path) -> None:
           and "REFUSED this whole plan" in log_g, str(ag.cursor_stats))
     check("governor wired: a mixed plan runs intact, banned preamble included",
           gov["attacks"] > 0, str(gov))
+    check("governor wired: ledger line reaches the notices",
+          "changed nothing" in ag._notices(), ag._notices())
 
 
 def test_playbook(root: Path) -> None:
@@ -2740,6 +3117,8 @@ def test_playbook(root: Path) -> None:
     r1 = pc.run("p1")
     check("playbook: replay turn is served free",
           r1["ok"] and "look_abs" in r1["actions_json"] and real.calls == 0, str(r1))
+    check("playbook: outputs are empty during replay",
+          pc.read_outputs() == {"hypotheses_ops": None, "claim": None, "errors": []}, "")
     pc.run("p2")
     pc.run("p3")
     r3 = pc.run("p4")
@@ -2820,7 +3199,7 @@ def test_inventory_encoding() -> None:
 
 def test_lava_guard(root: Path) -> None:
     """Lava in the lower view while moving below y 40 drops the plan, saves a _lava
-    frame, writes the note; a torch flame or a table
+    frame, writes the note and (structured) a hazard node; a torch flame or a table
     top does not read as lava; standing still, the surface and the rate limit are
     all quiet."""
     print("\n[lava-guard] colour band, motion gate, y gate, rate limit, hazard node")
@@ -2846,8 +3225,8 @@ def test_lava_guard(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_iron_ore", "objects": ["iron_ore"],
             "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "lava", task_text="iron",
-                            ledger=MilestoneLedger(cfg, "t"),
-                            step_cap=50, memory_mode="mfm", scan_frames=True)
+                            ledger=MilestoneLedger(cfg, "t"), induction_every=100000,
+                            step_cap=50)
     agent.codex = FakeCodex(agent.memory.root, [
         {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5}]},
          "message": "[PLAN]\nwalk"} for _ in range(6)])
@@ -2869,7 +3248,7 @@ def test_lava_guard(root: Path) -> None:
     check("lava: moving toward it drops the plan, saves the frame, notes it",
           not agent.queue and agent.cursor_stats.get("lava_flagged") == 1
           and "LAVA AHEAD" in notes and "_lava.png" in notes
-          and any((agent.memory.root / "scans").rglob("*_lava.png")),
+          and any((agent.memory.root / "episodes").rglob("*_lava.png")),
           f"queue={len(agent.queue)} flagged={agent.cursor_stats.get('lava_flagged')}")
     check("lava: a running flee is cancelled with its own note",
           agent._reflex is None and "but lava ahead" in notes, notes[-300:])
@@ -2881,6 +3260,9 @@ def test_lava_guard(root: Path) -> None:
     late = " | ".join(agent.memory._pending_notes[n0:])
     check("lava: a flee cancelled after 8 blocks gets the find-another-way note",
           "but lava ahead after 8 blocks" in late and "sprint on" not in late, late)
+    check("lava: hazard node in the graph",
+          any(n.id.startswith("hazard_lava_") and "LAVA in view" in n.statement
+              for n in agent.graph.nodes.values()))
     agent.queue.extend([(act(forward=1), 6)] * 10)
     agent.observe(obs(1.0, 12, 0.0, "lava"), 12)
     check("lava: rate-limited right after a flag", len(agent.queue) == 10)
@@ -2888,7 +3270,7 @@ def test_lava_guard(root: Path) -> None:
     agent.observe(obs(2.0, 12, 0.0, "torch"), 204)
     check("lava: a torch while moving is not an alarm", len(agent.queue) == 10)
     agent_s = WorldModelAgent(workspace=root / "lava_s", task_text="iron",
-                              ledger=MilestoneLedger(cfg, "t"),
+                              ledger=MilestoneLedger(cfg, "t"), induction_every=100000,
                               step_cap=50)
     agent_s.codex = FakeCodex(agent_s.memory.root, [])
     agent_s.start(obs(5.0, 70, 0.0, "stone"))
@@ -2906,7 +3288,7 @@ def test_lava_guard(root: Path) -> None:
 
     def lava_agent(tag, inv):
         ag = WorldModelAgent(workspace=root / tag, task_text="dragon",
-                             ledger=MilestoneLedger(ocfg, "t"),
+                             ledger=MilestoneLedger(ocfg, "t"), induction_every=100000,
                              step_cap=50)
         ag.codex = FakeCodex(ag.memory.root, [])
         seen: list[str] = []
@@ -3128,8 +3510,8 @@ def test_find_lava(root: Path) -> None:
 
     def drive(tag, args, world, steps=900, prefix=None):
         ag = WorldModelAgent(workspace=root / f"findlava_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"),
-                             step_cap=1600, memory_mode="mfm", scan_frames=True)
+                             ledger=MilestoneLedger(cfg, "t"), induction_every=0,
+                             step_cap=1600)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": list(prefix or []) + [{"procedure": "find_lava", "args": args}]},
              "message": "[PLAN]\nsearch"},
@@ -3492,7 +3874,7 @@ def test_harvest(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "hv", task_text="wood",
-                         ledger=MilestoneLedger(cfg, "t"),
+                         ledger=MilestoneLedger(cfg, "t"), induction_every=100000,
                          step_cap=50)
     marker = harvest_tree(1, 120)[0]
     json.dumps(marker)                                   # the queue must stay serialisable
@@ -3540,11 +3922,9 @@ def test_hit_reflex(root: Path) -> None:
 
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
-    # The hit frame is kept only where the arm keeps a visual history: mfm with
-    # --scan-frames (the removed structured arm archived every event frame).
     agent = WorldModelAgent(workspace=root / "hit", task_text="survive",
-                            ledger=MilestoneLedger(cfg, "t"),
-                            step_cap=50, memory_mode="mfm", scan_frames=True)
+                            ledger=MilestoneLedger(cfg, "t"), induction_every=100000,
+                            step_cap=50)
     script = [{"actions": {"actions": [{"action": {"forward": 1}, "repeat": 40}]},
                "message": "[PLAN]\nwalk"} for _ in range(8)]
     agent.codex = FakeCodex(agent.memory.root, script)
@@ -4241,7 +4621,8 @@ def test_dark_tunnel(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_iron_ore", "objects": ["iron_ore"],
             "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "dark", task_text="iron",
-                            ledger=MilestoneLedger(cfg, "iron"), step_cap=400)
+                            ledger=MilestoneLedger(cfg, "iron"),
+                            induction_every=0, step_cap=400)
     agent.codex = FakeCodex(agent.memory.root, [])
     dark = np.full((360, 640, 3), 14, dtype=np.uint8)
     lit = np.full((360, 640, 3), 70, dtype=np.uint8)
@@ -4318,11 +4699,190 @@ def test_dark_tunnel(root: Path) -> None:
     j2 = fake_info(inventory={"stone_sword": 1}, craft_item={"stone_pickaxe": 1})
     j2["pov"] = lit
     agent2 = WorldModelAgent(workspace=root / "dark2", task_text="iron",
-                             ledger=MilestoneLedger(cfg, "iron"), step_cap=400)
+                             ledger=MilestoneLedger(cfg, "iron"),
+                             induction_every=0, step_cap=400)
     agent2.codex = FakeCodex(agent2.memory.root, [])
     agent2.start(fake_info())
     agent2.observe(j2, 5)
     check("with a sword carried there is no nudge", not agent2.cursor_stats.get("sword_nudges"))
+
+
+def test_harness_nodes(root: Path) -> None:
+    """Harness-generated beliefs: placed sites (merged when re-placed, retired when
+    picked up), hazards (hits merged by place and time, deaths), coverage since the
+    last ore, location verification by standing there, and the approach verdict pin."""
+    print("\n[harness-nodes] sites, hazards, coverage, visits, approach verdict")
+    from mcu_worldmodel import prompts, sites
+    from mcu_worldmodel.agent import WorldModelAgent
+
+    cfg = [{"event": "mine_block", "identity": "mine_iron_ore", "objects": ["iron_ore"],
+            "reward": 1.0, "max_reward_times": 1}]
+    agent = WorldModelAgent(workspace=root / "hn", task_text="iron",
+                            ledger=MilestoneLedger(cfg, "t"), induction_every=100000,
+                            step_cap=50)
+    agent.codex = FakeCodex(agent.memory.root, [
+        {"actions": {"actions": [{"action": {"forward": 1}, "repeat": 5}]},
+         "message": "[PLAN]\nwalk"} for _ in range(6)])
+    pov = np.zeros((360, 640, 3), dtype=np.uint8)
+
+    def obs(x, y, z, hp=20.0, **stats):
+        i = fake_info(**stats)
+        i["location_stats"].update({"xpos": np.array(float(x)), "ypos": np.array(float(y)),
+                                    "zpos": np.array(float(z)), "yaw": np.array(90.0)})
+        i["health"] = np.array(float(hp))
+        i["pov"] = pov
+        return i
+
+    agent.start(obs(0, 64, 0))
+    agent.observe(obs(0, 64, 0, use_item={"furnace": 1}), 10)
+    n = agent.graph.nodes.get("site_furnace_10")
+    check("a placed furnace becomes a location node with its coordinates",
+          n is not None and n.kind == "location" and "(0, 64, 0)" in n.statement
+          and n.confidence == 0.9, str(n))
+    agent.observe(obs(1, 64, 1, use_item={"furnace": 2}), 20)
+    check("re-placing within 4 blocks merges into the same site",
+          "site_furnace_20" not in agent.graph.nodes
+          and "placed 2 times" in agent.graph.nodes["site_furnace_10"].statement)
+    agent.observe(obs(30, 64, 0, use_item={"furnace": 3}), 30)
+    check("a placement 30 blocks away is a new site", "site_furnace_30" in agent.graph.nodes)
+    agent.observe(obs(30, 64, 0, use_item={"furnace": 3}, mine_block={"furnace": 1}), 40)
+    n2 = agent.graph.nodes["site_furnace_30"]
+    check("mining the furnace retires the nearest site", n2.status == "stale"
+          and "PICKED UP" in n2.statement, str(n2))
+    # Coverage: two strips at y12, then an iron ore resets it.
+    agent.observe(obs(30, 12, 0, use_item={"furnace": 3}, mine_block={"furnace": 1}), 50)
+    agent._record_coverage("strip_mine", (30.0, 12.0, 0.0), 40, 14.0, 250)
+    agent._record_coverage("strip_mine", (44.0, 12.0, 0.0), 35, 12.0, 250)
+    cov = agent.graph.nodes["coverage_since_ore"]
+    check("coverage node sums the finished macros",
+          "2 mining macro(s), 75 blocks broken, 26 blocks advanced" in cov.statement
+          and "y12 x2" in cov.statement and "no iron ore mined yet" in cov.statement,
+          cov.statement)
+    agent.observe(obs(56, 12, 0, use_item={"furnace": 3}, mine_block={"furnace": 1,
+                                                                    "iron_ore": 1}), 60)
+    cov = agent.graph.nodes["coverage_since_ore"]
+    check("an iron ore mined resets coverage", "since the last iron ore (step 60)"
+          in cov.statement and "no mining macro" in cov.statement, cov.statement)
+    vein = agent.graph.nodes.get("vein_iron_ore_60")
+    check("an ore block mined is a confirmed vein node at the position",
+          vein is not None and vein.kind == "location" and vein.status == "confirmed"
+          and "(56, 12, 0)" in vein.statement, str(vein))
+    agent.observe(obs(58, 12, 1, use_item={"furnace": 3},
+                      mine_block={"furnace": 1, "iron_ore": 2}), 65)
+    check("a second ore block within 4 blocks merges into the vein (2 blocks here)",
+          "vein_iron_ore_65" not in agent.graph.nodes
+          and "2 blocks here so far" in agent.graph.nodes["vein_iron_ore_60"].statement)
+    # Hazards: two hits at one spot merge; a death is its own confirmed node.
+    hp = 20.0
+    agent.observe(obs(56, 12, 0, hp=16.0, use_item={"furnace": 3},
+                      mine_block={"furnace": 1, "iron_ore": 1}), 70)
+    agent._reflex = None
+    agent.observe(obs(57, 12, 0, hp=12.0, use_item={"furnace": 3},
+                      mine_block={"furnace": 1, "iron_ore": 1}), 200)
+    hits = [n for n in agent.graph.nodes.values() if n.id.startswith("hazard_hit_")]
+    check("two hits near one spot within 400 steps are one hazard",
+          len(hits) == 1 and "2 times" in hits[0].statement and "8 hp" in hits[0].statement,
+          [h.statement for h in hits])
+    agent.observe(obs(-3009.5, 71, -5572.5, hp=20.0, use_item={"furnace": 3},
+                      mine_block={"furnace": 1, "iron_ore": 1}), 210)
+    check("a death is a confirmed hazard node at the death point",
+          "hazard_death_210" in agent.graph.nodes
+          and "(57, 12, 0)" in agent.graph.nodes["hazard_death_210"].statement
+          and agent.graph.nodes["hazard_death_210"].status == "confirmed")
+    # Visits: a model-written place is marked when the player stands there.
+    agent.graph.add_or_update(id="vein_east", kind="location", confidence=0.6,
+                              statement="an iron vein at (100, 12, 200)", step=210)
+    agent.observe(obs(101, 12, 201, hp=20.0, use_item={"furnace": 3},
+                      mine_block={"furnace": 1, "iron_ore": 1}), 220)
+    flags = agent.discipline.flags(220)
+    check("standing at the coordinates marks the node visited",
+          flags.get("vein_east") == "visited at step 220", str(flags))
+    view = agent.graph.to_prompt_summary(12, flags, now_step=220)
+    check("the view renders the visit", "visited at step 220" in view)
+    block = sites.render_block(agent.graph, {"x": 101.0, "y": 12.0, "z": 201.0}, 220,
+                               agent.discipline.visits)
+    check("the harness block lists the live site, hazards and coverage",
+          "a furnace was placed" in block and "DIED" in block
+          and "Harness coverage" in block and "PICKED UP" not in block
+          and "52 above you" in block, block)
+    check("site and hit nodes carry frame pointers the block renders",
+          any(e.startswith("frame: ") and e.endswith("_site.png")
+              for e in agent.graph.nodes["site_furnace_10"].evidence)
+          and any(e.startswith("frame: ") and e.endswith("_hit.png")
+                  for e in hits[0].evidence)
+          and "frame: episodes/" in block, block)
+    check("the frame index tool is installed in the worldmodel workspace",
+          (agent.memory.root / "tools" / "frames.py").exists())
+    import subprocess
+    # visited.csv has the observed positions; the tool joins them to the frames.
+    res = subprocess.run([sys.executable, "tools/frames.py", "--near", "0", "0",
+                          "--radius", "3", "--sheet", "sheet.png"],
+                         cwd=agent.memory.root, capture_output=True, text=True)
+    check("frames.py lists the frames saved at a place and tiles them",
+          res.returncode == 0 and "step_0010_site.png" in res.stdout
+          and (agent.memory.root / "sheet.png").exists(),
+          res.stdout[-300:] + res.stderr[-300:])
+    # Approach verdict pinned from rules.md.
+    (agent.memory.root / "world_model" / "rules.md").write_text(
+        "APPROACH: KEEP strip-mining y12 heading 90; switch if no sighting by step 900.\n"
+        "- never dig straight down [x2]\n", encoding="utf-8")
+    prompt = agent._turn_prompt(obs(101, 12, 201))
+    check("the act prompt pins the approach verdict and the harness facts",
+          "Approach verdict from your last induction: APPROACH: KEEP" in prompt
+          and "Harness facts in your graph" in prompt, prompt[-1500:])
+    ind = prompts.induction_prompt(task_text="t", progress_block="", per_doc_chars=2000)
+    check("the induction pass is asked for approach, sunk cost, alternatives, verdict",
+          "SUNK COST" in ind and "Alternatives:" in ind and "`APPROACH:`" in ind)
+
+
+def test_relay_semantics(root: Path) -> None:
+    """An inherited graph is repriced by node type at episode start: built sites go
+    stale, veins stay confirmed and say the ore is back, hits go stale, deaths keep the
+    terrain, coverage is dropped."""
+    print("\n[relay] inherited harness nodes are repriced by type")
+    from mcu_worldmodel.agent import WorldModelAgent
+
+    cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
+            "reward": 1.0, "max_reward_times": 1}]
+    ws = root / "relay"
+    parent = WorldModelAgent(workspace=ws, task_text="t", ledger=MilestoneLedger(cfg, "t"),
+                             induction_every=0)
+    g = parent.graph
+    g.add_or_update(id="site_furnace_10", kind="location", confidence=0.9,
+                    statement="Harness: a furnace was placed at step 10 within ~2 blocks of (0, 64, 0).",
+                    step=10)
+    g.add_or_update(id="vein_iron_ore_20", kind="location", confidence=0.95,
+                    status="confirmed",
+                    statement="Harness: iron ore mined at step 20 within ~3 blocks of (5, 12, 5) (3 blocks here so far).",
+                    step=20)
+    g.add_or_update(id="hazard_hit_30", kind="location", confidence=0.8,
+                    statement="Harness: took 4 damage at (6, 12, 5) at step 30.", step=30)
+    g.add_or_update(id="hazard_death_40", kind="location", confidence=1.0, status="confirmed",
+                    statement="Harness: you DIED at (7, 12, 5) at step 40.", step=40)
+    g.add_or_update(id="coverage_since_ore", kind="state", confidence=1.0,
+                    statement="Harness coverage ...", step=40)
+    g.add_or_update(id="my_belief", kind="location", confidence=0.6,
+                    statement="trees at (50, 64, 50)", step=40)
+    parent._persist()
+
+    child = WorldModelAgent(workspace=ws, task_text="t", ledger=MilestoneLedger(cfg, "t"),
+                            induction_every=0)
+    child.codex = FakeCodex(child.memory.root, [])
+    check("the child loads the inherited graph", child._inherited_graph
+          and len(child.graph.nodes) == 6)
+    child.start(fake_info())
+    n = child.graph.nodes
+    check("built site goes stale and says so",
+          n["site_furnace_10"].status == "stale" and "NOT there now" in n["site_furnace_10"].statement)
+    check("vein stays confirmed and says the ore is back",
+          n["vein_iron_ore_20"].status == "confirmed" and "BACK in place" in n["vein_iron_ore_20"].statement)
+    check("hit goes stale, death keeps the terrain",
+          n["hazard_hit_30"].status == "stale" and n["hazard_death_40"].status == "confirmed"
+          and "terrain" in n["hazard_death_40"].statement)
+    check("coverage is dropped, the model's own node untouched",
+          "coverage_since_ore" not in n and n["my_belief"].statement == "trees at (50, 64, 50)")
+    check("repricing happens once", child._inherited_graph is False
+          and n["vein_iron_ore_20"].statement.count("PREVIOUS run") == 1)
 
 
 def test_world(root: Path) -> None:
@@ -4454,8 +5014,8 @@ def test_world(root: Path) -> None:
 
     def drive(tag, plan, world, steps=260):
         ag = WorldModelAgent(workspace=root / f"world_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"),
-                             step_cap=400, memory_mode="mfm", scan_frames=True)
+                             ledger=MilestoneLedger(cfg, "t"), induction_every=0,
+                             step_cap=400)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": plan}, "message": "[PLAN]\nworld"},
             {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "[PLAN]\n-"}])
@@ -4472,15 +5032,6 @@ def test_world(root: Path) -> None:
             return _run(prompt, imgs, **kw)
         ag.memory.add_note = _cap
         ag.codex.run = _runcap
-        # scans/ lives for one model turn (the end-of-turn sweep removes it, see
-        # sweep_foreign): record what it held before each sweep.
-        ag._scans_seen = set()
-        _sweep = ag.memory.sweep_foreign
-
-        def _sweepcap():
-            ag._scans_seen |= set((ag.memory.root / "scans").rglob("*.png"))
-            return _sweep()
-        ag.memory.sweep_foreign = _sweepcap
         ag.start(world.info())
         for step in range(1, steps):
             a = ag.next_action(world.info())
@@ -4720,7 +5271,7 @@ def test_world(root: Path) -> None:
           "carry no empty bucket" in notes, notes[-200:])
     w = World([], {"cobblestone": 4})
     ag, notes = drive("scan", [{"procedure": "scan_around", "args": {"steps": 4}}], w)
-    frames = sorted(f for f in ag._scans_seen if "_scan" in f.name)
+    frames = sorted((ag.memory.root / "episodes").rglob("*_scan*.png"))
     check("scan_around saves a frame per heading plus a contact sheet it names, attaching nothing",
           len([f for f in frames if "scansheet" not in f.name]) == 4
           and any("scansheet" in f.name for f in frames) and "4 views" in notes
@@ -4805,7 +5356,7 @@ def test_nether(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "nether", task_text="t",
-                         ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                         ledger=MilestoneLedger(cfg, "t"), induction_every=0, step_cap=400)
     ag.codex = FakeCodex(ag.memory.root, [
         {"actions": {"actions": [{"procedure": "enter_portal", "args": {"x": 1.5, "z": 4.5}}]},
          "message": "[PLAN]\nin"},
@@ -4950,7 +5501,7 @@ def test_nether2(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "nether2", task_text="t",
-                         ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                         ledger=MilestoneLedger(cfg, "t"), induction_every=0, step_cap=400)
     ag.codex = FakeCodex(ag.memory.root, [
         {"actions": {"actions": [
             {"procedure": "explore_nether", "args": {"axis": "z", "sign": 1, "length": 24}},
@@ -5095,7 +5646,7 @@ def test_end(root: Path) -> None:
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1}]
     ag = WorldModelAgent(workspace=root / "end", task_text="t",
-                         ledger=MilestoneLedger(cfg, "t"), step_cap=400)
+                         ledger=MilestoneLedger(cfg, "t"), induction_every=0, step_cap=400)
     ag.codex = FakeCodex(ag.memory.root, [
         {"actions": {"actions": [{"procedure": "enter_end", "args": {"x": 1, "y": 63, "z": 6}}]},
          "message": "[PLAN]\nin"},
@@ -5321,7 +5872,7 @@ def test_containers(root: Path) -> None:
 
     def mk(tag):
         ag = WorldModelAgent(workspace=root / f"ct_{tag}", task_text="t",
-                             ledger=MilestoneLedger(cfg, "t"),
+                             ledger=MilestoneLedger(cfg, "t"), induction_every=0,
                              step_cap=400)
         ag.codex = FakeCodex(ag.memory.root, [
             {"actions": {"actions": [{"action": {}, "repeat": 1}]}, "message": "-"}] * 8)
@@ -5453,6 +6004,8 @@ def main() -> int:
         root = Path(tmp)
         test_memory(root)
         test_milestones()
+        test_graph()
+        test_discipline(root)
         test_gui()
         test_actions()
         test_cursor()
@@ -5463,6 +6016,7 @@ def main() -> int:
         test_harness_guards(root)
         test_escalation(root)
         test_stow_and_sweep(root)
+        test_wmlite(root)
         test_direct(root)
         test_task_knowledge()
         test_systemics(root)
@@ -5472,6 +6026,8 @@ def main() -> int:
         test_inventory_encoding()
         test_hit_reflex(root)
         test_dark_tunnel(root)
+        test_harness_nodes(root)
+        test_relay_semantics(root)
         test_harvest(root)
         test_lava_guard(root)
         test_find_lava(root)

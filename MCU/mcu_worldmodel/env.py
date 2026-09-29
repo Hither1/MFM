@@ -14,7 +14,6 @@ runs -- so the variable is set here, at import, rather than left to the launcher
 """
 from __future__ import annotations
 
-import getpass
 import os
 from pathlib import Path
 from typing import Any
@@ -22,7 +21,7 @@ from typing import Any
 import yaml
 
 # Before any minestudio import; see the module docstring.
-os.environ.setdefault("MINESTUDIO_DIR", f"/n/netscratch/sham_lab/Lab/{getpass.getuser()}/MineStudio")
+os.environ.setdefault("MINESTUDIO_DIR", "/n/netscratch/sham_lab/Lab/chloe00/MineStudio")
 
 from loguru import logger  # noqa: E402
 
@@ -36,15 +35,6 @@ TASKS = {
         "yaml": "MCU_benchmark/task_configs/longterm/kill_ender_dragon.yaml",
         "name": "kill_ender_dragon",
         "default_steps": 12000,
-    },
-    # The nether-portal case study, cut out of the dragon chain with the blocks
-    # already in hand: the one goal in that chain no text state can settle. Its
-    # geometry is scored host-side by mcu_worldmodel.portal_probe, not by the
-    # milestones.
-    "portal": {
-        "yaml": "MCU_benchmark/task_configs/tasks/nether_portal/nether_portal.yaml",
-        "name": "nether_portal",
-        "default_steps": 6000,
     },
 }
 
@@ -106,13 +96,6 @@ def make_sim(task_yaml: str | Path, output_dir: str | Path, *, fps: int = 20,
     if commands:
         callbacks.insert(0, CommandsCallback(commands))
         logger.info(f"[env] {len(commands)} init command(s)")
-    # Host-side geometry ground truth, only for a task config that asks for it (the
-    # nether-portal case study). Every other task's callback list is unchanged.
-    probe = yaml.safe_load(Path(task_yaml).read_text(encoding="utf-8")).get("portal_probe")
-    if probe:
-        from mcu_worldmodel.portal_probe import PortalProbeCallback
-        callbacks.append(PortalProbeCallback(output_dir=output_dir, **dict(probe)))
-        logger.info(f"[env] portal probe {dict(probe)}")
 
     logger.info(f"[env] task={task['name']} milestones={len(milestone_cfg)}")
     sim = MinecraftSim(

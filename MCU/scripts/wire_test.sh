@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Does the agent's node reach the server, and does codex get a usable answer from it?
 set -uo pipefail
-ROOT=/n/holylfs06/LABS/sham_lab/Users/$USER/MCU
+ROOT=/n/holylfs06/LABS/sham_lab/Users/chloe00/MCU
 cd "$ROOT"
 DISC=artifacts/servers/qwen38-27b.json
 URL=$(python3 -c "import json;print(json.load(open('$DISC'))['url'])")

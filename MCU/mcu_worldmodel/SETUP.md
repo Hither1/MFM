@@ -63,7 +63,7 @@ persists across nodes:
 
 ```bash
 unset HF_HUB_OFFLINE          # set in this account's profile; the download fails silently-ish without this
-export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/$USER/MineStudio
+export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/chloe00/MineStudio
 python -c "
 import os, zipfile, huggingface_hub
 d = os.environ['MINESTUDIO_DIR']
@@ -80,7 +80,7 @@ Java 8 (`/usr/bin/java`, 1.8.0_504) and `xvfb-run` are already on the nodes. No 
 needed — this agent is API-driven, not a neural policy — so a CPU partition is fine:
 
 ```bash
-export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/$USER/MineStudio
+export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/chloe00/MineStudio
 xvfb-run -a -s "-screen 0 1024x768x24" python -m mcu_worldmodel.run --task diamond
 ```
 

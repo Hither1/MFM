@@ -216,6 +216,7 @@ def _cscreen_tick(agent, sn: dict[str, Any], mk_act):
     kinds = tuple(sn.get("kinds") or ())
     what = sn.get("what", "block")
     if not agent._gui_open:
+        agent._note_failure(family)
         agent._flush_tail(
             f"{label}: no screen is open. Stand within ~4 blocks of the {what}, "
             f"look_at its exact coordinates, then use_until_gui -- and hold a "
@@ -225,6 +226,7 @@ def _cscreen_tick(agent, sn: dict[str, Any], mk_act):
         return None
     have = agent._screen
     if kinds and have is not None and have not in kinds:
+        agent._note_failure(family)
         agent._flush_tail(
             f"{label} needs the {' or the '.join(kinds)} screen, but the open screen is "
             f"the {have}. close_inventory, then look_at the {what} and use_until_gui.",
@@ -270,6 +272,7 @@ def _ccheck_tick(agent, ck: dict[str, Any], mk_act):
             note += " " + ck["tail"]
         agent.memory.add_note(note)
         return None
+    agent._note_failure(label.split("(")[0])
     agent.memory.add_note(
         f"{label}: NOTHING arrived in the inventory. Read [GRID] for what the cells hold "
         f"and [CURSOR] for a stack riding the pointer (gui_click on an empty inventory "
@@ -323,6 +326,7 @@ def _ctake_tick(agent, ct: dict[str, Any], mk_act):
         return None
     room = _free_slots(agent)
     if room <= 0:
+        agent._note_failure("container_take")
         agent._flush_tail(
             f"{ct['label']}: your inventory is FULL and the chest still holds "
             f"{len(full)} stacks. discard_stack or container_put something first, then "
@@ -400,6 +404,7 @@ def _cput_tick(agent, cp: dict[str, Any], mk_act):
         full = set(_occupied(agent, cells))
         empty = next((i for i in range(len(cells)) if i not in full), None)
         if empty is None:
+            agent._note_failure("container_put")
             agent._flush_tail(
                 f"{cp['label']}: every cell of the {kind} is full, so a partial stack "
                 f"has nowhere to go. container_take something out first, or call "
@@ -442,6 +447,7 @@ def _cputcheck_tick(agent, ck: dict[str, Any], mk_act):
             f"{agent._cur_inv.get(ck['item'], 0)}). A chest keeps its contents across a "
             f"close, so close_inventory is safe.")
         return None
+    agent._note_failure("container_put")
     agent._flush_tail(
         f"{ck['label']}: no {ck['item']} left your inventory. The chest may be full "
         f"(read [GRID]: a chest holds 27 cells, a double chest 54), or the screen was "
@@ -527,6 +533,7 @@ def _brewcheck_tick(agent, bc: dict[str, Any], mk_act):
             f"one you made; the ingredient order does (water -> nether_wart = awkward, "
             f"awkward -> magma_cream = fire resistance).")
         return None
+    agent._note_failure("brew")
     agent._flush_tail(
         f"{bc['label']}: the load did not take -- {bc['ingredient']} left the inventory "
         f"{gone} times and the stand shows {n_bottles} full bottle cells. Read [GRID] "
@@ -619,6 +626,7 @@ def _enchcheck_tick(agent, ec: dict[str, Any], mk_act):
             f"observation carries no NBT, so it still reads plain `{ec['item']}`; the "
             f"lapis is the proof.")
         return None
+    agent._note_failure("enchant")
     agent._flush_tail(
         f"{ec['label']}: the option button changed NOTHING -- no lapis was spent, so the "
         f"enchantment did not apply. Almost always experience levels: option {ec['option']} "
@@ -773,6 +781,7 @@ def _finish_cut(agent, cr: dict[str, Any], tried: list[str], got: dict[str, int]
     else:
         agent.cursor_stats["stonecut_missed"] = (
             agent.cursor_stats.get("stonecut_missed", 0) + 1)
+        agent._note_failure("stonecut")
         note = (f"{cr['label']}: never produced {want or 'anything'}. Buttons tried: "
                 f"{'; '.join(tried)}. A stonecutter offers only the recipes valid for "
                 f"its input ([GRID] counts the buttons drawn); if none of them is what "

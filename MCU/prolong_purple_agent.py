@@ -55,8 +55,7 @@ from models import AckPayload, ActionPayload
 # (the same rules the scorer applies) and injects them in the wire shapes the agent's
 # log already renders -- keeping every arm's milestone knowledge identical.
 from mcu_worldmodel.milestones import MilestoneLedger
-from task_milestones import (load_milestone_cfg, load_reveal_mode,
-                             synthesize_milestone_info)
+from task_milestones import load_milestone_cfg, synthesize_milestone_info
 
 # Verbatim from MineExplorer's eval_benchmark.py. The exact wording matters:
 # `prolong_agent._verified_state` decides the header's verification bit by looking for
@@ -109,7 +108,6 @@ class ProlongExecutor(AgentExecutor):
         goal_budget_steps: int = 0,
         mfm: bool = False,
         session_max_turns: int = 1,
-        session_max_bytes: int = 0,
         codex_timeout: int = 480,
         max_steps: int = 12000,
         report_every: int = 200,
@@ -129,7 +127,6 @@ class ProlongExecutor(AgentExecutor):
         self._ledger: MilestoneLedger | None = None
         self.goal_budget_steps = goal_budget_steps
         self.session_max_turns = session_max_turns
-        self.session_max_bytes = session_max_bytes
         self.codex_timeout = codex_timeout
         # The episode's step budget and the audit cadence. There is no end-of-episode
         # message in this protocol, so the audit is written every `report_every` steps
@@ -173,8 +170,7 @@ class ProlongExecutor(AgentExecutor):
         self._done.clear()
         # Fresh per episode; armed (baselined) on the first observation. Empty cfg means
         # a task with no milestone list, which is the pre-existing no-hint protocol.
-        self._ledger = (MilestoneLedger(self.milestone_cfg, task_name=self.task,
-                                        reveal=load_reveal_mode(self.task))
+        self._ledger = (MilestoneLedger(self.milestone_cfg, task_name=self.task)
                         if self.milestone_cfg else None)
         self._ledger_armed = False
         workspace = self.workspace_root / f"episode_{self._episode:03d}"
@@ -197,7 +193,6 @@ class ProlongExecutor(AgentExecutor):
             goal_budget_steps=self.goal_budget_steps,
             episodes=self.mfm,
             session_max_turns=self.session_max_turns,
-            session_max_bytes=self.session_max_bytes,
             timeout=self.codex_timeout,
         )
         agent.load_system_prompt(task_text, platform_prompt)
@@ -283,8 +278,7 @@ class ProlongExecutor(AgentExecutor):
                 self._ledger_armed = True
             self._ledger.update(info, step_no)
             info.update(synthesize_milestone_info(self._ledger.cfg,
-                                                  self._ledger.achieved,
-                                                  self._ledger.revealed()))
+                                                  self._ledger.achieved))
         milestones = info.get("milestones") or {}
         if self._step == 0:
             # Says once per episode whether the green agent is sending the extended
@@ -388,11 +382,6 @@ class ProlongExecutor(AgentExecutor):
                             f"and audit written to {self._workspace}")
             else:
                 self._agent.write_audit(self._workspace)
-            if self._ledger is not None:
-                (self._workspace / "prolong_milestones.json").write_text(
-                    json.dumps({"steps": self._step,
-                                "milestones": self._ledger.summary()}, indent=2),
-                    encoding="utf-8")
         except Exception as exc:  # never let bookkeeping kill an episode
             logger.warning(f"[adapter] audit flush failed at step {self._step}: {exc}")
 
@@ -465,12 +454,6 @@ def main() -> None:
                         help="write prolong_vision_audit.json every N steps")
     parser.add_argument("--session-turns", type=int, default=1,
                         help="drop the codex session after this many turns (0 = never)")
-    # The persistent-session policy (run-arm.sh, 2026-09-09): --session-turns 0 with a
-    # byte budget, so one thread carries across turns and hands off to a fresh one
-    # only when the next frame would push its re-sent payload past the wall.
-    parser.add_argument("--session-bytes", type=int, default=0,
-                        help="cold-start the codex session before its attached frames "
-                             "exceed this many base64 bytes on the wire (0 = no budget)")
     parser.add_argument("--codex-timeout", type=int, default=480,
                         help="seconds one codex turn may take")
     parser.add_argument("--action-cap", type=int, default=40)
@@ -506,7 +489,6 @@ def main() -> None:
         goal_budget_steps=args.goal_budget_steps,
         mfm=args.mfm,
         session_max_turns=args.session_turns,
-        session_max_bytes=args.session_bytes,
         codex_timeout=args.codex_timeout,
         max_steps=args.max_steps,
         report_every=args.report_every,

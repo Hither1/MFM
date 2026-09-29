@@ -454,6 +454,7 @@ def _scoop_tick(agent, st: dict[str, Any], mk_act):
     point = (cx + 0.5, cy + 0.8, cz + 0.5)     # under the 0.875 surface: the ray meets it inside the cell
     pitch, yaw, dist = MW.angles_to(pos, point)
     if st["t"] > st["n"]:
+        agent._note_failure(st["label"])
         agent.memory.add_note(
             f"{st['label']}: the source was NOT scooped back ({st['presses']} press(es), "
             f"now {dist:.1f} blocks from ({cx}, {cy}, {cz})): it still flows there. Stand "
@@ -599,6 +600,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
         return None
     st["t"] += 1
     if st["t"] > st["n"]:
+        agent._note_failure(st["label"])
         agent.memory.add_note(
             f"{st['label']}: no obsidian broke at ({cx}, {cy}, {cz}) in {st['n']} ticks "
             f"({breaks - st['base_breaks']:g} other block(s) broke). Either that cell is not "
@@ -623,6 +625,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
                     f"obsidian; trying the next cell of the pour, {tuple(st['cell'])}.")
                 st["phase"] = "aim"
                 return mk_act()
+            agent._note_failure(st["label"])
             agent.memory.add_note(
                 f"{st['label']}: {foreign:g} blocks broke under the crosshair in {st['t']} "
                 f"ticks and none was obsidian (mine_block obsidian did not move) -- "
@@ -649,6 +652,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
         st["walk_t"] = st.get("walk_t", 0) + 1
         st["t"] -= 1                        # the walk is not mining time
         if st["walk_t"] > MINEOBS_WALK_TICKS:
+            agent._note_failure(st["label"])
             agent.memory.add_note(
                 f"{st['label']}: ({cx}, {cy}, {cz}) is {dist:.1f} blocks from your eye -- "
                 f"out of reach (max {MW.REACH}) and the walk toward it stalled. go_to "
@@ -1209,6 +1213,7 @@ def _portalcheck_tick(agent, pc: dict[str, Any], mk_act):
             f"light_portal: the portal is LIT ({100 * frac:.1f}% of the view is portal "
             f"purple). enter_portal walks in and waits for the Nether.")
     else:
+        agent._note_failure("light_portal")
         agent.memory.add_note(
             "light_portal: no portal purple in the view after the fire. Either the "
             "frame is not a closed 4x5 obsidian rectangle (check every column and the "
@@ -1304,6 +1309,7 @@ def _dimcheck_tick(agent, dc: dict[str, Any], mk_act):
     dc["t"] += 1
     if dc["t"] >= dc["n"]:
         d = math.hypot(pos["x"] - dc["x"], pos["z"] - dc["z"])
+        agent._note_failure("enter_portal")
         agent.memory.add_note(
             f"enter_portal: no dimension change after {dc['t']} ticks"
             + (f", {d:.1f} blocks from the portal cell -- walk INTO the purple (go_to it "
@@ -1715,6 +1721,7 @@ def _pitcheck_tick(agent, pc: dict[str, Any], mk_act):
             f"the rim. After the kill, pillar_up(2) and collect_drops for the pearl "
             f"(about one kill in two drops one).")
         return None
+    agent._note_failure("enderman_pit")
     agent.memory.add_note(
         f"enderman_pit: only {depth:.1f} blocks down -- the pit is not deep enough to be "
         f"safe (2 needed). The block under you may be unbreakable with this tool or the "

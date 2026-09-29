@@ -29,7 +29,7 @@ set -euo pipefail
 TASK=${1:?usage: sbatch worldmodel.sbatch <diamond|dragon> [output-dir]}
 OUT=${2:-outputs/${TASK}_$SLURM_JOB_ID}
 
-ROOT=/n/holylfs06/LABS/sham_lab/Users/$USER/MCU
+ROOT=/n/holylfs06/LABS/sham_lab/Users/chloe00/MCU
 cd "$ROOT"
 mkdir -p slurm/logs "$OUT"
 
@@ -119,5 +119,6 @@ srun xvfb-run --server-num="$DISPLAY_NUM" -s "-screen 0 1024x768x24" \
     --effort "${EFFORT:-medium}" \
     "${CHANNEL_ARGS[@]}" \
     --codex-home "$CODEX_HOME" \
+    --induction-every "${INDUCTION_EVERY:-600}" \
     --step-cap "${STEP_CAP:-400}"
 echo "finished=$(date -Is)"

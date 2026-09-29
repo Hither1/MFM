@@ -124,7 +124,7 @@ def _clean_action(raw: dict[str, Any], notes: list[str],
 #: mfm arm's refusal rules (mcu_worldmodel/episodes.py) let an entry through when it
 #: states `why` this time is different, or `leave_table` for a descent without the
 #: table. Kept on the entry so the episode's action.json records the model's reason.
-OVERRIDE_KEYS = ("why", "leave_table", "unlit", "unarmed")
+OVERRIDE_KEYS = ("why", "leave_table")
 
 
 def _overrides(entry: dict[str, Any]) -> dict[str, Any]:

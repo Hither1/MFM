@@ -1,18 +1,37 @@
-"""Multimodal Filesystem Memory for embodied agents on MCU.
+"""World Model as/from Multimodal Filesystem Memory for Embodied Agents.
 
-One chassis -- procedures, the GUI cursor, perception, the guards and the milestone
-ledger -- and one axis, the memory mode, which is the only thing an arm may change:
+The system this package implements is the union of two designs from the sibling
+MineExplorer repo, scaled onto MCU's long-horizon tasks:
 
-    logbook   PRO-LONG's protocol: an append-only logs.txt the model greps, nothing else
-    mfm       the logbook plus the episode store beside it (episodes.py) and a query tool
-    vista     VISTA's protocol: one long thread, `play`/`inspect` tools, a handoff (vista.py)
-    arc       arc-code's harness: one coding-agent session, `./act` as its actuator (arc.py)
-    direct    no memory at all: each turn is the present alone
+    mc_agent/hypothesis_agent.py   a typed DAG of beliefs about the world, plus a
+                                   *harness-enforced* discipline on that DAG (a goal
+                                   is confirmed by the environment, never by the model)
+    mc_agent/prolong_agent.py      a coding agent whose memory is a persistent
+                                   filesystem it reads programmatically, rather than a
+                                   context window it re-reads
 
-Every act turn reads the current observation and the arm's memory, and writes
-`actions.json` (or, for direct, a fenced JSON block). Ground truth comes from MineRL's
-own statistics (`mine_block`, `craft_item`, `kill_entity`, `inventory`), which MCU
-exposes: the ledger verifies milestones from them and never from a model output.
+Neither alone is the system in the figure. A belief DAG kept in the prompt must be
+re-sent every step, so it can only ever be as large as the context window allows. An
+append-only record holds everything the episode produced but has no
+structure over it beyond `grep` -- it re-derives what it believes from raw log lines on
+every turn. Putting the DAG *into* the filesystem is what makes the belief store outlive
+the context, and adding an explicit induction pass is what turns an append-only trace
+into something with entities, topology and causal structure in it.
+
+So the loop here has two kinds of turn, not one:
+
+    act turn        cheap, frequent. Read the current observation and the world model,
+                    write `actions.json`. This is PRO-LONG's turn.
+    induction turn  expensive, periodic. Read the accumulated filesystem -- frames,
+                    events, positions, the hypothesis graph -- and rewrite the five
+                    structured world-model documents. This box has no counterpart in
+                    either source agent; it is what the figure adds.
+
+Ground truth comes from MineRL's own statistics (`mine_block`, `craft_item`,
+`kill_entity`, `inventory`), which MCU exposes and MineExplorer's remote sandbox did
+not. That is what the discipline layer is re-grounded on: MCU's action space has no
+`ESC`, so the "did the model just declare victory for itself" check that ESC-gating
+performed upstream is instead performed against the statistics (see discipline.py).
 """
 
-__all__ = ["memory", "milestones", "agent", "episodes", "vista", "arc"]
+__all__ = ["memory", "hypotheses", "discipline", "milestones", "induction", "agent"]

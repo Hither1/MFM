@@ -29,8 +29,7 @@ from typing import Any
 from loguru import logger
 
 from mfm.agent.base import Observation
-from mfm.memory.retrieve import (burned_override, left_behind, notes_of, recall_block,
-                                 streak_line, streaks, uncollected)
+from mfm.memory.retrieve import left_behind, recall_block, streak_line, streaks
 from mfm.memory.store import EpisodeStore
 
 from mcu_worldmodel.actions import describe_entry
@@ -64,7 +63,8 @@ briefing with `OBSERVED vs EXPECTED: ...` -- one sentence saying whether they ma
 what differs -- before deciding anything. A plan whose expectation failed twice is not
 re-proposed with the same target."""
 
-#: `--frames`: the arm can read frames at pixel level.
+#: `--frames`: the arm can read frames at pixel level (and, with `--sites`, the sites
+#: carry frame pointers).
 MFM_FRAMES_NOTE = """\
 **Frames.** `./tools/zoom.py <frame.png> <x> <y> <w> <h> [out.png]` crops a region of a
 frame (640x360 pixels) and magnifies it 4x for `view_image`.
@@ -78,6 +78,10 @@ Frames are FILES: a script (numpy and PIL are available) can read many of them a
 answer one question over the whole set -- where the orange was, which frames show a
 screen -- faster than viewing them one by one; `./tools/episodes.py --near X Z` lists
 them by place with their paths."""
+
+MFM_FRAMES_SITES_NOTE = """\
+`[KNOWN SITES]` lines carry `frame=` paths into the earlier lives' episodes (the view
+that sighting was made from)."""
 
 MFM_MEMORY_NOTE = """\
 `episodes/` holds the same history as `logs.txt` a second time, structured: one
@@ -106,7 +110,6 @@ over ground you have not walked, the frames of the nearest episodes; before a pl
 an earlier life, that life's frame of it (`--previous --near X Z`). The log knows where;
 the frame knows what."""
 
-
 #: Added to the contract when the retrieval flag is on (`--retrieval`): the turn
 #: message then carries a block the harness computed from the store. Its content is
 #: `mfm.memory.retrieve.recall_block`; this paragraph only says what the block is.
@@ -123,26 +126,16 @@ is absent when there is nothing to recall."""
 #: Added to the contract under the refusal flag (`--refuse`). The rules themselves
 #: are `EpisodeBridge.refuse` and `descent_guard` below.
 MFM_REFUSAL_NOTE = """\
-Three proposals are refused before they spend steps, from the same record, and a
-`why` that already ran and changed nothing is spent: the next `why` on that streak is
-refused too, with the spent claim quoted. (1) An
+Two proposals are refused before they spend steps, from the same record. (1) An
 entry whose action has changed nothing -- no event, no inventory change; for a
-movement procedure, no movement; for one that opens a screen, no screen -- in its
-last 5 calls ANYWHERE: the governor's rule, but across places and arguments, which
-is how a loop looks from the record. (2) A `dig_down` or `stair_down` while your
-crafting table stands placed 8 or more blocks above you and you carry none. (3) A
-`dig_down` or `stair_down` below y 55 with no torch carried: mobs spawn only in the
-dark and the ore watch is blind there. (4) The same descent with no sword carried: a
-melee mob at arm's length in a 1-wide tunnel is what has killed every run that died,
-and the runner fights it for you only with a sword in your hotbar. (5) Any plan that
-does not go and collect ore you broke and never picked up (the record shows
-`mine_block iron_ore` with no `pickup iron_ore` after it): the drop lies in the mined
-cell, and three runs left theirs there and swung at the empty hole. A refusal drops the
-whole plan for one no-op tick; its [NOTE] names the episodes it was computed from. To
-run the entry anyway, say what is different: put `"why": "<one sentence>"` on the
-entry, beside `args` (or `"leave_table": true` / `"unlit": true` / `"unarmed": true`
-for a descent). The reason is recorded
-in that episode's action.json, and each rule is refused at most twice in a row."""
+movement procedure, no movement -- in its last 5 calls ANYWHERE: the governor's
+rule, but across places and arguments, which is how a loop looks from the
+record. (2) A `dig_down` or `stair_down` while your crafting table stands placed 8
+or more blocks above you and you carry none. A refusal drops the whole plan for one
+no-op tick; its [NOTE] names the episodes it was computed from. To run the entry
+anyway, say what is different: put `"why": "<one sentence>"` on the entry, beside
+`args` (or `"leave_table": true` for the descent). The reason is recorded in that
+episode's action.json, and the same streak is refused at most twice."""
 
 #: The streak length that refuses (the recall block reports from 3); how many times
 #: one streak may be refused before the entry is let through regardless (a refusal
@@ -151,31 +144,7 @@ in that episode's action.json, and each rule is refused at most twice in a row."
 REFUSE_AT = 5
 REFUSE_CAP = 2
 LEFT_BEHIND_DY = 8
-#: Below this y a descent without a torch is refused. lad5 (2026-09-05) died twice
-#: to mobs in its own unlit shaft, at y 52 and y 27, with no torch either time;
-#: lad2 spent 5,000 steps mining blind at y 12. The contract's "light BEFORE iron"
-#: rule sits 40 lines from the descent checklist. 55, not 40: the first death was at y 52.
-LIGHT_BELOW_Y = 55
 _DESCENTS = frozenset({"dig_down", "stair_down"})
-#: Event kinds that mean the world changed even when the inventory did not (the
-#: drop is still on the floor): the episode is tagged `broke` and counts as a change.
-_BROKE_EVENTS = frozenset({"mine_block", "craft_item", "pickup"})
-#: Ore whose block, once broken, is a drop worth more than anything else in the plan:
-#: the fifth rule refuses a plan that does not go and collect it. In this world the
-#: ore block itself drops (the events say "pickup iron_ore").
-_ORE_DROPS = {"iron_ore": "iron_ore", "deepslate_iron_ore": "iron_ore",
-              "gold_ore": "gold_ore", "deepslate_gold_ore": "gold_ore",
-              "coal_ore": "coal", "deepslate_coal_ore": "coal",
-              "diamond_ore": "diamond", "deepslate_diamond_ore": "diamond"}
-#: Entries that go somewhere or sweep the floor: a plan with one of these is
-#: collecting, and is not refused by the fifth rule.
-_COLLECTORS = frozenset({"collect_drops", "go_to", "travel", "walk", "explore",
-                         "stair_down", "dig_down",
-                         # and anything that fights or escapes: lad7a broke its ore
-                         # seconds before a zombie reached it (the rule must not veto
-                         # `attack` / `pillar_up` then)
-                         "attack", "pillar_up", "fight", "face_entity", "place_block",
-                         "eat", "sprint"})
 #: Entries that break a block: a descent AFTER one of these in the same plan is read
 #: as "collect the table, then go down" and is not refused -- lad4 (2026-09-05) was
 #: refused twice for exactly that plan ("craft the iron pickaxe, recover the table,
@@ -190,7 +159,7 @@ RECALL_IGNORE_KINDS = frozenset({
     "look", "look_abs", "look_at", "equip_hotbar", "close_inventory",
     "inventory", "noop", "scan_around", "aim_at_ore", "aim_at_tree",
     "wait", "cursor_to", "cursor_to_cell", "cursor_to_slot",
-}) | frozenset(f"hotbar.{i}" for i in range(1, 10))   # a raw slot press changes no world (of3r: "hotbar.6 ... 61 calls")
+})
 #: Entries whose job is to open a screen: they changed something iff a screen is
 #: open at their end (the `gui` tag). Not bookkeeping: five `use_until_gui` that
 #: opened nothing is the loop lad4 sat in.
@@ -208,8 +177,7 @@ def entry_kind(entry: dict[str, Any]) -> str:
 
 def descent_guard(placements: list[dict[str, Any]], pos: dict | None,
                   inventory: dict[str, int], entries: list[dict[str, Any]],
-                  placed_cells: dict[str, tuple] | None = None,
-                  table_unopened: bool = False) -> str | None:
+                  placed_cells: dict[str, tuple] | None = None) -> str | None:
     """The left-behind rule as a pure function: the refusal text, or None.
 
     Refuses a descent while the most recent placed crafting table stands
@@ -255,156 +223,11 @@ def descent_guard(placements: list[dict[str, Any]], pos: dict | None,
             continue
         where = (f"{dy:.0f} blocks ABOVE you" if dy >= LEFT_BEHIND_DY
                  else f"{reach:.0f} blocks above where this descent ends")
-        if table_unopened:
-            # lad5 (2026-09-05): refused, it spent 500 steps trying to reach a table its
-            # own aimed open had already failed on. A table the record says cannot be
-            # opened is one to replace, not to recover.
-            fix = ("The record shows it could NOT be opened since it was placed (no screen "
-                   "opened), so do not go back for it: craft a new one (4 planks = 1 log) "
-                   "and carry it, or put `\"leave_table\": true` on the entry (beside "
-                   "`args`) to descend without one.")
-        else:
-            fix = ("Mine it (one hit, it drops) and carry it, or put `\"leave_table\": "
-                   "true` on the entry (beside `args`) to descend without it.")
         return (f"refused `{k}`: your crafting_table stands placed at step {t['step']} "
                 f"({t['id']}) {where_placed}, {where}, and you carry none. "
                 f"Everything you will craft down there (a furnace, the iron pickaxe) "
-                f"needs a table. {fix}")
-    return None
-
-
-#: What the harness knows about a procedure's failure that its own note does not say.
-#: Keyed by (kind, a substring of the note that ended the streak's last call).
-_HINTS = {
-    ("harvest_tree", "no trunk detected"):
-        "Bark filling half the frame at arm's reach is too WIDE for the trunk detector "
-        "(it wants a column), so \"a trunk is right there\" and \"no trunk detected\" "
-        "are both true. Either `look_at` the bark block so the crosshair is ON it and "
-        "`chop_tree(until_logs=1)` (~60 ticks by hand), or step back 3 blocks "
-        "(`{\"back\": 1}` x15) so the trunk is a column and run `harvest_tree` again.",
-    ("harvest_tree", "a SCREEN is open"):
-        "Put `close_inventory()` FIRST in the plan, on its own line; the screen does not "
-        "close by itself.",
-}
-
-
-def _last_note(root, s: dict) -> str:
-    return " ".join(notes_of(root, s["last"]))
-
-
-def hint_for(kind: str, note: str | None) -> str:
-    """The hint for a streak of `kind` whose last call ended on `note`, or ""."""
-    if not note:
-        return ""
-    for (k, sub), text in _HINTS.items():
-        if k == kind and sub in note:
-            return " " + text
-    return ""
-
-
-def _where_ok(s: dict, pos: dict | None) -> str:
-    from mfm.memory.retrieve import _where
-    ok = s.get("last_success")
-    if ok is None:
-        return "; it has never changed anything"
-    return f"; it last changed something at step {ok.get('first_step')}{_where(ok, pos)}"
-
-
-def light_guard(pos: dict | None, inventory: dict[str, int],
-                entries: list[dict[str, Any]]) -> str | None:
-    """The third rule as a pure function: a descent that ends (or starts) below
-    LIGHT_BELOW_Y with no torch carried is refused, unless the entry says `unlit`."""
-    if not pos or pos.get("y") is None:
-        return None
-    inv = {k: int(v or 0) for k, v in (inventory or {}).items()}
-    if inv.get("torch", 0) > 0:
-        return None
-    y = float(pos["y"])
-    for e in entries:
-        k = entry_kind(e)
-        if k not in _DESCENTS or e.get("unlit"):
-            continue
-        target = (e.get("args") or {}).get("until_y")
-        try:
-            low = min(y, float(target)) if target is not None else y
-        except (TypeError, ValueError):
-            low = y
-        if low >= LIGHT_BELOW_Y:
-            continue
-        have = ", ".join(f"{n} x{inv[n]}" for n in ("coal", "charcoal", "stick", "spruce_log",
-                                                     "oak_log", "birch_log", "spruce_planks",
-                                                     "oak_planks", "birch_planks") if inv.get(n))
-        return (f"refused `{k}`: it would take you to y {low:.0f} and you carry no torch. "
-                f"Mobs spawn only in the dark (a previous run died twice in its own unlit "
-                f"shaft) and the ore watch cannot see ore in it. 1 coal + 1 stick = 4 torches "
-                f"in the 2x2 grid (charcoal from a log in the furnace does the same); you "
-                f"carry {have or 'none of coal, sticks, logs or planks -- get a log first'}. "
-                f"Craft them, or put `\"unlit\": true` on the entry (beside `args`) to go "
-                f"down dark anyway.")
-    return None
-
-
-def drop_guard(drops: list[dict[str, Any]], entries: list[dict[str, Any]],
-               pos: dict | None, *, in_danger: bool = False) -> str | None:
-    """The fifth rule as a pure function: ore broken and not picked up, and a plan
-    with no collecting entry in it, is refused (override `why`). Not while the last
-    episode took damage (`in_danger`): the attacker comes first."""
-    if not drops or not entries or in_danger:
-        return None
-    if any(e.get("why") for e in entries):
-        return None
-    for e in entries:
-        k = entry_kind(e)
-        act = set(e.get("action") or {}) if "action" in e else set()
-        if k in _COLLECTORS or (_MOVE_KEYS & act) or ("attack" in act):
-            return None
-    d = max(drops, key=lambda x: x["broke"] - x["picked"])
-    row = d["row"]
-    from mfm.memory.retrieve import _where
-    where = _where(row, pos) or ""
-    first = entry_kind(entries[0])
-    return (f"refused `{first}`: {d['broke']} {d['item']} broke at step {row.get('first_step')} "
-            f"({row['id']}){where} and only {d['picked']} were picked up since -- the drop lies "
-            f"in the mined cell (it despawns ~6000 ticks after it fell). Walk into that cell and "
-            f"`collect_drops` there BEFORE mining on; nothing in this plan goes there. Or put "
-            f"`\"why\": \"<one sentence>\"` on an entry to run it anyway.")
-
-
-def sword_guard(pos: dict | None, inventory: dict[str, int],
-                entries: list[dict[str, Any]]) -> str | None:
-    """The fourth rule as a pure function: a descent that ends (or starts) below
-    LIGHT_BELOW_Y with no sword carried is refused, unless the entry says `unarmed`.
-    lad5 (x2), lad7a and lad7b (2026-09-05/06) all died to a melee mob in their own
-    shaft; the chassis's fightback reflex arms only with a sword in the hotbar, and
-    none of them had crafted the 2-cobblestone one."""
-    if not pos or pos.get("y") is None:
-        return None
-    inv = {k: int(v or 0) for k, v in (inventory or {}).items()}
-    if any(k.endswith("_sword") and n > 0 for k, n in inv.items()):
-        return None
-    y = float(pos["y"])
-    for e in entries:
-        k = entry_kind(e)
-        if k not in _DESCENTS or e.get("unarmed"):
-            continue
-        target = (e.get("args") or {}).get("until_y")
-        try:
-            low = min(y, float(target)) if target is not None else y
-        except (TypeError, ValueError):
-            low = y
-        if low >= LIGHT_BELOW_Y:
-            continue
-        have = ", ".join(f"{n} x{inv[n]}" for n in ("cobblestone", "stick", "spruce_planks",
-                                                     "oak_planks", "birch_planks", "iron_ingot")
-                         if inv.get(n))
-        return (f"refused `{k}`: it would take you to y {low:.0f} and you carry no sword. "
-                f"A melee mob at arm's length in a 1-wide tunnel is what killed the last four "
-                f"runs that died; with a sword in your HOTBAR the runner fights it for you, "
-                f"without one it can only sprint, and a shaft has nowhere to sprint. "
-                f"stone_sword = 2 cobblestone + 1 stick at the table's 3x3 screen; you carry "
-                f"{have or 'no cobblestone or sticks yet'}. Craft it and keep it in the "
-                f"hotbar, or put `\"unarmed\": true` on the entry (beside `args`) to go "
-                f"down without one.")
+                f"needs a table. Mine it (one hit, it drops) and carry it, or put "
+                f"`\"leave_table\": true` on the entry (beside `args`) to descend without it.")
     return None
 
 
@@ -458,8 +281,8 @@ class EpisodeBridge:
         self.refusal_by_rule: Counter[str] = Counter()
         self.overrides = 0
         self._refused: Counter[tuple] = Counter()
-        # Earlier lives' records under previous/ (previous.py); None until
-        # `seed_previous` is given seed dirs.
+        # Earlier lives' records under previous/ and the [KNOWN SITES] block (previous.py);
+        # None until `seed_previous` is given seed dirs.
         self.previous: PreviousLives | None = None
         self._obs: Observation | None = None
         self._tick_prev_pos: dict | None = None
@@ -497,7 +320,7 @@ class EpisodeBridge:
 
     def open(self, entry: dict[str, Any], index: int, total: int, info: dict,
              step: int, png: bytes | None) -> None:
-        if any(entry.get(k) for k in ("why", "leave_table", "unlit", "unarmed")):
+        if entry.get("why") or entry.get("leave_table"):
             self.overrides += 1
         self._obs = self._observation(info, step, png)
         item = {"tick": 1, "ticks": self._OPEN_ENDED, "entry": entry,
@@ -511,8 +334,7 @@ class EpisodeBridge:
     def close_entry(self, *, events: list[str], notes: list[str]) -> None:
         for n in notes:
             self.store.note(self, n)
-        tags = ("broke",) if any(e.split(" ", 1)[0] in _BROKE_EVENTS for e in events) else ()
-        self.store.close(self, tags=tags, events=list(events))
+        self.store.close(self, events=list(events))
 
     def flush(self, step: int) -> None:
         if self.store._open is not None:
@@ -536,45 +358,13 @@ class EpisodeBridge:
             return None
         rows = self.store.closed
         root = self.memory.root
-        placements = left_behind(rows, root)
-        unopened = False
-        if placements:
-            since = placements[-1]["step"] or 0
-            unopened = any("no screen opened" in n
-                           for r in rows if (r.get("first_step") or 0) > since
-                           and r.get("action_kind") == "use_until_gui"
-                           for n in notes_of(root, r))
-        note = descent_guard(placements, pos, inventory, entries, placed_cells, unopened)
+        note = descent_guard(left_behind(rows, root), pos, inventory, entries, placed_cells)
         if note:
             key = ("descent", note.split("(")[1].split(")")[0])     # the placement id
             if self._refused[key] < REFUSE_CAP:
                 self._refused[key] += 1
                 self.refusal_by_rule["left_behind"] += 1
                 return "harness: " + note
-        note = light_guard(pos, inventory, entries)
-        if note:
-            if self._refused[("light",)] < REFUSE_CAP:
-                self._refused[("light",)] += 1
-                self.refusal_by_rule["unlit"] += 1
-                return "harness: " + note
-        elif int((inventory or {}).get("torch", 0) or 0) > 0:
-            self._refused.pop(("light",), None)                     # torches: the rule re-arms
-        hurt = bool(rows) and "damage" in (rows[-1].get("tags") or [])
-        note = drop_guard(uncollected(rows, root, _ORE_DROPS), entries, pos, in_danger=hurt)
-        if note:
-            key = ("drop", note.split("(")[1].split(")")[0])          # the breaking episode
-            if self._refused[key] < REFUSE_CAP:
-                self._refused[key] += 1
-                self.refusal_by_rule["uncollected"] += 1
-                return "harness: " + note
-        note = sword_guard(pos, inventory, entries)
-        if note:
-            if self._refused[("sword",)] < REFUSE_CAP:
-                self._refused[("sword",)] += 1
-                self.refusal_by_rule["unarmed"] += 1
-                return "harness: " + note
-        elif any(k.endswith("_sword") for k, v in (inventory or {}).items() if v):
-            self._refused.pop(("sword",), None)
         current = {s["kind"]: s for s in
                    streaks(rows, min_len=REFUSE_AT, ignore=RECALL_IGNORE_KINDS,
                            movers=_MOVERS, openers=_OPENERS)}
@@ -584,50 +374,38 @@ class EpisodeBridge:
         for e in entries:
             kind = entry_kind(e)
             s = current.get(kind)
-            if s is None:
+            if s is None or e.get("why"):
                 continue
-            if e.get("why"):
-                # A `why` that already ran and changed nothing is spent: the next one on
-                # the same streak is refused (twice), with the spent claim quoted, so a
-                # false claim costs a tick and a new sentence instead of buying the loop.
-                burned = burned_override(root, s["rows"])
-                if burned is None:
-                    continue
-                b, said = burned
-                key = ("streak", kind, s["since_step"], "burned", b["id"])
-                if self._refused[key] >= REFUSE_CAP:
-                    continue
-                self._refused[key] += 1
-                self.refusal_by_rule["burned_why"] += 1
-                ticks = (b.get("last_step") or 0) - (b.get("first_step") or 0)
-                return (f"harness: refused `{kind}` again -- at step {b.get('first_step')} "
-                        f"({b['id']}) you ran it past the refusal with \"{said}\"; it ran "
-                        f"{ticks} ticks and changed nothing, and it has changed nothing since "
-                        f"({s['n']} calls, since step {s['since_step']}"
-                        f"{_where_ok(s, pos)}).{hint_for(kind, _last_note(root, s))} Say "
-                        f"what is different NOW -- something you can see -- or propose "
-                        f"something else.")
             key = ("streak", kind, s["since_step"])
             if self._refused[key] >= REFUSE_CAP:
                 continue
             self._refused[key] += 1
             self.refusal_by_rule["streak"] += 1
-            return (f"harness: refused `{kind}` -- {streak_line(s, root, pos)}"
-                    f"{hint_for(kind, _last_note(root, s))} Propose something else, or "
-                    f"give the entry `\"why\": \"<what is different this time>\"` to run "
-                    f"it anyway.")
+            return (f"harness: refused `{kind}` -- {streak_line(s, root)} Propose "
+                    f"something else, or give the entry `\"why\": \"<what is different "
+                    f"this time>\"` to run it anyway.")
         return None
 
-    def seed_previous(self, seeds: list) -> None:
-        """Carry the earlier lives' records in (the MFM carry)."""
+    def seed_previous(self, seeds: list, sites: bool = False) -> None:
+        """Carry the earlier lives' records in (the MFM carry); with `sites`, read the
+        places they verified for the [KNOWN SITES] block as well."""
         self.previous = PreviousLives(self.memory.root)
-        self.previous.seed([Path(s) for s in seeds])
+        self.previous.seed([Path(s) for s in seeds], sites=sites)
+
+    def known_sites(self, info: dict, frames: bool = False, corridors: bool = False) -> str:
+        """The [KNOWN SITES] block for this turn ("" without carried lives, and ""
+        unless the lives were seeded with `sites`)."""
+        if self.previous is None or not self.previous.pushed_sites:
+            return ""
+        unmet = {r["identity"] for r in self.ledger.cfg if r["identity"] not in self.ledger.achieved}
+        return self.previous.block(location(info), inventory_counts(info), unmet,
+                                   frames=frames, corridors=corridors)
 
     def recall(self, info: dict) -> str:
         """The retrieval block for the turn about to run, from the rows the store
         already holds; "" when there is nothing to recall or the flag is off."""
-        if not self.retrieval:
-            return ""
+        if not self.retrieval or getattr(self, "visual_only", False):
+            return ""                       # visual.py: the model queries the frames itself
         pos = _xz(location(info))
         block = recall_block(self.store.closed, self.memory.root, pos=pos,
                              ignore_kinds=RECALL_IGNORE_KINDS, movers=_MOVERS,
@@ -678,6 +456,11 @@ class EpisodeBridge:
         done = [r["identity"] for r in self.ledger.cfg if r["identity"] in self.ledger.achieved]
         todo = [r["identity"] for r in self.ledger.cfg if r["identity"] not in self.ledger.achieved]
         gui = info.get("isGuiOpen")
+        if getattr(self, "visual_only", False):
+            # visual.py: no position, inventory or vitals on disk for the model to read
+            return {"step": obs.step, "gui_open": bool(gui) if gui is not None else None,
+                    "goals": {"done": done, "next": todo[0] if todo else None},
+                    "verified": f"{len(done)}/{len(self.ledger.cfg)}"}
         return {
             "step": obs.step, "pos": pos, "moved": round(moved, 3),
             "inventory": inventory_counts(info), "hotbar": _hotbar(info),
@@ -730,7 +513,8 @@ class EpisodeBridge:
         h1 = (last.get("vitals") or {}).get("health")
         if h0 is not None and h1 is not None and h1 < h0:
             tags.append("damage")
-        summary = (f"{describe_entry(entry)}: moved {moved:.1f}" if entry else "no entry")
+        summary = ((describe_entry(entry) if getattr(self, "visual_only", False)
+                    else f"{describe_entry(entry)}: moved {moved:.1f}") if entry else "no entry")
         if abs(descended) >= 0.5:
             summary += f", descended {descended:.1f}"
         if delta:

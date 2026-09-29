@@ -18,7 +18,7 @@
 # Instance dirs, the runtime and crash reports all land on local disk; the 466 MB jar is
 # not copied per job.
 set -euo pipefail
-SHARED=${MINESTUDIO_SHARED:-/n/netscratch/sham_lab/Lab/$USER/MineStudio}
+SHARED=${MINESTUDIO_SHARED:-/n/netscratch/sham_lab/Lab/chloe00/MineStudio}
 LOCAL=${TMPDIR:-/tmp}/minestudio-${SLURM_JOB_ID:-$$}
 mkdir -p "$LOCAL"
 [ -e "$LOCAL/engine" ] || ln -s "$SHARED/engine" "$LOCAL/engine"

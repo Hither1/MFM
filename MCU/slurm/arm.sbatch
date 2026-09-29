@@ -32,15 +32,15 @@
 #SBATCH -e slurm/logs/%x-%j.err
 
 set -euo pipefail
-AGENT=${1:?usage: sbatch arm.sbatch <logbook|mfm|vista|arc|direct|prolong|plmfm> <arm-name> [task] [steps]}
-ARM=${2:?usage: sbatch arm.sbatch <logbook|mfm|vista|arc|direct|prolong|plmfm> <arm-name> [task] [steps]}
+AGENT=${1:?usage: sbatch arm.sbatch <worldmodel|wmlite|logbook|mfm|vista|direct|prolong|plmfm> <arm-name> [task] [steps]}
+ARM=${2:?usage: sbatch arm.sbatch <worldmodel|wmlite|logbook|mfm|vista|direct|prolong|plmfm> <arm-name> [task] [steps]}
 TASK=${3:-ender_dragon}
 STEPS=${4:-12000}
 
 # Overridable so a second checkout (a git worktree with `.venv` symlinked to this
 # one) can run a wave while jobs still execute the scripts of this checkout --
 # bash reads a running script by byte offset, so those must not be edited.
-ROOT=${MCU_ROOT:-/n/holylfs06/LABS/sham_lab/Users/$USER/MCU}
+ROOT=${MCU_ROOT:-/n/holylfs06/LABS/sham_lab/Users/chloe00/MCU}
 cd "$ROOT"
 mkdir -p slurm/logs
 

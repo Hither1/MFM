@@ -13,7 +13,7 @@
 #SBATCH -e slurm/logs/%x-%j.err
 set -uo pipefail
 
-ROOT=/n/holylfs06/LABS/sham_lab/Users/$USER/MCU
+ROOT=/n/holylfs06/LABS/sham_lab/Users/chloe00/MCU
 cd "$ROOT" || exit 1
 mkdir -p slurm/logs
 

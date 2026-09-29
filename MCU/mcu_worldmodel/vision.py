@@ -462,15 +462,9 @@ def _find_ore(frame: np.ndarray, kind: str) -> tuple[int, int, int] | None:
 #: well-filled COLUMN of bark with non-bark on both sides; a dirt field is wide and a
 #: dirt clump is short. The column tests below carry the discrimination; the colour
 #: mask only proposes.
-#: Widened 2026-09-06 for shadowed spruce: on the ladder's recorded harvest_tree frames
-#: (92 first frames that ended "no trunk detected", 5 that gained a log) the bark in
-#: the model's own view had r median 33-42 and (r-b)/r ~0.70, so a third of the trunk's
-#: pixels fell outside r >= 35 / rb < 0.75, the columns failed the fill test, and the
-#: model was told there was no trunk while one filled half the frame. 0 false trunks
-#: on 122 underground frames after the change (the near mode below included).
-_TRUNK_RB_LO, _TRUNK_RB_HI = 0.30, 0.85
+_TRUNK_RB_LO, _TRUNK_RB_HI = 0.30, 0.75
 _TRUNK_RG_LO, _TRUNK_RG_HI = 0.15, 0.50
-_TRUNK_R_LO, _TRUNK_R_HI = 24.0, 190.0
+_TRUNK_R_LO, _TRUNK_R_HI = 35.0, 190.0
 _TRUNK_SAT_MIN = 12.0
 #: Column acceptance: at least this many bark px in a column, filling at least this
 #: fraction of the column's vertical extent, which must itself be tall. At 640x360 a
@@ -502,32 +496,6 @@ _TRUNK_GREEN_MIN_FRAC = 0.08
 #: The held item/hand occupies the lower right of the first-person frame and is
 #: skin-toned -- inside the bark bands. Its home region is excluded from the mask.
 _HAND_X_FRAC, _HAND_Y_FRAC = 0.58, 0.50
-#: Near mode (2026-09-06), tried when the stock search finds nothing: a trunk at arm's
-#: reach is 150-400 px wide and 30-50% of the frame, which the scene cap and the run
-#: cap above were written to reject as terrain. What still tells it from a dirt wall:
-#: the run is FULL height, one flank is mostly non-bark, and there is green beside it.
-#: (cap 0.70: lad8 ep_000069, a trunk over 64% of the frame, sat above 0.60.)
-#: On the ladder corpus this took harvest_tree's first-frame detections from 38/92 to
-#: 61/92 with no false trunk underground.
-_NEAR_MASK_CAP = 0.70
-_NEAR_EXTENT_FRAC = 0.75
-_NEAR_COL_FILL = 0.50
-_NEAR_RUN_MIN_W = 20
-_NEAR_FLANK = (40, 6)
-_NEAR_GREEN_CTX = 60
-_NEAR_GREEN_MIN_FRAC = 0.05
-#: Two more from lad8's frames (2026-09-06). Bark and dirt share the colour bands, and
-#: on the corpus every run that gained a log had bark with mean r 36-43 while the
-#: dirt slopes and the placed crafting table the search walked to instead had 58-124:
-#: a run's score is weighted by its darkness (1.0 at r 40, 0.6 at 60, the 0.15 floor
-#: from 82 up), so a trunk beats the dirt beside it without dirt being excluded. And
-#: a trunk standing against a dirt cliff has bark-coloured pixels on both flanks; the
-#: flank test also passes when a flank is that much BRIGHTER than the run (dirt beside
-#: dark bark). Corpus: 61/92 -> 68/92, 0 false trunks underground.
-_DARK_R_REF = 90.0
-_DARK_R_SPAN = 50.0
-_DARK_FLOOR = 0.15
-_FLANK_CONTRAST_R = 12.0
 
 
 
@@ -546,17 +514,6 @@ def _bark_mask(frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             & (rg > _TRUNK_RG_LO) & (rg < _TRUNK_RG_HI))
     mask[int(bh * _HAND_Y_FRAC):, int(bw * _HAND_X_FRAC):] = False
     return body, mask
-
-
-def bark_fraction(frame: np.ndarray) -> float:
-    """Fraction of the frame (above the hotbar) that is bark-coloured. Near 1.0 the
-    avatar's face is against bark and there is no column for `find_tree_trunk` to
-    find: lad8_mfmrr's walk-ins (2026-09-06, replayed from the episode video) reached
-    the trunk, saw 53-62% bark, lost the detection and were told "no trunk"."""
-    if frame is None or frame.ndim != 3:
-        return 0.0
-    _, mask = _bark_mask(frame)
-    return float(mask.mean())
 
 
 def find_tree_trunk(frame: np.ndarray, prefer_x: float | None = None,
@@ -583,19 +540,9 @@ def find_tree_trunk(frame: np.ndarray, prefer_x: float | None = None,
     if frame is None or frame.ndim != 3:
         return None
     body, mask = _bark_mask(frame)
-    found = _trunk_search(body, mask, prefer_x, max_w, near=False)
-    if found is None:
-        found = _trunk_search(body, mask, prefer_x, max_w, near=True)
-    return found
-
-
-def _trunk_search(body: np.ndarray, mask: np.ndarray, prefer_x: float | None,
-                  max_w: int | None, near: bool) -> tuple[int, int, int, int] | None:
-    """One pass of the column search: the stock bar (a trunk a few blocks off) or the
-    near bar (one at arm's reach, see `_NEAR_*`)."""
     bh, bw = body.shape[0], body.shape[1]
     r, g, b = body[..., 0], body[..., 1], body[..., 2]
-    if float(mask.mean()) > (_NEAR_MASK_CAP if near else _TRUNK_MAX_MASK_FRAC):
+    if float(mask.mean()) > _TRUNK_MAX_MASK_FRAC:
         return None
     green = ((g > r + _TRUNK_GREEN_MARGIN) & (g > b + _TRUNK_GREEN_MARGIN))
     counts = mask.sum(axis=0)
@@ -603,22 +550,10 @@ def _trunk_search(body: np.ndarray, mask: np.ndarray, prefer_x: float | None,
     first = np.where(ys_any, mask.argmax(axis=0), 0)
     last = np.where(ys_any, bh - 1 - mask[::-1].argmax(axis=0), 0)
     extent = np.where(ys_any, last - first + 1, 0)
-    if near:
-        trunky = ((extent >= _NEAR_EXTENT_FRAC * bh)
-                  & (counts >= _NEAR_COL_FILL * np.maximum(extent, 1)))
-        run_min_w, run_max_w = _NEAR_RUN_MIN_W, max(max_w or 0, TRUNK_NEAR_MAX_W)
-        flank_far, flank_near = _NEAR_FLANK
-        green_ctx, green_min = _NEAR_GREEN_CTX, _NEAR_GREEN_MIN_FRAC
-    else:
-        trunky = ((counts >= _TRUNK_COL_MIN_PX) & (extent >= _TRUNK_COL_EXTENT)
-                  & (counts >= _TRUNK_COL_FILL * np.maximum(extent, 1)))
-        run_min_w, run_max_w = _TRUNK_RUN_MIN_W, (max_w or _TRUNK_RUN_MAX_W)
-        flank_far, flank_near = 18, 4
-        green_ctx, green_min = 20, _TRUNK_GREEN_MIN_FRAC
+    trunky = ((counts >= _TRUNK_COL_MIN_PX) & (extent >= _TRUNK_COL_EXTENT)
+              & (counts >= _TRUNK_COL_FILL * np.maximum(extent, 1)))
     if not trunky.any():
         return None
-    # Mean red of the bark pixels per column: the darkness of a run, and of its flanks.
-    col_r = np.where(counts > 0, (r * mask).sum(axis=0) / np.maximum(counts, 1), 0.0)
     # Contiguous runs of trunky columns (gaps of 1-2 px bridged: leaf pixels cross a
     # trunk without splitting it in half visually, and should not split it here).
     filled = trunky.copy()
@@ -636,25 +571,18 @@ def _trunk_search(body: np.ndarray, mask: np.ndarray, prefer_x: float | None,
         while j < bw and filled[j]:
             j += 1
         width = j - i
-        if run_min_w <= width <= run_max_w:
+        if _TRUNK_RUN_MIN_W <= width <= (max_w or _TRUNK_RUN_MAX_W):
             run_mean = float(counts[i:j].mean())
-            lit = counts[i:j] > 0
-            run_r = float(col_r[i:j][lit].mean()) if lit.any() else 255.0
-            flanks, flank_r = [], []
-            for lo, hi in ((max(0, i - flank_far), max(0, i - flank_near)),
-                           (min(bw, j + flank_near), min(bw, j + flank_far))):
+            flanks = []
+            for lo, hi in ((max(0, i - 18), max(0, i - 4)), (min(bw, j + 4),
+                                                             min(bw, j + 18))):
                 if hi - lo >= 6:
                     flanks.append(float(counts[lo:hi].mean()))
-                    c = counts[lo:hi]
-                    flank_r.append(float(col_r[lo:hi][c > 0].mean()) if (c > 0).any()
-                                   else 255.0)
-            ctx = green[:, max(0, i - green_ctx):min(bw, j + green_ctx)]
-            green_ok = float(ctx.mean()) >= green_min if ctx.size else False
-            flank_ok = (not flanks or min(flanks) < _TRUNK_FLANK_RATIO * run_mean
-                        or max(flank_r) - run_r >= _FLANK_CONTRAST_R)
-            if green_ok and flank_ok:
+            ctx = green[:, max(0, i - 20):min(bw, j + 20)]
+            green_ok = float(ctx.mean()) >= _TRUNK_GREEN_MIN_FRAC if ctx.size else False
+            if green_ok and (not flanks
+                             or min(flanks) < _TRUNK_FLANK_RATIO * run_mean):
                 score = width * run_mean
-                score *= max(_DARK_FLOOR, (_DARK_R_REF - run_r) / _DARK_R_SPAN)
                 if prefer_x is not None:
                     score /= 1.0 + abs((i + j) / 2.0 - float(prefer_x)) / 120.0
                 if best is None or score > best[0]:

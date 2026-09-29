@@ -97,7 +97,7 @@ def build_workspace(out: Path, seeds: list[Path]) -> Path:
     if mem.exists():
         raise SystemExit(f"{mem} exists; pick a fresh --out")
     mem.mkdir(parents=True)
-    PreviousLives(mem).seed([Path(s) for s in seeds])
+    PreviousLives(mem).seed([Path(s) for s in seeds], sites=False)
     tools = mem / "tools"
     tools.mkdir()
     shutil.copy2(_tool_source(), tools / "episodes.py")

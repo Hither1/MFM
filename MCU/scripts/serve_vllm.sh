@@ -22,8 +22,8 @@
 set -uo pipefail
 
 ROOT_DIR=${MCU_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
-PYTHON_BIN=${VLLM_PYTHON:-$HOME/miniforge3/envs/vla/bin/python}
-MODEL_ID=${MODEL_ID:-/n/netscratch/sham_lab/Lab/$USER/Qwen3.8-27B}
+PYTHON_BIN=${VLLM_PYTHON:-/n/home13/chloe00/miniforge3/envs/vla/bin/python}
+MODEL_ID=${MODEL_ID:-/n/netscratch/sham_lab/Lab/chloe00/Qwen3.8-27B}
 SERVED_NAME=${SERVED_NAME:-qwen3.8-27b}
 # 30000-39999: disjoint from the Minecraft sandbox's port range, because a shared node
 # may run several jobs.
@@ -105,7 +105,7 @@ LOG=${ART_DIR:-$ROOT_DIR/artifacts}/vllm-server-${SLURM_JOB_ID:-local}.log
 CONDA_ENV_LIB=$(dirname "$(dirname "$PYTHON_BIN")")/lib
 NVIDIA_LIB="$CONDA_ENV_LIB/python3.11/site-packages/nvidia/cu13/lib"
 export LD_LIBRARY_PATH="$CONDA_ENV_LIB:$NVIDIA_LIB:${LD_LIBRARY_PATH:-}"
-export HF_HOME=${HF_HOME:-/n/netscratch/sham_lab/Lab/$USER/huggingface}
+export HF_HOME=${HF_HOME:-/n/netscratch/sham_lab/Lab/chloe00/huggingface}
 export PYTHONNOUSERSITE=1
 export VLLM_LOGGING_LEVEL=${VLLM_LOGGING_LEVEL:-INFO}
 

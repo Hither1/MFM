@@ -1,8 +1,7 @@
 """Minimal boot test: can MinecraftSim start, reset, step, and report the info keys
 this system depends on?"""
-import getpass
 import os, sys, time
-os.environ.setdefault("MINESTUDIO_DIR", f"/n/netscratch/sham_lab/Lab/{getpass.getuser()}/MineStudio")
+os.environ.setdefault("MINESTUDIO_DIR", "/n/netscratch/sham_lab/Lab/chloe00/MineStudio")
 sys.path.insert(0, ".")
 t0 = time.time()
 from minestudio.simulator import MinecraftSim

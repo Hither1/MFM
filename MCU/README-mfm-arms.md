@@ -43,16 +43,15 @@ branch needs `--memory mfm` (`--agent mfm` in `run-arm.sh`).
 | `--expect` | the prediction protocol: the briefing ends with `EXPECT: ...`, echoed next turn against the record as `[EXPECTED]` vs `[OBSERVED]` |
 | `--frames` | `tools/zoom.py` in the workspace (the 2x2 sheet of this turn's event frames is attached in every mfm run unless `--no-event-sheet`) |
 | `--no-event-sheet` | no 2x2 event sheet on the turn: the current view alone (the frames stay in `episodes/`) |
-| `--frame-size WxH` | the frames attached to the model (the render is 640x360; 320x180 halves the image tokens and was the choice for gpt-6-astra) |
+| `--frame-size WxH` | the frames attached to the model (the render is 640x360; 320x180 halves the image tokens and was the choice for gpt-6-astra; visual-only and human-play use 640x360 so the HUD reads) |
 | `--seed-memory DIR` (repeatable) | the CARRY: the earlier life's record hard-linked under `previous/life_<i>/` (its `logs.txt`, `episodes/`, `index.jsonl`, `grid.jsonl`, `mine/`), oldest first; `previous/index.jsonl` merges their indexes for `--previous` queries. The contract says where they are; reading them is the model's act. A seed that itself carried lives contributes them (deduplicated by content) |
+| `--sites`, `--corridors` | push the carried lives' verified places (`[KNOWN SITES]`) and dry corridors into the turn prompt. **Not the MFM protocol** (the harness remembering for the model); kept only to reproduce the ob1..obf3 chain of 2026-09-06, whose lives are contaminated as seeds. Do not use |
 
 The user's rule (2026-09-07): memory reuse across lives is the carry alone, digested by the
 model. With `--own` and previous lives, the contract adds one instruction
 (`previous.MFM_DIGEST_NOTE`): the model's first act is its own `mine/digest.md`, carried on
-with the rest of `mine/`. Seeds: the 12 first-generation lives in `MCU-AgentBeats/output/`,
-and the og arms. (The harness digest of earlier lives, `--sites`/`--corridors`, was removed
-on 2026-09-21; the ob1..obf3 chain of 2026-09-06 ran with it and its lives are contaminated
-as seeds.)
+with the rest of `mine/`. Clean seeds are the lives that never saw `--sites`: the 12
+first-generation worldmodel/logbook lives in `MCU-AgentBeats/output/`, and the og arms.
 
 ### Contract and harness shape
 
@@ -64,8 +63,10 @@ as seeds.)
 | `--own-reflexes` | `mine/reflexes/<name>.py` scripts run every 4 ticks while a plan executes (never in a screen, never during a runner escape) on the procedure state plus `lava_frac`, `health_prev`, `food_prev`, `pos_prev`, `entry`, `queue_len`, `runner_reflex`; quiet, or one JSON `{stop, note, actions}` (stop drops the plan, the note reaches the next turn as `[REFLEX <name>]`, actions run through the parser and governor); 40-tick cooldown per script, off after 3 failures until edited, at most 4. The contract names the classes to write first | og20-og22 |
 | `--no-harness-reflexes` | the runner's own guards (lava, shaft, fall, water, the Nether lock and descent guard), escapes (bunker, pillar, flee, fightback, lava escape, swim-up), governor refusals and nudges are OFF, as in human-play; the atoms, the thin references and the memory stay; `references/survival.md` says the runner does not act. Needs `--own-reflexes` | og21, og22 |
 | `--skills` | the meta-level skill package (`mcu_worldmodel/skills.py`): `skills/{memory,procedures,reflexes,harness}/SKILL.md` (frontmatter + doctrine, no world facts) with `scripts/` examples, written once per life and kept by the sweep; a `**Skills.**` paragraph in the contract; the reflex examples `lava_ahead`, `fell`, `hit`, `starving`, `known_hazards` under `skills/reflexes/scripts/`; nothing is installed under `mine/reflexes/` since 2026-09-08 (og21-og24 had the first four installed, active from tick 1) -- the model copies what it wants, `_name.py` retires one. Needs `--thin --own` | og21, og22 |
+| `--visual-only` | the model is served the frame alone: no `[STATE]`/inventory/map text, no retrieval block, no event sheet; coordinate-free atoms (no go_to/look_at/look_abs/place_at/use_at); notes scrubbed of coordinates; nothing with a position on disk (`mcu_worldmodel/visual.py`). Needs `--thin` | og17 |
+| `--human-play` | play like a person: the memory kept, the frame and the state text, no built-in procedure beyond the GUI cursor primitives and `watch`, no references, no advice, no reflexes, no governor; `--own` implied and the contract asks the model to invent its skills as scripts (`mcu_worldmodel/human.py`) | og18 |
 
-### The runner's tick layer (on unless `--no-harness-reflexes`)
+### The runner's tick layer (on unless `--no-harness-reflexes` / `--human-play`)
 
 Guards sampled every 4th tick in `agent.observe`: `_lava_guard` (lava in the lower view
 while moving below y 40 stops the plan: LAVA AHEAD), `_shaft_guard` (the avatar about to
@@ -113,7 +114,7 @@ wall-clock time; `logs/<ARM>_wall.log`), `WM_EXTRA` (the purple flags), and the 
 by default the 12 first-generation lives plus `GRID_SEEDS` (default `og3_mfm og4_mfm`,
 names under this checkout's `output/`); `EXTRA_SEEDS="/abs/.../episode_001/memory ..."`
 adds memory dirs by path; `EXTRA_ONLY=1` makes those the only seeds; `NO_SEEDS=1` runs
-from scratch; `OB_SEEDS=1` adds the contaminated ob chain (its lives ran with the removed `--sites` digest).
+from scratch; `OB_SEEDS=1` adds the contaminated ob chain (never without `--sites`).
 
 Recipes (the settings of the arms on record):
 
@@ -139,7 +140,9 @@ bash scripts/launch-og.sh          # G = .../MFM-grid/MCU/output
 # the three-layer setting (og21; og22 = the same with --model gpt-5.6-sol --reasoning-effort xhigh)
 ... WM_EXTRA="... --thin --atoms --own --own-reflexes --no-harness-reflexes --skills" bash scripts/launch-og.sh
 
-# (og17 --visual-only and og18 --human-play, 640x360: flags removed 2026-09-21; the rows above are the record)
+# visual-only (og17) and human-play (og18), from scratch, 640x360
+... NO_SEEDS=1 WM_EXTRA="--expect --frames --retrieval --frame-size 640x360 --model gpt-6-astra --reasoning-effort high --thin --visual-only" ...
+... NO_SEEDS=1 WM_EXTRA="--expect --frames --retrieval --frame-size 640x360 --model gpt-6-astra --reasoning-effort high --human-play" ...
 
 # the full task from nothing on gpt-5.6-sol high (of1, 2026-09-08): minimal contract, atoms, own scripts
 # and reflexes (the examples copied by the model, none installed), skills, no runner guards, no event sheet

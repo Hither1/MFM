@@ -120,6 +120,9 @@ class VistaCodexShim:
         from mcu_worldmodel.codex_backend import CodexTurn
         return CodexTurn.split_briefing(message)
 
+    def read_outputs(self) -> dict[str, Any]:
+        return {"hypotheses_ops": None, "claim": None, "errors": []}
+
     def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         raise RuntimeError("the vista arm runs no codex exec turns")
 
@@ -128,10 +131,13 @@ class VistaBridge:
     def __init__(self, agent: Any, *, model: str, effort: str, codex_home: Path | None,
                  transcript_dir: Path | None, timeout: float, base_url: str | None = None,
                  options: dict[str, Any] | None = None) -> None:
-        if base_url:
-            raise ValueError("the vista arm runs codex app-server against the account's "
-                             "hosted models; a local server is not wired")
         opts = dict(options or {})
+        # --base-url (the OpenRouter route, gen 4): the provider reaches the app-server
+        # thread through its config.toml (mfm/vista/runner.py write_codex_config), the
+        # twin of codex_backend's -c set (model_provider=local, name/base_url/wire_api,
+        # CODEX_LOCAL_AUTH_COMMAND, CODEX_MODEL_CONTEXT_WINDOW). None keeps the account's
+        # hosted models, as every vista run before gen 4 did.
+        self.base_url = base_url or None
         self.agent = agent
         self.root: Path = agent.memory.root
         self.model, self.effort = model, effort
@@ -189,7 +195,7 @@ class VistaBridge:
             workspace=self.root, codex_home=self.codex_home, io_dir=self.transcript_dir,
             controller=self.controller, tools=tools, base_instructions=PLAYER_BASE_INSTRUCTIONS,
             developer_instructions=self.developer_instructions, model=self.model,
-            reasoning_effort=self.effort, codex_bin=self.codex_bin,
+            reasoning_effort=self.effort, codex_bin=self.codex_bin, base_url=self.base_url,
             idle_timeout=self.idle_timeout, thread_bytes_budget=self.thread_bytes,
             objective=OBJECTIVE)
         prompt = initial_prompt(self.controller.initial_metadata(), OBJECTIVE)

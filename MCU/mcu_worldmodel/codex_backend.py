@@ -6,9 +6,10 @@ and MCU should not import across into a sibling working tree -- but it is the sa
 and the inline notes in it record measurements taken against that repo's campaign, not
 this one. Treat them as provenance.
 
-A turn here produces exactly one artefact, `actions.json`, as upstream's does (the
-structured arm's `hypotheses_ops.json` / `claim.json` channels were removed with that arm
-on 2026-09-21).
+What this port adds is `read_outputs`: upstream's turn produced exactly one artefact
+(`actions.json`), while a turn here can also write `hypotheses_ops.json` and `claim.json`.
+They are read the same defensive way -- a missing or malformed file costs the turn that
+one channel, never the whole turn.
 """
 from __future__ import annotations
 
@@ -120,6 +121,30 @@ def effort_for(base_url: str | None, effort: str) -> str:
     return os.environ.get("CODEX_LOCAL_EFFORT", effort)
 
 
+def provider_auth_args() -> list[str]:
+    """How codex authenticates against the --base-url provider.
+
+    Default: the LOCAL_API_KEY environment variable (`env_key`), "EMPTY" for a local
+    server. A hosted provider's key must NOT travel that way: the model's exec cells
+    inherit codex's environment (see scrub_env), so an `env_key` credential is readable
+    by the model. CODEX_LOCAL_AUTH_COMMAND, a JSON list, names a command codex runs to
+    obtain the key instead (OpenRouter's documented `auth.command` form) -- e.g.
+    ["sed", "-n", "s/^OPENROUTER_API_KEY=//p", "/abs/path/openrouter.env"] reads a 600
+    file, and the key exists only inside codex's HTTP client. Measured 2026-09-09: the
+    turn ran, and `${OPENROUTER_API_KEY:+set}` printed nothing inside an exec cell.
+    """
+    raw = os.environ.get("CODEX_LOCAL_AUTH_COMMAND", "").strip()
+    if not raw:
+        return ["-c", 'model_providers.local.env_key="LOCAL_API_KEY"']
+    cmd = json.loads(raw)
+    if not isinstance(cmd, list) or not cmd or not all(isinstance(c, str) for c in cmd):
+        raise ValueError("CODEX_LOCAL_AUTH_COMMAND must be a JSON list of strings")
+    return [
+        "-c", f"model_providers.local.auth.command={json.dumps(cmd[0])}",
+        "-c", f"model_providers.local.auth.args={json.dumps(cmd[1:])}",
+    ]
+
+
 def _metadata_args(context_window: int) -> list[str]:
     """Codex config for a model codex has never heard of.
 
@@ -169,8 +194,12 @@ def _metadata_args(context_window: int) -> list[str]:
 #                       tool list is exactly EXPECTED_NESTED_TOOLS and a new default
 #                       cannot slip in unnoticed.
 # Files a turn produces, cleared before each turn so a stale one from the previous turn
-# is never mistaken for this turn's output.
-TURN_ARTEFACTS: tuple[str, ...] = ("actions.json", "last_message.txt")
+# is never mistaken for this turn's output. `actions.json` is the only required one; the
+# other two are optional channels the agent may or may not use on any given turn, and an
+# absent one must read as "the agent said nothing", not as "the agent repeated itself".
+TURN_ARTEFACTS: tuple[str, ...] = (
+    "actions.json", "last_message.txt", "hypotheses_ops.json", "claim.json",
+)
 
 SAFE_CODEX_FLAGS: tuple[str, ...] = (
     "-c", 'web_search="disabled"',
@@ -181,7 +210,33 @@ SAFE_CODEX_FLAGS: tuple[str, ...] = (
     "-c", "features.plugins=false",
     "-c", "features.image_generation=false",
     "-c", "features.goals=false",
+    # No shell snapshot. codex 0.153 otherwise writes `$CODEX_HOME/shell_snapshots/
+    # <thread>.sh` at thread start -- `declare -x` of every variable in its environment --
+    # and deletes it only on a clean exit, so an arm stopped mid-turn leaves the file
+    # (21 of 54 homes on 2026-09-09). With HOME at the arm's own home there is no profile
+    # for the snapshot to capture, so nothing the model's commands see changes.
+    "-c", "features.shell_snapshot=false",
 )
+
+# Variables that never reach codex. The model's exec cells inherit codex's whole
+# environment (measured on codex 0.153, 2026-09-09: `${GITHUB_PERSONAL_ACCESS_TOKEN:+set}`
+# printed `set` inside a turn, and `shell_environment_policy.exclude` changed nothing), so
+# any credential exported by the launching shell was readable by the model and could have
+# been written into the workspace, which is carried across lives and staged. Dropped by
+# name: anything that looks like a secret, except what codex itself is configured to read
+# (LOCAL_API_KEY on the --base-url path) and its own CODEX_* settings. The names dropped
+# are logged once per CodexTurn so a run's log shows what its shell carried.
+SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL", re.IGNORECASE)
+ENV_KEEP: frozenset[str] = frozenset({"LOCAL_API_KEY"})
+
+
+def scrub_env(env: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """The environment codex gets, and the names removed from it."""
+    dropped = sorted(
+        k for k in env
+        if SECRET_NAME.search(k) and k not in ENV_KEEP and not k.startswith("CODEX_")
+    )
+    return {k: v for k, v in env.items() if k not in set(dropped)}, dropped
 
 EXPECTED_NESTED_TOOLS: frozenset[str] = frozenset({
     "apply_patch", "exec_command", "update_plan", "view_image", "write_stdin",
@@ -334,11 +389,11 @@ def is_overflow(name: str, text: str) -> bool:
 #                           tool returns the failure to the model, it retries, writes
 #                           actions.json, and the harness sees a clean turn. Measured on
 #                           dm4: 75% of world model turns against 3% of PRO-LONG turns,
-#                           ~9s each. The world model's memory *was* the filesystem, so
-#                           its patch carried actions.json plus whatever documents it
-#                           touched, and two operations landing on one path rejected the
-#                           lot. A per-arm tax of exactly the kind a comparison otherwise
-#                           charges to the method.
+#                           ~9s each. The world model's memory *is* the filesystem, so
+#                           its patch carries actions.json plus hypotheses_ops.json plus
+#                           whatever documents it touched, and two operations landing on
+#                           one path rejects the lot. A per-arm tax of exactly the kind a
+#                           comparison otherwise charges to the method.
 _ROLLOUT_VIEW_IMAGE = re.compile(r"view_image")
 _ROLLOUT_ATTACH_FAIL = re.compile(r"could not read the local image", re.I)
 # Broken out by kind, because the aggregate is actively misleading: on dm4_wm the two
@@ -350,13 +405,13 @@ _ROLLOUT_ATTACH_FAIL = re.compile(r"could not read the local image", re.I)
 #                        the start of the turn -- `actions.json` in 132 of 133 cases. It
 #                        retries as a create and succeeds, so nothing is lost but ~9 s.
 #   patch_dup_target     two operations on one path in one patch; codex rejects the whole
-#                        patch. All four on dm4_wm were the (since removed) induction
-#                        turns rewriting world_model/spatial.md.
+#                        patch. All four on dm4_wm were induction turns rewriting
+#                        world_model/spatial.md.
 #   attach_miss          the model asked to view an image that is not there.
 #
 # Match the error strings, never the human-readable phrase: `multiple operations target`
-# once appeared in a prompt itself, warning against the thing it names -- counting it
-# there scored the fix that added the warning as a regression.
+# now appears in the induction prompt itself, warning against the thing it names --
+# counting it there scored the fix that added the warning as a regression.
 _ROLLOUT_TOOL_ERROR = re.compile(r"Script error:")
 _ROLLOUT_PATCH_STALE = re.compile(r"apply_patch verification failed: Failed to read")
 _ROLLOUT_PATCH_DUP = re.compile(r"apply_patch verification failed: invalid patch: "
@@ -397,18 +452,12 @@ def count_episodes_tool(path, pattern) -> int:
     return n
 
 
-#: A compaction as the rollout records it (codex 0.147 writes `{"type":"compacted",...}`
-#: into the session file and nothing into the `exec --json` stream, so the stream counter
-#: `_COMPACTION_RE` read 0 against rollouts holding 28-96 of them; 2026-09-09).
-_ROLLOUT_COMPACTED = re.compile(r'"type":\s*"compacted"')
-
-
 def scan_rollout(path: Path) -> dict[str, int]:
     """Count what the transcripts cannot show: nested vision calls, failed attachments,
-    tool errors the model absorbed inside its turn, and the compactions codex did."""
+    and tool errors the model absorbed inside its turn."""
     out = {"view_image_calls": 0, "image_attach_failures": 0, "tool_errors": 0,
            "patch_stale_target": 0, "patch_dup_target": 0, "attach_miss": 0,
-           "turns_with_tool_error": 0, "episodes_tool_calls": 0, "compactions": 0}
+           "turns_with_tool_error": 0, "episodes_tool_calls": 0}
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -431,8 +480,6 @@ def scan_rollout(path: Path) -> dict[str, int]:
         out["attach_miss"] += len(_ROLLOUT_ATTACH_MISS.findall(line))
         if is_tool_call_line(line):
             out["episodes_tool_calls"] += len(_ROLLOUT_EPISODES_TOOL.findall(line))
-        if _ROLLOUT_COMPACTED.search(line):
-            out["compactions"] += 1
     # One rollout is one turn under `--session-turns 1`, so this is the rate that matters:
     # a turn that lost an attempt, however many times the text is echoed inside it.
     out["turns_with_tool_error"] = 1 if out["tool_errors"] else 0
@@ -539,7 +586,6 @@ class CodexTurn:
         # None = the environment decides (CODEX_SESSION_MAX_TURNS, default 0: never
         # drop the session). The purple agent passes its value explicitly.
         session_max_turns: int | None = None,
-        session_max_bytes: int | None = None,
     ) -> None:
         # Absolute, always. Codex runs with cwd == this directory, so every path derived
         # from it -- `-o last_message.txt`, the `-i` frames -- is handed to codex relative
@@ -551,6 +597,7 @@ class CodexTurn:
         self.base_url = base_url
         self.context_window = context_window or DEFAULT_CONTEXT_WINDOW
         self.codex_bin = codex_bin or os.environ.get("CODEX_BIN", "codex")
+        self._env_scrub_logged = False
         self.codex_home = Path(codex_home) if codex_home else None
         self.timeout = timeout
         self.sandbox_mode = sandbox_mode
@@ -600,9 +647,6 @@ class CodexTurn:
         # another arm's home partway through an episode.
         self._sessions_root: Path | None = None
         self._rollouts_scanned = 0
-        #: Compactions the rollouts record (the stream counter above stays for the mode
-        #: where codex does report them); the report shows the larger of the two.
-        self.rollout_compactions = 0
         self._tool_error_counts = {
             "tool_errors": 0, "patch_stale_target": 0, "patch_dup_target": 0,
             "attach_miss": 0, "turns_with_tool_error": 0, "episodes_tool_calls": 0}
@@ -627,18 +671,6 @@ class CodexTurn:
             if session_max_turns is None else int(session_max_turns))
         self.session_turns = 0
         self.age_resets = 0
-        # The same synthesised cold start, triggered by the frames the resumed thread
-        # carries instead of by its age. Codex re-sends every earlier attachment on each
-        # call, so a resumed session's payload grows ~0.48 MB an act turn and past ~5.5 MB
-        # on the wire every turn stalls near the timeout (MCU run-arm.sh, 2026-08-25). A
-        # turn cap of 1 sidestepped that by giving up the conversation entirely; this
-        # keeps one thread until the NEXT turn's frame would carry it past the budget,
-        # then hands off to a fresh one -- VISTA's `thread_bytes_budget`, with the
-        # filesystem as the checkpoint. 0 disables (CODEX_SESSION_MAX_BYTES, default 0).
-        self.session_max_bytes = (
-            int(os.environ.get("CODEX_SESSION_MAX_BYTES", "0") or 0)
-            if session_max_bytes is None else int(session_max_bytes))
-        self.bytes_resets = 0
         # Must stay 0. A nonzero count means codex compacted the conversation, so the
         # arm is no longer "PRO-LONG memory + a cold start on overflow" and cannot be
         # averaged with the runs that were.
@@ -691,8 +723,7 @@ class CodexTurn:
                 "-c", 'model_providers.local.name="local"',
                 "-c", f'model_providers.local.base_url="{self.base_url}"',
                 "-c", 'model_providers.local.wire_api="responses"',
-                "-c", 'model_providers.local.env_key="LOCAL_API_KEY"',
-            ] + _metadata_args(self.context_window)
+            ] + provider_auth_args() + _metadata_args(self.context_window)
         # workspace-write, not upstream's danger-full-access: writes stay in the
         # workspace and the agent's own commands get no network, so it cannot reach
         # the Minecraft sandbox and drive the world behind the runner's back.
@@ -740,9 +771,9 @@ class CodexTurn:
         current frame is what keeps the analyzer as informed as upstream's is, and as
         informed as the baseline agent it is compared against.
 
-        `expect_actions=False` for a turn that produces no `actions.json` by design
-        (the structured arm's induction pass did). Without it such a turn logs a
-        missing-plan warning, which is not a defect and hides the ones that are.
+        `expect_actions=False` for the induction pass, which produces no `actions.json`
+        by design. Without it every induction turn logs a missing-plan warning, which is
+        not a defect and hides the ones that are.
         """
         if self.max_calls and self.calls >= self.max_calls:
             self.ceiling_hits += 1
@@ -770,14 +801,12 @@ class CodexTurn:
         for stale in TURN_ARTEFACTS:
             (self.workspace / stale).unlink(missing_ok=True)
 
-        env = os.environ.copy()
+        env, dropped = scrub_env(os.environ.copy())
+        if dropped and not self._env_scrub_logged:
+            self._env_scrub_logged = True
+            logger.info(f"[codex] env: not passed to codex: {', '.join(dropped)}")
         if self.codex_home:
             env["CODEX_HOME"] = str(self.codex_home)
-            # codex 0.153 also lists `$HOME/.agents/skills` in every session's skill
-            # catalog (this host's deepspeed/health/... skills sat in the of-era
-            # catalogs; smoke 2026-09-09). With HOME at the arm's own home the catalog
-            # is the workspace's `.agents/skills` alone.
-            env["HOME"] = str(self.codex_home)
         env.setdefault("LOCAL_API_KEY", "EMPTY")
         # Codex is a tokio binary and sizes its worker pool to the host's cores: 255
         # here, so every in-flight turn held ~270 threads and 16 arms used ~4,500 of the
@@ -807,19 +836,6 @@ class CodexTurn:
                 f"exist and will not be sent: {missing}"
             )
         images = [p for p in images if p.exists()]
-        # 4/3 for base64, which is how the payload travels and where the wall was measured.
-        incoming = sum(p.stat().st_size for p in images) * 4 // 3
-        if (
-            self.session_id
-            and self.session_max_bytes
-            and self.session_attachment_bytes + incoming > self.session_max_bytes
-        ):
-            self._discard_session(
-                f"its frames would reach "
-                f"{(self.session_attachment_bytes + incoming) / 1e6:.2f} MB on the wire, "
-                f"budget {self.session_max_bytes / 1e6:.2f} MB",
-                "bytes_resets",
-            )
         args = self._args(images)
         self.images_attached += len(images)
         # 4/3 for base64, which is how the payload travels and where the wall was measured.
@@ -920,7 +936,7 @@ class CodexTurn:
         message = message_path.read_text(encoding="utf-8").strip() if message_path.exists() else ""
 
         # Two independent facts, reported on separate lines. A tool error inside the turn
-        # is not why a plan is missing, and a turn with expect_actions=False writes none;
+        # is not why a plan is missing, and an induction turn writes no plan by design;
         # gluing them into one warning cost two misdiagnoses in a single session, both of
         # them reading a self-healing apply_patch rejection as a lost action.
         quota = next((e for e in errors if _QUOTA_RE.search(e)), None)
@@ -949,7 +965,7 @@ class CodexTurn:
         # model. A broken `resume` is exactly this shape, and retrying into the same
         # session reproduces it forever; the agent's own retry loop then just multiplies
         # the cost. Cold-start instead, which is the one thing that can succeed. Checked
-        # for expect_actions=False turns too, where a missing plan is normal but silence is not.
+        # for the induction pass too, where a missing plan is normal but silence is not.
         if actions_json is None and not message and self.session_id:
             self._discard_session("produced no output at all", "empty_resets")
         return {
@@ -960,6 +976,35 @@ class CodexTurn:
             "overflow": overflowed,
         }
 
+    def read_outputs(self) -> dict[str, Any]:
+        """The optional JSON channels this turn wrote.
+
+        Each is parsed independently and a failure is contained to its own key: a
+        malformed `claim.json` must not cost the turn its `hypotheses_ops.json`, and
+        neither may cost it the actions that were already parsed. The parse error is
+        returned so the runner can put it in front of the agent as a [NOTE] -- an
+        agent whose file silently never loaded will keep writing it the same wrong way.
+        """
+        out: dict[str, Any] = {"hypotheses_ops": None, "claim": None, "errors": []}
+        for key, name in (("hypotheses_ops", "hypotheses_ops.json"), ("claim", "claim.json")):
+            path = self.workspace / name
+            if not path.exists():
+                continue
+            try:
+                out[key] = json.loads(path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError) as exc:
+                out["errors"].append(f"{name} did not parse: {exc}")
+                logger.warning(f"[codex] {name} did not parse: {exc}")
+            finally:
+                # Consumed, not merely read. These files are one-shot assertions about
+                # *this* turn, and the pre-turn clear is not enough on its own: if a turn
+                # dies before it runs, or the process is killed between the clear and the
+                # write, a claim from three turns ago is still sitting there and would be
+                # re-applied -- and a rejected claim locks goals, so re-applying one
+                # punishes the agent repeatedly for a single mistake. Deleting on read
+                # makes that impossible regardless of how the previous turn ended.
+                path.unlink(missing_ok=True)
+        return out
 
     def _transcript_episodes_tool_calls(self) -> int:
         """Episode-tool calls counted from this backend's own saved turn events."""
@@ -1010,9 +1055,8 @@ class CodexTurn:
                       for k in ("view_image_calls", "image_attach_failures",
                                 "tool_errors", "patch_stale_target", "patch_dup_target",
                                 "attach_miss", "turns_with_tool_error",
-                                "episodes_tool_calls", "compactions")}
+                                "episodes_tool_calls")}
             self.view_image_calls = counts["view_image_calls"]
-            self.rollout_compactions = counts["compactions"]
             self.image_attach_failures = counts["image_attach_failures"]
             # See the shared backend: the turn transcripts are a second source, and they
             # outlive a node-local codex home. Whichever saw more wins.
@@ -1068,14 +1112,9 @@ class CodexTurn:
             # approaches 5 MB the arm is about to slow by 10x with no other symptom.
             "attachment_bytes_peak": self.peak_attachment_bytes,
             "auto_compact_token_limit": AUTO_COMPACT_TOKEN_LIMIT or "codex default",
-            "compactions": max(self.compactions, self.rollout_compactions),
-            "compactions_stream": self.compactions,
-            "compactions_rollout": self.rollout_compactions,
+            "compactions": self.compactions,
             "overflow_resets": self.overflow_resets,
             "age_resets": self.age_resets,
-            # Only when the byte budget is on: the baseline arm's audit keys do not move.
-            **({"session_max_bytes": self.session_max_bytes,
-                "bytes_resets": self.bytes_resets} if self.session_max_bytes else {}),
             "timeout_resets": self.timeout_resets,
             "empty_resets": self.empty_resets,
         }

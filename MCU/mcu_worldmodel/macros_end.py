@@ -216,6 +216,7 @@ def _eyetrack_tick(agent, st: dict[str, Any], mk_act):
         thrown = st["base"]["eyes"] - eyes
         if bearing_info is None:
             LAST_EYE.clear()
+            agent._note_failure("throw_eye")
             agent.memory.add_note(
                 f"throw_eye: {'the eye left your hand (' + str(eyes) + ' left)' if thrown >= 1 else 'no eye left your hand (' + str(eyes) + ' carried)'}"
                 f" but it was never seen in the view -- it flew out of the ~100-degree "
@@ -677,6 +678,7 @@ def _endcheck_tick(agent, ec: dict[str, Any], mk_act):
     ec["t"] += 1
     if ec["t"] >= ec["n"]:
         d = math.hypot(pos["x"] - ec["x"], pos["z"] - ec["z"])
+        agent._note_failure("enter_end")
         agent.memory.add_note(
             f"enter_end: no teleport after {ec['t']} ticks"
             + (f", {d:.1f} blocks from the pit centre -- walk INTO the pit (jump onto the "
@@ -740,6 +742,7 @@ def _endstonecheck_tick(agent, es: dict[str, Any], mk_act):
         agent.cursor_stats["end_stone"] = agent.cursor_stats.get("end_stone", 0) + 1
         agent.memory.add_note(f"mine_end_stone: end_stone in the inventory ({have}).")
     else:
+        agent._note_failure("mine_end_stone")
         agent.memory.add_note(
             f"mine_end_stone: nothing landed -- what is at pitch {es['pitch']:.0f}, yaw "
             f"{es['yaw']:.0f} is not end stone (the spawn platform is obsidian, and past its "
@@ -881,6 +884,7 @@ def _crystal_tick(agent, st: dict[str, Any], mk_act):
                 finish("CRYSTAL DESTROYED (it vanished from the view after the hit) --")
                 return None
         if st["miss"] >= ME.MISS_MAX:
+            agent._note_failure("break_crystal")
             agent.memory.add_note(
                 "break_crystal: no magenta/white crystal in view over 26 frames (the "
                 "crosshair swept up and down). Crystals sit on TOP of the obsidian towers: "
@@ -1027,6 +1031,7 @@ def _dragon_tick(agent, st: dict[str, Any], mk_act):
                 if st["hits"]:
                     finish("the dragon is out of view.", "It flies; wait for the perch.")
                 else:
+                    agent._note_failure("attack_dragon")
                     agent.memory.add_note(
                         "attack_dragon: no black mass in view over 26 frames (the crosshair "
                         "swept up and down). The dragon circles the towers and perches on "

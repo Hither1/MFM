@@ -25,8 +25,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
-import math
-
 import numpy as np
 import yaml
 from loguru import logger
@@ -48,30 +46,10 @@ class MilestoneLedger:
     """Tracks the ordered progression and reports it as ground truth."""
 
     def __init__(self, reward_cfg: list[dict[str, Any]], task_name: str = "",
-                 given: list[str] | tuple[str, ...] = (), reveal: str = "all") -> None:
+                 given: list[str] | tuple[str, ...] = ()) -> None:
         self.cfg = list(reward_cfg or [])
         self.task_name = task_name
         self.order = [c["identity"] for c in self.cfg]
-        #: identity -> the identities that must be achieved before it may fire, from a
-        #: rule's `after:` key. The A-B-A tasks are why this exists: their first and third
-        #: goals are the *same* statistic, so with no ordering constraint one trip to the
-        #: pond credits both and the return journey -- the entire point of the task --
-        #: is never required. Empty for every pre-existing config, which is unchanged.
-        self.gate = {c["identity"]: list(c.get("after") or []) for c in self.cfg}
-        #: identity -> the step before which it cannot fire, from a rule's `not_before`.
-        #: A goal gated on *time* rather than on another goal is what gives an episode a
-        #: phase with no task in it at all: Long-Navigation's agent spends 16,000 steps
-        #: being moved past landmarks with nothing asked of it, which is the whole reason
-        #: everything it encodes there is incidental. `after` cannot express that -- there
-        #: is no earlier goal to hang it on.
-        self.not_before = {c["identity"]: int(c.get("not_before") or 0) for c in self.cfg}
-        #: "all": every rule is in the prompt from step 0. Right for the tech-tree tasks,
-        #: where the progression is public knowledge and naming it saves the agent
-        #: re-deriving it every turn. "sequential": a rule is shown only once its gates
-        #: are met. An incidental-encoding probe needs this -- an agent told at step 0
-        #: that it will need water again will deliberately memorise the pond on the way
-        #: past, and deliberate encoding is the opposite of what the task measures.
-        self.reveal = reveal if reveal in ("all", "sequential") else "all"
         #: Milestones whose ITEMS the kit holds at reset (a second-half start: the task
         #: config says a previous expedition banked them). The scorer does NOT credit them:
         #: measured 2026-09-07 on ender_dragon_half, a run that never died scored 4/24
@@ -80,8 +58,6 @@ class MilestoneLedger:
         #: checklist says why they are cheap. Unknown names are ignored.
         self.given = [g for g in given if g in self.order]
         self.achieved: dict[str, int] = {}       # identity -> step first achieved
-        self.origin: tuple[float, float] | None = None   # set by reset(), for `reach`
-        self.step = 0                            # last step seen, for `not_before`
         self._prev: dict[str, Any] = {}
         self._prev_stats: dict[tuple[str, str], float] = {}
 
@@ -94,65 +70,6 @@ class MilestoneLedger:
     def reset(self, info: dict) -> None:
         self._prev = dict(info)
         self.achieved = {}
-        # Where the episode started, for `reach` rules. Their targets are written
-        # relative to it because a task config cannot know absolute coordinates: the
-        # spawn point is whatever the world seed puts there, and every `custom_init_command`
-        # that places a landmark does so with `~` offsets from the same point.
-        self.step = 0
-        here = location(info)
-        self.origin = (here["x"], here["z"]) if here else None
-
-    def reach_target(self, rule: dict[str, Any]) -> tuple[float, float] | None:
-        """A `reach` rule's absolute (x, z), or None before `reset` has fixed an origin."""
-        if self.origin is None:
-            return None
-        dx, dz = rule["target"]
-        return self.origin[0] + float(dx), self.origin[1] + float(dz)
-
-    def describe_target(self, rule: dict[str, Any]) -> str:
-        """How a `reach` goal is named to the model -- and, by default, NEVER as numbers.
-
-        Printing the coordinates would hand the agent the answer the moment the goal is
-        revealed, which is the entire thing these tasks measure. A recall probe supplies a
-        `describe:` string that identifies the place the way a person would ("the spot
-        where the fire was burning when you started"); a rule that genuinely wants to give
-        the coordinates away has to say so with `reveal_target: true`.
-        """
-        if rule.get("reveal_target"):
-            target = self.reach_target(rule)
-            if target is not None:
-                return f"x={target[0]:.0f} z={target[1]:.0f}"
-        described = (rule.get("describe") or "").strip()
-        return described or "a place you have already been"
-
-    def _reached(self, rule: dict[str, Any], info: dict) -> bool:
-        target = self.reach_target(rule)
-        here = location(info)
-        if target is None or here is None:
-            return False
-        radius = float(rule.get("radius", 8))
-        return math.hypot(here["x"] - target[0], here["z"] - target[1]) <= radius
-
-    def eligible(self, identity: str) -> bool:
-        """True when this rule's gates are open: every `after:` prerequisite achieved, and
-        the episode past its `not_before:` step."""
-        if self.step < self.not_before.get(identity, 0):
-            return False
-        return all(prereq in self.achieved for prereq in self.gate.get(identity, ()))
-
-    def is_revealed(self, identity: str) -> bool:
-        """Whether this rule may be named to the model yet."""
-        if self.reveal == "all":
-            return True
-        return identity in self.achieved or self.eligible(identity)
-
-    def revealed(self) -> set[str]:
-        return {ident for ident in self.order if self.is_revealed(ident)}
-
-    @property
-    def ordered(self) -> bool:
-        """True when any rule is gated, i.e. the score is not order-free."""
-        return any(self.gate.values()) or any(self.not_before.values())
 
     def update(self, info: dict, step: int) -> list[dict[str, Any]]:
         """Advance the ledger one env step. Returns the milestones newly achieved.
@@ -171,33 +88,12 @@ class MilestoneLedger:
            `max_reward_times` is 1 everywhere: a milestone fires the first time its
            statistic moves, and an absolute test would re-fire on every later log.
         """
-        self.step = step
         published = info.get("milestones")
         published = published if isinstance(published, dict) else None
         fired = []
         for rule in self.cfg:
             ident = rule["identity"]
             if ident in self.achieved:
-                continue
-            if rule.get("event") == "reach":
-                # Never host-verified: the green agent's RewardsCallback only knows
-                # statistics, so `info['milestones']` can never carry a bit for this and
-                # the published branch below would leave it permanently unachieved. It is
-                # also why these rules must still carry `objects: []` -- that callback
-                # indexes `objects` unconditionally and a missing key kills the run.
-                if self.eligible(ident) and self._reached(rule, info):
-                    self.achieved[ident] = step
-                    fired.append({"kind": "milestone", "identity": ident,
-                                  "event": "reach", "objects": []})
-                    logger.success(f"[milestone] {ident} at step {step} "
-                                   f"({len(self.achieved)}/{len(self.cfg)}) [position]")
-                continue
-            if not self.eligible(ident):
-                # Gated. The statistic may well be moving right now -- the agent is at
-                # the pond filling its first bucket -- but this rule is not live, so
-                # nothing is credited. `_prev` is refreshed every step regardless, so
-                # when the gate opens the rule fires on the next *new* movement of the
-                # statistic rather than on the backlog it slept through.
                 continue
             if published is not None:
                 if ident not in published:
@@ -275,33 +171,9 @@ class MilestoneLedger:
         is what keeps a 12,000-step episode from wandering.
         """
         for rule in self.cfg:
-            ident = rule["identity"]
-            if ident not in self.achieved and self.eligible(ident):
+            if rule["identity"] not in self.achieved:
                 return rule
         return None
-
-    def _no_live_goal(self, noun: str = "GOALS") -> str:
-        """What to say when `next_target()` is None.
-
-        None means two different things and they must not read alike. Everything
-        achieved is the end of the episode; but a goal held shut by `not_before`
-        (the recall probes open the return trip only once the landmark is gone) is
-        also unachieved-and-not-eligible, and the first version of this line called
-        that "ALL GOALS VERIFIED" in the same breath as "1/2 goals". The agent read
-        the verdict, not the count: `recall_vanished_fire` burned 328 act turns
-        idling on "All goals are verified; no further progression is needed."
-
-        The pending wording stays deliberately thin. Saying a goal remains is what
-        stops the false stop; saying anything about *what* it wants -- that it is a
-        return trip, that landmarks are worth noting -- would turn the incidental
-        encoding this probe measures into instructed encoding, which is the one
-        thing the probe cannot survive.
-        """
-        if self.all_done():
-            return f"ALL {noun} VERIFIED."
-        pending = len(self.cfg) - len(self.achieved)
-        return (f"No goal is live at this moment. {pending} further goal(s) remain and "
-                f"open later in this episode -- it is NOT over.")
 
     def progress_line(self) -> str:
         """One line of scored truth -- including that the ORDER is presentation only.
@@ -312,30 +184,18 @@ class MilestoneLedger:
         every endgame chasing iron while a +1 sat one craft away. The two 6/10 runs are
         exactly the ones that banked the furnace "out of order".
         """
+        from mcu_worldmodel.prompts import strategy_enabled
         if not self.cfg:
             return ("No milestone list is configured for this task: progress is what you "
                     "actually accomplish, verified on the game's statistics.")
         nxt = self.next_target()
-        if self.ordered:
-            # An ordered task: the order is the task, and the out-of-order advice below
-            # would be actively wrong -- work done on a goal before it opens scores
-            # nothing at all (see `update`).
-            head = (f"Environment-verified progress: {len(self.achieved)}/{len(self.cfg)} "
-                    f"goals. The goals of this task are ORDERED: each one becomes live "
-                    f"only when the goal before it is verified, and anything you do "
-                    f"towards a goal that is not yet live counts for nothing.")
-            if nxt is None:
-                return head + " " + self._no_live_goal()
-            what = (f"return to {self.describe_target(nxt)}"
-                    if nxt["event"] == "reach"
-                    else f"{nxt['event']} of {'/'.join(nxt['objects'][:4])}")
-            return head + f" Your current goal: `{nxt['identity']}` ({what})."
         advice = (" -- bank whichever are already within reach (a furnace needs only "
-                  "8 cobblestone) before chasing the next in list order.")
+                  "8 cobblestone) before chasing the next in list order."
+                  if strategy_enabled() else ".")
         head = (f"Environment-verified progress: {len(self.achieved)}/{len(self.cfg)} "
                 f"milestones. Score = COUNT achieved, in ANY order{advice}")
         if nxt is None:
-            return head + " " + self._no_live_goal("MILESTONES")
+            return head + " ALL MILESTONES VERIFIED."
         return (head + f" First unmet in list order: `{nxt['identity']}` "
                 f"({nxt['event']} of {'/'.join(nxt['objects'][:4])}).")
 
@@ -344,18 +204,10 @@ class MilestoneLedger:
         whole (10 and 24), and showing the *unmet* ones is what stops the agent
         re-deriving the tech tree from scratch every turn."""
         lines = []
-        hidden = 0
         for rule in self.cfg:
             ident = rule["identity"]
             if ident in self.achieved:
                 lines.append(f"  [x] {ident} (step {self.achieved[ident]})")
-            elif not self.is_revealed(ident):
-                # Not even the identity: `water_bucket_2` announces the return trip on
-                # its own, and one line per hidden goal would leak the shape of the rest.
-                hidden += 1
-            elif rule.get("event") == "reach":
-                lines.append(f"  [ ] {ident} <- go back to {self.describe_target(rule)} "
-                             f"(within {rule.get('radius', 8)} blocks)")
             elif ident in self.given:
                 lines.append(f"  [ ] {ident} <- {rule['event']}: "
                              f"{', '.join(rule['objects'][:4])} (the kit HOLDS this item, "
@@ -364,13 +216,10 @@ class MilestoneLedger:
             else:
                 lines.append(f"  [ ] {ident} <- {rule['event']}: "
                              f"{', '.join(rule['objects'][:4])}")
-        if hidden:
-            lines.append(f"  [ ] {hidden} further goal(s), not yet disclosed. Each is "
-                         f"revealed only when the goal before it is verified.")
         return "\n".join(lines)
 
     def summary(self) -> dict[str, Any]:
-        out = {
+        return {
             "task": self.task_name,
             "milestones_achieved": len(self.achieved),
             "total_milestones": len(self.cfg),
@@ -379,19 +228,6 @@ class MilestoneLedger:
             "given": list(self.given),
             "order": self.order,
         }
-        # Only when they say something. An ungated task's report must stay byte-identical
-        # to the one its measured runs produced -- two always-present keys reading `{}`
-        # and `"all"` would rewrite the report of every arm ever run to describe a
-        # feature none of them used.
-        gates = {k: v for k, v in self.gate.items() if v}
-        if gates:
-            out["gates"] = gates
-        timed = {k: v for k, v in self.not_before.items() if v}
-        if timed:
-            out["not_before"] = timed
-        if self.reveal != "all":
-            out["reveal"] = self.reveal
-        return out
 
 
 def slot_is_empty(entry) -> bool:

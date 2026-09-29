@@ -1,13 +1,21 @@
-"""The agent: one kind of turn over one filesystem.
+"""The agent: two kinds of turn over one filesystem.
 
 The loop, in one paragraph. The runner steps the environment and hands every step to
 `observe`, which writes the ground truth into the memory filesystem -- position, events,
 a frame -- and never asks the model anything. When the action queue runs dry, `next_action`
-fires an **act turn**: Codex is given the current frame, the milestone checklist and the
-turn's state block, and writes `actions.json`, which refills the queue. What the model
-keeps between turns is the memory arm's protocol (`memory_mode`): the logbook's
-append-only log, the mfm arm's episode store beside it, VISTA's one long thread,
-arc-code's workspace, or nothing at all (direct).
+fires an **act turn**: Codex is given the current frame, the milestone checklist, the
+compiled world model and a view of the belief graph, and writes `actions.json`, which
+refills the queue. Every `induction_every` steps the queue is held and an **induction
+turn** runs instead: no actions, just a pass over the accumulated filesystem that rewrites
+the five world-model documents and settles beliefs that acting never got back to.
+
+Why the split earns its cost. A single-turn design has to re-derive its understanding from
+raw log lines on every call, so either the log stays small (and the agent forgets) or the
+turns get slow (and a 12,000-step episode is unaffordable). Compiling periodically means
+the frequent turn reads a summary and the expensive turn is amortised over hundreds of
+steps. It is also the only place where a belief formed 400 steps ago and never revisited
+can be settled -- acting is driven by what is in front of you, and nothing in an act turn
+ever goes back to look.
 """
 from __future__ import annotations
 
@@ -27,16 +35,19 @@ from loguru import logger
 RETRY_SLEEP = time.sleep
 from PIL import Image
 
-from mcu_worldmodel import gui, macros, macros_entity, prompts, vision
+from mcu_worldmodel import gui, macros, macros_entity, prompts, sites, vision
 from mcu_worldmodel.actions import describe_entry, parse_actions
 from mcu_worldmodel import own as _own
 from mcu_worldmodel import procedures as _P
+from mcu_worldmodel.claude_backend import ClaudeTurn
 from mcu_worldmodel.codex_backend import CodexTurn
 from mcu_worldmodel.cursor import CursorState
+from mcu_worldmodel.discipline import Discipline
 from mcu_worldmodel.episodes import EpisodeBridge
 from mcu_worldmodel.governor import Governor, cell_of
 from mcu_worldmodel import grid as grid_mod
 from mcu_worldmodel.grid import Grid
+from mcu_worldmodel.hypotheses import CycleError, HypothesisGraph
 from mcu_worldmodel.memory import MultimodalMemory, norm_yaw, state_line
 from mcu_worldmodel.macros_world import norm_yaw_delta
 from mcu_worldmodel.milestones import (
@@ -108,18 +119,38 @@ def extract_actions_block(message: str) -> str | None:
     return None
 
 
-#: Ticks the open-screen loop waits after `isGuiOpen` turns true before the next entry
-#: runs, so the frame the entry reads shows the screen and not the world (2026-09-09).
-GUI_OPEN_SETTLE = 3
+
+def _is_attack_hold(a: dict) -> bool:
+    """A pure raw attack hold: attack, no camera, no movement, no use, no hotbar."""
+    if any(k.startswith("_") for k in a):
+        return False
+    if not a.get("attack"):
+        return False
+    cam = a.get("camera", [0, 0])
+    try:
+        if any(abs(float(c)) > 0.01 for c in cam):
+            return False
+    except (TypeError, ValueError):
+        return False
+    move = ("forward", "back", "left", "right", "jump", "sneak", "sprint",
+            "use", "drop", "inventory")
+    if any(a.get(k) for k in move):
+        return False
+    return not any(a.get(f"hotbar.{n}") for n in range(1, 10))
 
 
 def _cut_short_hint(atoms: bool) -> str:
     """The tail of the attack-hold cut-short note: names tools that exist in this run.
-    In atoms mode the macros are not provided (own.ATOMS_LINE); the old hint named them
-    300-400 times a life to models that could not call them (of2/of3, 2026-09-08)."""
+    Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
+    241 times in g4_mfm_gpt6_diamond (2026-09-11) to a model that could not call them.
+    A raw attack hold is also never watched for ore: mine_ahead(ore_watch=true) is the
+    one entry point to the wall watcher there (that life: 79 turns of raw holds, zero
+    sightings, 9/10). Same shape as MCU main's 1ac1c7f."""
     if atoms:
-        return ("To mine several blocks in a row queue one mine_ahead per block, or a "
-                "procedure of yours.")
+        return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
+                "30) per block: each is cut the moment its block breaks, and the wall "
+                "watcher samples every hold for ore speckles. mine_ahead(n) spends all n "
+                "ticks -- use it only for continuous digging (a shaft).")
     return "To mine several blocks in a row use mine_forward/strip_mine/stair_down."
 
 
@@ -135,21 +166,32 @@ class WorldModelAgent:
         base_url: str | None = None,
         codex_home: str | Path | None = None,
         transcript_dir: str | Path | None = None,
+        # Which CLI carries the model: "codex" (GPT through the Codex CLI, every arm so
+        # far) or "claude" (Anthropic models through Claude Code). `self.codex` stays the
+        # attribute name either way: it is the model channel, and both Turn classes hold
+        # the same contract (run / read_outputs / vision_audit / split_briefing).
+        cli: str = "codex",
         entry_cap: int = 40,
         repeat_cap: int = 200,
         step_cap: int = 400,
+        induction_every: int = 600,
         extended_actions: bool = False,
+        # 2000, raised from 1200 on trajectory evidence: induction self-compresses to
+        # the stated budget (every doc in dm4_final1-3/wmv22/ked_final1 sat at 768-1089
+        # chars, zero truncations), so a 12,000-step episode's world was being squeezed
+        # into the same five ~1KB documents as a 6,000-step one. The act prompt is ~9KB
+        # total; four more KB of compiled memory is the cheapest capacity in the system.
+        per_doc_chars: int = 2000,
         # 5, matched to ProlongExecutor's default: the two chassis must not differ in
         # how many chances a turn gets to produce a valid actions.json.
         analyzer_retries: int = 5,
         frame_size: tuple[int, int] = (640, 360),
         platform_prompt: str = "",
         max_steps: int = 6000,
-        memory_mode: str = "logbook",
+        memory_mode: str = "worldmodel",
         # Codex lifecycle knobs handed through to CodexTurn; None keeps the
         # backend's environment fallback (the offline selftests).
         session_max_turns: int | None = None,
-        session_max_bytes: int | None = None,
         codex_timeout: int | None = None,
         # The mfm arm's retrieval block in the turn prompt (PLAN_episodic_memory.md,
         # "retrieval block ... a flag, default off"). Only the mfm mode has a store
@@ -159,60 +201,47 @@ class WorldModelAgent:
         # a plan is vetoed from the record, the way the governor vetoes from its
         # own ledger. Independent of `retrieval`.
         refusal: bool = False,
-        # The four chassis additions the spatial-grid merge brought in, each its own
-        # flag and each OFF by default. All four change what the model is SHOWN, so
-        # under the parity rule (a new arm adds a flag; it never moves the baseline)
-        # the logbook arm stays the one the measured runs used, and each is an arm
-        # that can be measured on its own:
-        #   grid          the runner's cell map: `grid.jsonl` beside the log and the
-        #                 [MAP] block in the turn prompt (mcu_worldmodel/grid.py)
-        #   recent        the [RECENT] block: the last six finished entries, rendered
-        #                 by the harness so the turn does not start with a grep
-        #   event_frames  the 2x2 sheet of the frames at this turn's events, attached
-        #                 beside the current view
-        # `governor` is the exception: the null-entry tabu (mcu_worldmodel/governor.py)
-        # is NOT part of that merge -- its [NOTE] lines are in the recorded logbook pin,
-        # so it is what the measured runs already ran. Its flag exists to ABLATE it, not
-        # to switch it on, so it is tri-state: None (nobody asked) is the baseline, on
-        # and unreported, exactly as the pins recorded it; an explicit True/False is an
-        # arm making a choice, and only then does its `watchdog` line join the report.
-        grid: bool = False,
-        recent: bool = False,
-        governor: bool | None = None,
-        event_frames: bool = False,
         # The vista arm's knobs (mcu_worldmodel/vista.py: thread_bytes, frame_every,
         # idle_timeout, close_timeout, codex_bin); None keeps its defaults.
         vista_options: dict[str, Any] | None = None,
-        # The arc arm's knobs (mcu_worldmodel/arc.py: agent, model, max_sessions, ...).
-        arc_options: dict[str, Any] | None = None,
         # The mfm arm's carried lives (mcu_worldmodel/previous.py): earlier runs' memory
         # dirs whose records go under previous/ and whose verified sites are pushed
         # into the turn prompt. Only the mfm mode has the store to carry them with.
         previous_lives: list | None = None,
         expect: bool = False,
         frames: bool = False,
+        corridors: bool = False,
+        sites: bool = False,
         thin: bool = False,
         atoms: bool = False,
         own: bool = False,
+        visual_only: bool = False,
+        human_play: bool = False,
         own_reflexes: bool = False,
         harness_reflexes: bool = True,
         skills: bool = False,
         minimal: bool = False,
         event_sheet: bool = True,
-        scan_frames: bool = False,
     ) -> None:
-        if memory_mode not in ("logbook", "direct", "mfm", "vista", "arc"):
+        if memory_mode not in ("worldmodel", "logbook", "wmlite", "direct", "mfm", "vista"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
         if (retrieval or refusal) and memory_mode != "mfm":
             raise ValueError("retrieval/refusal need memory_mode='mfm'")
         if previous_lives and memory_mode != "mfm":
             raise ValueError("previous_lives needs memory_mode='mfm'")
-        if (expect or frames) and memory_mode != "mfm":
-            raise ValueError("expect/frames need memory_mode='mfm'")
+        if (expect or frames or corridors or sites) and memory_mode != "mfm":
+            raise ValueError("expect/frames/corridors/sites need memory_mode='mfm'")
+        if corridors and not sites:
+            raise ValueError("corridors needs sites (they are [KNOWN SITES] lines)")
         # The MFM-layer options (flags on the mfm arm; the chassis is unchanged):
         # `expect` echoes the model's EXPECT line against the harness record next
-        # turn; `frames` gives the arm zoom.py.
-        self.expect, self.frames = bool(expect), bool(frames)
+        # turn; `frames` gives the arm zoom.py (and frame pointers on the known sites);
+        # `sites` pushes the carried lives' verified places into the prompt as
+        # [KNOWN SITES] -- NOT the MFM protocol (the carry alone is: the model reads
+        # previous/ itself), kept to reproduce the ob chain; `corridors` adds their
+        # dry tunnels to that block.
+        self.expect, self.frames, self.corridors = bool(expect), bool(frames), bool(corridors)
+        self.sites = bool(sites)
         # `thin` (any memory mode): the contract keeps the task, the memory protocol, the
         # response format, the action schema and the procedure index; the long sections
         # go to references/ (prompts.thin_split). The model reads them when it needs them.
@@ -220,9 +249,14 @@ class WorldModelAgent:
         # `--atoms` (any mode): the procedure set the contract shows and `expand` accepts
         # is procedures.ATOMS; `--own` (mfm): mine/ persists and mine/procedures/*.py
         # are procedures (mcu_worldmodel/own.py; tasks/mfm-three-layer.self-harness).
-        #: `--no-harness-reflexes`: no reflex, guard, governor or nudge acts for the
-        #: model (the self-harness arm's own reflexes are the tick layer)
-        self.reflexes = bool(harness_reflexes)
+        self.human_play = bool(human_play)
+        if self.human_play and memory_mode != "mfm":
+            raise ValueError("human_play needs memory_mode='mfm'")
+        if self.human_play:
+            own = True                      # the model's own scripts are the skill store
+        #: `--human-play` / `--no-harness-reflexes`: no reflex, guard, governor or nudge
+        #: acts for the model (the self-harness arm's own reflexes are the tick layer)
+        self.reflexes = bool(harness_reflexes) and not self.human_play
         #: `--skills` (mcu_worldmodel/skills.py): the meta-level skill package written
         #: into skills/ and the starter reflexes into mine/reflexes/
         self.skills = bool(skills)
@@ -231,13 +265,15 @@ class WorldModelAgent:
         self.minimal = bool(minimal)
         #: `--no-event-sheet` (mfm): no 2x2 sheet of this turn's event frames; the view alone.
         self.event_sheet = bool(event_sheet)
-        # `--scan-frames` (mfm only): keep scan_around's frames so its contact sheet
-        # is built here too. See MultimodalMemory.scan_frames.
-        self.scan_frames = bool(scan_frames)
         self.atoms, self.own = bool(atoms), bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
-        _P.set_visible(_P.ATOMS if self.atoms else None)
+        self.visual_only = bool(visual_only)
+        if self.visual_only and memory_mode != "mfm":
+            raise ValueError("visual_only needs memory_mode='mfm'")
+        _P.set_visible(_P.HUMAN_ATOMS if self.human_play
+                       else _P.VISUAL_ATOMS if self.visual_only
+                       else (_P.ATOMS if self.atoms else None))
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
         #: `--own-reflexes` (mcu_worldmodel/own.py): mine/reflexes/<name>.py scripts run
@@ -257,22 +293,35 @@ class WorldModelAgent:
         self.task_text = task_text
         self.ledger = ledger
         self.entry_cap, self.repeat_cap, self.step_cap = entry_cap, repeat_cap, step_cap
-        # The claim-M arm axis, and the ONLY thing it is allowed to change. "logbook" is
-        # PRO-LONG's memory protocol on this substrate: the execution engine, perception,
-        # caps and knowledge, with memory = one append-only logs.txt the model greps.
+        # The claim-M arm axis, and the ONLY thing it is allowed to change. "worldmodel"
+        # is this agent as designed; "logbook" is PRO-LONG's memory protocol on the same
+        # substrate: the identical execution engine, perception, caps and knowledge, but
+        # memory = one append-only logs.txt the model greps -- no compiled documents, no
+        # belief graph, no induction pass, no structured event/position channels.
+        self.memory_mode = memory_mode
+        # "wmlite": the simplification arm -- the logbook substrate plus ONE compiled
+        # document (world_model/world.md) its induction pass keeps current. No belief
+        # graph, no ops protocol, no discipline, no five-document taxonomy: what stays
+        # is exactly the claim that compiling the past beats grepping it raw.
         # "direct" is the no-memory rung on the same substrate: no filesystem, no
         # persistent thread, no window -- every act turn is the present alone (the
         # same state block the memory arms get, plus the current view), and its reply
         # carries the actions JSON the other arms write to a file.
-        self.memory_mode = memory_mode
+        self.structured = memory_mode == "worldmodel"
+        self.lite = memory_mode == "wmlite"
         # "mfm": the logbook arm plus the Multimodal Filesystem Memory beside the log --
         # one directory per plan entry (image, state, action, outcome) and a query
         # tool. Everything the logbook arm does, it does identically; the store is
         # written from four hook points (see mcu_worldmodel/episodes.py) and one
         # paragraph of the system prompt names it.
+        if memory_mode in ("logbook", "direct", "mfm", "vista") and induction_every:
+            logger.info(f"[agent] memory_mode={memory_mode}: induction turns disabled")
+            induction_every = 0
+        self.induction_every = induction_every
         # True when mcu_worldmodel.craft_env has patched the spec, which is what makes
         # `drop` a real key rather than one `_process_action` silently skips.
         self.extended_actions = extended_actions
+        self.per_doc_chars = per_doc_chars
         self.analyzer_retries = analyzer_retries
         self.frame_size = frame_size
         # The host benchmark's control reference, empty when run from `mcu_worldmodel.run`
@@ -283,16 +332,30 @@ class WorldModelAgent:
         # (dm4_wmv11) and loses milestones it was already carrying the materials for.
         self.max_steps = max_steps
 
-        self.memory = MultimodalMemory(workspace,
+        self.memory = MultimodalMemory(workspace, structured=self.structured,
+                                       lite=self.lite,
                                        direct=memory_mode == "direct",
                                        episodes=memory_mode == "mfm",
-                                       arc=memory_mode == "arc",
                                        zoom_tool=self.frames, own=self.own,
-                                       scan_frames=self.scan_frames)
+                                       visual_only=self.visual_only,
+                                       feedback_only=self.human_play)
+        self.memory.seed_world_model(task_text)
         if self.own:
             (self.memory.root / _own.OWN_DIR).mkdir(parents=True, exist_ok=True)
         if self.own_reflexes:
             (self.memory.root / _own.REFLEX_DIR).mkdir(parents=True, exist_ok=True)
+        self.graph = HypothesisGraph()
+        self._inherited_graph = False
+        if self.structured and self.memory.graph_path.exists():
+            # Resuming into an existing workspace: the beliefs are part of the record,
+            # so they come back with it rather than being re-derived from the log.
+            try:
+                self.graph = HypothesisGraph.load(self.memory.graph_path)
+                self._inherited_graph = bool(self.graph.nodes)
+                logger.info(f"[agent] resumed {len(self.graph.nodes)} hypotheses")
+            except Exception as e:
+                logger.warning(f"[agent] could not load hypothesis graph: {e}")
+        self.discipline = Discipline(self.graph, ledger)
 
         # The direct arm sheds what it can of the tool surface: codex exec cannot shed
         # its exec cell, so it runs read-only -- the closest this CLI comes to
@@ -302,15 +365,14 @@ class WorldModelAgent:
             {"sandbox_mode": "read-only"} if memory_mode == "direct" else {})
         if session_max_turns is not None:
             codex_kwargs["session_max_turns"] = int(session_max_turns)
-        if session_max_bytes is not None:
-            codex_kwargs["session_max_bytes"] = int(session_max_bytes)
         if codex_timeout is not None:
             codex_kwargs["timeout"] = int(codex_timeout)
         # "vista": VISTA's protocol on the same chassis (mcu_worldmodel/vista.py) -- one
         # codex thread calling `play` one entry at a time, no filesystem the model
         # reads, the frame archive behind `inspect`, two notes files, a checkpoint
         # handoff when the context fills. It runs no `codex exec` turn: `self.codex`
-        # is a shim carrying what the chassis reads off the backend.
+        # is a shim carrying what the chassis reads off the backend. Every vista path
+        # is gated on `self.vista`, so the other arms' bytes are untouched (pinned).
         self.vista: "VistaBridge | None" = None
         if memory_mode == "vista":
             from mcu_worldmodel.vista import VistaBridge, VistaCodexShim
@@ -321,21 +383,23 @@ class WorldModelAgent:
                 timeout=int(codex_timeout) if codex_timeout is not None else 480,
                 base_url=base_url, options=vista_options)
             self.codex: Any = VistaCodexShim(self.vista)
-        # "arc": arc-code's harness on the same chassis (mcu_worldmodel/arc.py) -- one
-        # long coding-agent session with a shell and the workspace, `./act do` as its
-        # only actuator, the log plus its own files as memory. Every arc path below is
-        # gated on `self.arc`, so the other arms' bytes are untouched (pinned).
-        self.arc: "ArcBridge | None" = None
-        if memory_mode == "arc":
-            from mcu_worldmodel.arc import ArcBridge, ArcCodexShim
-            self.arc = ArcBridge(
-                self, model=model, effort=reasoning_effort,
-                codex_home=Path(codex_home) if codex_home else None,
+        elif cli == "claude":
+            # The direct arm on claude sheds the tool surface entirely (`tools=()`),
+            # which codex cannot do; the codex side runs read-only instead.
+            claude_kwargs: dict[str, Any] = (
+                {"tools": ()} if memory_mode == "direct" else {})
+            if session_max_turns is not None:
+                claude_kwargs["session_max_turns"] = int(session_max_turns)
+            if codex_timeout is not None:
+                claude_kwargs["timeout"] = int(codex_timeout)
+            self.codex = ClaudeTurn(
+                self.memory.root, model=model, reasoning_effort=reasoning_effort,
+                base_url=base_url,
+                config_dir=Path(codex_home) if codex_home else None,
                 transcript_dir=Path(transcript_dir) if transcript_dir else None,
-                timeout=int(codex_timeout) if codex_timeout is not None else 480,
-                base_url=base_url, options=arc_options)
-            self.codex = ArcCodexShim(self.arc)
-        if memory_mode not in ("vista", "arc"):
+                **claude_kwargs,
+            )
+        elif cli == "codex":
             self.codex = CodexTurn(
                 self.memory.root, model=model, reasoning_effort=reasoning_effort,
                 base_url=base_url,
@@ -343,27 +407,17 @@ class WorldModelAgent:
                 transcript_dir=Path(transcript_dir) if transcript_dir else None,
                 **codex_kwargs,
             )
+        else:
+            raise ValueError(f"unknown cli: {cli!r} (codex|claude)")
+        self.cli = cli
         self.episodes: EpisodeBridge | None = (
             EpisodeBridge(self.memory, self.codex, self.ledger, retrieval=self.retrieval,
                           refusal=self.refusal)
             if memory_mode == "mfm" else None)
-        # `goal_image:` -- the target is designated by a picture the agent itself took
-        # earlier in the episode (mcu_worldmodel/goalimage.py). Absent from every task
-        # that does not declare it, so no cue is captured and the turn's image list is
-        # exactly what it was.
-        self.goal_image = None
-        try:
-            from util import load_goal_image
-            spec = load_goal_image(self.ledger.task_name)
-            if spec:
-                from mcu_worldmodel.goalimage import GoalImage
-                self.goal_image = GoalImage(spec, self.memory.attach_dir)
-                logger.info(f"[goal-image] {self.ledger.task_name}: cue for "
-                            f"`{self.goal_image.milestone}` from step {self.goal_image.step}")
-        except Exception as e:
-            logger.warning(f"[goal-image] not loaded: {e}")
+        if self.episodes is not None:
+            self.episodes.visual_only = self.visual_only
         if self.episodes is not None and previous_lives:
-            self.episodes.seed_previous(list(previous_lives))
+            self.episodes.seed_previous(list(previous_lives), sites=self.sites)
         if memory_mode == "direct" and self.codex.session_max_turns != 1:
             # A resumed thread is memory the harness would be serving for free; the
             # window above is the direct arm's ONLY sanctioned past. Forced here so a
@@ -379,6 +433,7 @@ class WorldModelAgent:
         # time instead made every [STATE] line read moved=0.00, which is precisely the
         # number the prompt tells the agent to trust over its own read of a frame.
         self.queue: deque[tuple[dict[str, Any], int]] = deque()
+        self.plan: list[str] = []
         self.step = 0
         self.action_num = 0
         self._prev_pos: dict | None = None
@@ -387,17 +442,13 @@ class WorldModelAgent:
         self._plan_entries: list[dict[str, Any]] = []
         self._entry_index: int | None = None
         self._entry_start_pos: dict | None = None
-        self.grid_on, self.recent_on = bool(grid), bool(recent)
-        self.governor_on = True if governor is None else bool(governor)
-        self.governor_asked = governor is not None
-        self.event_frames_on = bool(event_frames)
         self.governor = Governor()
         # The runner's own cell map (grid.py): walked cells, the pose a screen
         # opened from, water/lava/hazard cells. Beside the log in every arm that
         # keeps one; the direct arm keeps it in memory only (no file, no prompt
         # surface -- its only past is the present).
         self.grid = Grid((self.memory.root / "grid.jsonl")
-                         if (self.grid_on and self.memory.log) else None)
+                         if (self.memory.log and not self.visual_only) else None)
         # Frames at this turn's events (a hit, LAVA AHEAD, a stalled walk, a failed
         # re-open): tiled into one sheet and attached beside the current view.
         self._event_frames: list[tuple[int, str, Any]] = []
@@ -407,15 +458,18 @@ class WorldModelAgent:
         self._cur_info: dict | None = None    # the latest raw observation
         self._placed: dict[str, tuple[int, int, int]] = {}   # item -> block placed by place_and_open
         # The GUI cursor, held by the harness rather than by the agent. See cursor.py for
-        # why: with a relative-only cursor the agent had to keep its position in its own
-        # notes (208 of 243 beliefs in one run were one-shot `state_cursor_*` bookkeeping)
-        # and had to end its plan after every move in order to look, which is what made
-        # the median plan two entries long.
+        # why: with a relative-only cursor the agent had to keep its position in the belief
+        # graph (208 of 243 hypotheses were one-shot `state_cursor_*` bookkeeping) and had
+        # to end its plan after every move in order to look, which is what made the median
+        # plan two entries long.
         self.cursor = CursorState()
         # Where the last cursor servo verifiably landed, and a click awaiting its
         # next-tick verdict. Both belong to the current screen: cleared when it closes.
         self._servo_landed: tuple[float, float] | None = None
         self._pending_click: dict | None = None
+        # Consecutive guard-stop streaks per procedure family, cleared whenever
+        # verified progress lands. {label: [count, first_fail_step]}
+        self._proc_fails: dict[str, list] = {}
         self._cur_inv: dict[str, int] = {}
         self._entry_start_inv: dict[str, int] = {}
         self._gui_open = False
@@ -425,7 +479,8 @@ class WorldModelAgent:
         #: Which container the frame shows while a screen is open ('inventory', 'table',
         #: 'furnace' or None), read by vision.screen_kind every observe tick.
         self._screen: str | None = None
-        self.turns = {"act": 0, "act_failed": 0}
+        self._last_induction = 0
+        self.turns = {"act": 0, "induction": 0, "act_failed": 0, "induction_silent": 0}
         # Closed-loop bookkeeping. `_close_armed` is set by a `_allow_close` marker and
         # consumed by the next inventory toggle; `_vision_miss_streak` counts consecutive
         # GUI ticks where the arrow was not found in the frame (transition frames omit
@@ -444,6 +499,8 @@ class WorldModelAgent:
         #: The frame before `_last_pov` -- what a motion detector diffs against.
         self._prev_pov = None
         self._last_ore_flag_step = -1000
+        #: `--atoms`: the wall watcher's marker for raw attack holds (see next_action).
+        self._raw_ore: dict[str, Any] = {}
         self._last_lava_step = -1000
         self._last_lava_action = -1          # the action the guard last stopped
         self._last_shaft: tuple[Any, int] = (None, -1)   # (cell, action) the shaft guard stopped
@@ -464,9 +521,9 @@ class WorldModelAgent:
         # it came from before the next act turn: `Nearby entities` is never on the
         # wire, so a miner was blind to the zombie behind it -- dm11c read five 4-hp
         # hits as "a short fall" and kept digging until it died. The flag-time frames
-        # (ore sighting, hit) are saved where the arm keeps an archive and named by
-        # the [NOTE]; no arm gets them attached -- the current view is the only image
-        # a turn carries.
+        # (ore sighting, hit) are saved into the structured arm's archive and named
+        # by the [NOTE]; no arm gets them attached -- the current view is the only
+        # image a turn carries.
         self._hp_hist: deque[tuple[int, float]] = deque()
         self._last_hit_step = -1000
         self._last_repeat_note = -1000
@@ -496,11 +553,26 @@ class WorldModelAgent:
         #: with lava in the lower view is dropped on the spot.
         self._nether_lock_noted = False
         self._nether_lava = 0.0
+        # Harness-generated beliefs (sites.py): placed tables/furnaces, hazards, and
+        # the coverage since the last iron ore. Written into the graph -- the memory
+        # protocol -- so they exist only where the graph does (worldmodel mode).
+        self._coverage: list[dict[str, Any]] = []
+        self._coverage_flag_base = 0
+        self._last_ore_step: int | None = None
+        self._last_visit_pos: tuple[float, float, float] | None = None
+        self._last_ore_frame: tuple[str, int] | None = None
         # Act turns since ground truth last moved (a milestone or any inventory change).
-        # Twelve turns of no movement is the pixel-hunting signature; the count is shown
-        # in every turn's header.
+        # Twelve turns of no movement is the pixel-hunting signature, and it triggers an
+        # early induction pass rather than letting the loop run to the fixed cadence.
         self._stall_turns = 0
         self._progress_marker: tuple | None = None
+        # Plan-repetition streak: token-set signature of the last plan text and how
+        # many consecutive act turns stayed near-identical to it. dm6_wm issued seven
+        # copies of "Collect the nearby log drops" in a row; the count makes that
+        # visible as a fact the way _proc_fails does for guard stops.
+        self._plan_sig: frozenset | None = None
+        self._plan_repeat = 0
+        self._plan_repeat_since = 0
         self.cursor_stats = {
             "anchored": 0, "missed": 0, "drift_sum": 0.0, "drift_max": 0.0,
             "servo_ok": 0, "servo_unverified": 0, "servo_gave_up": 0,
@@ -510,10 +582,24 @@ class WorldModelAgent:
     # -- system prompt ----------------------------------------------------
 
     def start(self, info: dict) -> None:
+        # A graph that arrived with the workspace (a relayed run, or a later episode)
+        # describes a world that has since reset: built things are gone, natural
+        # things are back, tunnels are unmined. Reprice the harness nodes by type
+        # before the first turn reads them.
+        if self.structured and self._inherited_graph:
+            self._relay_reprice(self.step)
+            self._inherited_graph = False
         # AGENTS.md is written once. Rewriting it mid-episode would change the agent's
         # standing instructions underneath it, and Codex only reads it at thread start.
         contract = self._act_prompt()
-        if self.thin or self.minimal:
+        if self.human_play:
+            contract = prompts.human_contract(
+                task_text=self.task_text, progress_block=self.ledger.progress_block(),
+                entry_cap=self.entry_cap, step_cap=self.step_cap, retrieval=self.retrieval,
+                expect=self.expect, frames=self.frames,
+                previous=bool(getattr(self.episodes, "previous", None)),
+                own_reflexes=self.own_reflexes)
+        elif self.thin or self.minimal:
             contract, refs = prompts.thin_split(contract, tools=self.memory_mode != "direct")
             if self.minimal:
                 tail = (contract[contract.index("**References.**"):]
@@ -533,12 +619,9 @@ class WorldModelAgent:
                     previous=bool(getattr(self.episodes, "previous", None)),
                     references_tail=tail)
             if self.atoms and refs.get("skills.md"):
-                # the situations reference is written for the macro library; the atoms run
-                # gets the same engine facts without the macros (prompts.SITUATIONS_ATOMS)
-                refs["skills.md"] = prompts.situations_atoms(refs["skills.md"])
-                if refs.get("survival.md"):
-                    refs["survival.md"] = prompts.survival_atoms(refs["survival.md"])
-                contract = contract.replace(prompts._THIN_FILES["skills.md"], prompts.ATOMS_SKILLS_DESC)
+                # the situations reference names the task-shaped macros: say they are recipes here
+                from mcu_worldmodel import own as _own
+                refs["skills.md"] = _own.ATOMS_REF_LINE + "\n\n" + refs["skills.md"]
             if refs:
                 self.memory.write_references(refs)
         if self.skills:
@@ -547,6 +630,24 @@ class WorldModelAgent:
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
         self.codex.write_system_prompt(contract)
+        if self.cli == "claude":
+            # The skills and references were written naming codex's image tool; on this
+            # channel the tool is Read (claude_backend.rename_image_tool). Rewritten in
+            # place, once, before the first turn reads them.
+            from mcu_worldmodel.claude_backend import rename_image_tool
+            n = 0
+            for sub in ("skills", "references"):
+                d = self.memory.root / sub
+                if not d.is_dir():
+                    continue
+                for f in sorted(d.rglob("*")):
+                    if f.is_file() and f.suffix in (".md", ".py", ".txt"):
+                        t = f.read_text(encoding="utf-8")
+                        t2 = rename_image_tool(t)
+                        if t2 != t:
+                            f.write_text(t2, encoding="utf-8")
+                            n += 1
+            logger.info(f"[agent] claude channel: image tool renamed in {n} skill/reference file(s)")
         self.ledger.reset(info)
         pos = location(info)
         frame = self._save_frame(info, 0)
@@ -555,8 +656,7 @@ class WorldModelAgent:
             self.episodes.initial(info, 0, self._encode_pov(info.get("pov"), 0))
         if self.vista:
             self.vista.start(info, self._encode_pov(info.get("pov"), 0))
-        if self.arc:
-            self.arc.start(info, self._encode_pov(info.get("pov"), 0))
+        self.memory.append_visited(0, pos)
         self._prev_pos = pos
         self._cur_inv = inventory_counts(info)
         self._empty_slot = _first_empty_slot(info)
@@ -568,6 +668,10 @@ class WorldModelAgent:
             task_text=self.task_text,
             progress_block=((self.ledger.progress_line() + "\n"
                              + self.ledger.progress_block()) if self.ledger.cfg else ""),
+            graph_summary=self.graph.to_prompt_summary(
+                max_items=12, flags=self.discipline.flags(self.step)),
+            plan_summary="\n".join(f"{i+1}. {s}" for i, s in enumerate(self.plan)),
+            discipline_summary=self.discipline.summary(),
             entry_cap=self.entry_cap, step_cap=self.step_cap,
             platform_prompt=self.platform_prompt,
             memory_mode=self.memory_mode,
@@ -575,9 +679,13 @@ class WorldModelAgent:
             scored_by_milestones=bool(self.ledger.cfg),
             retrieval=self.retrieval,
             refusal=self.refusal,
-            previous=bool(self.episodes is not None and self.episodes.previous is not None),
-            expect=self.expect, frames=self.frames, own=self.own, atoms=self.atoms,
-            own_reflexes=self.own_reflexes, harness_reflexes=self.reflexes,
+            previous=(bool(self.episodes is not None and self.episodes.previous is not None)
+                      or (self.memory_mode == "logbook"
+                          and (self.memory.root / "previous_expedition_log.txt").exists())),
+            expect=self.expect, frames=self.frames, corridors=self.corridors,
+            sites=self.sites, own=self.own, atoms=self.atoms,
+            visual_only=self.visual_only, own_reflexes=self.own_reflexes,
+            harness_reflexes=self.reflexes,
         )
 
     # -- observation ------------------------------------------------------
@@ -620,10 +728,9 @@ class WorldModelAgent:
     def observe(self, info: dict, step: int) -> None:
         """Record one environment step. Ground truth only -- no model involved."""
         self.step = step
-        if self.goal_image is not None:
-            self.goal_image.maybe_capture(step, info.get("pov"))
         fired = self.ledger.update(info, step)
         if fired:
+            self.memory.append_events(step, fired)
             self._pending_events += [f"MILESTONE {f['identity']} verified" for f in fired]
             head0 = self.queue[0][0] if self.queue else None
             if (self.queue and not self._harvesting() and not self._gui_open
@@ -650,6 +757,7 @@ class WorldModelAgent:
                 self.queue.clear()
         stats = self.ledger.stat_events(info)
         if stats:
+            self.memory.append_events(step, stats)
             self._pending_events += [f"{s['event']} {s['item']} +{s['delta']:g}"
                                      for s in stats]
             for s in stats:
@@ -671,9 +779,9 @@ class WorldModelAgent:
                 else:
                     self._other_breaks += s["delta"]
                     self._last_break_item = s["item"]
-                    if s["item"] in ("crafting_table", "furnace"):
-                        self._station_picked_up(s["item"], step)
         pos = location(info)
+        if stats and self.structured and pos:
+            self._harness_events(stats, pos, step, info.get("pov"))
         # Survival ground truth, checked before the position rolls over. dm4_wmv9 died
         # twice -- at y=16 with the run's purpose in reach, then again jumping into its
         # own shaft after the drops -- and the only trace in its memory was its own
@@ -712,6 +820,14 @@ class WorldModelAgent:
                 self._last_bunker = None
                 self._hp_hist.clear()
                 self._dimension = "the Overworld"
+                if self.structured:
+                    self.graph.add_or_update(
+                        id=f"hazard_death_{step}", kind="location",
+                        statement=sites.death_statement(prev, step),
+                        confidence=1.0, status="confirmed",
+                        evidence=[f"harness: teleport to spawn at step {step}"],
+                        step=step)
+                    self._persist()
         if hp is not None:
             self._hp_hist.append((step, hp))
             while self._hp_hist and step - self._hp_hist[0][0] > 100:
@@ -756,6 +872,8 @@ class WorldModelAgent:
                 self.memory.add_note(
                     f"still taking damage -- health {hp:.0f}/20 at {where}; the plan "
                     f"keeps running (get out of whatever is hurting you first).")
+            if self.structured and pos:
+                self._add_hit(pos, step, tick_drop, frame=None)
         elif hp is not None and (
                 tick_drop >= 3.0
                 or (slow_drop >= 3.0 and step - self._last_hit_step > 100)):
@@ -1113,8 +1231,8 @@ class WorldModelAgent:
                         reflex += (" (No placeable block in your hotbar, so the runner "
                                    "could not pillar you up: keep cobblestone there.)")
             if not getattr(self, "reflexes", True):
-                # --no-harness-reflexes: the note stands, the runner does not act --
-                # and must not say it does
+                # human-play / --no-harness-reflexes: the note stands, the runner does
+                # not act -- and must not say it does
                 reflex = (" The runner does not act in this run: the plan stopped, the "
                           "next move is yours.")
             self.memory.add_note(
@@ -1122,13 +1240,19 @@ class WorldModelAgent:
                 f"find the danger (a monster behind you? a fall? lava? drowning or "
                 f"burning if the loss was gradual) before continuing.{reflex}")
             self.queue.clear()
+            if self.structured and pos:
+                self._add_hit(pos, step, tick_drop if tick_drop >= 3.0 else slow_drop,
+                              frame=rel)
         if not getattr(self, "reflexes", True):
-            self._reflex = None             # --no-harness-reflexes: the note stands, the runner does not act
+            self._reflex = None             # human-play: the note stands, the runner does not act
         self._last_health = hp
+        self.memory.append_visited(step, pos)
         self._prev_pos = pos
         self._cur_pos = pos
         self._cur_info = info
         self.grid.observe(step, pos)
+        if self.structured and pos:
+            self._check_visits(pos, step)
         self._prev_pov = self._last_pov
         self._last_pov = info.get("pov")
         self._lava_guard(step, pos)
@@ -1170,8 +1294,6 @@ class WorldModelAgent:
             self.episodes.observe(info, step)
         if self.vista:
             self.vista.observe(info, step)
-        if self.arc:
-            self.arc.observe(info, step)
         # The entry just executed is finished when the next queued action belongs to a
         # different entry (or the queue is empty). Cleared after logging so the entry is
         # written exactly once -- `next_action` logs the entries that finish between
@@ -1309,6 +1431,8 @@ class WorldModelAgent:
             action = self._reflex_tick(mk_act)
             if action is not None:
                 return action
+        if self._due_for_induction():
+            self.run_induction(info)
         # A raw attack-hold is cut the moment its block breaks. Markers already key on
         # the stat stream; plain steps popped blind ran a 100-tick attack 71 ticks past
         # the grass it was written for (dm4_wmv11, step 5242). Multi-block digs belong
@@ -1366,6 +1490,15 @@ class WorldModelAgent:
                             self._entry_index = None
                         continue
                 else:
+                    # `--atoms`: a raw attack hold is the model's own mining step (the
+                    # macros that carried the wall watcher are withheld), so the watcher
+                    # samples it too. Same marker semantics as a macro: every 8th tick,
+                    # one flag per 100 steps, the rest of the plan flushed with the
+                    # [NOTE]. Three lives of g4_mfm_gpt6_diamond (2026-09-11) mined
+                    # 12,000 steps each on raw holds with 0-3 sightings between them.
+                    if self.atoms and _is_attack_hold(head) and self._ore_flag(self._raw_ore):
+                        self.cursor_stats["raw_hold_flags"] = (
+                            self.cursor_stats.get("raw_hold_flags", 0) + 1)
                     action, _ = self.queue.popleft()
                     action = self._guard_close(action, noop)
                 # Advanced here, one tick at a time, against the projection that
@@ -1494,6 +1627,41 @@ class WorldModelAgent:
             f'"args": {{"force": true}}}} drops them deliberately.')
         return noop()
 
+    def _note_failure(self, label: str) -> None:
+        """One more consecutive guard-stop for this procedure family."""
+        entry = self._proc_fails.setdefault(label, [0, self.step])
+        entry[0] += 1
+
+    def _notices(self) -> str:
+        """Harness notices for the turn prompt: discipline facts plus failure streaks.
+
+        The streak lines exist because repetition was invisible: dm5_wm re-planned one
+        failing craft 21 times without ever opening a mechanism hypothesis about WHY.
+        Each line is a countable fact from this episode's own guard stops; what to do
+        about it stays the model's call."""
+        parts = [self.discipline.summary()]
+        for label, (n, since) in sorted(self._proc_fails.items()):
+            if n < 2:
+                continue
+            line = f"`{label}` has been guard-stopped {n} times in a row since step {since}"
+            token = label.split(" ")[0].split("_")[0].lower()
+            mentioned = any(
+                h.kind == "mechanism" and token in (h.statement or "").lower()
+                for h in self.graph.nodes.values())
+            if not mentioned:
+                line += " and no mechanism hypothesis mentions it"
+            parts.append(line + ".")
+        if self._plan_repeat >= 2 and self._stall_turns >= 3:
+            parts.append(
+                f"Your last {self._plan_repeat + 1} act-turn plans were near-identical "
+                f"(since step {self._plan_repeat_since}) while nothing verifiable "
+                f"changed.")
+        y = self._cur_pos.get("y") if self._cur_pos else None
+        ledger_line = self.governor.summary(step=self.step, y=y, budget=self.max_steps)
+        if ledger_line:
+            parts.append(ledger_line)
+        return "\n".join(p for p in parts if p.strip())
+
     def _flush_tail(self, note: str, stat: str) -> None:
         """Drop everything queued after the current head, with one note saying so.
 
@@ -1524,6 +1692,7 @@ class WorldModelAgent:
 
         if not self.cursor.is_open:
             self._servo_landed = None
+            self._note_failure("gui (screen closed)")
             self._flush_tail(
                 f"cursor move to {sv['label']}: the screen closed mid-move; stopped. "
                 f"If you did not close it, the game did: container screens auto-close "
@@ -1569,6 +1738,7 @@ class WorldModelAgent:
         if ck["t"] == 0 and ck.get("gui", True):
             if not self.cursor.is_open:
                 self._servo_landed = None
+                self._note_failure("gui (screen closed)")
                 self._flush_tail(
                     f"gui_{'right_' if ck['btn'] == 'use' else ''}click: the screen is "
                     f"closed; not clicking. If you did not close it, the game did: "
@@ -1582,6 +1752,7 @@ class WorldModelAgent:
                 off = ((px - lx) ** 2 + (py - ly) ** 2) ** 0.5
                 if off > 8.0:
                     self._servo_landed = None
+                    self._note_failure("gui_click")
                     self._flush_tail(
                         f"click aborted: the cursor is at ({px:.0f}, {py:.0f}), "
                         f"{off:.0f}px away from ({lx:.0f}, {ly:.0f}) where the last "
@@ -1657,6 +1828,7 @@ class WorldModelAgent:
         if dropped:
             self.queue.clear()
             self._entry_index = None
+        self._note_failure("gui_click")
         self.cursor_stats["click_lifted_nothing"] = (
             self.cursor_stats.get("click_lifted_nothing", 0) + 1)
         self.memory.add_note(
@@ -1716,36 +1888,15 @@ class WorldModelAgent:
         ch["used"] += 1
         return mk_act(attack=1)
 
-    def _station_picked_up(self, item: str, step: int) -> None:
-        """A placed table or furnace was mined back up: forget where it stood. Until
-        2026-09-09 the [MAP] block, the stall hint and use_until_gui's aim kept the old
-        cell for the rest of the life (of3 step 28,914 wrote "furnace mined, map
-        placement now STALE" into its own working memory and carried the caveat for
-        10,000 steps)."""
-        had = self._placed.pop(str(item), None)
-        grid = getattr(self, "grid", None)
-        rec = grid.placed.pop(str(item), None) if grid is not None and hasattr(grid, "placed") else None
-        if had is not None or rec is not None:
-            self.memory.add_note(
-                f"you mined your {item} back up at step {step}: its place is off the map "
-                f"now; place_and_open(item=\"{item}\") puts it down again where you stand.")
-
     def _opengui_tick(self, og: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """Press `inventory` until a screen is actually up (isGuiOpen), a few tries, then
-        let the frame catch up with the flag for GUI_OPEN_SETTLE ticks.
+        """Press `inventory` until a screen is actually up (isGuiOpen), a few tries.
 
         The toggle is edge-triggered and the engine drops a press that lands within a
         tick or two of the previous screen change: stage s1 (2026-09-03) pressed E four
         ticks after a forced close and nothing opened, so the whole recipe queued
         behind it ran against a closed screen. The same check `use_until_gui` makes,
-        for the one key that opens the survival inventory. The settle (2026-09-09): the
-        rendered frame trails `isGuiOpen` by a tick or two, so the entry after the open
-        read the screen kind and the grid cells from a frame of the world; the six
-        full-task lives wrote "watch 10-12 after opening" into their own notes."""
+        for the one key that opens the survival inventory."""
         if self._gui_open:
-            if og.get("settled", 0) < GUI_OPEN_SETTLE:
-                og["settled"] = og.get("settled", 0) + 1
-                return mk_act()
             return None
         t = og["t"]
         og["t"] += 1
@@ -1921,23 +2072,7 @@ class WorldModelAgent:
         if idx != self._entry_index:
             return          # the break belongs to the entry that just finished
 
-        def _is_hold(a: dict) -> bool:
-            if any(k.startswith("_") for k in a):
-                return False
-            if not a.get("attack"):
-                return False
-            cam = a.get("camera", [0, 0])
-            try:
-                if any(abs(float(c)) > 0.01 for c in cam):
-                    return False
-            except (TypeError, ValueError):
-                return False
-            move = ("forward", "back", "left", "right", "jump", "sneak", "sprint",
-                    "use", "drop", "inventory")
-            if any(a.get(k) for k in move):
-                return False
-            return not any(a.get(f"hotbar.{n}") for n in range(1, 10))
-
+        _is_hold = _is_attack_hold
         if not _is_hold(head):
             return
         run = 0
@@ -1954,7 +2089,7 @@ class WorldModelAgent:
         self.memory.add_note(
             f"attack-hold entry cut short at step {self.step}: a block broke "
             f"({self._last_break_item or 'log'}), {run} leftover attack ticks refunded. "
-            + _cut_short_hint(getattr(self, "atoms", False)))
+            + _cut_short_hint(self.atoms))
 
     #: Blocks the pillar reflex will stand on, best first. Gravel and sand fall.
     PILLAR_BLOCKS = ("cobblestone", "dirt", "stone", "andesite", "diorite", "granite",
@@ -3080,6 +3215,7 @@ class WorldModelAgent:
         next try starts at the rim. False (with a note) when no block can be placed.
         og5 (2026-09-07) sat 700 steps at y 63-64 under its y 69 trail re-issuing go_to."""
         from mcu_worldmodel import macros_world
+        from mcu_worldmodel.procedures import go_to
         cell, rise = up
         n = int(max(2, min(6, rise)))
         acts, msg = macros_world.pillar_up(self.cursor, self._cur_info, n=n)
@@ -3090,26 +3226,20 @@ class WorldModelAgent:
                 f"up (stair_up) or get {n} blocks to pillar_up({n}).")
             return False
         gt["pit_climbed"] = True
-        # The pillar, then the turn: the go_to is NOT re-queued and the rest of the plan
-        # is dropped. From the top of a one-block pillar every step is a fall of `n`;
-        # two lives (of1 death 3, of1r death 1, 2026-09-08/09) died walking off it into
-        # their own shaft at low health when the resumed walk started from the top.
+        again = go_to(x=gt["x"], z=gt["z"], within=gt["within"], n=160)[0]
+        again["_goto"]["pit_climbed"] = True
         idx = self.queue[0][1] if self.queue else 0
-        head = [self.queue[0]] if self.queue else []
-        dropped = max(0, len(self.queue) - len(head))
-        self.queue.clear()
-        for e in head + [(a, idx) for a in acts]:
-            self.queue.append(e)
+        at = 1 if self.queue else 0
+        for e in acts + [again]:
+            self.queue.insert(at, (e, idx))
+            at += 1
         self.cursor_stats["pit_climbs"] = self.cursor_stats.get("pit_climbs", 0) + 1
         self._keep_event_frame(self.step, "hole", self._last_pov)
         self.memory.add_note(
             f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) stalled at ({pos['x']:.1f}, "
             f"{pos['z']:.1f}): you stand {rise} blocks below the cell ({cell[0]}, "
             f"{cell[1]}, {cell[2]}) you walked earlier -- a hole the walk cannot climb. "
-            f"The runner queued pillar_up({n}) and STOPPED the plan there ({dropped} "
-            f"entries dropped): from the top of a one-block pillar every step is a fall of "
-            f"{n}. Look first, then step onto the rim toward ({cell[0]}, {cell[2]}) or "
-            f"bridge with blocks; do not go_to from up there.")
+            f"The runner queued pillar_up({n}) and the same go_to again from the top.")
         return True
 
     def _keep_event_frame(self, step: int, label: str, pov) -> None:
@@ -3128,8 +3258,9 @@ class WorldModelAgent:
         each labelled -- so the frame that carries the evidence is in front of the
         model on the turn it matters (mfm looked at past frames in 2-18% of turns)."""
         if (not self._event_frames or self.memory_mode == "direct"
+                or getattr(self, "visual_only", False) or getattr(self, "human_play", False)
                 or not getattr(self, "event_sheet", True)):
-            self._event_frames = []
+            self._event_frames = []            # visual-only: no event sheet, the model looks itself
             return None
         try:
             from PIL import ImageDraw
@@ -3468,6 +3599,8 @@ class WorldModelAgent:
         # were gone. The frame that fired the detector is the one worth zooming.
         data = self._encode_pov(self._last_pov, self.step)
         rel = self.memory.save_frame(self.step, data, suffix="_ore") if data else None
+        if rel:
+            self._last_ore_frame = (rel, self.step)
         # Flush the rest of the plan, exactly as the damage interrupt does. Hardening,
         # not a bug fix: the 2026-08-27 trajectory audit found every live flag happened
         # to sit in the plan's LAST entry (models put the open-ended mining entry last),
@@ -3487,9 +3620,14 @@ class WorldModelAgent:
             f"mining stopped: {kind}-ore-like speckles on screen at ({hit[0]}, {hit[1]}), "
             f"{hit[2]} px. {frame_note}The rest of the plan "
             f"({dropped} entr{'y' if dropped == 1 else 'ies'}) was dropped so you can "
-            f"act while the speckles are still in view: aim_at_ore (centres the "
-            f"crosshair), then mine_ahead(n=120) to dig out exactly what you are "
-            f"aiming at. Pass ore_watch=false to push through instead.")
+            + (f"act while the speckles are still in view: zoom the frame, look_abs "
+               f"(or look_at) onto the speckles, then {{\"attack\": 1}} holds (repeat 30, "
+               f"each cut when its block breaks) to dig out exactly what you are aiming "
+               f"at. The watcher rests 100 steps after a flag, so the next holds push "
+               f"through." if self.atoms else
+               f"act while the speckles are still in view: aim_at_ore (centres the "
+               f"crosshair), then mine_ahead(n=120) to dig out exactly what you are "
+               f"aiming at. Pass ore_watch=false to push through instead."))
         return True
 
     def _seq_tick(self, sq: dict[str, Any], mk_act) -> dict[str, Any] | None:
@@ -3563,6 +3701,7 @@ class WorldModelAgent:
         if mf["start"] is None and mf["label"] == "stair_down":
             refusal = self._dig_water_refusal("stair_down")
             if refusal:
+                self._note_failure("stair_down")
                 self._flush_tail(refusal, "dig_water_refusals")
                 return None
         if mf["start"] is None:
@@ -3575,6 +3714,8 @@ class WorldModelAgent:
 
         def _finish(reason: str) -> None:
             desc = mf["start"][1] - pos["y"]
+            self._record_coverage(mf["label"], mf["start"], mf["broken"],
+                                  mf["advanced"], mf["used"])
             self.memory.add_note(
                 f"{mf['label']}: broke {mf['broken']} blocks, advanced "
                 f"{mf['advanced']:.1f} blocks in {mf['used']} ticks"
@@ -3624,6 +3765,7 @@ class WorldModelAgent:
                             f"and continuing this entry.")
                         mf["desc_used"], mf["desc_y"] = mf["used"], pos["y"]
                     else:
+                        self._note_failure(mf["label"])
                         self._flush_tail(
                             f"{mf['label']}: broke {mf['broken']} blocks, advanced "
                             f"{mf['advanced']:.1f} in {mf['used']} ticks, descended "
@@ -3729,6 +3871,7 @@ class WorldModelAgent:
             mf["advanced"] += gained
             mf["stall"] += 1
             if mf["stall"] >= 2:
+                self._note_failure(mf["label"])
                 self.cursor_stats["mine_stall_stops"] = (
                     self.cursor_stats.get("mine_stall_stops", 0) + 1)
                 # Flush the queued rest of the plan, as the ore flag does: dm4_wmv22
@@ -3854,6 +3997,7 @@ class WorldModelAgent:
         if not dg.get("used"):
             refusal = self._dig_water_refusal("dig_down")
             if refusal:
+                self._note_failure("dig_down")
                 self._flush_tail(refusal, "dig_water_refusals")
                 self._keep_event_frame(self.step, "water", self._last_pov)
                 self._queue_water_escape(self.queue[0][1] if self.queue else 0)
@@ -3870,6 +4014,7 @@ class WorldModelAgent:
                                        and dg.get("start_y") is not None) else 0.0
 
         def _finish(reason: str = "") -> None:
+            self._record_coverage("dig_down", None, broken, desc, used)
             self.memory.add_note(
                 f"dig_down: broke {broken} blocks, descended {desc:.1f} in {used} "
                 f"ticks." + (f" {reason}" if reason else "") + self._dark_line(dg))
@@ -3883,6 +4028,7 @@ class WorldModelAgent:
             _finish()
             return None
         if used >= 60 and broken == 0 and desc < 0.5:
+            self._note_failure("dig_down")
             self._flush_tail(
                 f"dig_down: broke 0 blocks, descended 0.0 in {used} ticks. STOPPED "
                 f"EARLY: nothing broke and y did not change. The swings are hitting "
@@ -3899,6 +4045,7 @@ class WorldModelAgent:
                 dg["win_used"], dg["win_y"] = used, float(y)
             elif used - dg["win_used"] >= 96:
                 if dg["win_y"] - y < 1.0:
+                    self._note_failure("dig_down")
                     self._flush_tail(
                         f"dig_down: broke {broken} blocks, descended {desc:.1f} in "
                         f"{used} ticks. STOPPED EARLY: blocks are breaking but the "
@@ -3950,12 +4097,15 @@ class WorldModelAgent:
         from mcu_worldmodel.procedures import noop
 
         self.turns["act"] += 1
-        # Stall detection (the turn header's counter): ground truth is "moving" when a
+        # Stall detection for the induction trigger: ground truth is "moving" when a
         # milestone fired or any inventory count changed since the last act turn.
         marker = (len(self.ledger.achieved), tuple(sorted(self._cur_inv.items())))
         if marker != self._progress_marker:
             self._progress_marker = marker
             self._stall_turns = 0
+            self._proc_fails.clear()
+            self._plan_repeat = 0
+            self._plan_sig = None
         else:
             self._stall_turns += 1
         if self.memory_mode == "direct":
@@ -3970,11 +4120,6 @@ class WorldModelAgent:
             # in `play`; the bridge hands it the last outcome and takes the next entry.
             self.vista.act_turn(info)
             return
-        if self.arc is not None:
-            # The arc arm: the model is a coding-agent session blocked in `./act do`;
-            # the bridge answers it with the batch's sections and takes the next batch.
-            self.arc.act_turn(info)
-            return
         if self.episodes:
             # An entry still open here did not finish (its queue was cleared without
             # a log section); closed as flushed at this step, so the ticks a turn's
@@ -3983,25 +4128,12 @@ class WorldModelAgent:
         frame = self._save_frame(info, self.step)
         sheet = self._event_sheet(info)
         prompt = self._turn_prompt(info, sheet=sheet is not None)
-        if getattr(self, "skills", False):
-            # `.agents/skills` mirrors skills/ and mine/skills/: a skill the model wrote
-            # last turn is in this session's catalog (codex reads the root at start).
-            try:
-                from mcu_worldmodel import skills as _skills
-                _skills.sync_skill_catalog(self.memory.root)
-            except OSError as e:
-                logger.warning(f"[agent] skill catalog sync failed: {e}")
         self._turn_outcomes = []
         # The current view, plus the sheet of this turn's event frames when there
         # were any (never for the direct arm: its only past is the present).
         images = [self.memory.root / frame] if frame else []
         if sheet is not None:
             images.append(sheet)
-        # Last, so "the last image attached to this turn" in GoalImage.NOTE is true
-        # whether or not an event sheet came with it.
-        cue = self.goal_image.serve(self.ledger) if self.goal_image is not None else None
-        if cue is not None:
-            images.append(cue)
 
         before = self.memory.snapshot_harness_files()
         if self.memory_mode == "direct":
@@ -4033,7 +4165,21 @@ class WorldModelAgent:
         self.memory.set_plan(plan_text, briefing)
         if self.episodes:
             self.episodes.plan(self.codex.calls, briefing, plan_text)
+        self.plan = [ln.strip("-* ").strip()
+                     for ln in plan_text.splitlines() if ln.strip()][:5]
+        self._update_plan_streak(plan_text)
+
+        outs = self.codex.read_outputs()
         self.memory.sweep_foreign()
+        for err in outs["errors"]:
+            self.memory.add_note(err)
+        if self.structured:
+            self._apply_ops(outs.get("hypotheses_ops"))
+            note = self.discipline.check_claim(outs.get("claim"), self.step)
+            if note:
+                self.memory.add_note(note)
+        # logbook: hypotheses_ops.json / claim.json are not part of the contract; if the
+        # model writes them anyway they are consumed (read_outputs unlinks) and ignored.
 
         if not result.get("ok"):
             self.turns["act_failed"] += 1
@@ -4061,7 +4207,7 @@ class WorldModelAgent:
         self._plan_entries = list(plan.entries)
         here = cell_of(self._cur_pos)
         verdicts = ([self.governor.check(entry.get("procedure", "raw"), here, self.step)
-                     for entry in plan.entries] if (self.reflexes and self.governor_on)
+                     for entry in plan.entries] if self.reflexes
                     else [None] * len(plan.entries))
         if plan.entries and all(v is not None for v in verdicts):
             labels = ", ".join(e.get("procedure", "raw") for e in plan.entries)
@@ -4076,7 +4222,7 @@ class WorldModelAgent:
             self.queue.append((noop(), 0))
             return
         stall = (self.governor.check_plan(plan.entries, here, self.step, self._gui_open)
-                 if (self.reflexes and self.governor_on) else "")
+                 if self.reflexes else "")
         if stall:
             hint = self._stall_hint()
             self.memory.add_note(stall + ((" " + hint) if hint else ""))
@@ -4140,6 +4286,10 @@ class WorldModelAgent:
             self.memory.add_note("your reply carried no valid actions JSON this turn; "
                                  "one no-op was executed")
             return
+        _, plan_text = self.codex.split_briefing(message)
+        self.plan = [ln.strip("-* ").strip()
+                     for ln in plan_text.splitlines() if ln.strip()][:5]
+        self._update_plan_streak(plan_text)
         plan = parse_actions(actions_json, entry_cap=self.entry_cap,
                             repeat_cap=self.repeat_cap, step_cap=self.step_cap,
                             allow_optional=self.extended_actions, info=info,
@@ -4147,6 +4297,24 @@ class WorldModelAgent:
         for n in plan.notes:
             self.memory.add_note(n)
         self._enqueue(plan)
+
+    def _update_plan_streak(self, plan_text: str) -> None:
+        """Near-identical successive plans, counted as a fact. Token-set Jaccard at
+        0.8: rephrasings of the same plan land ~0.85-1.0, an actually-new plan
+        ~0.2-0.5. The streak resets whenever ground truth moves (_act_turn's
+        progress marker), so the notice can only describe a loop that is also
+        producing nothing."""
+        import re as _re
+
+        sig = frozenset(w for w in _re.findall(r"[a-z_]+", plan_text.lower())
+                        if len(w) > 2)
+        prev, self._plan_sig = self._plan_sig, sig
+        if prev and sig and len(sig & prev) / max(1, len(sig | prev)) >= 0.8:
+            if self._plan_repeat == 0:
+                self._plan_repeat_since = self.step
+            self._plan_repeat += 1
+        else:
+            self._plan_repeat = 0
 
     def _expect_block(self) -> str:
         """[EXPECTED] (the model's own EXPECT line from last turn) against [OBSERVED]
@@ -4157,8 +4325,9 @@ class WorldModelAgent:
         exp = self._last_expect or "(your last briefing had no `EXPECT:` line)"
         obs = []
         for r in self._turn_outcomes[-6:]:
-            bits = [f"moved {r['moved']:.1f}"]
-            if abs(r["descended"]) >= 0.5:
+            visual = getattr(self, "visual_only", False)
+            bits = [] if visual else [f"moved {r['moved']:.1f}"]
+            if abs(r["descended"]) >= 0.5 and not visual:
                 bits.append(f"descended {r['descended']:.1f}")
             if r["inv"]:
                 bits.append(f"inv {r['inv']}")
@@ -4179,7 +4348,6 @@ class WorldModelAgent:
                 "the view should show.")
 
     WORKING_CAP = 1500
-    WORKING_LINES = 40
 
     def _working_block(self) -> str:
         """`mine/working.md`, the model's own continuation note, put in front of it every
@@ -4194,35 +4362,9 @@ class WorldModelAgent:
             return ""
         if not text:
             return ""
-        n_lines = text.count("\n") + 1
         if len(text) > self.WORKING_CAP:
             text = text[:self.WORKING_CAP].rstrip() + f"\n  [... {len(text) - self.WORKING_CAP} more chars: Read mine/working.md]"
-        cap_lines = getattr(self, "WORKING_LINES", 40)
-        if n_lines > cap_lines:
-            text += (f"\n  [working.md is {n_lines} lines; the contract asks for {cap_lines}: "
-                     f"prune it -- move what holds across lives into mine/digest.md]")
         return "[WORKING] mine/working.md -- your continuation note, as you last wrote it:\n" + text
-
-    DIGEST_CAP = 3000
-
-    def _digest_block(self) -> str:
-        """`mine/digest.md`, the model's own across-lives note, put in front of it every
-        turn beside [WORKING] (2026-09-09: after the workshop turn the reuse lives re-read
-        their digest 0/0/1 times in 200-400 turns while the thread was compacted every
-        8-10 turns; the pointer has to recur). Own arms only; absent when the file is."""
-        if not getattr(self, "own", False):
-            return ""
-        p = self.memory.root / "mine" / "digest.md"
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace").strip()
-        except OSError:
-            return ""
-        if not text:
-            return ""
-        cap = getattr(self, "DIGEST_CAP", 2000)
-        if len(text) > cap:
-            text = text[:cap].rstrip() + f"\n  [... {len(text) - cap} more chars: Read mine/digest.md]"
-        return "[DIGEST] mine/digest.md -- what you hold true of this world across lives, as you wrote it:\n" + text
 
     def _stall_hint(self) -> str:
         """Where the map says a stalled plan could go: the placed table/furnace with
@@ -4257,12 +4399,13 @@ class WorldModelAgent:
     def _recent_block(self) -> str:
         """The last six finished entries as one objective line each (the harness's
         own record, so the turn does not start with a grep of the log)."""
-        if not (self.recent_on and self._recent_outcomes):
+        if not self._recent_outcomes:
             return ""
         lines = []
         for r in self._recent_outcomes:
-            bits = [f"moved {r['moved']:.1f}"]
-            if abs(r["descended"]) >= 0.5:
+            visual = getattr(self, "visual_only", False)
+            bits = [] if visual else [f"moved {r['moved']:.1f}"]
+            if abs(r["descended"]) >= 0.5 and not visual:
                 bits.append(f"descended {r['descended']:.1f}")
             if r["inv"]:
                 bits.append(f"inv {r['inv']}")
@@ -4336,13 +4479,8 @@ class WorldModelAgent:
         the numbers REFLEX_EVERY ticks ago, the entry running, the runner's own reflex."""
         st = self._own_state(info)
         frame = self._last_pov
-        if frame is not None:
-            arr = np.asarray(frame)
-            st["lava_frac"] = round(float(vision.lava_fraction(arr)), 4)
-            st["fire_frac"] = round(float(vision.fire_fraction(arr)), 4)
-            st["water_frac"] = round(float(vision.water_view(arr, rows_from=0.30)[0]), 4)
-        else:
-            st["lava_frac"] = st["fire_frac"] = st["water_frac"] = 0.0
+        st["lava_frac"] = (round(float(vision.lava_fraction(np.asarray(frame))), 4)
+                           if frame is not None else 0.0)
         prev = self._own_reflex_prev
         st["health_prev"] = prev["health"] if prev else st["health"]
         st["food_prev"] = prev.get("food", st["food"]) if prev else st["food"]
@@ -4434,21 +4572,26 @@ class WorldModelAgent:
                     f"pitch={pos['pitch']:.0f} yaw={norm_yaw(pos['yaw']):.0f}") if pos else "unknown"
         # The shared half: the PRESENT. Every memory mode gets the same rendered state,
         # stall counter included -- what differs below is only how the PAST is served
-        # ("grep the log", the episode store, or nothing at all for the direct arm),
-        # which is the claim-M axis and nothing else.
+        # (compiled model + graph view vs "grep the log" vs nothing at all for the
+        # direct arm), which is the claim-M axis and nothing else.
         budget_part = (
             f"Step {self.step}/{self.max_steps} -- "
             f"{max(0, self.max_steps - self.step)} steps remain. "
             f"{self.ledger.progress_line()}\n"
         )
-        # The stall counter, shown to the planner: goal_furnace burned 2,400 steps
-        # (dm5) while nothing said out loud that nothing had changed. Identical in
-        # the memory arms.
+        # The same counter the induction trigger runs on, shown to the planner:
+        # goal_furnace burned 2,400 steps (dm5) while nothing said out loud that
+        # nothing had changed. Identical in the memory arms.
         stall_part = (
             f"Act turns since anything verifiably changed (milestone or inventory): "
             f"{self._stall_turns}.\n\n"
         )
         state_part = (
+            (f"Milestones:\n{self.ledger.progress_block()}\n\n" if self.ledger.cfg else "")
+            + "[VIEW] the current frame is attached: your position, footing, light, what is "
+              "ahead, and the HUD (health, hunger, the hotbar and its selected slot) are read "
+              "from it. No state text is served in this run.\n\n"
+        ) if self.visual_only else (
             (f"Milestones:\n{self.ledger.progress_block()}\n\n" if self.ledger.cfg else "")
             + f"[STATE] {pos_line}\n"
             f"Vitals: {vitals(info)}\n"
@@ -4468,7 +4611,7 @@ class WorldModelAgent:
         head = budget_part + stall_part + state_part
         if self.memory_mode != "direct":
             recent = self._recent_block()
-            map_block = self.grid.summary(pos, self.step) if self.grid_on else ""
+            map_block = "" if self.visual_only else self.grid.summary(pos, self.step)
             head += ((recent + "\n\n") if recent else "") + (
                 "[MAP] what the runner knows for certain from this life's own positions "
                 "and events (exact unless marked a sighting):\n" + map_block + "\n\n"
@@ -4487,35 +4630,64 @@ class WorldModelAgent:
                 head += ("Attached second image: a 2x2 sheet -- top-left the current view, "
                          "then the frames at this turn's events"
                          + (f" ({labels})" if labels else "") + ".\n\n")
-        # The image goal, if this task has one and its milestone is open. Outside the
-        # memory-mode branch above: the cue is part of the TASK, not of a memory
-        # protocol, so every arm that runs this task is told about it in the same words.
-        if self.goal_image is not None and self.goal_image.live(self.ledger):
-            from mcu_worldmodel.goalimage import GoalImage
-            head += GoalImage.NOTE + "\n\n"
         if self.memory_mode == "direct":
             return head + (
                 "The current view is attached.\n"
                 "Reply with your briefing, [PLAN], then ONE fenced ```json block "
                 '{"actions": [...]} -- the LAST fenced JSON block is executed.'
             )
-        # logbook / mfm (vista and arc never build a turn message here)
-        # The retrieval block (mfm arm, `--retrieval` only): between the present
-        # and the pointer to the log, absent when there is nothing to recall.
-        recall = self.episodes.recall(info) if self.episodes else ""
-        expect = self._expect_block() if self.expect else ""
-        working = self._working_block()
-        digest = self._digest_block()
-        if digest:
-            working = (working + "\n\n" + digest) if working else digest
-        return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (recall + "\n\n" if recall else "") + (
-            "Your memory is `./logs.txt` -- grep it for anything before this call: "
-            "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
-            + ("`./tools/episodes.py` queries the same history as episodes, by step, "
-               "place, tag or text, with their frames; `view_image` opens a frame.\n"
-               if self.memory_mode == "mfm" else "")
-            + "The current view is attached.\n"
-            "Write ./actions.json."
+        if self.memory_mode in ("logbook", "mfm"):
+            # The retrieval block (mfm arm, `--retrieval` only): between the present
+            # and the pointer to the log, absent when there is nothing to recall.
+            recall = self.episodes.recall(info) if self.episodes else ""
+            # The carried lives' verified sites (mfm arm with --seed-memory AND --sites):
+            # before the recall block, so the place to go comes before the loop to break.
+            known = (self.episodes.known_sites(info, frames=self.frames,
+                                               corridors=self.corridors)
+                     if (self.episodes and self.sites) else "")
+            expect = self._expect_block() if self.expect else ""
+            working = self._working_block()
+            if self.visual_only:
+                return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
+                    "Your memory is `./logs.txt` (plans, actions, events, notes -- no "
+                    "positions) and the FRAMES in `episodes/`: `./tools/episodes.py --last N "
+                    "| --steps A B | --tag T | --grep text` lists them with their paths, "
+                    "`view_image` opens one. Nothing is shown unasked: look.\n"
+                    "The current view is attached.\n"
+                    "Write ./actions.json.")
+            return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (known + "\n\n" if known else "") + (recall + "\n\n" if recall else "") + (
+                "Your memory is `./logs.txt` -- grep it for anything before this call: "
+                "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
+                + ("`./tools/episodes.py` queries the same history as episodes, by step, "
+                   "place, tag or text, with their frames; `view_image` opens a frame.\n"
+                   if self.memory_mode == "mfm" else "")
+                + "The current view is attached.\n"
+                "Write ./actions.json."
+            )
+        if self.lite:
+            wm = self.memory.world_model_summary(prompts.WMLITE_DOC_CHARS)
+            notices = self._notices()
+            return head + (
+                f"Your compiled world model (world_model/world.md):\n{wm}\n\n"
+                f"{('Harness notices:' + chr(10) + notices + chr(10)) if notices else ''}"
+                f"The current view is attached. `logs.txt` holds everything before "
+                f"it.\nWrite ./actions.json."
+            )
+        wm = self.memory.world_model_summary(self.per_doc_chars)
+        notices = self._notices()
+        approach = sites.approach_line(self.memory.root / "world_model" / "rules.md")
+        facts = sites.render_block(self.graph, pos, self.step, self.discipline.visits)
+        return head + (
+            f"Your compiled world model:\n{wm}\n\n"
+            + (f"Approach verdict from your last induction: {approach}\n\n"
+               if approach else "")
+            + (f"Harness facts in your graph (verified places, hazards, coverage):\n"
+               f"{facts}\n\n" if facts else "")
+            + f"Your hypothesis graph (a view):\n"
+            f"{self.graph.to_prompt_summary(12, self.discipline.flags(self.step), now_step=self.step) or '(empty)'}\n\n"
+            f"{('Harness notices:' + chr(10) + notices + chr(10)) if notices else ''}"
+            f"The current view is attached. `logs.txt` holds everything before it.\n"
+            f"Write ./actions.json (and optionally ./hypotheses_ops.json, ./claim.json)."
         )
 
     def _log_entry_done(self, index: int) -> None:
@@ -4535,6 +4707,8 @@ class WorldModelAgent:
             # Closed before the section is written, with the notes it is about to carry.
             self.episodes.close_entry(events=list(self._pending_events),
                                       notes=list(self.memory._pending_notes))
+        if self.vista:
+            self.vista.entry_done(index)
         # The frame the entry started from, for [OBSERVED] (VISTA's observe step made
         # concrete: a mismatch has a one-step look). og14-og22 opened an earlier episode's
         # frame 32 times in 850k steps; the compare line never pointed at one.
@@ -4559,7 +4733,7 @@ class WorldModelAgent:
             # 194 logged entries in the diamond run -- while the prompt told the agent
             # that [INV] was the ground truth for what a click did. Grepping the log for
             # whether a click landed was therefore impossible, so every GUI step had to be
-            # re-tested by hand and the result parked in the model's own notes.
+            # re-tested by hand and the result parked in a `state_*` hypothesis.
             inventory_delta=self._inventory_delta(),
             gui_open=self._gui_open,
             # The measured cursor line, so a grep over the log can reconstruct where the
@@ -4588,7 +4762,7 @@ class WorldModelAgent:
             inv_changed=bool(self._inventory_delta()),
             item_types=set(self._cur_inv.keys()),
             milestones=len(self.ledger.achieved))
-        if not (self.reflexes and self.governor_on):
+        if not self.reflexes:
             nudge = None
         if nudge:
             self.memory.add_note(nudge)
@@ -4610,6 +4784,103 @@ class WorldModelAgent:
                 bits.append(f"{item} {d:+d}")
         return ", ".join(bits)
 
+    # -- belief ops -------------------------------------------------------
+
+    # -- harness-generated beliefs (sites.py) -------------------------------
+
+    def _harness_events(self, stats: list[dict[str, Any]], pos: dict[str, float],
+                        step: int, pov=None) -> None:
+        """Positioned stat events -> site/vein nodes; an iron ore mined resets coverage."""
+        changed = False
+        for s in stats:
+            if float(s.get("delta", 0)) <= 0:
+                continue
+            item, event = str(s.get("item")), s.get("event")
+            if event == "use_item" and item in sites.SITE_ITEMS:
+                self._add_site(item, pos, step, pov)
+                changed = True
+            elif event == "mine_block" and item in sites.SITE_ITEMS:
+                self._retire_site(item, pos, step)
+                changed = True
+            elif event == "mine_block" and item.endswith("_ore"):
+                self._add_vein(item, pos, step)
+                changed = True
+                if "iron_ore" in item:
+                    self._last_ore_step = step
+                    self._coverage = []
+                    self._coverage_flag_base = self.cursor_stats.get("ore_flagged", 0)
+                    self._update_coverage_node(step)
+        if changed:
+            self._persist()
+
+    def _add_vein(self, ore: str, pos: dict[str, float], step: int) -> None:
+        """An ore block mined at a position: a vein node, merged within 4 blocks.
+
+        The world is deterministic, so this is also the map a relayed run inherits:
+        the natural blocks are back where they were, and the relay runs that found
+        iron in 364-1,685 steps did it from written-down coordinates."""
+        kind_ = ore.replace("deepslate_", "")
+        ev = [f"harness: mine_block {ore} at step {step}, maps/visited.csv"]
+        # The sighting frame that led here, when the watcher flagged one recently:
+        # the look-back pointer for "what does this vein's wall look like".
+        if self._last_ore_frame and step - self._last_ore_frame[1] <= 300:
+            ev.append(f"frame: {self._last_ore_frame[0]}")
+        for node in self.graph.nodes.values():
+            if not node.id.startswith(f"vein_{kind_}_"):
+                continue
+            c = sites.parse_coords(node.statement)
+            if c and sites.near(pos, c, sites.SITE_MERGE_RADIUS):
+                m = re.search(r"\((\d+) blocks? here so far\)", node.statement)
+                n = (int(m.group(1)) if m else 1) + 1
+                self.graph.add_or_update(
+                    id=node.id, statement=sites.vein_statement(kind_, pos, step, n),
+                    confidence=min(1.0, node.confidence + 0.05), evidence=ev, step=step)
+                return
+        self.graph.add_or_update(
+            id=f"vein_{kind_}_{step}", kind="location",
+            statement=sites.vein_statement(kind_, pos, step), confidence=0.95,
+            status="confirmed", evidence=ev, step=step)
+
+    def _add_site(self, item: str, pos: dict[str, float], step: int, pov=None) -> None:
+        # The frame at placement: what the spot looks like, for the look-back index.
+        data = self._encode_pov(pov, step) if pov is not None else None
+        frame = self.memory.save_frame(step, data, suffix="_site") if data else None
+        ev = [f"harness: use_item {item} at step {step}, maps/visited.csv"]
+        if frame:
+            ev.append(f"frame: {frame}")
+        for node in self.graph.nodes.values():
+            if not node.id.startswith(f"site_{item}_") or node.status != "active":
+                continue
+            c = sites.parse_coords(node.statement)
+            if c and sites.near(pos, c, sites.SITE_MERGE_RADIUS):
+                m = re.search(r"placed (\d+) times here", node.statement)
+                times = (int(m.group(1)) if m else 1) + 1
+                self.graph.add_or_update(
+                    id=node.id, statement=sites.site_statement(item, pos, step, times),
+                    confidence=0.9, evidence=ev, step=step)
+                return
+        self.graph.add_or_update(
+            id=f"site_{item}_{step}", kind="location",
+            statement=sites.site_statement(item, pos, step), confidence=0.9,
+            status="active", evidence=ev, step=step)
+
+    def _retire_site(self, item: str, pos: dict[str, float], step: int) -> None:
+        best, best_d = None, 6.0
+        for node in self.graph.nodes.values():
+            if not node.id.startswith(f"site_{item}_") or node.status != "active":
+                continue
+            c = sites.parse_coords(node.statement)
+            if not c:
+                continue
+            d = max(abs(pos["x"] - c[0]), abs(pos["z"] - c[2]))
+            if d <= best_d:
+                best, best_d = node, d
+        if best is not None:
+            self.graph.add_or_update(
+                id=best.id, status="stale", confidence=0.2,
+                statement=sites.retired_site_statement(best.statement, step),
+                evidence=[f"harness: mine_block {item} at step {step}"], step=step)
+
     NETHER_MOVE_KEYS = ("forward", "back", "left", "right")
 
     def _nether_lock(self, action: dict[str, Any]) -> dict[str, Any]:
@@ -4618,7 +4889,7 @@ class WorldModelAgent:
         jump -- pillar_up's -- keeps it). Plan actions only: the reflex ticks (the lava
         escape's sprint out of a pool, the fightback) return before this. Nothing with a
         screen open (sneak + a click is the GUI's quick-move), nothing outside the
-        Nether, nothing without the runner's reflexes (`--no-harness-reflexes`)."""
+        Nether, nothing without the runner's reflexes (`--human-play`)."""
         if self._dimension != "the Nether":
             self._nether_lock_noted = False
             return action
@@ -4763,6 +5034,8 @@ class WorldModelAgent:
             f"action(s)) before you walked or dug into it"
             + (f"; the frame is saved at {rel} and attached to your next turn" if rel else "")
             + ". " + self._lava_advice(pos) + self._lava_repeat_clause(pos, frac))
+        if self.structured:
+            self._add_lava(pos, step, frac)
 
     def _queue_head_action(self) -> dict[str, Any]:
         """The raw action dict at the head of the queue (a marker entry's keys included),
@@ -5007,6 +5280,60 @@ class WorldModelAgent:
                   "with NO arguments use them exactly. Do not walk into it and do not walk "
                   "around it -- pour from where you stand; lava ends a run in seconds.")
 
+    def _add_lava(self, pos: dict[str, float], step: int, frac: float) -> None:
+        ev = [f"harness: lava fraction {frac:.3f} at step {step}, maps/visited.csv"]
+        for node in self.graph.nodes.values():
+            if not node.id.startswith("hazard_lava_"):
+                continue
+            c = sites.parse_coords(node.statement)
+            cnt = re.search(r"seen (\d+) times", node.statement)
+            count = int(cnt.group(1)) if cnt else 1
+            if c and sites.near(pos, c, 6.0):
+                self.graph.add_or_update(
+                    id=node.id, confidence=min(1.0, node.confidence + 0.05),
+                    statement=sites.lava_statement(pos, step, frac, count + 1),
+                    evidence=ev, step=step)
+                self._persist()
+                return
+        self.graph.add_or_update(
+            id=f"hazard_lava_{step}", kind="location",
+            statement=sites.lava_statement(pos, step, frac), confidence=0.95,
+            status="confirmed", evidence=ev, step=step)
+        self._persist()
+
+    def _add_hit(self, pos: dict[str, float], step: int, damage: float,
+                 frame: str | None = None) -> None:
+        ev = [f"harness: damage {damage:.0f} at step {step}"]
+        if frame:
+            ev.append(f"frame: {frame}")
+        for node in self.graph.nodes.values():
+            if not node.id.startswith("hazard_hit_"):
+                continue
+            c = sites.parse_coords(node.statement)
+            m = re.search(r"steps (\d+)-(\d+), ([\d.]+) hp", node.statement)
+            first = int(m.group(1)) if m else int(node.id.rsplit("_", 1)[-1])
+            last = int(m.group(2)) if m else first
+            total = float(m.group(3)) if m else 0.0
+            if not m:
+                m1 = re.search(r"took ([\d.]+) damage", node.statement)
+                total = float(m1.group(1)) if m1 else 0.0
+            cnt = re.search(r"took damage (\d+) times", node.statement)
+            count = int(cnt.group(1)) if cnt else 1
+            if (c and sites.near(pos, c, sites.HIT_MERGE_RADIUS)
+                    and step - last <= sites.HIT_MERGE_STEPS):
+                self.graph.add_or_update(
+                    id=node.id, confidence=min(1.0, node.confidence + 0.1),
+                    statement=sites.hit_statement(pos, step, damage, count + 1, first,
+                                                  total + damage),
+                    evidence=ev, step=step)
+                self._persist()
+                return
+        self.graph.add_or_update(
+            id=f"hazard_hit_{step}", kind="location",
+            statement=sites.hit_statement(pos, step, damage), confidence=0.8,
+            status="active", evidence=ev, step=step)
+        self._persist()
+
     def _dark_line(self, marker: dict[str, Any]) -> str:
         """The sentence a mining macro's finish note carries when the ore watch sampled
         a dark view throughout: the stretch was mined blind, and the model has to know
@@ -5024,6 +5351,245 @@ class WorldModelAgent:
                 f"4, a 2x2 recipe) on a wall's side face every ~8 blocks; with no coal, a "
                 f"log smelted in the furnace is charcoal and works the same.")
 
+    def _record_coverage(self, label: str, start: tuple | None, broken: int,
+                         advanced: float, used: int) -> None:
+        """One finished mining macro -> the coverage record and its graph node."""
+        if not self.structured:
+            return
+        pos = self._cur_pos
+        if pos is None:
+            return
+        y = start[1] if start else pos["y"]
+        self._coverage.append({"label": label, "y": float(y), "yaw": float(pos["yaw"]),
+                               "broken": int(broken), "advanced": float(advanced),
+                               "used": int(used), "step": int(self.step)})
+        self._update_coverage_node(self.step)
+        self._persist()
+
+    def _update_coverage_node(self, step: int) -> None:
+        sightings = self.cursor_stats.get("ore_flagged", 0) - self._coverage_flag_base
+        self.graph.add_or_update(
+            id="coverage_since_ore", kind="state",
+            statement=sites.coverage_statement(self._coverage, self._last_ore_step,
+                                               sightings),
+            confidence=1.0, status="confirmed",
+            evidence=["harness: mining macro reports in logs.txt"], step=step)
+
+    def _relay_reprice(self, step: int) -> None:
+        """Relay semantics by node type, applied once to an inherited graph.
+
+        The world regenerates from the same seed every run: what a previous run BUILT
+        (tables, furnaces, tunnels) is gone, what it FOUND (ore veins, the terrain that
+        killed it) is back exactly where it was. Two relayed runs inherited documents
+        that had retired their parent's proven vein as "exhausted" and searched blind
+        twenty-one blocks from a full vein; this keeps the harness's own nodes honest
+        without a model in the loop."""
+        prev = " [PREVIOUS run"
+        changed = 0
+        for hid in list(self.graph.nodes):
+            node = self.graph.nodes[hid]
+            if prev in node.statement:
+                continue
+            if hid.startswith("site_") and node.status == "active":
+                self.graph.add_or_update(
+                    id=hid, status="stale", confidence=0.1,
+                    statement=node.statement + f"{prev}: the world reset, it is NOT "
+                                               f"there now -- place a fresh one]",
+                    step=step)
+                changed += 1
+            elif hid.startswith("vein_"):
+                self.graph.add_or_update(
+                    id=hid, status="confirmed", confidence=0.95,
+                    statement=node.statement + f"{prev}; the world regenerates from "
+                                               f"the same seed, so this ore is BACK in "
+                                               f"place, unmined]",
+                    step=step)
+                changed += 1
+            elif hid.startswith("hazard_death_"):
+                self.graph.add_or_update(
+                    id=hid, status="confirmed",
+                    statement=node.statement + f"{prev}: its items are gone, the "
+                                               f"terrain that killed it is not]",
+                    step=step)
+                changed += 1
+            elif hid.startswith("hazard_hit_"):
+                self.graph.add_or_update(
+                    id=hid, status="stale", confidence=0.3,
+                    statement=node.statement + f"{prev}; monsters do not persist, "
+                                               f"drops and lava do]",
+                    step=step)
+                changed += 1
+            elif hid == "coverage_since_ore":
+                del self.graph.nodes[hid]
+                changed += 1
+        self._coverage = []
+        self._last_ore_step = None
+        if changed:
+            logger.info(f"[agent] relay: repriced {changed} inherited harness node(s)")
+            self._persist()
+
+    def _check_visits(self, pos: dict[str, float], step: int) -> None:
+        """Mark location nodes whose coordinates the player is standing at. Runs when
+        the player has moved a block, over the (few) nodes that name coordinates."""
+        here = (pos["x"], pos["y"], pos["z"])
+        if self._last_visit_pos is not None and all(
+                abs(a - b) < 1.0 for a, b in zip(here, self._last_visit_pos)):
+            return
+        self._last_visit_pos = here
+        self.discipline.note_visits(pos, step)
+
+    def _apply_ops(self, parsed: dict[str, Any] | None) -> None:
+        """Fold one turn's hypothesis ops into the graph, then let the warden run.
+
+        Every failure here is contained. A malformed op, an unknown field, a dependency
+        that would close a cycle -- none of them may affect the actions already parsed,
+        because a belief-bookkeeping mistake costing the episode its next 400 ticks would
+        be a far worse failure than the mistake itself.
+        """
+        if not isinstance(parsed, dict):
+            self.discipline.enforce([], self.step)
+            self._persist()
+            return
+        touched: list[str] = []
+        for op in parsed.get("hypotheses") or []:
+            if not isinstance(op, dict) or not op.get("id"):
+                continue
+            hid = str(op["id"])
+            ev = op.get("evidence")
+            try:
+                self.graph.add_or_update(
+                    id=hid, statement=op.get("statement"),
+                    confidence=op.get("confidence"), status=op.get("status"),
+                    kind=op.get("kind"),
+                    evidence=[ev] if isinstance(ev, str) and ev.strip()
+                             else (ev if isinstance(ev, list) else None),
+                    step=self.step,
+                )
+                touched.append(hid)
+            except Exception as e:
+                logger.warning(f"[agent] bad hypothesis op {hid!r}: {e}")
+                continue
+            for parent in op.get("depends_on") or []:
+                try:
+                    self.graph.add_dependency(hid, str(parent), step=self.step)
+                except CycleError as e:
+                    self.memory.add_note(f"dependency rejected: {e}")
+                except Exception as e:
+                    logger.warning(f"[agent] bad dependency {hid}->{parent}: {e}")
+
+        note = self.discipline.track_testing(parsed.get("testing"), self.step)
+        if note:
+            self.memory.add_note(note)
+            self.plan = []          # the budget clears the plan, as the prompt promises
+        self.discipline.enforce(touched, self.step)
+        self._persist()
+
+    def _persist(self) -> None:
+        if not self.structured:
+            return
+        self.graph.save(self.memory.graph_path)
+        self.graph.write_markdown(self.memory.root / "hypotheses")
+
+    # -- the induction turn -----------------------------------------------
+
+    def _due_for_induction(self) -> bool:
+        if self.induction_every <= 0:
+            return False
+        if self.step - self._last_induction >= self.induction_every:
+            self._induction_stalled = False
+            return True
+        # Early trigger on a stall: twelve act turns with no milestone and no inventory
+        # change is the pixel-hunting signature (dm4_wmv2 spent ~20 such turns nudging a
+        # cursor one click at a time before its scheduled induction). Compiling early is
+        # what turns that loop into a written diagnosis and a different next experiment.
+        # The step floor keeps a stalled agent from compiling on every turn thereafter.
+        stalled = (self._stall_turns >= 12
+                   and self.step - self._last_induction >= 200)
+        self._induction_stalled = stalled
+        return stalled
+
+    def run_induction(self, info: dict) -> None:
+        """Rewrite the compiled world model from the accumulated filesystem.
+
+        Produces no actions on purpose. The queue is left alone; whatever was mid-plan
+        resumes afterwards, because interrupting a strip-mine to think is fine but
+        forgetting that you were strip-mining is not.
+        """
+        self.turns["induction"] += 1
+        self._last_induction = self.step
+        self._stall_turns = 0
+        logger.info(f"[agent] induction turn {self.turns['induction']} at step {self.step}")
+
+        frame = self._save_frame(info, self.step)
+        progress_block = (
+            f"Step {self.step}/{self.max_steps} -- "
+            f"{max(0, self.max_steps - self.step)} steps remain.\n"
+            + self.ledger.progress_line() + "\n" + self.ledger.progress_block())
+        if getattr(self, "_induction_stalled", False):
+            # A stall pulled this turn forward; a full five-document rewrite answers
+            # the wrong question. dm5_wm's click failure started at ~3500 and reached
+            # dynamics.md at ~5400 -- two thousand steps of the same loop between the
+            # evidence existing and the diagnosis being compiled.
+            build_stall = (prompts.wmlite_induction_stall_prompt if self.lite
+                           else prompts.induction_stall_prompt)
+            prompt = build_stall(
+                task_text=self.task_text,
+                progress_block=progress_block,
+                per_doc_chars=(prompts.WMLITE_DOC_CHARS if self.lite
+                               else self.per_doc_chars),
+                stall_turns=self._stall_turns,
+                failure_lines="\n".join(
+                    f"- `{label}`: {n} consecutive guard-stops since step {since}"
+                    for label, (n, since) in sorted(self._proc_fails.items()) if n)
+                or "- (no guard-stop streaks; the stall is in what is being attempted)",
+            )
+        else:
+            build = (prompts.wmlite_induction_prompt if self.lite
+                     else prompts.induction_prompt)
+            prompt = build(
+                task_text=self.task_text,
+                progress_block=progress_block,
+                per_doc_chars=(prompts.WMLITE_DOC_CHARS if self.lite
+                               else self.per_doc_chars),
+            )
+        before = self.memory.snapshot_harness_files()
+        # The five documents this pass exists to rewrite, sampled before and after. An
+        # induction turn writes no actions.json by design, so the backend's usual
+        # success signal says nothing here and a pass that produced nothing at all looks
+        # exactly like one that worked. `run_induction` also does not retry, unlike
+        # `_act_turn`. Without this the world model could silently stop being compiled.
+        docs = sorted((self.memory.root / "world_model").glob("*.md"))
+        stamps = {p: p.stat().st_mtime_ns for p in docs}
+        result = self.codex.run(
+            prompt, [self.memory.root / frame] if frame else [], expect_actions=False)
+        touched = sum(1 for p, t in stamps.items()
+                      if not p.exists() or p.stat().st_mtime_ns != t)
+        touched += sum(1 for p in (self.memory.root / "world_model").glob("*.md")
+                       if p not in stamps)
+        if not touched:
+            self.turns["induction_silent"] += 1
+            logger.warning(
+                f"[agent] induction turn {self.turns['induction']} at step {self.step} "
+                f"rewrote none of the {len(docs)} world model documents; the compiled "
+                f"model is unchanged and this pass is not retried"
+            )
+            self.memory.add_note(
+                f"induction turn {self.turns['induction']} at step {self.step} left "
+                f"world_model/ unchanged")
+        for t in self.memory.assert_harness_files_intact(before):
+            self.memory.add_note(f"harness-owned file was modified during induction: {t}")
+
+        outs = self.codex.read_outputs()
+        self.memory.sweep_foreign()
+        if self.structured:
+            self._apply_ops(outs.get("hypotheses_ops"))
+        summary = (result.get("message") or "").strip()
+        if summary:
+            self.memory.set_plan(self.memory._plan or "", f"[INDUCTION] {summary[:1200]}")
+        # An induction turn must not leave actions behind: the file is the act turn's
+        # channel, and a stale one here would execute unreviewed on the next dequeue.
+        (self.memory.root / "actions.json").unlink(missing_ok=True)
+
     # -- reporting --------------------------------------------------------
 
     def report(self) -> dict[str, Any]:
@@ -5032,17 +5598,17 @@ class WorldModelAgent:
             "memory_mode": self.memory_mode,
             **({"direct": dict(self.direct_stats)} if self.memory_mode == "direct"
                else {}),
-            # Files the model left in a logbook/direct workspace that the
+            # Files the model left in a logbook/wmlite/direct workspace that the
             # contract does not keep, removed at the end of the turn they appeared in.
             "foreign_files_swept": self.memory.swept,
-            **({"grid": self.grid.audit()} if self.grid_on else {}),
-            **({"watchdog": {"plan_stalls": self.governor.plan_stalls}}
-               if self.governor_asked else {}),
-            **({"thin": True} if self.thin else {}),
+            "grid": self.grid.audit(),
+            "watchdog": {"plan_stalls": self.governor.plan_stalls},
+            "thin": self.thin,
             **({"atoms": True} if self.atoms else {}),
-            **({"goal_image": self.goal_image.audit()} if self.goal_image is not None else {}),
+            **({"visual_only": True} if self.visual_only else {}),
+            **({"human_play": True} if self.human_play else {}),
             **({"skills": True} if self.skills else {}),
-            **({"harness_reflexes": False} if not self.reflexes else {}),
+            **({"harness_reflexes": False} if not self.reflexes and not self.human_play else {}),
             **({"minimal": True} if self.minimal else {}),
             **({"own": {"procedures": len(self._own_procs),
                         "calls": dict(self._own_calls),
@@ -5050,11 +5616,23 @@ class WorldModelAgent:
                             "reflex_fires": dict(self._own_reflex_fires)}
                            if self.own_reflexes else {})}} if self.own else {}),
             **({"mfm_options": {"expect": self.expect, "frames": self.frames,
+                                "corridors": self.corridors, "sites": self.sites,
                                 "event_sheet": self.event_sheet}}
                if self.memory_mode == "mfm" else {}),
             "steps": self.step,
             "turns": dict(self.turns),
             "milestones": self.ledger.summary(),
+            # The belief graph and its warden are the structured arm's; the mfm arm
+            # reports neither (always zero there). The logbook arm keeps them: its
+            # report keys are pinned.
+            **({} if self.memory_mode in ("mfm", "vista") else {
+                "hypotheses": {
+                    "n": len(self.graph.nodes),
+                    "by_kind": self.graph.counts_by_kind(),
+                    "noop_updates": self.graph.noop_updates,
+                },
+                "discipline": dict(self.discipline.counters),
+            }),
             "cursor": {
                 **{k: round(v, 1) if isinstance(v, float) else v
                    for k, v in self.cursor_stats.items()},
@@ -5064,7 +5642,6 @@ class WorldModelAgent:
             "codex": {"calls": self.codex.calls, **self.codex.vision_audit()},
             **({"mfm": self.episodes.audit()} if self.episodes else {}),
             **({"vista": self.vista.audit()} if self.vista else {}),
-            **({"arc": self.arc.audit()} if self.arc else {}),
         }
 
     def save_report(self, path: str | Path) -> None:

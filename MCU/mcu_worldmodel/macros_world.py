@@ -418,6 +418,7 @@ def _useat_tick(agent, st: dict[str, Any], mk_act):
             f"{dtxt}" + (" (the tool took wear: it acted on the block)" if st.get("worn")
                          else "") + ".")
         return None
+    agent._note_failure(st["label"].split("(")[0])
     agent._flush_tail(st.get("note", f"{st['label']} failed"), "useat_failed_flush")
     return None
 
@@ -544,6 +545,7 @@ def _usehold_tick(agent, uh: dict[str, Any], mk_act):
         agent.memory.add_note(f"{uh['label']}: use_item +{gained:g}"
                               + (f", {dtxt}" if dtxt else "") + ".")
     else:
+        agent._note_failure(uh["label"].split("(")[0])
         agent.memory.add_note(
             f"{uh['label']}: nothing registered (use_item unchanged, inventory "
             f"unchanged). A bow needs >= 25 ticks of hold before release; food needs "
@@ -622,6 +624,7 @@ def _fillb_tick(agent, fb: dict[str, Any], mk_act):
         return None
     fb["t"] += 1
     if fb["t"] > fb["n"] or fb["k"] >= len(fb["aims"]):
+        agent._note_failure(fb["label"])
         pressed = ", ".join(f"{p}/{y}" for p, y in fb.get("pressed", [])[:20])
         agent.memory.add_note(
             f"{fb['label']}: nothing filled in {fb['k']} aims / {fb['t']} ticks (pressed use "
@@ -723,6 +726,7 @@ def _fetchw_finish(agent, st: dict[str, Any], why: str, ok: bool) -> None:
             + (f"; {st['cleared']} block(s) broken on the way" if st["cleared"] else "")
             + f")." + tail)
     else:
+        agent._note_failure(st["label"])
         agent.memory.add_note(
             f"{st['label']}: stopped at {where} after {st['t']} ticks and {walked:.0f} "
             f"blocks -- {why}")

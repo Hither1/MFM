@@ -9,10 +9,7 @@ cd "$(dirname "$0")/.."
 NAME="${1:?usage: distill.sh <name> <out-dir> <seed-memory>...}"; OUT="${2:?out dir}"; shift 2
 [ $# -ge 1 ] || { echo "at least one seed memory dir" >&2; exit 1; }
 eval "$(scripts/codex-home.sh "$NAME")"
-# The ChatGPT-plan login, as run-arm.sh and codex-home.sh use: ~/ccr/bin/codex does not
-# exist on this host, and a missing CODEX_BIN does not fail loudly -- the adapter swallows
-# the FileNotFoundError, so the pass would run its length and distil nothing.
-export CODEX_BIN="${CODEX_BIN:-codex}"
+export CODEX_BIN="${CODEX_BIN:-$HOME/ccr/bin/codex}"
 ROOT="$(pwd)"
 MFM_DEFAULT="$ROOT/.."; [ -d "$ROOT/../MFM-grid/mfm" ] && MFM_DEFAULT="$ROOT/../MFM-grid"
 export PYTHONPATH="${MFM_ROOT:-$MFM_DEFAULT}${PYTHONPATH:+:$PYTHONPATH}"

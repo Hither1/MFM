@@ -183,9 +183,15 @@ ATOMS_LINE = ("This run's procedure set is the ATOMS above: the task-shaped macr
 
 #: `--atoms`, head of references/skills.md: its situations name the task-shaped macros.
 ATOMS_REF_LINE = ("The macros this file names (harvest_tree, strip_mine, dig_down, make_obsidian, "
-                  "build_portal_frame, light_portal, fight, travel, scan_around, ...) are NOT built "
-                  "in this run: read each as a recipe -- the situation, the order of steps, what to "
-                  "verify -- to compose from the atoms and your own scripts.")
+                  "build_portal_frame, light_portal, fight, travel, scan_around, aim_at_ore, ...) "
+                  "are NOT built in this run: read each as a recipe -- the situation, the order of "
+                  "steps, what to verify -- to compose from the atoms and your own scripts. The "
+                  "wall watcher this file describes (a [NOTE] and the flag-time frame when "
+                  "iron- or diamond-ore speckles cross the view) samples every raw "
+                  "{\"attack\": 1} hold in this run and mine_ahead(n, ore_watch=true). A raw "
+                  "hold is also cut the moment its block breaks, so a 30-tick hold per block "
+                  "is the cheap, sighted way to mine; mine_ahead(n) spends all n ticks and "
+                  "is for continuous digging (a shaft).")
 
 
 # -- reflexes (`--own-reflexes`, 2026-09-07) ------------------------------------------
@@ -331,7 +337,7 @@ fire, ONE JSON object `{"stop": true, "note": "<why, one line>", "actions": [...
 reflex that fired stays quiet for 40 ticks; one that fails (non-zero exit, 3 s
 timeout, bad JSON) three times in a row is switched off until you edit it; at most 4
 run, alphabetical; keep each under 50 ms -- read the state, not the logs. Reflexes
-worth writing FIRST, from the classes of danger: lava coming into the lower view
+worth writing FIRST, from what killed earlier runs: lava coming into the lower view
 while you walk or dig (stop, step back); a drop of 4+ blocks within a few ticks (stop,
 look before moving); health falling with no lava in view (a mob -- stop a dig or a
 sweep, pillar up or wall off); in the Nether, any walk with lava in view. {tail}
@@ -358,6 +364,5 @@ as `[WORKING]`: the plan you are on and why, its next visible prediction, the
 contradictions you have not resolved, and the entries or frames you would re-open
 (paths). It survives a context reset, so the turn after one starts from it instead of
 from the log. Rewrite it when the plan changes, not every turn; keep it under 40
-lines (past 40 the turn message says so and shows the head only). `mine/digest.md` is
-what is true of this world across lives and is shown beside it as `[DIGEST]` (its first
-3000 characters); `working.md` is what you are doing now."""
+lines. Your digest or `GUIDE.md` under `mine/` is what is true of this world across
+lives; `working.md` is what you are doing now."""

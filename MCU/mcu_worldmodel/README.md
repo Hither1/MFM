@@ -1,51 +1,64 @@
-# Multimodal Filesystem Memory for embodied agents
+# World Model as/from Multimodal Filesystem Memory
 
-An embodied agent for MCU's long-horizon tasks, whose memory is a filesystem it reads
-programmatically. One chassis -- the procedures, the measured GUI cursor, perception, the
-guards and the milestone ledger -- and one axis, the memory mode, which is the only thing
-an arm may change:
+An embodied agent for MCU's two long-horizon tasks, whose memory is a filesystem it reads
+programmatically and whose understanding of the world is a set of documents it periodically
+re-derives from that filesystem.
 
-| `--memory` | what the model keeps between turns |
-|---|---|
-| `logbook` | PRO-LONG's protocol: one append-only `logs.txt` it greps, and nothing else |
-| `mfm` | the logbook plus the episode store beside it (`episodes/`, `index.jsonl`, `tools/episodes.py`; see `episodes.py`) |
-| `vista` | VISTA's protocol: one long thread, `play`/`inspect` tools, a checkpoint handoff (`vista.py`) |
-| `arc` | arc-code's harness: one coding-agent session, `./act` as its only actuator, the workspace as memory (`arc.py`) |
-| `direct` | no memory at all: each turn is the present alone |
+## Why this shape
 
-Every act turn reads the current frame, the milestone checklist and the turn's state
-block, and writes `actions.json` (the direct arm: a fenced JSON block in its reply).
-Everything the arms share -- the action reference, the procedures, the survival and
-strategy knowledge -- is one string, so the diff between two modes' contracts is exactly
-the memory claim (`tests/pins` in the MFM repo hold the logbook and direct prompts byte
-for byte). The structured world-model arm this package started as (a belief graph, five
-compiled documents, an induction pass) and its `wmlite` simplification were removed on
-2026-09-21; the logbook arm was their control and is unchanged.
+It is the union of two agents in the sibling `MineExplorer` repo, plus the one box neither
+of them has.
+
+| | what it contributes | what it lacked alone |
+|---|---|---|
+| a belief DAG in the prompt (`mc_agent/hypothesis_agent.py`) | a typed DAG of beliefs, and a *harness-enforced* discipline on it | the DAG was a prompt section, so it could never outgrow the context window |
+| an append-only log on disk (`mc_agent/prolong_agent.py`) | an append-only log + persistent workspace the agent greps | no structure over the record; it re-derived its beliefs from raw log lines every turn |
+| **this** | the DAG lives *in* the filesystem, and an induction pass compiles the trace into structured documents | — |
+
+The consequence is two kinds of turn instead of one:
+
+- **act turn** — cheap, frequent. Reads the current frame, the milestone checklist, the
+  compiled world model and a *view* of the belief graph; writes `actions.json`.
+- **induction turn** — expensive, every `--induction-every` steps. Reads the accumulated
+  filesystem and rewrites the five world-model documents, and settles beliefs that acting
+  never got back to.
+
+Acting is driven by what is in front of you; nothing in an act turn ever goes back to look
+at step 400. That is what the induction turn is for.
 
 ## Layout
 
 ```
 memory/
   logs.txt              append-only trace: action, resulting state, prior analyses. GREP.
-  episodes/             mfm: one directory per plan entry -- the frame it opened on,
-                        state.json, action.json, outcome.json; index.jsonl beside it.
-  frames/               arc: one PNG per entry, named in the log's [FRAME] lines.
-  tools/                harness-written helpers (episodes.py; zoom.py with --frames).
-  references/ skills/   --thin / --skills: the contract's long sections, the skill package.
-  mine/                 --own: the model's own scripts, notes and reflexes, carried on.
+  events/events.jsonl   ground truth from MineRL's statistics. The agent cannot write here.
+  maps/visited.csv      every position occupied, with step number.
+  episodes/*/frames/    the first-person view per step, PNG at full 640x360 render size.
+  hypotheses/           graph.json + one .md per belief (a projection, for grepping).
+  world_model/          spatial.md semantic.md dynamics.md procedural.md causal.md
+  entities/ locations/ procedures/   the agent's to organise.
 ```
 
 Who writes what is enforced, not conventional: `assert_harness_files_intact` fails loudly
-if the agent shrinks a harness-owned file, and whatever else the model leaves in the
-workspace is swept when its turn ends (`sweep_foreign`).
+if the agent shrinks a harness-owned file. A belief and the fact that checks it must not
+share a source, or the discipline layer has nothing to check against.
 
-## Ground truth
+## Ground truth, and the discipline
 
 MineRL reports `mine_block`, `craft_item`, `pickup`, `kill_entity`, `inventory` and
 `location_stats`. `MilestoneLedger` turns those into the ordered progression each task is
-scored on, and it never reads a model output: a milestone is verified from the game's own
-statistics, and the [EVENT] lines in the log are those statistics, which the model cannot
-edit.
+scored on, and it never reads a model output.
+
+Upstream, the agent ended its own episode with `ESC`, and that press was where the harness
+caught a premature "I'm done". **MCU's action space has no `ESC`**, so the check is
+continuous instead: every turn, a goal hypothesis the model marked `confirmed` that the
+ledger has not verified is reverted, its confidence dropped, and its *statement* marked
+`[unverified: ...]` — the statement, because that is what the prompt renders back. A
+`claim.json` naming an unverified milestone locks those goals at 0.5.
+
+This exists because of a measured failure: in MineExplorer's q35a campaign one run
+self-confirmed a goal at step 2 from eight blocks away, and rode that belief at confidence
+0.95+ for the remaining 198 steps. 70 of 177 goal nodes finished ≥0.9 and unverified.
 
 ## Crafting: why there is no crafting action, and what to do instead
 
@@ -287,14 +300,14 @@ reflexes, the skill package, the carry of earlier lives) is launched with
 ```bash
 python -m mcu_worldmodel.selftest          # no Java, GPU, or Codex needed
 
-export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/$USER/MineStudio
+export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/chloe00/MineStudio
 sbatch slurm/worldmodel.sbatch diamond outputs/d1
 sbatch slurm/worldmodel.sbatch dragon  outputs/g1
 ```
 
 Outputs: `milestone_tracking.json` in the RDI-Foundation format (so a run is directly
 comparable to their VPT/STEVE-1 baselines), `episode_0.mp4`, and
-`worldmodel_report.json` with turn counts, the milestones and the codex audit.
+`worldmodel_report.json` with turn counts, belief statistics and discipline counters.
 
 ## Tasks
 

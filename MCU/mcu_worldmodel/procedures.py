@@ -31,8 +31,6 @@ was only ever exercised the other way. `calibrate_cursor()` measures it in-sim, 
 """
 from __future__ import annotations
 
-import re
-
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -831,7 +829,12 @@ ATOMS = ("look", "look_at", "look_abs", "equip_hotbar", "open_inventory", "close
          "go_to", "watch", "mine_ahead", "collect_drops", "fill_bucket", "pillar_up", "eat",
          "throw", "drop_and_pickup", "stow_items", "discard_stack")
 #: None = every registered procedure; a set = the names the contract shows and `expand`
-#: accepts (the rest answer with a note, never silently). `--atoms` sets it to ATOMS.
+#: accepts (the rest answer with a note, never silently).
+#: `--visual-only`: the atoms minus the five that take a coordinate (visual.py).
+VISUAL_ATOMS = tuple(n for n in ATOMS if n not in ("look_at", "look_abs", "place_at", "use_at", "go_to"))
+#: `--human-play`: the GUI cursor primitives and the one closed-loop sensor (human.py).
+HUMAN_ATOMS = ("open_inventory", "close_inventory", "cursor_to_slot", "cursor_to_cell",
+               "gui_click", "gui_right_click", "watch")
 VISIBLE: set[str] | None = None
 
 
@@ -1085,6 +1088,10 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
     """
     proc = REGISTRY.get(name)
     if proc is not None and VISIBLE is not None and name not in VISIBLE:
+        if VISIBLE == set(HUMAN_ATOMS):
+            return [], (f"{name!r} is not a built-in in this run; there are none beyond the GUI "
+                        f"cursor primitives and watch -- do it with raw keys, or write it as your "
+                        f"own script under mine/procedures/ and call it by name")
         return [], (f"{name!r} is not in this run's procedure set (the atoms): compose it "
                     f"from the atoms and raw actions, or write it as your own procedure "
                     f"under mine/procedures/")
@@ -1107,25 +1114,13 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
         return [], f"bad arguments for {name!r}: {e}"
 
 
-_DEFAULT = re.compile(r"\(default:? ([^()]+?)\)")
-
-
-def index(compact: bool = False) -> str:
+def index() -> str:
     """The procedure list as an index: name, arguments, the first sentence of the doc.
     `--thin` puts this in the contract and the full `reference()` in
-    references/procedures.md. `compact` keeps only the argument names (with their
-    defaults where the description states one): the minimal contract is read at the
-    start of every session, so its procedure index is priced per turn (2026-09-09)."""
+    references/procedures.md."""
     lines = []
     for p in visible():
-        if compact:
-            parts = []
-            for k, v in p.params.items():
-                m = _DEFAULT.search(v)
-                parts.append(f"{k}={m.group(1).strip()}" if m else k)
-            args = ", ".join(parts)
-        else:
-            args = ", ".join(f"{k}=<{v}>" for k, v in p.params.items())
+        args = ", ".join(f"{k}=<{v}>" for k, v in p.params.items())
         first = p.doc.split(". ")[0].rstrip(".").strip()
         lines.append(f"- `{p.name}({args})` -- {first}.")
     return "\n".join(lines)

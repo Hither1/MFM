@@ -519,6 +519,7 @@ def _droppick_tick(agent, dp: dict[str, Any], mk_act):
     t = dp["t"]
     dp["t"] += 1
     if t >= dp["budget"]:
+        agent._note_failure("drop_and_pickup")
         agent.memory.add_note(
             f"drop_and_pickup: the {item} did not come back in {t} ticks (pickup "
             f"+{picked:g}, you carry {have}). It lies within a block or two of where "
@@ -601,6 +602,7 @@ def _later_tick(agent, lt: dict[str, Any], mk_act):
             agent.cursor_stats.get("deferred_expanded", 0) + 1)
         return None
     agent.cursor_stats["deferred_refused"] = agent.cursor_stats.get("deferred_refused", 0) + 1
+    agent._note_failure(name)
     agent.memory.add_note(note or f"{name}: still not possible when its turn came.")
     return None
 
@@ -616,6 +618,7 @@ def _screen_need_tick(agent, sn: dict[str, Any], mk_act):
     label = sn.get("label", "gui macro")
     family = label.split("(")[0]
     if not agent._gui_open:
+        agent._note_failure(family)
         agent._flush_tail(
             f"{label}: no screen is open"
             + (" -- the right-click did not open the block's screen; make sure the "
@@ -627,6 +630,7 @@ def _screen_need_tick(agent, sn: dict[str, Any], mk_act):
         return None
     kind, have = sn.get("kind", "any"), agent._screen
     if kind != "any" and have is not None and have != kind:
+        agent._note_failure(family)
         agent._flush_tail(
             f"{label} needs the {kind} screen, but the open screen is the {have}. "
             f"close_inventory, then open the right one"
@@ -644,6 +648,7 @@ def _screen_need_tick(agent, sn: dict[str, Any], mk_act):
                 if vision.slot_occupied(frame, int(ox + tl[0]), int(oy + tl[1]))]
         if busy:
             grid = sn.get("grid", "3x3")
+            agent._note_failure(family)
             agent._flush_tail(
                 f"{label}: {len(busy)} of the recipe's cells already hold something "
                 f"(leftovers from an earlier craft). Bank them first: stow_items("
@@ -696,6 +701,7 @@ def _craftcheck_tick(agent, ck: dict[str, Any], mk_act):
         ck["t"] += 1
         return mk_act()
     agent.cursor_stats["craft_failed"] = agent.cursor_stats.get("craft_failed", 0) + 1
+    agent._note_failure("craft")
     # Clean up after itself: the ingredients this macro put into the cells go back
     # into the inventory NOW (stow_items on exactly those cells), so the drop guard
     # does not refuse every later close. dm25z_lb (2026-09-03) laid a correct stone
@@ -765,6 +771,7 @@ def _placecheck_tick(agent, pc: dict[str, Any], mk_act):
         pc["t"] += 1
         return mk_act()
     agent.cursor_stats["place_failed"] = agent.cursor_stats.get("place_failed", 0) + 1
+    agent._note_failure("place_and_open")
     agent._flush_tail(
         f"place_and_open({pc['item']}): the {pc['item']} did not go down (use_item "
         f"unchanged). The block lands on the face under the crosshair, 55 degrees "
@@ -812,6 +819,7 @@ def _furnacecheck_tick(agent, fc: dict[str, Any], mk_act):
         return None
     missing = ("the fuel cell" if (ore_gone >= 1 and inside)
                else "the smelt cell" if fuel_gone >= 1 else "both cells")
+    agent._note_failure("furnace_load")
     agent._flush_tail(
         f"{fc['label']}: {missing} read EMPTY after loading -- a click missed. Read "
         f"[GRID] and [CURSOR] (a stack riding the cursor?), bank it with a gui_click "
@@ -859,6 +867,7 @@ def _invcheck_tick(agent, ic: dict[str, Any], mk_act):
         agent.cursor_stats["furnace_took"] = agent.cursor_stats.get("furnace_took", 0) + 1
         agent.memory.add_note(f"{ic['label']}: {txt} now in the inventory.")
         return None
+    agent._note_failure("furnace_take")
     agent.memory.add_note(
         f"{ic['label']}: nothing arrived in the inventory. If [CURSOR] shows a stack "
         f"off-inventory the take click worked and the bank click missed: gui_click on "

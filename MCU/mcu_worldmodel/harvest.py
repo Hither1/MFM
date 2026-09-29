@@ -93,13 +93,6 @@ NEAR_DET_W = 50
 COMMIT_JUMP_PX = 100
 #: Ticks without any detection before the walk re-aims.
 NODET_TICKS = 8
-#: Bark-coloured fraction of the frame above which the trunk is IN THE FACE: the
-#: column detector has nothing to find, and that is arrival, not loss. lad8_mfmrr
-#: (2026-09-06, from the episode video): every walk-in that ended "no trunk detected"
-#: had reached the trunk (50-69% bark at frames 850-870 and 1085-1100, 34-40% at
-#: 1843-1860 looking at its foot), slid along
-#: it for 8 nodet ticks, re-aimed, and missed six times facing bark.
-FACE_FRAC = 0.33
 #: Before each chop, bark this far (px) off the centre re-centres the yaw. The
 #: walk-in stops with the trunk up to ~20 degrees off-axis (the spawn spruce:
 #: 0.3 blocks ahead, 0.3 to the side), which is ~140 px -- outside v4's 120-px
@@ -194,12 +187,9 @@ def tick(hv: dict[str, Any], frame, pos: dict[str, float] | None, log_breaks: fl
     hv["used"] += 1
     state = hv["state"]
     det = None
-    face = False
     if state in ("aim", "approach", "pitch") and frame is not None:
         fr = np.asarray(frame)
         det = vision.find_tree_trunk(fr, prefer_x=hv.get("prefer_x"))
-        if det is None and state in ("aim", "approach"):
-            face = vision.bark_fraction(fr) >= FACE_FRAC
         if (det is None and state == "aim" and hv["near_t"] > 0
                 and hv.get("prefer_x") is not None):
             # The tracked trunk has grown past the stock run limit (within ~2.5
@@ -233,10 +223,9 @@ def tick(hv: dict[str, Any], frame, pos: dict[str, float] | None, log_breaks: fl
         if det is None:
             hv["miss"] += 1
             if hv["miss"] >= 6:
-                if hv["after_aim"] == "chop" or face:
+                if hv["after_aim"] == "chop":
                     # Blocked with nothing detected: a wide, close trunk can defeat
-                    # the column detector. Chop what the crosshair is on anyway --
-                    # also when the frame itself is bark (`face`): that is the trunk.
+                    # the column detector. Chop what the crosshair is on anyway.
                     _start_chop(hv, inv_logs)
                     return {}, None
                 if broken or gained:
@@ -284,13 +273,7 @@ def tick(hv: dict[str, Any], frame, pos: dict[str, float] | None, log_breaks: fl
                 hv["probe_y0"] = float(pos.get("y", 0.0))
                 hv["probe_xz0"] = (pos["x"], pos["z"])
                 return {}, None
-        if det is None and face:
-            # Bark fills the view: the trunk is in the face, not lost. Keep walking
-            # into it; the stuck rule below turns that into the probe and the chop.
-            hv["nodet"] = 0
-            hv["near_t"] = hv["used"]
-            dy = 0.0
-        elif det is None:
+        if det is None:
             hv["nodet"] += 1
             if hv["nodet"] >= NODET_TICKS:
                 _enter(hv, "aim", after="approach")

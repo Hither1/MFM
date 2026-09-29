@@ -31,9 +31,7 @@ from MCU_benchmark.utility.milestone_tracker import MilestoneTrackerCallback
 
 from messenger import Messenger
 from model import EvalRequest, InitPayload, ObservationPayload, AckPayload, ActionPayload
-from util import (get_tasks, load_world_spec, load_scheduled_commands,
-                  load_portal_probe,
-                  assess_video, process_video, evaluate_longterm_result)
+from util import get_tasks, assess_video, process_video, evaluate_longterm_result
 
 
 class Agent:
@@ -50,37 +48,12 @@ class Agent:
         # second-half start of the dragon task (harness experiment, 2026-09-04): the same
         # 24 rules as ender_dragon with a kit given at reset; see its task config
         "ender_dragon_half", "ender_dragon_portal",
-        # The A-B-A memory probes ported from MrSteve (ICLR 2025). Three faithful ports
-        # and three with the legs swapped so the scarce resource sits on the middle,
-        # incidentally-encoded leg; see the task configs.
-        "aba_water_log_water", "aba_log_water_log",
-        "aba_beef_log_beef", "aba_log_beef_log",
-        "aba_wool_log_wool", "aba_log_wool_log",
-        # Recall probe: a landmark seen with no task active and removed before it is
-        # asked for, scored on position rather than on any statistic.
-        "recall_vanished_fire", "recall_first_house", "recall_long_navigation",
-        "recall_long_navigation_image",
-        # The nether-portal case study: the dragon chain's one purely geometric goal,
-        # cut out of the chain with the blocks already in hand and nothing scarce, so
-        # the only thing measured is whether the shape comes out right.
-        "nether_portal",
     }
     
     # Task step limits
     DEFAULT_MAX_STEPS: int = 1200
     LONG_TASK_MAX_STEPS: int = 12000
-    #: Tasks allowed past DEFAULT_MAX_STEPS. A task missing from here has its
-    #: --max-steps silently clamped to 1200 (see _run), which on a 12,000-step A-B-A
-    #: task would end every episode in the middle of the first goal.
-    LONG_TASKS: set[str] = {
-        "kill_ender_dragon", "mine_diamond_from_scratch",
-        "aba_water_log_water", "aba_log_water_log",
-        "aba_beef_log_beef", "aba_log_beef_log",
-        "aba_wool_log_wool", "aba_log_wool_log",
-        "recall_vanished_fire", "recall_first_house", "recall_long_navigation",
-        "recall_long_navigation_image",
-        "nether_portal",
-    }
+    LONG_TASKS: set[str] = {"kill_ender_dragon", "mine_diamond_from_scratch"}
 
     # How long a purple agent may take to answer one observation before the step is
     # filled with a noop. Reactive policies answer in milliseconds, but a planning
@@ -454,10 +427,6 @@ class Agent:
         elif max_steps > self.DEFAULT_MAX_STEPS and task not in self.LONG_TASKS:
             max_steps = self.DEFAULT_MAX_STEPS
          
-        world_spec = load_world_spec(task)
-        if world_spec:
-            print(f"[green] {task}: world pinned {world_spec}", flush=True)
-
         # Set up the MinecraftSim environment with appropriate callbacks
         task_dict = {
             'name': task.replace('_', ' '),
@@ -489,25 +458,6 @@ class Agent:
             
         if commands:
             callbacks.insert(0, CommandsCallback(commands))
-
-        # A landmark that stops existing partway through the episode, for the recall
-        # probes. Absent from every other task, so no callback is added there.
-        schedule = load_scheduled_commands(task)
-        if schedule:
-            from mcu_worldmodel.scheduled import ScheduledCommandsCallback
-            callbacks.append(ScheduledCommandsCallback(schedule))
-            print(f"[green] {task}: {len(schedule)} scheduled command group(s)", flush=True)
-            
-        # Host-side geometry ground truth for the nether-portal case study. Absent from
-        # every other task, so no callback is added there. It asks the engine for the
-        # blocks around the player and writes portal_report.json; nothing it learns is
-        # published into `info`, and `voxels` is not in INFO_PASSTHROUGH, so the
-        # privileged view stops at the green process.
-        probe = load_portal_probe(task)
-        if probe:
-            from mcu_worldmodel.portal_probe import PortalProbeCallback
-            callbacks.append(PortalProbeCallback(output_dir=record_path, **probe))
-            print(f"[green] {task}: portal probe {probe}", flush=True)
             
         env = MinecraftSim(
             # `env`, not MinecraftSim's `agent` default. The default routes every action
@@ -521,10 +471,7 @@ class Agent:
             # where indices map back to their own bin values exactly.
             action_type="env",
             obs_size=(640, 360),
-            callbacks=callbacks,
-            # Empty for every task that does not pin them, which leaves MinecraftSim's
-            # own defaults in place -- so this is a no-op for every pre-existing task.
-            **world_spec,
+            callbacks=callbacks
         )
         
         def encode_image(image: np.ndarray, fmt: str = '.jpeg') -> str:

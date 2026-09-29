@@ -40,20 +40,11 @@ def load_milestone_cfg(task: str) -> list[dict[str, Any]]:
 
 
 def synthesize_milestone_info(cfg: list[dict[str, Any]],
-                              achieved: dict[str, int],
-                              revealed: set[str] | None = None) -> dict[str, Any]:
+                              achieved: dict[str, int]) -> dict[str, Any]:
     """The `milestones` + `milestone_spec` payload in the exact wire shapes the adapters
     and `prolong_mc.log` already consume -- now derived from the agent-side ledger
-    instead of received. Full object lists, not the wire's old `[:4]` truncation.
-
-    `revealed` is the ledger's disclosure set under a sequentially-revealed task. It must
-    be passed wherever the ledger has one: this payload is how the PRO-LONG arms learn
-    their goals, so leaving it out would show that arm the whole A-B-A sequence at step 0
-    while the log-based arms saw one goal at a time -- two arms, two different tasks.
-    None (the default) discloses everything, which is every pre-existing task.
-    """
-    rules = [c for c in cfg if revealed is None or c.get("identity") in revealed]
-    bits = {c["identity"]: int(c["identity"] in achieved) for c in rules}
+    instead of received. Full object lists, not the wire's old `[:4]` truncation."""
+    bits = {c["identity"]: int(c["identity"] in achieved) for c in cfg}
     spec = [
         {
             "identity": c.get("identity"),
@@ -61,30 +52,14 @@ def synthesize_milestone_info(cfg: list[dict[str, Any]],
             "objects": list(c.get("objects") or []),
             "done": bits.get(c.get("identity"), 0),
         }
-        for c in rules
+        for c in cfg
     ]
     return {"milestones": bits, "milestone_spec": spec}
 
 
-def load_reveal_mode(task: str) -> str:
-    """`milestone_reveal` for one task category: "all" (the default, and every task that
-    does not set it) or "sequential". Agent-side like the rest of this module -- it
-    changes what the agent is told, never what the green agent scores."""
-    task_dir = _TASKS_DIR / task
-    if not task_dir.is_dir():
-        return "all"
-    for path in sorted(task_dir.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        mode = data.get("milestone_reveal")
-        if mode in ("all", "sequential"):
-            return mode
-    return "all"
-
-
 def load_given_milestones(task: str) -> list[str]:
-    """Milestones whose ITEMS a task config hands the kit at reset (`given_milestones`, an
-    agent-side key the scorer ignores). They are NOT credited -- the ledger keeps them open
-    and the checklist says they are cheap. Empty for the from-scratch tasks; the second-half
+    """Milestones a task config credits before the first step (`given_milestones`, an
+    agent-side key the scorer ignores). Empty for the from-scratch tasks; the second-half
     start `ender_dragon_half` lists the ten through the diamond ore."""
     task_dir = _TASKS_DIR / task
     if not task_dir.is_dir():

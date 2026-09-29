@@ -15,13 +15,7 @@
 #
 # Options:
 #   --arm NAME          output/NAME and the codex home name. Required.
-#   --agent KIND        logbook | direct | prolong | mfm | vista | arc | steve1.
-#                       arc = arc-code's harness on the chassis (mcu_worldmodel/arc.py):
-#                       one long coding-agent session (codex exec by default; `--wm-extra
-#                       "--arc-agent claude"` for Claude Code) with a shell and the
-#                       workspace, `./act do` as its only actuator, logs.txt plus the
-#                       model's own notes and scripts as memory, a fresh session told to
-#                       resume when one exits early.
+#   --agent KIND        worldmodel | wmlite | logbook | direct | prolong | mfm | vista | steve1.
 #                       vista = VISTA's protocol on the chassis (mcu_worldmodel/vista.py):
 #                       one codex app-server thread calling `play` one entry at a time,
 #                       no filesystem the model reads, the frame archive behind `inspect`,
@@ -32,19 +26,15 @@
 #                       block to its turn prompt (the lad3 variant);
 #                       `--wm-extra "--retrieval --refuse"` also vetoes plans from
 #                       the record (streaks anywhere; descending away from the table).
-#                       The spatial-grid chassis additions are opt-in the same way, on
-#                       any memory mode, because each changes what the model is SHOWN
-#                       and so is an arm rather than the baseline:
-#                       `--wm-extra "--grid --recent --event-frames"` gives the runner's
-#                       cell map (grid.jsonl + [MAP]), the harness-rendered [RECENT]
-#                       block, and the event contact sheet. `--no-governor` ablates the
-#                       null-entry tabu, which is ON in the baseline the pins record.
 #                       Required.
-#                       `logbook` is the claim-M control: the shared chassis
+#                       `wmlite` is the simplification arm: the logbook substrate plus
+#                       ONE induction-maintained world_model/world.md -- no belief
+#                       graph, no five-document taxonomy, no events channel.
+#                       `logbook` is the claim-M control: the worldmodel chassis
 #                       (same skills, perception, caps, knowledge) with PRO-LONG's
 #                       memory protocol -- append-only logs.txt + grep and NOTHING
 #                       else (no frame archive, no tools, files of its own swept at
-#                       turn end).
+#                       turn end), no compiled documents, no belief graph, no induction.
 #                       `direct` is the ladder's no-memory rung: the same chassis with
 #                       NO memory at all -- read-only codex, 1-turn sessions, no
 #                       window, no feedback from the last batch: each turn is the
@@ -65,51 +55,45 @@
 #                       a planning agent spends a whole model turn on a re-plan, and the
 #                       60 s default fills those steps with noops.
 #   --session-turns N   turns one codex session is resumed for before it is dropped and
-#                       the next call cold-starts. Default 0: one thread for the whole
-#                       episode, bounded by --session-bytes. 1 reproduces the arms
-#                       measured up to 2026-09-09 (every turn a fresh conversation).
-#   --session-bytes B   base64 bytes of frames one resumed session may carry; the turn
-#                       whose frame would cross it cold-starts instead (0 = no budget).
-#                       Default 4000000, VISTA's thread budget: ~8 act turns a thread.
+#                       the next call cold-starts. Default 1. 0 means unbounded, which
+#                       does not work here -- see below.
 #   --compact           let codex compact a full conversation instead of cold-starting
-#                       it. Only does anything with --session-turns other than 1.
-#   --seed-memory DIR   a previous run's episode memory dir. The logbook arm copies
-#                       what it holds beyond its episodic record in; the mfm arm carries
-#                       its RECORD under previous/ for the model to read
-#                       (mcu_worldmodel/previous.py). Repeatable, oldest first.
+#                       it. Only does anything with --session-turns greater than 1.
+#   --seed-memory DIR   a previous run's episode memory dir. worldmodel/wmlite copy its
+#                       distilled documents in; the mfm arm carries its RECORD under
+#                       previous/ and pushes the sites its log verified into the turn
+#                       prompt (mcu_worldmodel/previous.py). Repeatable, oldest first.
 #   --dry-run           print the plan and exit.
 #
-# Why sessions are byte-budgeted. Every act turn attaches the current frame, because the
-# observation in this benchmark is pixels. On a resumed session the old frames stay in
-# the thread and codex re-sends the whole conversation on every call, so the request
-# grows by ~0.48 MB a turn without bound. Measured on three independent arms (2026-08-25):
+# Why sessions default to one turn. Every act turn attaches the current frame, because
+# the observation in this benchmark is pixels. On a resumed session the old frames stay
+# in the thread and codex re-sends the whole conversation on every call, so the request
+# grows by ~0.4 MB a turn without bound. Measured on three independent arms (2026-08-25):
 # below ~5 MB a turn costs 42s + 11.2s per MB; between 5.15 and 6.15 MB it steps to a
 # flat ~600s and stays there however much further it grows. All three arms crossed it at
-# turn 11-18 and effectively stopped, ~1 step per 10 minutes. A 12,000-step episode
-# needs 1,500-2,000 turns (5.6-7.6 steps per turn, measured), so nothing that grows per
-# turn without a bound survives the horizon.
+# turn 11-18 and effectively stopped, ~1 step per 10 minutes.
 #
-# Until 2026-09-09 every arm ran --session-turns 1: a constant 0.48 MB payload, the wall
-# unreachable, 1,878 consecutive sessions with no latency drift (53-71s median) -- and no
-# conversation memory at all; every turn rebuilt its state from the filesystem. The
-# ladder's VISTA arm keeps one thread and hands off to a fresh one on a byte budget, so
-# the memory arms now run the same way: --session-turns 0 with --session-bytes 4000000
-# keeps a thread for ~8 act turns and cold-starts it BEFORE the frame that would cross
-# the budget (audit: `bytes_resets` and `session_max_bytes` appear; `age_resets` stays
-# 0). What survives a handoff is what the memory claim says survives anything: logs.txt,
-# the episode store, the world model documents. `_discard_session` already drops a thread
-# on any unclean ending for the same reason. The direct arm ignores both knobs and keeps
-# its forced 1-turn sessions (mcu_worldmodel/agent.py). Scores under the two policies
-# are different arms; do not average them.
+# A 12,000-step episode needs 1,500-2,000 turns (5.6-7.6 steps per turn, measured), so
+# nothing that grows per turn survives the horizon: at one turn per session the payload
+# is a constant 0.48 MB and the wall is unreachable. The previous campaign ran this way
+# for 1,878 consecutive sessions with no latency drift (53-71s median throughout), so
+# session accumulation costs nothing but disk -- about 513 KB per session.
+#
+# What it gives up is conversation memory, and both agents are built to survive that:
+# `_discard_session` drops a thread on any unclean ending precisely because logs.txt, the
+# world model documents and the hypothesis graph are on the filesystem. Raising this is
+# how you measure what the conversation was worth on top of that; it is not free above
+# ~5 turns, and above ~12 it hits the wall.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 ARM="" AGENT="" TASK="mine_diamond_from_scratch" GREEN_PORT="" PURPLE_PORT=""
-STEPS=12000 STEP_TIMEOUT=600 COMPACT=0 SESSION_TURNS=0 SESSION_BYTES=4000000 DRY=0 WM_EXTRA="" SEEDS=""
+STEPS=12000 STEP_TIMEOUT=600 COMPACT=0 SESSION_TURNS=1 DRY=0 WM_EXTRA="" SEEDS="" CLI="codex"
 while [ $# -gt 0 ]; do
     case "$1" in
         --arm) ARM="$2"; shift 2;;
+        --cli) CLI="$2"; shift 2;;
         --agent) AGENT="$2"; shift 2;;
         --task) TASK="$2"; shift 2;;
         --green-port) GREEN_PORT="$2"; shift 2;;
@@ -119,14 +103,15 @@ while [ $# -gt 0 ]; do
         --step-timeout) STEP_TIMEOUT="$2"; shift 2;;
         --compact) COMPACT=1; shift;;
         --session-turns) SESSION_TURNS="$2"; shift 2;;
-        --session-bytes) SESSION_BYTES="$2"; shift 2;;
         --seed-memory) SEEDS="$SEEDS --seed-memory $2"; shift 2;;
+        --seed-log) SEEDS="$SEEDS --seed-log $2"; shift 2;;
         --dry-run) DRY=1; shift;;
         *) echo "unknown option: $1" >&2; exit 2;;
     esac
 done
 : "${ARM:?--arm is required}" "${AGENT:?--agent is required}"
 : "${GREEN_PORT:?--green-port is required}" "${PURPLE_PORT:?--purple-port is required}"
+case "$CLI" in codex|claude) ;; *) echo "unknown --cli: $CLI (codex|claude)" >&2; exit 2;; esac
 
 # Above any plausible context window, so auto-compaction can never fire and a full
 # conversation cold-starts. Below it, compaction fires first and the thread survives
@@ -140,16 +125,14 @@ LOG_DIR="$ROOT/logs"
 CFG="$LOG_DIR/$ARM.toml"
 mkdir -p "$LOG_DIR"
 
-echo "arm=$ARM agent=$AGENT task=$TASK steps=$STEPS"
+echo "arm=$ARM agent=$AGENT task=$TASK steps=$STEPS cli=$CLI"
 echo "  ports        green=$GREEN_PORT purple=$PURPLE_PORT"
 echo "  output       $RUN_DIR"
 if [ -n "$SEEDS" ]; then echo "  seeds       $SEEDS"; fi
 echo "  overflow     $([ "$COMPACT" -eq 1 ] && echo 'compact and carry on' || echo 'cold start')"
 echo "  sessions     $([ "$SESSION_TURNS" -eq 0 ] \
-    && echo "one thread, cold-started before $SESSION_BYTES bytes of frames" \
+    && echo 'resumed without limit -- crosses the payload wall around turn 12' \
     || echo "dropped after $SESSION_TURNS turn(s)")"
-[ "$SESSION_TURNS" -eq 0 ] && [ "$SESSION_BYTES" -eq 0 ] \
-    && echo "  WARNING: unbounded sessions cross the payload wall around turn 12" >&2
 [ "$DRY" -eq 1 ] && exit 0
 
 for port in "$GREEN_PORT" "$PURPLE_PORT"; do
@@ -168,13 +151,28 @@ done
 # and fails copying an engine that is not on this disk. A caller that sets this must
 # export JAVA_HOME and MINESTUDIO_DIR itself -- see slurm/arm.sbatch.
 [ "${MCU_SKIP_ENV_SH:-0}" = 1 ] || source ./env.sh
-eval "$(scripts/codex-home.sh "$ARM")"
+if [ "$CLI" = "claude" ]; then
+    # The claude twin of codex-home.sh: a per-arm CLAUDE_CONFIG_DIR, the credential
+    # route (subscription file, setup-token, or the OpenRouter key helper), and the
+    # deny-read list the backend turns into sandbox + Read-tool rules.
+    eval "$(scripts/claude-home.sh "$ARM")"
+    RUNTIME_HOME="$CLAUDE_RUNTIME_HOME"
+    # CODEX_AUTO_COMPACT_TOKEN_LIMIT's twin, inverted to fit the CLI: empty disables
+    # auto-compaction outright (overflow cold-starts), a token count is the window
+    # compaction fires at (--compact -> 100000, the same number as codex's).
+    export CLAUDE_AUTOCOMPACT="$([ "$COMPACT" -eq 1 ] && echo "$COMPACT_LIMIT" || echo "")"
+    export CLAUDE_SESSION_MAX_TURNS="$SESSION_TURNS"
+    export CLAUDE_MAX_CALLS="${CLAUDE_MAX_CALLS:-4000}"
+    export CLAUDE_TIMEOUT="${CLAUDE_TIMEOUT:-${CODEX_TIMEOUT:-1800}}"
+else
+    eval "$(scripts/codex-home.sh "$ARM")"
+    RUNTIME_HOME="$CODEX_RUNTIME_HOME"
+fi
 export CODEX_AUTO_COMPACT_TOKEN_LIMIT="$COMPACT_LIMIT"
 # 0 is codex's own "unbounded"; every other value is a turn cap it enforces itself.
 # Also passed to every purple agent as --session-turns: the agents no longer read
 # this variable, it stays exported for anything else in the tree that does.
 export CODEX_SESSION_MAX_TURNS="$SESSION_TURNS"
-export CODEX_SESSION_MAX_BYTES="$SESSION_BYTES"
 # Runaway ceiling on total model calls per episode -- infrastructure, NOT a scored
 # protocol knob. The episode's scored budget is max_steps (env ticks) -- the same
 # quantity upstream PRO-LONG's arc-agi-3 harness calls --max-actions (500/game,
@@ -185,15 +183,10 @@ export CODEX_SESSION_MAX_BYTES="$SESSION_BYTES"
 # 4,000 is ~2x the highest healthy arm, and a run that touches it reports
 # call_ceiling_hits > 0 and is not a result.
 export CODEX_MAX_CALLS="${CODEX_MAX_CALLS:-4000}"
-# The codex binary. Back on the ChatGPT-plan login (2026-09-07, the user's call),
-# reversing the API-key default added 2026-09-06: that pointed at ~/ccr/bin/codex, which
-# does not exist on this host, and neither does the ~/.local/bin wrapper the old comment
-# named. A missing CODEX_BIN does not fail loudly -- the adapter swallows the
-# FileNotFoundError into a noop per step, so an arm runs its full length, reports normal
-# milestones and achieves nothing (measured: abaw2_mfm, 4,000 failed calls, 16,000
-# FileNotFoundErrors, call_ceiling_hits=10). A bare name is left to PATH by
-# resolve_codex_bin, which is what every healthy run before the merge used.
-export CODEX_BIN="${CODEX_BIN:-codex}"
+# The codex binary: the API-key account's wrapper (~/ccr/bin/codex, 2026-09-06), not
+# whatever `codex` is first on PATH (the ChatGPT-plan wrapper under ~/.local/bin).
+# The credential is chosen by codex-home.sh; this picks the wrapper and its home.
+export CODEX_BIN="${CODEX_BIN:-$HOME/ccr/bin/codex}"
 # The mfm arm imports the `mfm` package from the MFM checkout this repo is the
 # submodule of; the run venv does not carry it.
 export PYTHONPATH="${MFM_ROOT:-$ROOT/..}${PYTHONPATH:+:$PYTHONPATH}"
@@ -242,12 +235,27 @@ xvfb-run "${XVFB[@]}" .venv/bin/python -u src/server.py --host 127.0.0.1 --port 
 GREEN_PID=$!
 
 case "$AGENT" in
+    worldmodel)
+        .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
+            --task "$TASK" --max-steps "$STEPS" --session-turns "$SESSION_TURNS" $WM_EXTRA $SEEDS \
+            > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
+        ;;
+    wmlite)
+        # The simplification arm: the logbook substrate plus one compiled world.md
+        # kept by induction -- no belief graph, no five-document taxonomy.
+        .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
+            --task "$TASK" --max-steps "$STEPS" --memory wmlite \
+            --session-turns "$SESSION_TURNS" $WM_EXTRA $SEEDS \
+            > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
+        ;;
     logbook)
         # The claim-M control arm: identical chassis, PRO-LONG's memory protocol.
         .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
             --task "$TASK" --max-steps "$STEPS" --memory logbook \
-            --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" $WM_EXTRA $SEEDS \
+            --session-turns "$SESSION_TURNS" $WM_EXTRA $SEEDS \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     direct)
@@ -255,9 +263,9 @@ case "$AGENT" in
         # read-only codex, 1-turn sessions -- a rolling window of the model's own
         # replies is its only past (see --window-chars).
         .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
             --task "$TASK" --max-steps "$STEPS" --memory direct \
-            --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" $WM_EXTRA $SEEDS \
+            --session-turns "$SESSION_TURNS" $WM_EXTRA $SEEDS \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     prolong)
@@ -269,8 +277,8 @@ case "$AGENT" in
             export PROLONG_EXTRA_KNOWLEDGE="$ROOT/prolong_mc/matched_knowledge_diamond.md"
         fi
         .venv/bin/python -u prolong_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
-            --task "$TASK" --max-steps "$STEPS" --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" \
+            --task "$TASK" --max-steps "$STEPS" --session-turns "$SESSION_TURNS" \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     mfm)
@@ -279,9 +287,9 @@ case "$AGENT" in
         # the system prompt naming it. Same chassis, caps, knowledge and codex policy
         # as logbook; the diff against it is exactly the memory claim.
         .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
             --task "$TASK" --max-steps "$STEPS" --memory mfm \
-            --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" $WM_EXTRA $SEEDS \
+            --session-turns "$SESSION_TURNS" $WM_EXTRA $SEEDS \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     vista)
@@ -289,23 +297,13 @@ case "$AGENT" in
         # knowledge and governor as logbook/mfm; the memory protocol is VISTA's (one
         # long codex thread, tools instead of files). --session-turns is not read by
         # this arm (the thread's lifetime is the checkpoint protocol's); passed through
-        # so the launcher's argv keeps one shape.
+        # so the launcher's argv keeps one shape. codex only: the thread is codex
+        # app-server (mfm/vista/runner.py); there is no claude twin of it.
+        [ "$CLI" = codex ] || { echo "--agent vista runs codex app-server only (--cli $CLI)" >&2; exit 2; }
         .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" --cli "$CLI" \
             --task "$TASK" --max-steps "$STEPS" --memory vista \
-            --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" $WM_EXTRA \
-            > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
-        ;;
-    arc)
-        # The arc-code baseline on the ladder's chassis: same macros, perception, caps,
-        # knowledge and governor as logbook/mfm/vista; the memory protocol is
-        # arc-code's (one coding-agent session, a shell, files, one actuator).
-        # --session-turns is not read by this arm (the session's lifetime is the
-        # episode's); passed through so the launcher's argv keeps one shape.
-        .venv/bin/python -u worldmodel_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
-            --task "$TASK" --max-steps "$STEPS" --memory arc \
-            --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" $WM_EXTRA \
+            --session-turns "$SESSION_TURNS" $WM_EXTRA \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     plmfm)
@@ -316,8 +314,8 @@ case "$AGENT" in
             export PROLONG_EXTRA_KNOWLEDGE="$ROOT/prolong_mc/matched_knowledge_diamond.md"
         fi
         .venv/bin/python -u prolong_purple_agent.py --host 127.0.0.1 --port "$PURPLE_PORT" \
-            --workspace "output/$ARM" --codex-home "$CODEX_RUNTIME_HOME" \
-            --task "$TASK" --mfm --max-steps "$STEPS" --session-turns "$SESSION_TURNS" --session-bytes "$SESSION_BYTES" \
+            --workspace "output/$ARM" --codex-home "$RUNTIME_HOME" \
+            --task "$TASK" --mfm --max-steps "$STEPS" --session-turns "$SESSION_TURNS" \
             > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
     steve1)
@@ -325,7 +323,7 @@ case "$AGENT" in
         xvfb-run "${XVFB[@]}" .venv/bin/python -u test_purple_agent.py --host 127.0.0.1 \
             --port "$PURPLE_PORT" --model steve1 > "$LOG_DIR/${ARM}_purple.log" 2>&1 &
         ;;
-    *) echo "unknown --agent: $AGENT (logbook|mfm|vista|arc|direct|prolong|plmfm|steve1)" >&2; exit 2;;
+    *) echo "unknown --agent: $AGENT (worldmodel|wmlite|logbook|mfm|vista|direct|prolong|plmfm|steve1)" >&2; exit 2;;
 esac
 PURPLE_PID=$!
 

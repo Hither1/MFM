@@ -338,6 +338,7 @@ def _face_tick(agent, st: dict[str, Any], mk_act):
         return None
     st["used"] += 1
     if st["used"] > st["budget"]:
+        agent._note_failure("face_entity")
         agent.memory.add_note(
             f"{st['label_txt']}: {st['budget']} ticks spent without centring"
             + (f" (last seen {st['last'][5]} at {st['last'][0]},{st['last'][1]})"
@@ -348,6 +349,7 @@ def _face_tick(agent, st: dict[str, Any], mk_act):
     if hit is None:
         st["miss"] += 1
         if st["miss"] >= MISS_MAX:
+            agent._note_failure("face_entity")
             agent.memory.add_note(_no_entity_note(st, "no entity in view"))
             return None
         return _sweep_step(st, mk_act)
@@ -483,6 +485,7 @@ def _fight_step(agent, ft: dict[str, Any], mk_act):
                                   "It may have died out of sight or run off; check the "
                                   "kill list in [STATE] and collect_drops.")
                 else:
+                    agent._note_failure("fight")
                     agent.memory.add_note(_no_entity_note(ft, "nothing to fight"))
                 return None
             ft["stage"] = "settle"
@@ -615,6 +618,7 @@ def _shoot_step(agent, sh: dict[str, Any], mk_act):
                 if sh["fired"]:
                     _shoot_finish(agent, sh, "the target left the view --")
                 else:
+                    agent._note_failure("shoot_bow")
                     agent.memory.add_note(_no_entity_note(sh, "no target in view"))
                 return None
             sh["stage"] = "settle"
@@ -737,6 +741,7 @@ def _useent_finish(agent, ue: dict[str, Any], ok: bool) -> None:
                f"get out" if moved > 0.4 else "")
             + ".")
         return
+    agent._note_failure("use_on_entity")
     agent._flush_tail(
         f"{ue['label_txt']}: nothing registered after {ue['tries']} right-click(s) "
         f"(inventory unchanged, use_item unchanged, you did not move). Either the "
@@ -768,6 +773,7 @@ def _useent_step(agent, ue: dict[str, Any], mk_act):
         if ue["tries"]:
             _useent_finish(agent, ue, False)
         else:
+            agent._note_failure("use_on_entity")
             agent.memory.add_note(_no_entity_note(ue, "never got a click in"))
         return None
 
@@ -782,6 +788,7 @@ def _useent_step(agent, ue: dict[str, Any], mk_act):
         if hit is None:
             ue["miss"] += 1
             if ue["miss"] >= MISS_MAX:
+                agent._note_failure("use_on_entity")
                 agent.memory.add_note(_no_entity_note(ue, "no entity in view"))
                 return None
             ue["stage"] = "settle"
@@ -851,6 +858,7 @@ def _leaveboat_tick(agent, lb: dict[str, Any], mk_act):
             f"use_on_entity(oak_boat) gets back in, and attacking it breaks it back "
             f"into an item.")
         return None
+    agent._note_failure("leave_boat")
     agent.memory.add_note(
         f"leave_boat: y did not change ({pos0.get('y', 0):.2f}) -- you were probably not "
         f"in a boat. Riding shows as y ending in .45 below the water surface.")

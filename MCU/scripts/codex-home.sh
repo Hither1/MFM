@@ -46,13 +46,11 @@ SQLITE_DIR="$HOME_DIR/sqlite"
 # ChatGPT plan login. The API key is the default since 2026-09-06 (the user's call:
 # every later batch runs on it); it answered gpt-6-astra at effort high with a frame
 # attached when probed through both wrappers. Point MCU_CODEX_AUTH at another file
-# to run a different account.
-# Reverted 2026-09-07 (the user's call) from the API key back to the ChatGPT plan:
-# ~/ccr does not exist on this host at all, and an arm launched against a missing
-# credential/binary produces a full-length run of silent noops rather than an error.
-# Point MCU_CODEX_AUTH at another file (e.g. ~/ccr/.codex/auth.json) for a different account.
-AUTH="${MCU_CODEX_AUTH:-$HOME/.codex/runtime-home/auth.json}"
-if [ ! -e "$AUTH" ]; then
+# to run a different account; MCU_CODEX_AUTH=none for a provider codex authenticates
+# against by running a command (CODEX_LOCAL_AUTH_COMMAND, the OpenRouter route): no
+# auth.json at all in the home.
+AUTH="${MCU_CODEX_AUTH:-$HOME/ccr/.codex/auth.json}"
+if [ "$AUTH" != none ] && [ ! -e "$AUTH" ]; then
     echo "codex-home.sh: no credential at $AUTH -- set MCU_CODEX_AUTH to the auth.json" >&2
     echo "  the arms should share (e.g. \$HOME/.codex/runtime-home/auth.json after 'codex login')." >&2
     exit 1
@@ -65,15 +63,9 @@ mkdir -p "$SQLITE_DIR"
 # holds the full conversation, which is the run's data.
 chmod 700 "$HOME_DIR" "$SQLITE_DIR"
 
-ln -s "$AUTH" "$HOME_DIR/auth.json"
+[ "$AUTH" = none ] || ln -s "$AUTH" "$HOME_DIR/auth.json"
 for f in AGENTS.md lessons.md RTK.md config.toml; do : > "$HOME_DIR/$f"; done
 for d in agents rules skills skills.disabled memories plugins; do mkdir -p "$HOME_DIR/$d"; done
-# codex 0.153 installs its bundled skills (imagegen, skill-creator, skill-installer, ...)
-# into $CODEX_HOME/skills/.system at every start and lists them in the session's skill
-# catalog, where `skill-creator` matches the moment the agent is told to write a skill of
-# its own. A plain FILE at that path makes the install fail ("Not a directory", logged,
-# harmless) and the catalog holds the workspace's skills alone (smoke 2026-09-09).
-: > "$HOME_DIR/skills/.system"
 
 echo "export CODEX_RUNTIME_HOME=$HOME_DIR"
 echo "export CODEX_SQLITE_DIR=$SQLITE_DIR"

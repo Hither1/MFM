@@ -2,11 +2,11 @@
 # The spatial-grid half-task arms (harness: grid, map-aware go_to / pose re-open / pond
 # escape, watchdog, [RECENT]/[MAP], event sheet; mfm options: --expect --frames
 # --retrieval). Memory reuse is the MFM carry ONLY: the seeds' records are linked under
-# previous/ for the model to read. (The harness digest of earlier lives, --sites, that
-# the ob1..obf3 chain of 2026-09-06 ran with was removed on 2026-09-21; those lives stay
-# excluded as seeds: every plan in their logs was written from the pushed coordinates.)
-# Seeds: the 12 first-generation lives (never seeded) + the spatial-grid lives run
-# without pushed sites (GRID_SEEDS, default og3_mfm og4_mfm).
+# previous/ for the model to read; no --sites (the harness digest of earlier lives that
+# the ob1..obf3 chain of 2026-09-06 ran with -- those lives are excluded as seeds for the
+# same reason: every plan in their logs was written from the pushed coordinates).
+# Seeds: the 12 first-generation lives (worldmodel/logbook arms, never seeded) + the
+# spatial-grid lives run without pushed sites (GRID_SEEDS, default og3_mfm og4_mfm).
 # Detached; pid in logs/<ARM>_launch.pid.
 #   ARM=og5_mfm GP=9095 PP=9105 bash scripts/launch-og.sh
 #   ARM=og6_mfm GP=9096 PP=9106 SESSION_TURNS=8 WM_EXTRA="--expect --frames --retrieval --frame-size 320x180" bash scripts/launch-og.sh
@@ -14,7 +14,7 @@
 #   NO_SEEDS=1 runs from scratch (no previous lives at all).
 #   TASK=ender_dragon runs the full task from nothing (default ender_dragon_half).
 #   EXTRA_ONLY=1 EXTRA_SEEDS="/abs/.../episode_001/memory ..." seeds with those lives alone.
-#   OB_SEEDS=1 adds the ob1..obf3 lives (contaminated seeds; the --sites arm they reproduced no longer exists).
+#   OB_SEEDS=1 adds the ob1..obf3 lives (contaminated: only with WM_EXTRA containing --sites, to reproduce that arm).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ARM="${ARM:-og5_mfm}"
@@ -55,13 +55,13 @@ if [ "${EXTRA_ONLY:-0}" = "1" ]; then
     done
     [ -n "$SEEDS" ] || { echo "EXTRA_ONLY=1 needs EXTRA_SEEDS" >&2; exit 1; }
 fi
-export CODEX_BIN="${CODEX_BIN:-codex}"   # ChatGPT-plan login; see run-arm.sh
+export CODEX_BIN="${CODEX_BIN:-$HOME/ccr/bin/codex}"
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
 mkdir -p logs
-setsid nohup bash scripts/run-arm.sh --arm "$ARM" --agent mfm --task "${TASK:-ender_dragon_half}" \
+setsid nohup bash scripts/run-arm.sh --arm "$ARM" --agent "${AGENT:-mfm}" --cli "${CLI:-codex}" --task "${TASK:-ender_dragon_half}" \
     --steps "${STEPS:-12000}" --green-port "$GP" --purple-port "$PP" \
     --session-turns "${SESSION_TURNS:-1}" $([ "${COMPACT:-0}" = "1" ] && echo --compact) \
-    --wm-extra "${WM_EXTRA:---expect --frames --retrieval}" $SEEDS \
+    --wm-extra "${WM_EXTRA:---expect --frames --retrieval}" $SEEDS ${SEED_LOG:+--seed-log "$SEED_LOG"} \
     > "logs/${ARM}_launch.log" 2>&1 < /dev/null &
 echo $! > "logs/${ARM}_launch.pid"
 echo "launched $ARM (pid $(cat logs/${ARM}_launch.pid)); logs/${ARM}_launch.log"

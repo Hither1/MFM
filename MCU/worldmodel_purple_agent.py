@@ -6,8 +6,8 @@ the MCU green agent speaks, both are handed the same `InitPayload.prompt` and th
 what the agent does with its history:
 
     PRO-LONG      an append-only logs.txt it greps, and nothing else
-    this agent    the same log (--memory logbook), the episode store beside it (mfm),
-                  VISTA's thread (vista), arc-code's workspace (arc), or nothing (direct)
+    world model   the same log, plus documents it periodically recompiles from it and a
+                  typed graph of beliefs the harness polices
 
 That is the arm axis. Everything else is held constant on purpose, which is why this file
 exists at all -- `mcu_worldmodel.run` builds its own simulator in-process and never sees
@@ -51,7 +51,7 @@ from mcu_worldmodel.agent import WorldModelAgent
 from mcu_worldmodel.milestones import MilestoneLedger
 from camera_contract import with_camera_truth
 from models import AckPayload, ActionPayload
-from task_milestones import load_given_milestones, load_milestone_cfg, load_reveal_mode
+from task_milestones import load_given_milestones, load_milestone_cfg
 
 
 def prepare_agent_card(url: str) -> AgentCard:
@@ -75,9 +75,10 @@ def prepare_agent_card(url: str) -> AgentCard:
 
 
 # What an inherited memory keeps and what it leaves behind: the world and its
-# coordinates persist across runs on this deterministic seed, so what a seed dir
-# holds beyond its episodic record carries; the episodic record (logs, frames,
-# events, step-stamped artifacts) does not -- a fresh episode starts its own, and stale step numbers would only
+# coordinates persist across runs on this deterministic seed, so the distilled
+# knowledge (world_model docs, hypothesis graph, tools, entities, visited map)
+# carries; the episodic record (logs, frames, events, step-stamped artifacts)
+# does not -- a fresh episode starts its own, and stale step numbers would only
 # mislead. AGENTS.md stays behind too: the running version seeds its own contract.
 SEED_SKIP = {"logs.txt", "episodes", "events", "actions.json",
              "last_message.txt", "frames", "AGENTS.md"}
@@ -109,59 +110,64 @@ class WorldModelExecutor(AgentExecutor):
         workspace_root: Path,
         model: str,
         codex_home: Path | None,
+        cli: str = "codex",
         reasoning_effort: str = "medium",
         base_url: str | None = None,
         entry_cap: int = 40,
         repeat_cap: int = 200,
         step_cap: int = 400,
+        induction_every: int = 600,
         report_every: int = 200,
         max_steps: int = 6000,
-        memory_mode: str = "logbook",
+        memory_mode: str = "worldmodel",
         task: str = "mine_diamond_from_scratch",
         seed_memory: str | None = None,
         seed_log: str | None = None,
         playbook: str | None = None,
         playbook_until: int = 0,
         session_max_turns: int = 1,
-        session_max_bytes: int = 0,
         codex_timeout: int = 480,
         retrieval: bool = False,
         refusal: bool = False,
-        grid: bool = False,
-        recent: bool = False,
-        governor: bool | None = None,
-        event_frames: bool = False,
         vista_options: dict | None = None,
-        arc_options: dict | None = None,
         expect: bool = False,
         frames: bool = False,
+        corridors: bool = False,
+        sites: bool = False,
         thin: bool = False,
         atoms: bool = False,
         own: bool = False,
+        visual_only: bool = False,
+        human_play: bool = False,
         frame_size: tuple[int, int] = (640, 360),
+        hires_every: int = 1,
         own_reflexes: bool = False,
         harness_reflexes: bool = True,
         skills: bool = False,
         minimal: bool = False,
         seed_mine: str | None = None,
         event_sheet: bool = True,
-        scan_frames: bool = False,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
-        self.expect, self.frames = bool(expect), bool(frames)
+        self.expect, self.frames, self.corridors = bool(expect), bool(frames), bool(corridors)
+        self.sites = bool(sites)
         self.thin = bool(thin)
         self.atoms, self.own = bool(atoms), bool(own)
+        self.visual_only = bool(visual_only)
+        self.human_play = bool(human_play)
         self.own_reflexes = bool(own_reflexes)
         self.harness_reflexes = bool(harness_reflexes)
         self.skills = bool(skills)
         self.minimal = bool(minimal)
         self.seed_mine = seed_mine
         self.event_sheet = bool(event_sheet)
-        self.scan_frames = bool(scan_frames)
         self.frame_size = tuple(frame_size)
+        # Every Nth observation's wire JPEG, kept whole for the record (0 = off).
+        self.hires_every = max(0, int(hires_every))
         self.workspace_root.mkdir(parents=True, exist_ok=True)
         self.model = model
         self.codex_home = Path(codex_home).resolve() if codex_home else None
+        self.cli = cli
         self.reasoning_effort = reasoning_effort
         self.base_url = base_url
         self.seed_memory = seed_memory
@@ -169,25 +175,18 @@ class WorldModelExecutor(AgentExecutor):
         self.playbook = playbook
         self.playbook_until = int(playbook_until)
         self.session_max_turns = session_max_turns
-        self.session_max_bytes = session_max_bytes
         self.codex_timeout = codex_timeout
         # mfm only: the harness-computed [RECALL] block in the turn prompt.
         self.retrieval = bool(retrieval)
         self.refusal = bool(refusal)
-        # The spatial-grid chassis additions, each opt-in (agent.py: grid/recent/
-        # event_frames default off, governor is tri-state and on unless ablated).
-        self.grid = bool(grid)
-        self.recent = bool(recent)
-        self.governor = governor
-        self.event_frames = bool(event_frames)
         self.vista_options = vista_options
-        self.arc_options = arc_options
         self.entry_cap = entry_cap
         self.repeat_cap = repeat_cap
         self.step_cap = step_cap
+        self.induction_every = induction_every
         self.report_every = report_every
         self.max_steps = max_steps
-        # "logbook", "direct", "mfm", "vista" or "arc". Same chassis every way --
+        # "worldmodel", "logbook", "wmlite", "direct" or "mfm". Same chassis every way --
         # execution engine, perception, caps, knowledge -- so the flag *is* the
         # claim-M arm axis.
         self.memory_mode = memory_mode
@@ -209,6 +208,8 @@ class WorldModelExecutor(AgentExecutor):
         self._task_text = ""
         self._platform_prompt = ""
         self._workspace: Path | None = None
+        self._hires_dir: Path | None = None
+        self._hires_failed = False
 
     # -- episode lifecycle ------------------------------------------------
 
@@ -223,6 +224,14 @@ class WorldModelExecutor(AgentExecutor):
         agent-side to human-visible numbers."""
         cfg = self.milestone_cfg
         workspace = self.workspace_root / f"episode_{self._episode:03d}"
+        # The full-resolution record of the life, for a video of it: every observation's
+        # frame exactly as the green agent sent it (640x360 JPEG, the render size), named
+        # by the green agent's step. It lives beside memory/, not in it -- memory/ is the
+        # model's working directory and the only tree any prompt, tool or skill names --
+        # so the model never sees these files, and the carry (previous/) never links them.
+        self._hires_dir = workspace / "hires" if self.hires_every else None
+        if self._hires_dir is not None:
+            self._hires_dir.mkdir(parents=True, exist_ok=True)
         seeded: list[str] = []
         seeds = ([self.seed_memory] if isinstance(self.seed_memory, str)
                  else list(self.seed_memory or []))
@@ -270,16 +279,17 @@ class WorldModelExecutor(AgentExecutor):
             workspace=workspace / "memory",
             task_text=self._task_text,
             ledger=MilestoneLedger(cfg, task_name=self.task,
-                                   given=load_given_milestones(self.task),
-                                   reveal=load_reveal_mode(self.task)),
+                                   given=load_given_milestones(self.task)),
             model=self.model,
             reasoning_effort=self.reasoning_effort,
             base_url=self.base_url,
             codex_home=self.codex_home,
+            cli=self.cli,
             transcript_dir=workspace / "codex_turns",
             entry_cap=self.entry_cap,
             repeat_cap=self.repeat_cap,
             step_cap=self.step_cap,
+            induction_every=self.induction_every,
             max_steps=self.max_steps,
             # False, not run.py's True: `extended_actions` marks that
             # `craft_env.patch_minecraft_sim()` has added `drop` to the action space, and
@@ -291,21 +301,17 @@ class WorldModelExecutor(AgentExecutor):
             platform_prompt=self._platform_prompt,
             memory_mode=self.memory_mode,
             session_max_turns=self.session_max_turns,
-            session_max_bytes=self.session_max_bytes,
             codex_timeout=self.codex_timeout,
             retrieval=self.retrieval,
             refusal=self.refusal,
-            grid=self.grid, recent=self.recent, governor=self.governor,
-            event_frames=self.event_frames,
             vista_options=self.vista_options,
-            arc_options=self.arc_options,
             previous_lives=previous_lives,
-            expect=self.expect, frames=self.frames,
-            thin=self.thin, frame_size=self.frame_size,
-            atoms=self.atoms, own=self.own, own_reflexes=self.own_reflexes,
+            expect=self.expect, frames=self.frames, corridors=self.corridors,
+            sites=self.sites, thin=self.thin, frame_size=self.frame_size,
+            atoms=self.atoms, own=self.own, visual_only=self.visual_only,
+            human_play=self.human_play, own_reflexes=self.own_reflexes,
             harness_reflexes=self.harness_reflexes, skills=self.skills,
             minimal=self.minimal, event_sheet=self.event_sheet,
-            scan_frames=self.scan_frames,
         )
         if previous_lives:
             prev = self._agent.episodes.previous
@@ -359,8 +365,11 @@ class WorldModelExecutor(AgentExecutor):
                         if st <= self.playbook_until]
             if turns:
                 agent = self._agent
+                orig_induction = agent.induction_every
+                agent.induction_every = 0
 
                 def _handover() -> None:
+                    agent.induction_every = orig_induction
                     aborted = getattr(agent.codex, "aborted_at", None)
                     if aborted is not None:
                         agent.memory.add_note(
@@ -388,7 +397,8 @@ class WorldModelExecutor(AgentExecutor):
                     progress=lambda: (agent.step, len(agent.ledger.achieved)))
                 logger.info(
                     f"[adapter] playbook: {len(turns)} turns extracted from "
-                    f"{self.playbook} (until step {self.playbook_until})")
+                    f"{self.playbook} (until step {self.playbook_until}); "
+                    f"induction suppressed during replay")
         self._workspace = workspace
         logger.info(
             f"[adapter] episode {self._episode} workspace={workspace} "
@@ -461,6 +471,8 @@ class WorldModelExecutor(AgentExecutor):
             # green agent as a failed task, which ends the episode rather than costing it
             # one step.
             info["pov"] = self._decode_image(encoded)
+            if self._hires_dir is not None and self._step % self.hires_every == 0:
+                self._keep_hires(encoded)
 
             if self._agent is None:
                 await asyncio.to_thread(self._build_agent, info)
@@ -479,8 +491,9 @@ class WorldModelExecutor(AgentExecutor):
             else:
                 await asyncio.to_thread(self._agent.observe, info, self._step)
 
-            # An act turn runs inside here and takes minutes; keep the event loop free so
-            # the card endpoint still answers.
+            # An act turn -- or, every `induction_every` steps, an induction turn -- runs
+            # inside here and takes minutes; keep the event loop free so the card endpoint
+            # still answers.
             action = await asyncio.to_thread(self._agent.next_action, info)
         except Exception:
             logger.exception(f"[adapter] step {self._step} failed")
@@ -521,10 +534,6 @@ class WorldModelExecutor(AgentExecutor):
                     # A play waiting in the thread gets a terminal result; the
                     # app-server is closed.
                     self._agent.vista.finish()
-                if last and getattr(self._agent, "arc", None) is not None:
-                    # A waiting `./act do` is told the episode is over; the coding
-                    # agent's session and the mailbox are closed.
-                    self._agent.arc.finish()
                 self._agent.step = self._step
                 self._agent.save_report(self._workspace / "worldmodel_report.json")
                 logger.info(f"[adapter] step {self._step}: {self._agent.ledger.progress_line()}")
@@ -560,6 +569,30 @@ class WorldModelExecutor(AgentExecutor):
                 out[key] = int(value)
         return out
 
+    def _keep_hires(self, encoded: str) -> None:
+        """Write this step's frame, as received, under hires/. Never lets a disk problem
+        cost the episode a step: the first failure is logged and the record stops."""
+        if self._hires_failed:
+            return
+        try:
+            data, ext = self.wire_frame_bytes(encoded)
+            (self._hires_dir / f"{self._step:07d}{ext}").write_bytes(data)
+        except Exception as exc:
+            self._hires_failed = True
+            logger.warning(f"[adapter] hires frame at step {self._step} not kept ({exc}); "
+                           f"the hires record stops here")
+
+    @staticmethod
+    def wire_frame_bytes(encoded: str) -> tuple[bytes, str]:
+        """The frame's bytes as they came over the wire, and the extension its magic
+        number says they are (the green agent encodes JPEG; PNG is accepted too)."""
+        data = base64.b64decode(encoded)
+        if data[:3] == b"\xff\xd8\xff":
+            return data, ".jpg"
+        if data[:8] == b"\x89PNG\r\n\x1a\n":
+            return data, ".png"
+        raise ValueError(f"not a JPEG or PNG frame ({data[:4]!r})")
+
     @staticmethod
     def _decode_image(encoded: str) -> np.ndarray:
         """Decode to an RGB array, which is what `Image.fromarray` in `_save_frame` wants.
@@ -582,7 +615,13 @@ def main() -> None:
     parser.add_argument("--card-url", type=str, help="External URL for the agent card")
     parser.add_argument("--workspace", type=str, default="output/worldmodel_workspaces")
     parser.add_argument("--model", type=str, default="gpt-5.6-sol")
-    parser.add_argument("--codex-home", type=str, default=os.path.expanduser("~/.codex-eval"))
+    parser.add_argument("--codex-home", type=str, default=os.path.expanduser("~/.codex-eval"),
+                        help="isolated home for the chosen CLI (CODEX_HOME, or "
+                             "CLAUDE_CONFIG_DIR under --cli claude)")
+    parser.add_argument("--cli", type=str, default="codex", choices=["codex", "claude"],
+                        help="which CLI carries the model: codex (GPT through the Codex "
+                             "CLI) or claude (Anthropic models through Claude Code; "
+                             "--base-url is then ANTHROPIC_BASE_URL)")
     parser.add_argument("--base-url", type=str, default=None,
                         help="OpenAI-compatible endpoint, for a locally served model")
     parser.add_argument("--reasoning-effort", type=str, default="medium")
@@ -598,45 +637,33 @@ def main() -> None:
     # only continuity -- and a 480 s ceiling under the green agent's 600 s step_timeout.
     parser.add_argument("--session-turns", type=int, default=1,
                         help="drop the codex session after this many turns (0 = never)")
-    # The persistent-session policy (run-arm.sh, 2026-09-09): --session-turns 0 with a
-    # byte budget, so one thread carries across turns and hands off to a fresh one
-    # only when the next frame would push its re-sent payload past the wall.
-    parser.add_argument("--session-bytes", type=int, default=0,
-                        help="cold-start the codex session before its attached frames "
-                             "exceed this many base64 bytes on the wire (0 = no budget)")
     parser.add_argument("--codex-timeout", type=int, default=480,
                         help="seconds one codex turn may take")
     parser.add_argument("--entry-cap", type=int, default=40)
     parser.add_argument("--repeat-cap", type=int, default=200)
     parser.add_argument("--step-cap", type=int, default=400)
+    parser.add_argument("--induction-every", type=int, default=600)
     parser.add_argument("--max-steps", type=int, default=6000,
                         help="the episode's step budget, shown to the agent every turn")
-    parser.add_argument("--memory", type=str, default="logbook",
-                        choices=["logbook", "direct", "mfm", "vista", "arc"],
-                        help="the claim-M arm axis: 'logbook' is PRO-LONG's protocol "
-                             "(append-only logs.txt + grep) on the shared substrate; "
-                             "'direct' is the no-memory baseline -- no filesystem, "
-                             "read-only codex, no window: each turn is the present alone; "
-                             "'mfm' is the logbook arm plus the Multimodal Filesystem Memory beside the log: one episode directory per plan entry (image, state, action, outcome) and tools/episodes.py to query them; 'vista' is VISTA's protocol on the same chassis -- one codex thread calling `play` one entry at a time, the frame archive behind `inspect`, GUIDE.md/WORKING.md, a checkpoint handoff when the context fills (mcu_worldmodel/vista.py); 'arc' is arc-code's harness on the same chassis -- one long coding-agent session (codex exec, or claude -p) with a shell and the workspace, `./act do` as its only actuator, logs.txt plus its own notes and scripts as memory, a fresh session told to resume when one exits early (mcu_worldmodel/arc.py).")
+    parser.add_argument("--memory", type=str, default="worldmodel",
+                        choices=["worldmodel", "logbook", "wmlite", "direct", "mfm", "vista"],
+                        help="the claim-M arm axis: 'worldmodel' is the full structured "
+                             "memory; 'logbook' is PRO-LONG's protocol (append-only "
+                             "logs.txt + grep) on the identical substrate; 'wmlite' is "
+                             "the simplification arm -- the logbook substrate plus one "
+                             "induction-maintained world_model/world.md, no belief "
+                             "graph, no five-document taxonomy; 'direct' is the "
+                             "no-memory baseline -- no filesystem, read-only codex, "
+                             "no window: each turn is the present alone 'mfm' is the logbook arm plus the Multimodal Filesystem Memory beside the log: one episode directory per plan entry (image, state, action, outcome) and tools/episodes.py to query them; 'vista' is VISTA's protocol on the same chassis -- one codex thread calling `play` one entry at a time, the frame archive behind `inspect`, GUIDE.md/WORKING.md, a checkpoint handoff when the context fills (mcu_worldmodel/vista.py).")
     parser.add_argument("--vista-thread-bytes", type=int, default=None,
                         help="vista only: base64 image bytes one codex thread may carry "
-                             "before the checkpoint handoff (default 4,000,000; 0 = off)")
+                             "before the checkpoint handoff (mfm/vista/runner.py default)")
     parser.add_argument("--vista-frame-every", type=int, default=None,
                         help="vista only: ticks between archived intermediate frames of "
-                             "a running entry (default 10)")
+                             "a running entry (mcu_worldmodel/vista.py default)")
     parser.add_argument("--vista-idle-timeout", type=float, default=None,
                         help="vista only: seconds of app-server silence before the thread "
-                             "is resumed (default 900)")
-    parser.add_argument("--arc-agent", choices=["codex", "claude"], default=None,
-                        help="arc only: which coding agent plays -- codex (`codex exec`, "
-                             "the ladder's model) or claude (`claude -p`, Claude Code; "
-                             "spends the Claude login's quota) -- default codex")
-    parser.add_argument("--arc-model", type=str, default=None,
-                        help="arc only, with --arc-agent claude: the Claude model "
-                             "(default claude-opus-5); codex plays --model")
-    parser.add_argument("--arc-max-sessions", type=int, default=None,
-                        help="arc only: sessions started per episode before the loop "
-                             "gives up (a session that exits early is resumed; default 25)")
+                             "is abandoned and resumed (mfm/vista/runner.py default)")
     parser.add_argument("--retrieval", action="store_true",
                         help="mfm only: put a harness-computed [RECALL] block in the "
                              "turn prompt -- actions that changed nothing in their last "
@@ -644,40 +671,26 @@ def main() -> None:
                              "that scored each milestone (mfm.memory.retrieve)")
     parser.add_argument("--refuse", action="store_true",
                         help="mfm only: veto a plan from the episode record -- an action "
-                             "that changed nothing in its last 5 calls anywhere, a descent "
-                             "away from the placed crafting table, or one below y 55 with "
-                             "no torch or no sword -- unless the entry says `why` / "
-                             "`leave_table` / `unlit` / `unarmed` (mcu_worldmodel/episodes.py)")
-    parser.add_argument("--grid", action="store_true",
-                        help="any memory mode: the runner's own cell map -- `grid.jsonl` "
-                             "beside the log and the [MAP] block in the turn prompt "
-                             "(mcu_worldmodel/grid.py). Off by default: it changes what "
-                             "the model is shown, so it is an arm, not the baseline")
-    parser.add_argument("--recent", action="store_true",
-                        help="any memory mode: the [RECENT] block -- the last six finished "
-                             "entries rendered by the harness, so the turn does not start "
-                             "with a grep of the log. Off by default (see --grid)")
-    parser.add_argument("--event-frames", action="store_true",
-                        help="any memory mode: attach a 2x2 sheet of the frames at this "
-                             "turn's events beside the current view. Off by default")
-    parser.add_argument("--no-governor", action="store_true",
-                        help="ablate the null-entry tabu (mcu_worldmodel/governor.py). It "
-                             "is ON in the baseline the pins record; this switches it off "
-                             "and adds its `watchdog` line to the report")
+                             "that changed nothing in its last 5 calls anywhere, or a "
+                             "descent away from the placed crafting table -- unless the "
+                             "entry says `why` / `leave_table` (mcu_worldmodel/episodes.py)")
     parser.add_argument("--expect", action="store_true",
                         help="mfm only: the prediction protocol -- the briefing ends with "
                              "an EXPECT line, echoed next turn against the harness record")
     parser.add_argument("--frames", action="store_true",
-                        help="mfm only: tools/zoom.py in the workspace")
-    parser.add_argument("--scan-frames", action="store_true",
-                        help="mfm only: keep scan_around's frames (in `scans/`) so its "
-                             "contact sheet is built and can be view_image'd. Off by "
-                             "default: the sheet is something the model is SHOWN, so it "
-                             "is an arm, not the baseline. Without it save_frame drops "
-                             "every scan frame and scan_around reports `0 views`")
+                        help="mfm only: tools/zoom.py in the workspace (and, with --sites, "
+                             "frame= pointers on the [KNOWN SITES] lines)")
     parser.add_argument("--no-event-sheet", action="store_true",
                         help="mfm only: do not attach the 2x2 sheet of this turn's event frames "
                              "(the current view alone; the frames stay on disk in episodes/)")
+    parser.add_argument("--sites", action="store_true",
+                        help="mfm only: push the carried lives' verified places (water, "
+                             "lava, ore, deaths) into the turn prompt as [KNOWN SITES]. NOT "
+                             "the MFM protocol -- the carry alone leaves previous/ for the "
+                             "model to read; this reproduces the ob1..obf3 chain")
+    parser.add_argument("--corridors", action="store_true",
+                        help="mfm only, with --sites: the earlier lives' dry corridors "
+                             "(tunnels dug at y<=14 without incident) in [KNOWN SITES]")
     parser.add_argument("--thin", action="store_true",
                         help="any memory mode: a one-page contract (task, memory protocol, "
                              "response format, action schema, procedure index); the GUI, "
@@ -692,13 +705,13 @@ def main() -> None:
                              "next life; mine/procedures/<name>.py scripts are procedures "
                              "(mcu_worldmodel/own.py)")
     parser.add_argument("--own-reflexes", action="store_true",
-                        help="mfm + --own: mine/reflexes/<name>.py scripts "
+                        help="mfm + --own (or --human-play): mine/reflexes/<name>.py scripts "
                              "run every 4 ticks on the live state and may stop the plan, "
                              "note and act (mcu_worldmodel/own.py); the contract names "
                              "what to write first")
     parser.add_argument("--no-harness-reflexes", action="store_true",
                         help="mfm + --own-reflexes: the runner's guards, escapes, governor "
-                             "and nudges are off; the model's own "
+                             "and nudges are off (as in --human-play); the model's own "
                              "reflexes are the tick layer")
     parser.add_argument("--skills", action="store_true",
                         help="mfm + thin + --own: the meta-level skill package "
@@ -712,24 +725,42 @@ def main() -> None:
     parser.add_argument("--seed-mine", type=str, default=None,
                         help="a mine/ directory written by the distiller pass "
                              "(scripts/distill.py) -- copied into this life's mine/ before start")
+    parser.add_argument("--visual-only", action="store_true",
+                        help="mfm + thin only: the model is served the frame alone -- no "
+                             "state/inventory/map text, no retrieval block, no event sheet; "
+                             "coordinate-free atoms; notes scrubbed of coordinates "
+                             "(mcu_worldmodel/visual.py)")
+    parser.add_argument("--human-play", action="store_true",
+                        help="mfm only: play like a person -- the memory mechanism, the frame "
+                             "and the state text, no built-in skills beyond the GUI cursor and "
+                             "watch, no advice, no reflexes; the model writes its own scripts "
+                             "(implies --own; mcu_worldmodel/human.py)")
     parser.add_argument("--frame-size", type=str, default="640x360",
                         help="WxH of the frames attached to the model (the render is "
                              "640x360; smaller frames make longer sessions affordable)")
+    parser.add_argument("--hires-every", type=int, default=1,
+                        help="keep every Nth observation's frame as sent by the green agent "
+                             "(640x360 JPEG) under episode_NNN/hires/, outside the model's "
+                             "working directory, for a video of the life; 0 = off")
     parser.add_argument("--task", type=str, default="mine_diamond_from_scratch",
                         help="task_category being evaluated; names the public task "
                              "config the milestone checklist is loaded from now that "
                              "the wire no longer carries the scoring spec")
+    parser.add_argument("--no-strategy-knowledge", action="store_true",
+                        help="ablation: drop the run-distilled strategy bullets from the "
+                             "prompts, keeping game constants and harness mechanics")
     parser.add_argument("--seed-log", type=str, default=None,
                         help="path to a previous run's logs.txt; copied into this "
                              "episode's memory as previous_expedition_log.txt so an "
                              "append-only-log protocol can inherit its own record")
     parser.add_argument("--seed-memory", type=str, action="append", default=None,
-                        help="path to a previous run's episode memory dir. With --memory "
-                             "mfm the seed's RECORD (logs.txt, episodes/, index.jsonl, "
-                             "mine/) is carried under previous/ for the model to read; "
-                             "repeat the flag to carry several lives (oldest first). "
-                             "With --memory logbook what the dir holds beyond its "
-                             "episodic record is copied into each fresh episode")
+                        help="path to a previous run's episode memory dir; its "
+                             "distilled knowledge (docs, hypotheses, tools, maps) is "
+                             "copied into each fresh episode before the agent starts. "
+                             "With --memory mfm the seed's RECORD (logs.txt, episodes/, "
+                             "index.jsonl) is carried under previous/ instead and the "
+                             "sites its log verified are pushed into the turn prompt; "
+                             "repeat the flag to carry several lives (oldest first)")
     parser.add_argument("--playbook", type=str, default=None,
                         help="path to a previous run's logs.txt; its executed entries "
                              "are replayed at sim speed with zero model calls, then "
@@ -751,21 +782,20 @@ def main() -> None:
                                        ("idle_timeout", args.vista_idle_timeout)) if v is not None}
     if vista_options and args.memory != "vista":
         parser.error("--vista-* options need --memory vista")
-    arc_options = {k: v for k, v in (("agent", args.arc_agent), ("model", args.arc_model),
-                                     ("max_sessions", args.arc_max_sessions)) if v is not None}
-    if arc_options and args.memory != "arc":
-        parser.error("--arc-* options need --memory arc")
-    if (args.expect or args.frames) and args.memory != "mfm":
-        parser.error("--expect/--frames need --memory mfm")
+    if (args.expect or args.frames or args.corridors or args.sites) and args.memory != "mfm":
+        parser.error("--expect/--frames/--corridors/--sites need --memory mfm")
+    if args.corridors and not args.sites:
+        parser.error("--corridors needs --sites")
     if args.no_event_sheet and args.memory != "mfm":
         parser.error("--no-event-sheet needs --memory mfm")
-    if args.scan_frames and args.memory != "mfm":
-        parser.error("--scan-frames needs --memory mfm (the other arms either keep "
-                     "every frame already or keep none by design)")
     if args.own and args.memory != "mfm":
         parser.error("--own needs --memory mfm")
-    if args.own_reflexes and not args.own:
-        parser.error("--own-reflexes needs --own")
+    if args.visual_only and (args.memory != "mfm" or not args.thin):
+        parser.error("--visual-only needs --memory mfm and --thin")
+    if args.human_play and args.memory != "mfm":
+        parser.error("--human-play needs --memory mfm")
+    if args.own_reflexes and not (args.own or args.human_play):
+        parser.error("--own-reflexes needs --own (or --human-play)")
     if args.no_harness_reflexes and not args.own_reflexes:
         parser.error("--no-harness-reflexes needs --own-reflexes")
     if args.skills and not (args.thin and args.own):
@@ -779,15 +809,20 @@ def main() -> None:
     except ValueError:
         parser.error("--frame-size must be WxH, e.g. 640x360 or 320x180")
 
+    if args.no_strategy_knowledge:
+        os.environ["MCU_WM_STRATEGY"] = "0"
+
     executor = WorldModelExecutor(
         workspace_root=Path(args.workspace),
         model=args.model,
         codex_home=Path(args.codex_home) if args.codex_home else None,
+        cli=args.cli,
         reasoning_effort=args.reasoning_effort,
         base_url=args.base_url,
         entry_cap=args.entry_cap,
         repeat_cap=args.repeat_cap,
         step_cap=args.step_cap,
+        induction_every=args.induction_every,
         max_steps=args.max_steps,
         memory_mode=args.memory,
         task=args.task,
@@ -795,21 +830,18 @@ def main() -> None:
         playbook=args.playbook,
         playbook_until=args.playbook_until,
         session_max_turns=args.session_turns,
-        session_max_bytes=args.session_bytes,
         codex_timeout=args.codex_timeout,
         retrieval=args.retrieval,
         refusal=args.refuse,
-        grid=args.grid, recent=args.recent, event_frames=args.event_frames,
-        governor=(False if args.no_governor else None),
-        vista_options=vista_options or None,
-        arc_options=arc_options or None,
-        expect=args.expect, frames=args.frames,
-        thin=args.thin, frame_size=(fw, fh),
-        atoms=args.atoms, own=args.own, own_reflexes=args.own_reflexes,
+        expect=args.expect, frames=args.frames, corridors=args.corridors,
+        sites=args.sites, thin=args.thin, frame_size=(fw, fh),
+        hires_every=args.hires_every,
+        atoms=args.atoms, own=args.own, visual_only=args.visual_only,
+        human_play=args.human_play, own_reflexes=args.own_reflexes,
         harness_reflexes=not args.no_harness_reflexes, skills=args.skills,
         minimal=args.minimal, seed_mine=args.seed_mine,
         event_sheet=not args.no_event_sheet,
-        scan_frames=args.scan_frames,
+        vista_options=vista_options or None,
     )
 
     card = prepare_agent_card(args.card_url or f"http://{args.host}:{args.port}/")
@@ -822,10 +854,12 @@ def main() -> None:
     )
     logger.info(f"World-model purple agent: model={args.model} memory={args.memory} "
                 f"retrieval={args.retrieval} refuse={args.refuse} "
-                f"expect={args.expect} frames={args.frames} thin={args.thin} "
+                f"expect={args.expect} frames={args.frames} corridors={args.corridors} "
+                f"sites={args.sites} thin={args.thin} "
                 f"atoms={args.atoms} own={args.own} own_reflexes={args.own_reflexes} "
                 f"harness_reflexes={not args.no_harness_reflexes} skills={args.skills} "
                 f"minimal={args.minimal} seed_mine={args.seed_mine} "
+                f"visual_only={args.visual_only} human_play={args.human_play} "
                 f"frame_size={fw}x{fh} "
                 f"codex_home={args.codex_home}")
     uvicorn.run(app.build(), host=args.host, port=args.port, timeout_keep_alive=600)

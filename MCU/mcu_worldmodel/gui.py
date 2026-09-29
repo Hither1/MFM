@@ -399,13 +399,6 @@ def can_craft(info: dict, item: str) -> tuple[bool, str]:
     return True, ""
 
 
-#: Ticks after the output click before the craft ends. The next GUI entry reads the grid
-#: cells from the frame (macros_gui: "N of the recipe's cells already hold something"), and
-#: 2 ticks left the emptied cells still drawn: 5 false refusals in the six full-task lives
-#: of 2026-09-08, and every model added watch(10-12) between crafts by itself (2026-09-09).
-CRAFT_SETTLE = 6
-
-
 def craft_actions(info: dict, item: str, render: tuple[int, int] = (640, 360)
                   ) -> tuple[list[dict[str, Any]], str]:
     """Actions that craft `item` from the current inventory. ([], reason) if it cannot.
@@ -454,7 +447,7 @@ def craft_actions(info: dict, item: str, render: tuple[int, int] = (640, 360)
             path.move_to(centre(in_slots[cell])).right_click()
         path.move_to(centre(slot_topleft(src_slot))).left_click()
 
-    path.move_to(centre(out_slot)).left_click().settle(CRAFT_SETTLE)
+    path.move_to(centre(out_slot)).left_click().settle(2)
     logger.info(f"[gui] craft {item}: {len(path.actions)} ticks")
     return path.actions, ""
 
