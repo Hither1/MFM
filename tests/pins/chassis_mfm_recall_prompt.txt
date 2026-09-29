@@ -27,7 +27,7 @@ GUI open: False
 - You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
 
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
-- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3). Frame: episodes/ep_000014/observation/image.png
+- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3) at (2, 64, 2), 33 blocks from here (33 west). Frame: episodes/ep_000014/observation/image.png
   (one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.

@@ -318,12 +318,11 @@ def test_goto_stall_in_a_hole_queues_the_climb(tmp_path: Path, monkeypatch):
     ag.queue.append(({"_goto": gt}, 0))
     assert ag._goto_stalled(gt, ag._cur_pos, _mk) is None          # the stalled walk ends
     assert gt["pit_climbed"] and ag.cursor_stats["pit_climbs"] == 1
-    # 2026-09-09: the pillar, then the turn -- the go_to is NOT re-queued from the pillar top
-    # (of1 death 3 and of1r death 1 were the resumed walk stepping off it into the shaft)
-    assert [list(e[0])[0] for e in ag.queue] == ["_goto", "_pillar"]
-    assert ag.queue[1][0]["_pillar"]["target"] == 5 and len(ag.queue) == 2
+    # the pillar, then the same go_to once more from the top
+    assert [list(e[0])[0] for e in ag.queue] == ["_goto", "_pillar", "_goto"]
+    assert ag.queue[1][0]["_pillar"]["target"] == 5 and ag.queue[2][0]["_goto"]["pit_climbed"]
     assert any("5 blocks below the cell (5, 69, 0)" in n and "pillar_up(5)" in n
-               and "STOPPED the plan" in n for n in ag.notes)
+               and "the same go_to again from the top" in n for n in ag.notes)
     # once climbed, a second stall of the same walk falls through to the plain note
     gt2 = gt
     ag.queue.clear(); ag.notes.clear()

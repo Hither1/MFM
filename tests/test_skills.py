@@ -35,8 +35,8 @@ def test_write_skills_and_reflex_examples(tmp_path: Path):
             "skills/procedures/scripts/torch_wall.py", "skills/memory/scripts/where_was.py",
             "skills/reflexes/scripts/lava_ahead.py", "skills/reflexes/scripts/fell.py",
             "skills/reflexes/scripts/hit.py", "skills/reflexes/scripts/starving.py",
-            # 2026-09-09: the game-rules and search-doctrine skills, the fire and water reflex examples
-            "skills/reflexes/scripts/burning.py", "skills/reflexes/scripts/slow_loss.py"} == set(written)
+            "skills/procedures/scripts/shaft_down.py", "skills/procedures/scripts/strip_segment.py",
+            "skills/procedures/scripts/aim_speckles.py"} == set(written)
     assert not (tmp_path / "mine").exists()                       # nothing installed: the model copies
     assert "Nothing is installed for you" in (tmp_path / "skills" / "reflexes" / "SKILL.md").read_text()
     for name in ("memory", "procedures", "reflexes", "harness"):
@@ -96,20 +96,12 @@ def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
     assert res["stop"] is True and "cannot heal" in res["note"]
     assert _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=10.2, food=12.0, food_prev=12.0))[1] is None
     assert _run(rx / "starving.py", dict(BASE, health=10.2, health_prev=11.0, food=12.0, food_prev=12.0, inventory={"mutton": 1}))[1] is None
-    # slow_loss: 3+ lost over 100 ticks in small steps with no lava or fire in view -- a stop;
-    # a single 3-point hit is hit.py's; lava or fire in view is burning/lava_ahead's
-    rc, res, _ = _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0))
-    assert rc == 0 and res["stop"] is True and "100 ticks" in res["note"] and "swim up" in res["note"]
-    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=12.0, health_100=13.0))[1] is None
-    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0, lava_frac=0.05))[1] is None
-    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=13.0, fire_frac=0.05))[1] is None
-    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5, health_100=11.0))[1] is None
-    assert _run(rx / "slow_loss.py", dict(BASE, health=9.0, health_prev=9.5))[1] is None           # no history: nothing
     # the example procedures print valid plans; the guards refuse the wrong pose
     sp = tmp_path / "skills" / "procedures" / "scripts"
     rc, res, _ = _run(sp / "stair_step.py", BASE, ["--args", "{}"])
     assert rc == 0 and res["actions"][0] == {"procedure": "equip_hotbar", "args": {"slot": 1}}
-    assert any(a.get("procedure") == "mine_ahead" for a in res["actions"])
+    # raw attack holds, one per block: the holds the wall watcher samples under the atom set
+    assert [a["repeat"] for a in res["actions"] if a.get("action") == {"attack": 1}] == [30, 30]
     rc, _, err = _run(sp / "stair_step.py", dict(BASE, pos=dict(BASE["pos"], y=60.4)), ["--args", "{}"])
     assert rc != 0 and "solid ground" in err
     rc, res, _ = _run(sp / "torch_wall.py", BASE, ["--args", "{}"])

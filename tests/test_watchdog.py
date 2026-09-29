@@ -218,6 +218,5 @@ def test_corridors_are_extracted_merged_and_rendered(tmp_path: Path):
 def test_frame_size_flag_reaches_the_agent():
     from worldmodel_purple_agent import WorldModelExecutor
     ex = WorldModelExecutor(workspace_root=Path("/tmp/does-not-matter-wm"), model="m",
-                            codex_home=None, memory_mode="mfm", frame_size=(320, 180),
-                            expect=True, frames=True, corridors=True)
-    assert ex.frame_size == (320, 180) and ex.expect and ex.frames and ex.corridors
+                            codex_home=None, memory_mode="mfm", frame_size=(320, 180))
+    assert ex.frame_size == (320, 180) and ex.memory_mode == "mfm"

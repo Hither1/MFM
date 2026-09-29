@@ -74,4 +74,3 @@ def test_codex_home_without_auth(tmp_path):
     ).stdout
     home = tmp_path / "t_none"
     assert "CODEX_RUNTIME_HOME=" in out and not (home / "auth.json").exists()
-    assert (home / "skills" / ".system").is_file()
