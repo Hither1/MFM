@@ -7,48 +7,14 @@ __pycache__/
 
 *.mp4
 
-output/
+/output/
 outputs/
 record/
 tutorial/logs/
 tutorial/record/
 minestudio/simulator/minerl/tmp/
 
-# --- world-model agent run artefacts ---
-logs/
+# --- run artefacts ---
+/logs/
 *.log
-slurm/logs/
-.*_jid
-.*_jids
-
-# planning-with-files task state: coordination, not a deliverable
-tasks/
-archive/
-
-# MCUData: re-fetchable from the Hub, so only the provenance files are tracked.
-# hf download Ced-Collab/MCUData --repo-type dataset --local-dir data/MCUData
-data/MCUData/runs/
-data/MCUData/extracted/
-data/MCUData/.cache/
-data/MCUData/.gitattributes
-
-# Scratch from driver probes, wire tests and per-arm codex homes. Nothing here is a
-# deliverable, and the codex-home copies carry a full cloned plugin marketplace.
-artifacts/
-
-# The bulk of the claim-M records: per-turn prompt/stderr/event dumps and the code
-# snapshot tarball, 185 MB and re-fetchable from the Hub. What stays tracked is the
-# provenance -- the manifest, the stats, and each arm's result.json.
-data/MCUData/claim-m-records/*/trajectory/
-data/MCUData/claim-m-records/*.tar.gz
-
-# Same split for the relay-era batch: per-turn dumps, the code snapshot and the
-# raw visited-map traces are re-fetchable from the Hub. Tracked here is the
-# provenance -- the README, each arm's result.json / milestone_tracking.json,
-# and the distilled memories in lineage/ that the relay actually hands forward.
-data/MCUData/relay-era/*/*/trajectory/
-data/MCUData/relay-era/*.tar.gz
-data/MCUData/relay-era/lineage/*/maps/
-
-# Claude Code local settings (personal, not shared)
-.claude/settings.local.json
+/artifacts/

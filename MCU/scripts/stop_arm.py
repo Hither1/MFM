@@ -4,8 +4,8 @@ exactly, plus every descendant. SIGTERM the tree, wait up to 30 s, SIGKILL the s
 (the java engine ignores SIGTERM). Targets are resolved by pid before any signal is sent;
 nothing is matched by a loose pattern.
 
-    scripts/stop_arm.py hdr1z_direct_high hdr2z_direct_high        # dry run
-    scripts/stop_arm.py --go hdr1z_direct_high hdr2z_direct_high   # stop them
+    scripts/stop_arm.py mfm_diamond_s0 mfm_diamond_s1        # dry run
+    scripts/stop_arm.py --go mfm_diamond_s0 mfm_diamond_s1   # stop them
 """
 import os, signal, subprocess, sys, time
 

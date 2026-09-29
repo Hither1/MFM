@@ -1,69 +1,25 @@
-# Getting MCU to actually run on this cluster
+# Getting the simulator to run
 
-Four things were broken or missing. None of them announces itself clearly, and three of the
-four fail at import or reset time with an error that points somewhere else.
+The benchmark is MCU-AgentBeats on MineStudio; its own README (one directory up) covers
+the Python environment (`uv sync`). What follows is what the arms need beyond that, and
+the failures that do not announce themselves.
 
-## 1. The checked-in MineStudio is partly gutted
+## Requirements
 
-**21 files under `minestudio/simulator/minerl/herobraine/hero/handlers/agent/` were
-0 bytes** — every module in `actions/` and `observations/`, including `pov.py`,
-`inventory.py`, `location_stats.py`, `mc_base_stats.py` and their `__init__.py`s. They are
-0 bytes *in the commit*, not just in the working tree.
+- JDK 8 and `xvfb-run`. No GPU: the arms are API-driven and the recorded runs rendered
+  on the CPU.
+- The Codex CLI (`codex`) for the GPT arms, Claude Code (`claude`) for the Claude arms,
+  logged in or keyed (see `scripts/codex-home.sh`, `scripts/claude-home.sh` and
+  `--route openrouter` of `scripts/run-arm.sh`).
+- On Linux the Claude Code sandbox needs `bubblewrap` and `socat` on PATH.
 
-The symptom is misleading: `AttributeError: module '...hero.handlers' has no attribute
-'POVObservation'. Did you mean: 'observations'?` — which reads like an import-order problem
-and is actually an empty file.
+## The engine and `MINESTUDIO_DIR`
 
-Fixed by restoring from the `minestudio==1.1.6` in the conda env's site-packages, which is
-complete:
-
-```bash
-SP=~/miniforge3/envs/minestudio/lib/python3.10/site-packages/minestudio
-for f in $(find minestudio/simulator/minerl/herobraine/hero/handlers/agent -name "*.py" -size 0); do
-  cp "$SP/${f#minestudio/}" "$f"
-done
-```
-
-The other 9 zero-byte `.py` files in the repo are legitimately-empty `__init__.py` and
-should be left alone.
-
-## 2. `hero/mc_constants.1.16.json` was truncated
-
-Truncated at exactly 1310720 bytes (1280 KiB). It parses far enough to import and then dies
-with `JSONDecodeError: Expecting property name ... (char 1310720)`. The complete copy is
-already in the repo at `minestudio/utils/vpt_lib/mc_constants.1.16.json` (1379016 bytes) and
-is byte-identical over the truncated prefix:
+`MinecraftSim` calls `check_engine()` at class-definition time and, if the engine jar is
+missing, calls `input()` -- an `EOFError` at import in any batch job. Download it once:
 
 ```bash
-cp minestudio/utils/vpt_lib/mc_constants.1.16.json \
-   minestudio/simulator/minerl/herobraine/hero/mc_constants.1.16.json
-```
-
-`hero/mc_constants.json` is truncated the same way but is never loaded by anything — leave it.
-
-## 3. `cuda-python` 13.x breaks the simulator's GPU probe
-
-`minestudio/simulator/minerl/env/gpu_utils.py` does `from cuda import cuda, cudart` at module
-level. cuda-python 13 moved that API to `cuda.bindings`, so the import raises, the subprocess
-exits non-zero, and `malmo.py` turns it into `Exception: An error occured in gpu_utils.py`
-during `sim.reset()` — with no mention of cuda in the traceback.
-
-The script only *needs* to import: with `MINESTUDIO_GPU_RENDER` unset it prints `cpu` and
-exits, which is what we want for CPU rendering.
-
-```bash
-pip install "cuda-python<13"     # 12.9.7
-```
-
-## 4. The engine jar and `MINESTUDIO_DIR`
-
-`MinecraftSim` calls `check_engine()` at **class-definition time** and, if the jar is missing,
-calls `input()` — an `EOFError` at import in any batch job. Download it once to a path that
-persists across nodes:
-
-```bash
-unset HF_HUB_OFFLINE          # set in this account's profile; the download fails silently-ish without this
-export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/chloe00/MineStudio
+export MINESTUDIO_DIR=/path/on/a/local/disk/MineStudio
 python -c "
 import os, zipfile, huggingface_hub
 d = os.environ['MINESTUDIO_DIR']
@@ -71,67 +27,41 @@ p = huggingface_hub.hf_hub_download('CraftJarvis/SimulatorEngine', 'engine.zip',
 zipfile.ZipFile(p).extractall(d)"
 ```
 
-Yields `$MINESTUDIO_DIR/engine/build/libs/mcprec-6.13.jar` (466 MB). `MINESTUDIO_DIR` must be
-exported **before** python starts, in every job.
+This yields `$MINESTUDIO_DIR/engine/build/libs/mcprec-6.13.jar`.
 
-## Running
-
-Java 8 (`/usr/bin/java`, 1.8.0_504) and `xvfb-run` are already on the nodes. No GPU is
-needed — this agent is API-driven, not a neural policy — so a CPU partition is fine:
-
-```bash
-export MINESTUDIO_DIR=/n/netscratch/sham_lab/Lab/chloe00/MineStudio
-xvfb-run -a -s "-screen 0 1024x768x24" python -m mcu_worldmodel.run --task diamond
-```
-
-## 5. Instance directories must be on node-local disk, not NFS
-
-`InstanceManager` derives everything from `MINESTUDIO_DIR`, including the per-instance
-working directory it copies a runtime into and launches Minecraft with as its **cwd**. With
-`MINESTUDIO_DIR` on netscratch the JVM dies during startup:
+`MINESTUDIO_DIR` must be on a local disk. MineStudio derives the per-instance working
+directory from it and launches Minecraft with that as its cwd; on NFS the JVM dies at
+startup with
 
 ```
 NoClassDefFoundError: Could not initialize class java.nio.file.FileSystems$DefaultFileSystemHolder
 Caused by: sun.nio.fs.UnixException: No such file or directory
 ```
 
-plus `Stale file handle` writing the crash report. Java initialises its default FileSystem
-by stat-ing the working directory, and NFS intermittently returns ESTALE. The error names
-neither NFS nor the working directory and reads like a broken JRE.
+which names neither NFS nor the working directory. The instance registry (sqlite) fails
+on NFS as well. `env.sh` sets a local `MINESTUDIO_DIR` under `/tmp` and restores the
+engine from `$MCU_PREFIX/MineStudio/engine` when a persistent copy is kept there.
 
-`mcu_worldmodel/setup_env.sh` builds a node-local `MINESTUDIO_DIR` with only `engine`
-symlinked back to the shared copy — instance dirs, runtime and crash reports stay local,
-and the 466 MB jar is not copied per job. Use it in every job:
+## `cuda-python` 13 breaks the simulator's GPU probe
 
-```bash
-export MINESTUDIO_DIR=$(./mcu_worldmodel/setup_env.sh)
-```
-
-## 6. Codex authentication
-
-`~/.codex/auth.json` holds a ChatGPT subscription token whose refresh token is spent
-("your refresh token was already used"), so every turn 401s. The API-key path works and is
-what the launcher uses:
+`minestudio/simulator/minerl/env/gpu_utils.py` imports `from cuda import cuda, cudart`
+at module level; cuda-python 13 moved that API, the import raises, and `sim.reset()`
+fails with `Exception: An error occured in gpu_utils.py`, with no mention of cuda.
 
 ```bash
-export CODEX_HOME=<per-episode dir>
-printenv OPENAI_API_KEY | codex login --with-api-key
+pip install "cuda-python<13"
 ```
 
-Verified end-to-end against `gpt-5.6-sol`: the turn wrote a valid `actions.json` and
-replied with `[PLAN]`.
+## There is no crafting action
 
-## 7. There is no crafting action, and it cannot be added
-
-See `mcu_worldmodel/craft_env.py` and the README. Short version: the engine
-(`com.minerl.multiagent.env.EnvServer`) implements only
+The engine implements
 
 ```
 attack back camera chat drop dwheel equip forward hotbar
 inventory jump left pickItem right sneak sprint swapHands use ESC
 ```
 
-`craft` / `nearbyCraft` / `nearbySmelt` / `place` are absent; `equip` takes a number, not an
-item name. Installing MineRL's item-list handlers makes the env fail at `reset()`. Crafting
-has to go through the inventory GUI, which works (`crafting_table` milestone reached at step
-514 of a live run).
+and nothing else: `craft`, `nearbyCraft`, `nearbySmelt` and `place` are absent, and
+`equip` takes a number. Crafting goes through the inventory GUI (`gui.py`,
+`macros_gui.py`). `craft_env.py` adds `drop`, the one verb the engine supports and the
+simulator's action spec leaves out.

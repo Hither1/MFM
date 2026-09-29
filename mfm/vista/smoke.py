@@ -6,7 +6,7 @@ run can show is that codex 0.153's model turn accepts the dynamic tools, issues
 visuals. This runs the KiCad adapter on a synthetic three-step "task" with tiny
 screenshots -- a handful of model calls at low effort -- and prints the audit.
 
-    CODEX_BIN=/n/holylfs06/LABS/sham_lab/Users/$USER/codex-node-0.153/bin/codex \\
+    CODEX_BIN=/path/to/codex \\
     python -m mfm.vista.smoke --out /var/tmp/vista-smoke-$USER [--model gpt-5.6-sol]
 
 The workspace goes under /var/tmp (codex refuses helper binaries under /tmp); auth is

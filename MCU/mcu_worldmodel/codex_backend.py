@@ -103,10 +103,9 @@ def effort_for(base_url: str | None, effort: str) -> str:
     differs in thinking cannot separate the agent axis from the channel axis.
 
     So a local server gets the caller's effort through, and thinking is on for both by
-    default, matching `scripts/serve_vllm.sh`. Turning it off is one variable changed on
-    two sides: `CODEX_LOCAL_EFFORT=none` here and `VLLM_CHAT_TEMPLATE_KWARGS` there.
-    Setting one without the other is the bug this note is about; `selftest.py` asserts the
-    two defaults agree.
+    default. Turning it off is one variable changed on two sides: `CODEX_LOCAL_EFFORT=none`
+    here and the chat-template arguments of the server. Setting one without the other is
+    the bug this note is about.
 
     Both settings are worth having because the choice has a measured cost. With thinking
     off the default arm looped on `echo ok` 85 times inside one call and burned the client

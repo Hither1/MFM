@@ -464,13 +464,6 @@ def test_the_green_runner_installs_the_probe_for_this_task_only():
     assert "if probe:" in source, "no config key, no callback, no change anywhere else"
 
 
-def test_tasks_are_reachable_from_the_single_process_runner():
-    from mcu_worldmodel.env import TASKS
-    assert TASKS["portal"]["name"] == "nether_portal"
-    assert (ROOT / "MCU" / TASKS["portal"]["yaml"]).is_file()
-    assert "portal_slack" not in TASKS
-
-
 def test_the_nether_side_portal_cannot_be_scored_as_the_agents_work(P):
     """Once the agent steps through, the voxel answers describe the engine's own portal.
 

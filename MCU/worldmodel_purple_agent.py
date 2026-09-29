@@ -258,8 +258,8 @@ class WorldModelExecutor(AgentExecutor):
         self._step = 0
         self._agent = None
         self._task_text = payload.get("text", "")
-        # The host's control reference. `mcu_worldmodel.run` has no equivalent, so without
-        # this the arm would be documented by its own action reference alone.
+        # The host's control reference; without it the arm would be documented by its
+        # own action reference alone.
         self._platform_prompt = payload.get("prompt", "") or ""
         # The host's camera section describes a continuous angle the encoder cannot
         # deliver (see camera_contract). Both arms get the same correction, because

@@ -278,8 +278,7 @@ class WorldModelAgent:
         self.extended_actions = extended_actions
         self.analyzer_retries = analyzer_retries
         self.frame_size = frame_size
-        # The host benchmark's control reference, empty when run from `mcu_worldmodel.run`
-        # and populated when run as an MCU purple agent.
+        # The host benchmark's control reference, as the green agent sent it.
         self.platform_prompt = platform_prompt
         # The episode's hard step budget. Surfaced in every turn header: an agent that
         # cannot see the deadline plans a two-visit endgame with 190 steps left
