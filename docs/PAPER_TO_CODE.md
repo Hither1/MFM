@@ -61,7 +61,7 @@ never edits those files and never rewrites the episodic record.
 | Direct evaluation | `--memory direct` (Minecraft), `--agent direct` (KiCad) |
 | PRO-LONG | `--memory logbook`, `--agent prolong-logonly`: the append-only log is the only memory |
 | VISTA | `--memory vista`, `--agent vista`: `mfm/vista/`, adapters `MCU/mcu_worldmodel/vista.py`, `CUA-KiCad/gym_codex/vista_agent.py` |
-| MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py`; `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
+| MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py` (`--memory mfm-matched` is the same memory on the baselines' harness, see difference 2); `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
 | MFM (no cross-task memory), Table 3 | `--agent mfm` |
 | Step budgets: Diamond 12,000, Ender Dragon 36,000 | defaults of `MCU/scripts/run-arm.sh` by task |
 | Seeds: the Minecraft world, the KiCad task order | `--world-seed` (`MCU/src/util.py` `load_world_spec`), `--task-order-seed` (`CUA-KiCad/gym_codex/run_eval.py`) |
@@ -80,7 +80,12 @@ never edits those files and never rewrites the episodic record.
    pillar on a hit, the refusals) switched off. `direct`, `logbook` and `vista` run the full contract
    with the macro procedure library and the runner's guards on. Shared by all four:
    the executor, the perception, the plan caps, the frame size (320x180), the model
-   and its reasoning effort, the milestone ledger.
+   and its reasoning effort, the milestone ledger. Table 5 of the appendix lists the
+   12 KB brief and the 28 atoms for every method; in the recorded runs and in this
+   code they are the `mfm` arm's (its contract is 11,947 bytes, those of `direct` and
+   `logbook` 76,144 and 77,341). `--memory mfm-matched` is the arm that removes the difference: the memory
+   of `mfm` on the contract, procedure library and guards of the baselines, without
+   procedures of its own. No result of the paper was recorded with it.
 3. **The MFM arms on KiCad have a design call.** Before the first action the `mfm` and
    `mfm-carry` arms make one call at reasoning effort `high` that writes `design.md`
    and `intent.json`, and their system prompt carries a paragraph of schematic
@@ -93,8 +98,8 @@ never edits those files and never rewrites the episodic record.
    model may copy into `mine/` (`MCU/mcu_worldmodel/skills.py`). A procedure found
    under `mine/` of a run is therefore the model's own only if it differs from the
    shipped example of the same name.
-6. **Lives carried into a run.** An `mfm` life may be started with the records of
-   earlier lives in the same world (`--seed-memory`), and a `logbook` life with an
+6. **Lives carried into a run.** An `mfm` or `mfm-matched` life may be started with the
+   records of earlier lives in the same world (`--seed-memory`), and a `logbook` life with an
    earlier log (`--seed-log`). `vista` and `direct` take none.
 7. **Figures from earlier code.** The qualitative figures of the appendix were drawn
    from lives recorded before the final contract; the mechanisms they show (frame

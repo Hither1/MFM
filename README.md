@@ -13,7 +13,7 @@ VISTA) and direct evaluation, on the two benchmarks of the paper:
 
 | benchmark | directory | arms |
 |---|---|---|
-| MCU-AgentBeats (Minecraft): Mine Diamond from Scratch, Ender Dragon, the Nether portal case study | `MCU/` | `direct`, `logbook` (PRO-LONG), `vista`, `mfm` |
+| MCU-AgentBeats (Minecraft): Mine Diamond from Scratch, Ender Dragon, the Nether portal case study | `MCU/` | `direct`, `logbook` (PRO-LONG), `vista`, `mfm` (MFM), `mfm-matched` (MFM on the baselines' harness) |
 | CUABench-KiCad (25 tasks) | `CUA-KiCad/` | `direct`, `prolong-logonly` (PRO-LONG), `vista`, `mfm` (no cross-task memory), `mfm-carry` (MFM) |
 
 ## Layout
@@ -76,12 +76,24 @@ bash scripts/run-arm.sh --arm mfm_diamond_s0 --memory mfm \
 
 | | option |
 |---|---|
-| method | `--memory direct` \| `logbook` \| `vista` \| `mfm` |
+| method | `--memory direct` \| `logbook` \| `vista` \| `mfm` \| `mfm-matched` |
 | task | `--task mine_diamond_from_scratch` (12,000 steps) \| `ender_dragon` (36,000) \| `nether_portal` (6,000); `--steps` overrides |
 | seed | `--world-seed N` |
 | model | `--model gpt-6-astra` (default) \| `gpt-5.6-sol`; `--cli claude --model claude-opus-5` |
 | reasoning effort | `--effort high` (default) |
-| an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm, repeatable), `--seed-log <logs.txt>` (logbook) |
+| an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm and mfm-matched, repeatable), `--seed-log <logs.txt>` (logbook) |
+
+The two MFM arms have the same memory (the log, the episodes with their frames, the
+index and its query tool, the carried lives) and differ in the harness around it:
+
+- `mfm` is the arm of the paper's tables. The model writes its own procedures and
+  reflexes under `mine/`, works from the short contract with the 28 primitive
+  procedures, and the runner's own guards are off.
+- `mfm-matched` has the contract, the procedure library and the runner guards of
+  `direct` and `logbook`, so that what it adds to `logbook` is the memory alone (the
+  `MFM_MEMORY` settings of `mcu_worldmodel/arms.py`). It writes no procedures and has
+  no `mine/`. No result of the paper was
+  recorded with it.
 
 The result is `logs/<arm>_result.json`; the workspace, with the whole memory of the
 life, is `output/<arm>/episode_001/memory/`. The header of `scripts/run-arm.sh`
@@ -122,6 +134,7 @@ differences between the two. No experiment of the paper was re-run for this rele
 
 ## License
 
-See `LICENSE`. `MCU/` is MCU-AgentBeats and MineStudio, `CUA-KiCad/` builds on cua-lite
-and cua-bench, `mfm/vista/` follows the VISTA release and the log protocol is PRO-LONG's;
-each keeps its own license and citation.
+MIT, see `LICENSE`. `MCU/` is MCU-AgentBeats and MineStudio, `CUA-KiCad/` builds on
+cua-lite and cua-bench, `mfm/vista/` is a port of the VISTA release and the log protocol
+is PRO-LONG's; each keeps its own license and citation, listed in
+`THIRD_PARTY_NOTICES.md`.

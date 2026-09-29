@@ -1,6 +1,6 @@
 # The Minecraft chassis
 
-One chassis runs the four arms of the paper on MCU-AgentBeats. The executor, the
+One chassis runs the arms of the paper on MCU-AgentBeats. The executor, the
 perception, the plan caps and the milestone ledger are shared; an arm is the memory the
 model is given and the contract that describes it.
 
@@ -10,8 +10,9 @@ model is given and the contract that describes it.
 | `logbook` | PRO-LONG | one append-only `logs.txt` it greps |
 | `vista` | VISTA | one long thread calling `play`; the frame archive behind `inspect`; `GUIDE.md` / `WORKING.md`; a checkpoint handoff when the thread fills |
 | `mfm` | MFM | the log, one episode per plan entry with its frame, the index and its query tool, the carried lives, its own procedures and reflexes |
+| `mfm-matched` | (not in the paper) | the memory of `mfm` on the harness of the baselines: their contract, procedure library and runner guards; no procedures of its own, no `mine/` |
 
-The settings of the `mfm` arm are in `arms.py` and nowhere else.
+The settings of the two MFM arms are in `arms.py` and nowhere else.
 
 ## One turn
 
@@ -54,7 +55,7 @@ the harness computes from the index (`mfm/memory/retrieve.py`).
 
 | module | what it is |
 |---|---|
-| `arms.py` | the four arms and the settings of `mfm` |
+| `arms.py` | the arms and the settings of `mfm` and `mfm-matched` |
 | `agent.py` | the turn loop, the executor and its guards |
 | `prompts.py` | the contract and the action reference each arm reads |
 | `memory.py`, `episodes.py`, `previous.py` | the workspace, the episode store adapter, the carried lives |
