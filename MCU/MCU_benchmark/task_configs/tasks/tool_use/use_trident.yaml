@@ -1,0 +1,22 @@
+custom_init_commands:
+- /give @p minecraft:trident
+- /summon minecraft:pig ~3 ~ ~
+- /summon minecraft:chicken ~4 ~ ~
+defaults:
+- base
+- _self_
+text: use trident to hunt animals
+reward_cfg:
+- event: use_item
+  identity: use_trident
+  objects:
+  - trident
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill 
+  objects:
+  - pig
+  - chicken
+  reward: 1.0
+  max_reward_times: 1

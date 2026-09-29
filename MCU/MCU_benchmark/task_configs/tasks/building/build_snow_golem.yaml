@@ -1,0 +1,17 @@
+custom_init_commands:
+- /give @s minecraft:snow_block 5
+- /give @s minecraft:carved_pumpkin 1
+- /setblock ~2 ~ ~ minecraft:snow_block
+- /setblock ~2 ~1 ~ minecraft:snow_block
+- /setblock ~2 ~2 ~ minecraft:carved_pumpkin
+defaults:
+- base
+- _self_
+text: Build a snow golem using snow blocks and a pumpkin.
+reward_cfg:
+- event: mobs
+  identity: spawn_snow_golem
+  objects:
+  - snow_golem
+  reward: 1.0
+  max_reward_times: 1

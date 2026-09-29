@@ -1,0 +1,15 @@
+custom_init_commands:
+- /give @p minecraft:lead
+- /summon minecraft:pig ~3 ~ ~
+- /summon minecraft:chicken ~4 ~ ~
+defaults:
+- base
+- _self_
+text: Use lead to get animals
+reward_cfg:
+- event: use_item
+  identity: use_lead
+  objects:
+  - lead
+  reward: 1.0
+  max_reward_times: 1

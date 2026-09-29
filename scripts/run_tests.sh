@@ -6,10 +6,9 @@
 #   MFM_MCU_ROOT=/path/to/MCU bash scripts/run_tests.sh tests/test_grid.py -k stall
 #
 # Python: the MCU checkout's .venv (it has the runtime deps; pytest was added 2026-09-09 with
-# `uv pip install --python <venv>/bin/python pytest`). The CUA-KiCad submodule must be checked
-# out for the kicad pin tests (test_carry, test_pins_*, test_store::*kicad*): without it they
-# fail with "No module named gym_codex" -- init it with
-#   git -c submodule.CUA-KiCad.url=<local or remote CUA-KiCad> submodule update --init CUA-KiCad
+# `uv pip install --python <venv>/bin/python pytest`). The kicad pin tests (test_carry,
+# test_pins_*, test_store::*kicad*) import from CUA-KiCad/gym_codex, a plain directory of
+# this repo since 2026-09-28; if it is missing they are skipped by tests/conftest.py.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -25,7 +24,7 @@ PY="$MFM_MCU_ROOT/.venv/bin/python"
 [ -x "$PY" ] || { echo "no venv python at $PY" >&2; exit 2; }
 "$PY" -c "import pytest" 2>/dev/null || {
     echo "pytest missing in $MFM_MCU_ROOT/.venv -- install: uv pip install --python $PY pytest" >&2; exit 2; }
-[ -d "$ROOT/CUA-KiCad/gym_codex" ] || echo "note: CUA-KiCad submodule not checked out; the kicad pin tests will fail (see header)" >&2
+[ -d "$ROOT/CUA-KiCad/gym_codex" ] || echo "note: CUA-KiCad/gym_codex missing; the kicad pin tests will be skipped" >&2
 CORE=(tests/test_memory_v2.py tests/test_gen4_contract.py tests/test_skills.py tests/test_own_reflex.py
       tests/test_own.py tests/test_retrieve.py tests/test_retrieve_plan.py tests/test_episodes_views.py
       tests/test_grid.py tests/test_previous.py tests/test_thin.py tests/test_watchdog.py)

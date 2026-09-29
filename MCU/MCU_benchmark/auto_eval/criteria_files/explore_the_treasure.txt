@@ -1,0 +1,33 @@
+To generate the score points for the task "explore_the_treasure.yaml," we need to focus on the process of locating and exploring a buried treasure using a treasure map in Minecraft. This involves using the map to navigate, finding the treasure location, and opening the buried treasure chest. Below are the grading criteria for this task:
+
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent uses the treasure map to identify the treasure location
+ - whether the agent navigates towards the marked location on the map
+ - whether the agent successfully locates the buried treasure chest
+ - whether the agent digs or accesses the area where the treasure is buried
+ - whether the agent opens the buried treasure chest
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. wandering aimlessly without consulting the map
+ - e.g. digging in incorrect locations far from the treasure marker
+ - e.g. opening the map repeatedly without making progress towards the destination
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether the agent recognizes when moving in the wrong direction and corrects its path
+ - whether the agent adjusts digging location if the initial spot doesn't reveal the treasure
+ - whether the corrected results demonstrate improvement and reduce flaws in navigation
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. using boats or other tools provided to reach the treasure location more efficiently
+ - e.g. employing strategic digging patterns to locate the buried chest quickly
+ - e.g. using the pickaxe to clear obstacles on the way to the treasure
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether effective navigation and exploration strategies were employed to minimize backtracking or unnecessary searching
+ - whether the agent reaches and opens the treasure chest without excessive delays
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - whether the agent uses the treasure map effectively to guide navigation
+ - whether the agent uses provided tools (pickaxe, boat) appropriately to facilitate the exploration
+ - whether the agent conserves resources while completing the task

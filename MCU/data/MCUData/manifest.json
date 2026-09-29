@@ -1,0 +1,557 @@
+{
+  "dataset": "MCU long-horizon agent trajectories (dragon / diamond)",
+  "source_repo": "Hither1/MCU",
+  "source_branch": "merge-agentbeats-main",
+  "packaged_from_head": {
+    "sha": "30318310b969737769cdf033376f02b4e5b71c99",
+    "short": "3031831",
+    "date": "2026-08-27T12:13:39+08:00",
+    "subject": "What wmv22's first live outing taught the mining cycle"
+  },
+  "contents": "Per-run agent workspaces. The six 08-23/08-24 runs carry text artefacts only (raw PNG frames and scratch tmp/ removed). The seven closed-loop runs added 2026-08-28 additionally include the curated frames under memory/episodes/*/frames/ \u2014 the frames the run's own logs.txt [FRAME] pointers address, and the ones the agent zooms when adjudicating a detector flag. Those runs wrote no separate frames/ directory, so nothing was stripped from them. One .tar.gz per run under runs/, each extracting to <name>/episode_001/.",
+  "anonymisation": {
+    "applied": true,
+    "scope": "all 26082 files in the first six runs; all 2524 files in the seven runs added 2026-08-28",
+    "substitutions": [
+      {
+        "original": "repository checkout path",
+        "replacement": "<REPO>",
+        "occurrences": 13784
+      },
+      {
+        "original": "user home directory",
+        "replacement": "<HOME>",
+        "occurrences": 535
+      },
+      {
+        "original": "OS username (owner/group columns in captured ls output)",
+        "replacement": "user",
+        "occurrences": 2770
+      },
+      {
+        "original": "codex home directory (/var/tmp/mcu-codex-<user>/<run>)",
+        "replacement": "<CODEX_HOME>",
+        "occurrences": 7,
+        "applies_to": "the seven runs added 2026-08-28"
+      }
+    ],
+    "unchanged": "transcript content, timestamps, scores, and all other bytes",
+    "credential_scan": "No API keys, tokens, or bearer strings found in any of the six runs.",
+    "second_pass_2026_08_28": {
+      "text_files_rewritten": 1852,
+      "binary_files_untouched": 672,
+      "repo_path": 3677,
+      "codex_home": 7,
+      "os_username": 332,
+      "residual_check": "zero occurrences of the OS username or any /datapool/ path remain, binaries included",
+      "credential_scan": "no API keys, tokens, bearer strings, or e-mail addresses found in any text file"
+    }
+  },
+  "arms": {
+    "prolong": {
+      "entrypoint": "prolong_purple_agent.py",
+      "launcher": "scripts/run-arm.sh --agent prolong",
+      "workspace_artefacts": [
+        "transcripts/",
+        "actions.json",
+        "AGENTS.md",
+        "logs.txt",
+        "last_message.txt"
+      ]
+    },
+    "worldmodel": {
+      "entrypoint": "worldmodel_purple_agent.py",
+      "launcher": "scripts/run-arm.sh --agent worldmodel",
+      "workspace_artefacts": [
+        "memory/",
+        "codex_turns/",
+        "worldmodel_report.json"
+      ]
+    },
+    "default": {
+      "entrypoint": "test_purple_agent.py",
+      "note": "Upstream MCU-AgentBeats agent (VPT/STEVE-1 style). Writes no workspace of its own, so this dataset carries NO default-arm trajectory. Its only artefacts are evaluator-side (episode_1.mp4, result.txt, milestone_tracking.json), which were not included in this package.",
+      "workspace_artefacts": []
+    }
+  },
+  "runs": [
+    {
+      "name": "dragon_pl",
+      "arm": "prolong",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "107e4da3b53231720964a370aa611c0a2c73cd26",
+        "short": "107e4da",
+        "subject": "Give the world model the session recovery the baseline already had"
+      },
+      "started": "2026-08-24T04:02:56+08:00",
+      "ended": "2026-08-25T01:18:16+08:00",
+      "eval_score": 20.83,
+      "eval_max": 100.0,
+      "eval_dir": "20260824_040255_14146",
+      "score_evidence": "logs/dg_client_pl.log -> Total Score: 20.83",
+      "raw_size_with_frames": "1.5G",
+      "frames_removed": 12000
+    },
+    {
+      "name": "dragon_wm",
+      "arm": "worldmodel",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "107e4da3b53231720964a370aa611c0a2c73cd26",
+        "short": "107e4da",
+        "subject": "Give the world model the session recovery the baseline already had"
+      },
+      "started": "2026-08-24T04:04:19+08:00",
+      "ended": "2026-08-24T22:17:37+08:00",
+      "eval_score": 20.83,
+      "eval_max": 100.0,
+      "eval_dir": "20260824_040305_13938",
+      "score_evidence": "logs/dg_client_wm.log -> Total Score: 20.83; worldmodel_report.json completion_rate 0.20833 (5/24 milestones) matches independently",
+      "steps": 11800,
+      "milestones": "5/24",
+      "raw_size_with_frames": "179M"
+    },
+    {
+      "name": "diamond_pl",
+      "arm": "prolong",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "8481a3a572e3d12fea4bffec235c630fe9d70fa8",
+        "short": "8481a3a",
+        "subject": "Keep paired arms from overwriting each other's results"
+      },
+      "started": "2026-08-24T10:05:32+08:00",
+      "ended": "2026-08-25T01:10:34+08:00",
+      "eval_score": 0.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260824_100541_43337",
+      "score_evidence": "output/20260824_100541_43337/result.txt -> Total Score: 0.00",
+      "raw_size_with_frames": "897M",
+      "frames_removed": 3400
+    },
+    {
+      "name": "diamond_wm",
+      "arm": "worldmodel",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "8481a3a572e3d12fea4bffec235c630fe9d70fa8",
+        "short": "8481a3a",
+        "subject": "Keep paired arms from overwriting each other's results"
+      },
+      "started": "2026-08-24T11:58:25+08:00",
+      "ended": "2026-08-25T01:11:21+08:00",
+      "eval_score": null,
+      "eval_max": 100.0,
+      "eval_dir": "20260824_115735_52966",
+      "score_evidence": "EVAL DID NOT RECORD. Eval dir is empty (no result.txt, no mp4). Self-reported worldmodel_report.json: completion_rate 0.400 (4/10 milestones), which would correspond to 40.00 under the same mapping verified on dragon_wm. Treat as unscored, not as 40.00.",
+      "steps": 7400,
+      "milestones": "4/10",
+      "raw_size_with_frames": "103M"
+    },
+    {
+      "name": "night_dragon",
+      "arm": "prolong",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "a28f3c18be785e36ac59ee351af8b29c0574a0c5",
+        "short": "a28f3c1",
+        "subject": "Port PRO-LONG from MineExplorer as an MCU purple agent"
+      },
+      "started": "2026-08-23T14:21:21+08:00",
+      "ended": "2026-08-23T18:02:54+08:00",
+      "eval_score": null,
+      "eval_max": 100.0,
+      "eval_dir": "20260823_142121",
+      "score_evidence": "EVAL DID NOT RECORD. Eval dir is empty (16K, no result.txt). Earlier exploratory run, launched from logs/np_dragon.log.",
+      "raw_size_with_frames": "170M",
+      "frames_removed": 1848
+    },
+    {
+      "name": "night_diamond",
+      "arm": "prolong",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "code_head_at_start": {
+        "sha": "a28f3c18be785e36ac59ee351af8b29c0574a0c5",
+        "short": "a28f3c1",
+        "subject": "Port PRO-LONG from MineExplorer as an MCU purple agent"
+      },
+      "started": "2026-08-23T14:21:20+08:00",
+      "ended": "2026-08-23T18:02:56+08:00",
+      "eval_score": null,
+      "eval_max": 100.0,
+      "eval_dir": "20260823_142119",
+      "score_evidence": "EVAL DID NOT RECORD. Eval dir is empty (16K, no result.txt). Earlier exploratory run, launched from logs/np_diamond.log.",
+      "raw_size_with_frames": "190M",
+      "frames_removed": 2018
+    },
+    {
+      "name": "dm4_final3",
+      "arm": "worldmodel",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "group": "frozen report batch",
+      "code_head_at_start": {
+        "sha": "436042beae4486bc943d4eef7333ce7e7879db38",
+        "short": "436042b",
+        "subject": "Matched-knowledge control: hand the baseline the same facts"
+      },
+      "started": "2026-08-26T09:21:29+08:00",
+      "ended": "2026-08-26T10:57:46+08:00",
+      "eval_score": 60.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260826_092032_27991",
+      "score_evidence": "logs/dm4_final3_result.json and output/20260826_092032_27991/result.txt -> Total Score: 60.00",
+      "milestones": "6/10  mine_log@172 crafting_table@402 wooden_pickaxe@1255 mine_cobblestone@3089 stone_pickaxe@3399 furnace@3467",
+      "files": 260,
+      "curated_frames_included": 62,
+      "archive_bytes": 13658774,
+      "sha256": "ad0f356c557a34f783234239cae782ac744f6fbfcb3997a5996dc8807107d1a5",
+      "note": "Earliest 6/10 in the frozen report batch. 2,533 steps of iron hunting after the sixth bank, ended by a GUI deadlock and a y64 geometry trap.",
+      "code_note": "HEAD at launch was 436042b, but the world-model agent is frozen at a2de9e8; 436042b touches only the prolong baseline's knowledge injection."
+    },
+    {
+      "name": "dm4_wmv22",
+      "arm": "worldmodel",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "group": "post-freeze validation",
+      "code_head_at_start": {
+        "sha": "bfb05b75ab410296046d1e2d3231c08e4bdc63de",
+        "short": "bfb05b7",
+        "subject": "Mining that verifies it moved; closes that confess what the cursor dropped"
+      },
+      "started": "2026-08-27T10:36:43+08:00",
+      "ended": "2026-08-27T12:06:08+08:00",
+      "eval_score": 60.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260827_103549_707",
+      "score_evidence": "logs/dm4_wmv22_result.json and output/20260827_103549_707/result.txt -> Total Score: 60.00",
+      "milestones": "6/10  mine_log@108 crafting_table@827 wooden_pickaxe@1954 mine_cobblestone@3396 stone_pickaxe@3774 furnace@4760",
+      "files": 261,
+      "curated_frames_included": 73,
+      "archive_bytes": 16898468,
+      "sha256": "40e7ee59af8036b77ab0b6575783b47246e4dac04a8c6eca3a0e454884312a73",
+      "note": "First live run of the trajectory-audit fix package (displacement-closed-loop mining, recalibrated ore detector, aim_at_tree). Fastest first log of any run; 20 verified advance cycles; 0 detector false flags."
+    },
+    {
+      "name": "dm4_wmv18",
+      "arm": "worldmodel",
+      "task": "mine_diamond_from_scratch",
+      "branch": "merge-agentbeats-main",
+      "group": "iteration",
+      "code_head_at_start": {
+        "sha": "0f5ac26bfe4e6ef15a165ddaff09bb16825df887",
+        "short": "0f5ac26",
+        "subject": "aim_at_ore: close the loop from a sighting to a centred crosshair"
+      },
+      "started": "2026-08-26T03:52:49+08:00",
+      "ended": "2026-08-26T04:55:28+08:00",
+      "eval_score": 60.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260826_035142_44228",
+      "score_evidence": "logs/dm4_wmv18_result.json and output/20260826_035142_44228/result.txt -> Total Score: 60.00",
+      "milestones": "6/10  mine_log@201 crafting_table@627 wooden_pickaxe@953 mine_cobblestone@2767 stone_pickaxe@2979 furnace@3059",
+      "files": 209,
+      "curated_frames_included": 56,
+      "archive_bytes": 8486461,
+      "sha256": "7a18882c957d60c558251ccc5f6e0550d9946379c28a19a19e492de2958f26c4",
+      "note": "Fastest 6/10 of the whole campaign (step 3059)."
+    },
+    {
+      "name": "ked_final1",
+      "arm": "worldmodel",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "group": "frozen report batch",
+      "code_head_at_start": {
+        "sha": "436042beae4486bc943d4eef7333ce7e7879db38",
+        "short": "436042b",
+        "subject": "Matched-knowledge control: hand the baseline the same facts"
+      },
+      "started": "2026-08-26T08:26:59+08:00",
+      "ended": "2026-08-26T11:59:38+08:00",
+      "eval_score": 25.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260826_082604_49882",
+      "score_evidence": "logs/ked_final1_result.json and output/20260826_082604_49882/result.txt -> Total Score: 25.00",
+      "milestones": "6/24  mine_log@955 crafting_table@1392 wooden_pickaxe@4949 mine_cobblestone@6569 stone_pickaxe@6841 furnace@7884",
+      "files": 504,
+      "curated_frames_included": 126,
+      "archive_bytes": 25641192,
+      "sha256": "3d31253ee32dfde88a932f24a4cf3c27c1a57ff74809fc02c3009cb9ffd37638",
+      "note": "Fastest sixth milestone of the four dragon runs. 36 of 37 mining entries ended with <0.5 blocks of displacement; the agent re-derived the two-high-clear + forward-jump cycle in its own dynamics.md.",
+      "code_note": "HEAD at launch was 436042b, but the world-model agent is frozen at a2de9e8; 436042b touches only the prolong baseline's knowledge injection."
+    },
+    {
+      "name": "ked3_wmv15",
+      "arm": "worldmodel",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "group": "frozen report batch",
+      "code_head_at_start": {
+        "sha": "a2de9e8ff7581b94287c90f28ac7c493e3424a83",
+        "short": "a2de9e8",
+        "subject": "Plan the wood trip too: the largest cross-task variance source"
+      },
+      "started": "2026-08-26T05:50:52+08:00",
+      "ended": "2026-08-26T08:21:29+08:00",
+      "eval_score": 25.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260826_054957_14861",
+      "score_evidence": "logs/ked3_wmv15_result.json and output/20260826_054957_14861/result.txt -> Total Score: 25.00",
+      "milestones": "6/24  mine_log@1303 crafting_table@2254 wooden_pickaxe@2562 mine_cobblestone@4909 stone_pickaxe@6855 furnace@8897",
+      "files": 406,
+      "curated_frames_included": 104,
+      "archive_bytes": 27519830,
+      "sha256": "a6b151d6ac4e4b03d08b58300851fa4ef2de7d702442e00f26d1ad125826a2f2",
+      "note": "Ore sentinel fired live twice (steps ~4032, ~7552); the agent zoomed the named frames and correctly rejected both as false positives. Lost its stone pickaxe to a silent cursor drop on an out-of-reach auto-close."
+    },
+    {
+      "name": "ked1_wmv12",
+      "arm": "worldmodel",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "group": "iteration",
+      "code_head_at_start": {
+        "sha": "0ecbf73ce7720ec82bb0833cfb17993a13a3e920",
+        "short": "0ecbf73",
+        "subject": "Surface the deadline, the tool's lifespan, and a goal check above the plan"
+      },
+      "started": "2026-08-25T23:37:35+08:00",
+      "ended": "2026-08-26T02:04:31+08:00",
+      "eval_score": 25.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260825_233625_56004",
+      "score_evidence": "logs/ked1_wmv12_result.json and output/20260825_233625_56004/result.txt -> Total Score: 25.00",
+      "milestones": "6/24  mine_log@112 crafting_table@428 wooden_pickaxe@2204 mine_cobblestone@7610 stone_pickaxe@9035 furnace@9101",
+      "files": 426,
+      "curated_frames_included": 118,
+      "archive_bytes": 25743072,
+      "sha256": "e119fb99b8ae841c14cb816e6fb9e44675dd9e3596ed78fe13c366a4c8ed4150",
+      "note": "First dragon run on the closed-loop harness, launched with zero task-specific code changes. ~5,400 steps lost to a stuck-item close fight (19 consecutive refused closes)."
+    },
+    {
+      "name": "ked2_wmv14",
+      "arm": "worldmodel",
+      "task": "kill_ender_dragon",
+      "branch": "merge-agentbeats-main",
+      "group": "iteration",
+      "code_head_at_start": {
+        "sha": "7efd05ea634fe6e637555074579328bc152fbd66",
+        "short": "7efd05e",
+        "subject": "Say which slot is free when a close is refused"
+      },
+      "started": "2026-08-26T02:12:33+08:00",
+      "ended": "2026-08-26T04:39:53+08:00",
+      "eval_score": 25.0,
+      "eval_max": 100.0,
+      "eval_dir": "20260826_021123_14580",
+      "score_evidence": "logs/ked2_wmv14_result.json and output/20260826_021123_14580/result.txt -> Total Score: 25.00",
+      "milestones": "6/24  mine_log@393 crafting_table@975 wooden_pickaxe@2126 mine_cobblestone@3236 stone_pickaxe@3699 furnace@9717",
+      "files": 458,
+      "curated_frames_included": 133,
+      "archive_bytes": 30153495,
+      "sha256": "f50aa8dcb707e3b9a68c72c19a034b30995d9d82f83bc1e2bf0edbffa670f8cf",
+      "note": "Invented carrying the crafting table rather than rebuilding it \u2014 a model-discovered strategy later promoted into the prompt. 7,700 consecutive steps with no ore flag, the evidence that proved the brightness-gated detector blind underground."
+    }
+  ],
+  "caveats": [
+    "The dragon pair (dragon_pl, dragon_wm) launched at 04:02/04:04 on 2026-08-24; commit 8481a3a ('Keep paired arms from overwriting each other's results') landed at 04:12:56, ten minutes into the run. The already-launched processes were not affected, but the code on disk changed mid-run.",
+    "Code HEAD per run is reconstructed from git reflog timestamps against each run's earliest artefact mtime. It was not stamped by the launcher at run time.",
+    "Working trees may have carried uncommitted changes at launch; only the committed HEAD is recorded here.",
+    "Raw PNG frames (640x360, ~350KB each, 6.2G across these runs) and scratch tmp/ were stripped. They remain on the origin host under output/<run>/episode_001/frames/.",
+    "Scoring is a milestone COUNT, not a sequence; several world-model runs bank out of order.",
+    "Every baseline cell is n=1. On diamond the matched-knowledge prolong control (20.0) scores below the no-knowledge prolong (40.0); read that inversion as variance until more seeds land.",
+    "No run of any arm on either task has reached mine_iron_ore. Diamond caps at 6/10, dragon at 6/24, and the six milestones are identical on both."
+  ],
+  "stats": {
+    "files": [
+      "stats/runs.csv",
+      "stats/summary.json",
+      "stats/README.md"
+    ],
+    "coverage": "all 34 scored runs on both tasks, not only the ones with a trajectory in runs/",
+    "note": "Trajectories are published only for the top-scoring runs. The scoreboard covers every scored run of every arm, so the archives here can be placed against the full distribution."
+  },
+  "relay_era_2026_09_01": {
+    "layout": "relay-era/{from-scratch,distilled-relay,raw-log-relay}/<arm>/{trajectory/episode_001, result.json, episode_1.mp4, milestone_tracking.json}; relay-era/lineage/ holds per-generation distilled memories",
+    "code_commits": {
+      "wave4_and_wave5_worldmodel_arms": "e1785d1581661325fa77d07b64807b9e16e5b91c",
+      "wave5_logbook_arms_and_waves_6_7": "70825f83cef9e2ee90b9aa9c39710c0c89d0e86a",
+      "delta": "--seed-log launcher plumbing only; agent chassis byte-identical",
+      "snapshot": "relay-era/code-relay-era-70825f83.tar.gz"
+    },
+    "runs": [
+      {
+        "name": "dm15z_wm_high",
+        "task": "mine_diamond_from_scratch",
+        "arm": "worldmodel",
+        "condition": "from_scratch",
+        "score": 70.0,
+        "milestones": "7/10",
+        "turns": {
+          "act": 315,
+          "induction": 20,
+          "act_failed": 127,
+          "induction_silent": 1
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "kd15z_wm_high",
+        "task": "kill_ender_dragon",
+        "arm": "worldmodel",
+        "condition": "from_scratch",
+        "score": 29.17,
+        "milestones": "7/24",
+        "turns": {
+          "act": 265,
+          "induction": 20,
+          "act_failed": 145,
+          "induction_silent": 1
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "dm14x_wm_high",
+        "task": "mine_diamond_from_scratch",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-kd12(cross-task)",
+        "score": 90.0,
+        "milestones": "9/10",
+        "turns": {
+          "act": 108,
+          "induction": 19,
+          "act_failed": 0,
+          "induction_silent": 0
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "kd14x_wm_high",
+        "task": "kill_ender_dragon",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-dm11c(cross-task)",
+        "score": 45.83,
+        "milestones": "11/24",
+        "turns": {
+          "act": 118,
+          "induction": 19,
+          "act_failed": 0,
+          "induction_silent": 0
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "dm15_wm_high",
+        "task": "mine_diamond_from_scratch",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-dm14x",
+        "score": 90.0,
+        "milestones": "9/10",
+        "turns": {
+          "act": 252,
+          "induction": 20,
+          "act_failed": 130,
+          "induction_silent": 1
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "kd15_wm_high",
+        "task": "kill_ender_dragon",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-kd14x",
+        "score": 37.5,
+        "milestones": "9/24",
+        "turns": {
+          "act": 271,
+          "induction": 20,
+          "act_failed": 163,
+          "induction_silent": 2
+        },
+        "code": "e1785d15"
+      },
+      {
+        "name": "dm16_wm_high",
+        "task": "mine_diamond_from_scratch",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-dm15",
+        "score": 100.0,
+        "milestones": "10/10",
+        "turns": {
+          "act": 138,
+          "induction": 20,
+          "act_failed": 0,
+          "induction_silent": 1
+        },
+        "code": "70825f83"
+      },
+      {
+        "name": "kd16_wm_high",
+        "task": "kill_ender_dragon",
+        "arm": "worldmodel",
+        "condition": "distilled_relay<-kd14x",
+        "score": 37.5,
+        "milestones": "9/24",
+        "turns": {
+          "act": 102,
+          "induction": 19,
+          "act_failed": 0,
+          "induction_silent": 6
+        },
+        "code": "70825f83"
+      },
+      {
+        "name": "dm15_lb_high",
+        "task": "mine_diamond_from_scratch",
+        "arm": "logbook",
+        "condition": "raw_log_relay<-dm10_lb",
+        "score": 60.0,
+        "milestones": "6/10",
+        "turns": {
+          "act": 328,
+          "induction": 0,
+          "act_failed": 150,
+          "induction_silent": 0
+        },
+        "code": "70825f83"
+      },
+      {
+        "name": "kd15_lb_high",
+        "task": "kill_ender_dragon",
+        "arm": "logbook",
+        "condition": "raw_log_relay<-kd10_lb",
+        "score": 33.33,
+        "milestones": "8/24",
+        "turns": {
+          "act": 318,
+          "induction": 0,
+          "act_failed": 160,
+          "induction_silent": 0
+        },
+        "code": "70825f83"
+      }
+    ],
+    "anonymisation": {
+      "protocol": "same as prior batches: <REPO>, <HOME>, <CODEX_HOME>, username->user",
+      "text_files_scanned": 19340,
+      "binaries_untouched": 1908,
+      "substitutions": {
+        "repo_path": 7215,
+        "codex_home": 10,
+        "home_dir": 2,
+        "os_username": 648
+      },
+      "residual_check": "zero identity strings, credential patterns, or e-mail addresses"
+    },
+    "pending": "dm17_wm_high and kd17_wm_high (wave 7) in flight at packaging time; added on landing"
+  }
+}

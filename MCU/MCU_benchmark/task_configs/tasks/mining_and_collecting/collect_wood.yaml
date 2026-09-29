@@ -1,0 +1,17 @@
+custom_init_commands:
+- /give @s minecraft:wooden_axe
+- /execute as @p at @s run fill ~1 ~ ~1 ~5 ~10 ~5 minecraft:oak_log
+defaults:
+- base
+- _self_
+text: 'Collect wood from trees in your surroundings.  '
+reward_cfg:
+- event: pickup
+  identity: collect_oak_log
+  objects:
+  - oak_log
+  - dark_oak_log
+  - stripped_oak_log
+  - stripped_dark_oak_log
+  reward: 1.0
+  max_reward_times: 10

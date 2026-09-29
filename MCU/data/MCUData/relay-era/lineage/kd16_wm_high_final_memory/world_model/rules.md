@@ -1,0 +1,17 @@
+# Rules model — live reset step 11400
+
+- After reset, retain natural-resource coordinates but never inherited shafts, blocks, workstations, inventories, or caches. [x11]
+- In duplicate-step `visited.csv`, use only rows after the final step-0 marker for the live reset. [x8]
+- Trust current events, inventory deltas, final-reset map rows, and existing live frames over branch hypotheses. [x29]
+- Treat inherited resource coordinates as search centers, not exact block rays, until a current frame/event verifies the face. [x1]
+- After two ordinary breaks or no-movement cycles on one ray, shift the target by a block; never repeat it unchanged. [x14]
+- Run `collect_drops` only after a verified nearby break and from the break location. [x18]
+- Carry the table or four spare planks before descending; leaving it above makes later tool milestones table-gated. [x9]
+- While a GUI is open, never move; bank real cursor/grid contents before closing or travel. [x15]
+- Pair each GUI landing with its click; after an aborted click, re-land before retrying. [x8]
+- Use force-close only for deliberate disposal, then move at least four blocks before returning. [x2]
+- Require a current statistic/milestone event before treating a goal as complete. [x29]
+- Put long mining procedures first and cap `dig_down` near 340 requested ticks; exact-cap plans can truncate setup. [x7]
+- Without torches, tunnel only toward a bounded coordinate; use one-block local offsets once there. [x14]
+- Treat visible ore as a target, not completion; require its current `mine_block` event. [x4]
+- Before ore pickup, verify capacity again after every intervening pickup; gravel may yield flint and refill a freed slot. [x5]

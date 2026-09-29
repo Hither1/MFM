@@ -1,0 +1,15 @@
+custom_init_commands:
+- /time set night
+- /give @s minecraft:torch 64
+- /give @s minecraft:glowstone 10
+text: light up the surroundings using torches at night
+thinking: '- In order to light up the surroundings at night, we need torches and set
+  the time to night.'
+reward_cfg:
+- event: use_item
+  identity: use_lighting_items
+  objects:
+  - torch
+  - glowstone
+  reward: 1.0
+  max_reward_times: 10

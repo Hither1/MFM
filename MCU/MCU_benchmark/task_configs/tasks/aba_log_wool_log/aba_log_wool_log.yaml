@@ -1,0 +1,69 @@
+# Ported from MrSteve (frechele/MrSteve, ICLR 2025), mrsteve/env/minedojo/task/
+# minedojo/task_specs.yaml: `log_wool_aba_randinit (inverted)`.
+#
+# A-B-A. The first and third goals are the same statistic, so the ordering constraint is
+# the task -- see `after:` below and `MilestoneLedger.eligible`. MrSteve enforced it by
+# clearing the inventory between subtasks because it scored inventory *contents*; this
+# harness scores event *deltas*, so a goal that is not yet live simply banks nothing and
+# the return trip is required by construction. No inventory reset is needed.
+#
+# `milestone_reveal: sequential` is load-bearing. The prompt normally carries the whole
+# ordered checklist, which would tell the agent at step 0 that it must come back here --
+# and an agent that knows it will need the pond again will deliberately memorise it.
+# Deliberate encoding is the opposite of what this task measures.
+#
+# Ten of the mob are dropped in a 40x40 box around the start, as MrSteve does. They are
+# therefore near the *start*, not near wherever the agent ends up chopping wood, which
+# is what makes the return trip a navigation problem rather than a lucky glance.
+#
+# The INVERTED variant. MrSteve's three A-B-A tasks all put the cheap goal (a log, in a
+# plains world where trees are everywhere) on the middle leg, so the only retrieval that
+# is ever hard is the third goal -- and that resource was the *active* goal when the
+# agent first found it. Swapping the legs puts the scarce resource on the middle leg,
+# where the agent passed it while working on something else. That is the incidental case:
+# seen when it did not matter, needed later.
+#
+# World pinning, as MrSteve does (`specified_biome: plains`, `world_seed = 42 +
+# episode_id`). Plains rather than the harness default of whatever seed 0 spawns into:
+# forest would make the log leg trivial everywhere, and log scarcity is the variable the
+# inverted variants turn on. `world_seed` is the episode-0 world; a campaign sweeps it
+# with MCU_WORLD_SEED (one episode per process here), which is what gives 100 samples
+# rather than one world measured 100 times.
+
+custom_init_commands:
+- /give @s minecraft:diamond_sword 1
+- /summon minecraft:sheep ~-18 ~6 ~-12
+- /summon minecraft:sheep ~-11 ~5 ~14
+- /summon minecraft:sheep ~-6 ~7 ~-19
+- /summon minecraft:sheep ~-3 ~5 ~8
+- /summon minecraft:sheep ~2 ~6 ~-7
+- /summon minecraft:sheep ~5 ~8 ~17
+- /summon minecraft:sheep ~9 ~5 ~-3
+- /summon minecraft:sheep ~13 ~7 ~11
+- /summon minecraft:sheep ~16 ~5 ~-16
+- /summon minecraft:sheep ~19 ~6 ~4
+defaults:
+- base
+- _self_
+text: You are given one goal at a time. The next goal appears only once the current one has been verified by the environment. Anything you do towards a goal that has not appeared yet counts for nothing.
+milestone_reveal: sequential
+world_seed: 42
+spawn_biome: plains
+milestone_reward_cfg:
+- event: mine_block
+  identity: log_1
+  objects: [log, oak_log, birch_log, spruce_log]
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: wool_1
+  objects: [wool, white_wool]
+  after: [log_1]
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: log_2
+  objects: [log, oak_log, birch_log, spruce_log]
+  after: [wool_1]
+  reward: 1.0
+  max_reward_times: 1

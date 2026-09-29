@@ -1,0 +1,14 @@
+custom_init_commands:
+- /replaceitem entity @s weapon.mainhand minecraft:iron_pickaxe
+- /execute as @p at @s run fill ~ ~ ~ ~1 ~ ~ minecraft:diamond_ore
+defaults:
+- base
+- _self_
+text: Find and mine the diamond ore.
+reward_cfg:
+- event: mine_block
+  identity: mine_diamond_ore
+  objects:
+  - diamond_ore
+  reward: 1.0
+  max_reward_times: 1

@@ -1,0 +1,15 @@
+custom_init_commands:
+- /give @s minecraft:stick 15
+- /give @s minecraft:crafting_table 1
+- /setblock ~2 ~ ~ minecraft:crafting_table
+defaults:
+- base
+- _self_
+text: Open your inventory and craft a ladder using sticks.
+reward_cfg:
+- event: craft_item
+  identity: craft_ladder
+  objects:
+  - ladder
+  reward: 1.0
+  max_reward_times: 1

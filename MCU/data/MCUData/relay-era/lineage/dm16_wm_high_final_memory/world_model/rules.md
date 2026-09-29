@@ -1,0 +1,15 @@
+# Standing rules
+
+- Trust current-prefix events, matching STATE/frame, and each duplicated map step's last row; reject alternate-trajectory live state [x73]
+- Preserve event-backed natural-resource sites across resets, but treat tunnels, mined cells, inventory, and drops as this-run-only [x38]
+- After a zero-result, obstruction, two-cycle stall, or governor stop, change aim, route, position, or method before retrying [x74]
+- After any break, require pickup/INV before counting its drop; a mine statistic is not a pickup milestone [x23]
+- Before `collect_drops`, first get within about one block of the known break coordinate [x1]
+- Use coordinate-directed travel for a known item site; do not trust a remote sweep's initial direction [x1]
+- Re-audit capacity after every distinct-stack pickup; once a unique stack is deliberately dropped, leave its pose immediately [x3]
+- Face opposite intended travel before force-dropping an expendable stack, then never cross the drop location [x8]
+- Do not move while a GUI is open; place cursor-held material safely unless a deliberate force-drop is the plan [x15]
+- For horizontal mining, require blocks advanced and verify the changed coordinate; breaks alone do not prove passage [x10]
+- On a verified ore face, aim once and use `mine_ahead`; do not let a movement macro replace the held target [x3]
+- Stop immediately on lava light, an open fall, or damage; identify the hazard before continuing [x5]
+- With only diamond unmet and its ore already broken, spend no ticks on inventory, descent, surface, crafting, lighting, or exploration [x5]

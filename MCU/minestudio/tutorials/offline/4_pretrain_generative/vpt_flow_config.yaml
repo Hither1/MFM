@@ -1,0 +1,76 @@
+hydra:
+  run:
+    dir: ${oc.env:MINESTUDIO_SAVE_DIR}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+hydra/job_logging: colorlog
+hydra/hydra_logging: colorlog
+
+data:
+  mode: "raw"
+  dataset_dirs:
+    - "/nfs-shared-2/data/contractors-new/dataset_6xx"
+    - "/nfs-shared-2/data/contractors-new/dataset_7xx"
+    - "/nfs-shared-2/data/contractors-new/dataset_8xx"
+    - "/nfs-shared-2/data/contractors-new/dataset_9xx"
+    - "/nfs-shared-2/data/contractors-new/dataset_10xx"
+  frame_width: 128
+  frame_height: 128
+  win_len: 128
+  action_chunk_size: 10
+
+policy:
+  attention_heads: 16
+  attention_mask_style: "clipped_causal"
+  attention_memory_size: 256
+  diff_mlp_embedding: false
+  hidsize: 2048
+  img_shape: [
+      128,
+      128,
+      3
+  ]
+  impala_chans: [
+      16,
+      32,
+      32
+  ]
+  impala_kwargs: {
+    "post_pool_groups": 1
+  }
+  impala_width: 8
+  init_norm_kwargs: {
+    "batch_norm": false,
+    "group_norm_groups": 1
+  }
+  n_recurrence_layers: 4
+  only_img_input: true
+  pointwise_ratio: 4
+  pointwise_use_activation: false
+  recurrence_is_residual: true
+  recurrence_type: "transformer"
+  timesteps: 128
+  use_pointwise_layer: true
+  use_pre_lstm_ln: false
+
+action:
+  dim_cond: 2048
+  dim_input: 220
+  depth: 3
+  width: 1024
+
+fm:
+  sigma: 0.0
+
+batch_size: 2
+num_workers: 8
+precision: "bf16"
+prefetch_factor: 4
+split_ratio: 0.9
+devices: 8
+learning_rate: 5e-4
+warmup_steps: 2000
+weight_decay: 0.000181
+save_freq: 2000
+objective_weight: 0.01
+shuffle_episodes: False
+episode_continuous_batch: False

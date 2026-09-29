@@ -1,0 +1,33 @@
+To generate the score points for the task "light_up_the_surroundings.yaml," we need to focus on the process of illuminating the area using various light sources in Minecraft. This involves identifying dark areas and placing appropriate light-emitting blocks to brighten the surroundings. Below are the grading criteria for this task:
+
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent identifies dark areas in the surroundings that need illumination
+ - whether the agent selects appropriate light sources from available materials (torches, glowstone, lanterns, sea lanterns)
+ - whether the agent places light sources in strategic locations to maximize coverage
+ - whether the agent achieves adequate lighting throughout the target area
+ - whether the agent uses multiple types of light sources effectively
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. placing light sources in already well-lit areas
+ - e.g. wandering aimlessly without addressing dark spots
+ - e.g. breaking and re-placing the same light source repeatedly without purpose
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether the agent recognizes insufficient lighting and adjusts by adding more light sources
+ - whether the agent corrects poor placement of light sources to improve coverage
+ - whether the corrected results demonstrate improvement and reduce flaws in the lighting arrangement
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. using different types of light sources for varied lighting effects or aesthetics
+ - e.g. creating patterns or designs with light sources while maintaining functionality
+ - e.g. optimizing light source placement to use fewer materials while achieving better coverage
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether effective lighting strategies were employed to minimize unnecessary placements or adjustments
+ - whether the agent completes the illumination without excessive material waste or redundant actions
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - whether the agent selects suitable light-emitting materials for the task from the available options
+ - whether the agent efficiently uses available resources to achieve adequate lighting
+ - whether the agent avoids wasting light sources by placing them thoughtfully

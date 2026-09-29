@@ -1,0 +1,55 @@
+custom_init_commands: []
+defaults:
+- base
+- _self_
+text: Starting with nothing, obtain a diamond by gathering wood, crafting tools, mining ores, and smelting iron.
+
+# Milestone-based reward configuration
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_log
+    objects: [log, oak_log, birch_log, spruce_log]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: crafting_table
+    objects: [crafting_table]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: wooden_pickaxe
+    objects: [wooden_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: stone_pickaxe
+    objects: [stone_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: iron_ingot
+    objects: [iron_ingot]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: iron_pickaxe
+    objects: [iron_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: diamond
+    objects: [diamond]
+    reward: 1.0
+    max_reward_times: 1

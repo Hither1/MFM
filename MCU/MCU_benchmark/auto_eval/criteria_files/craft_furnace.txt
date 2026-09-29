@@ -1,0 +1,29 @@
+To generate the score points for the task "craft_furnace.yaml," we need to focus on the process of crafting a furnace in Minecraft. This involves gathering cobblestone and using a crafting table to create the furnace. Below are the grading criteria for this task:
+
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent collects or has the necessary cobblestone (8 pieces required)
+ - whether the agent accesses a crafting table to craft the furnace
+ - whether the agent places the cobblestone in the correct pattern within the crafting interface (filling all slots except the center)
+ - whether the agent successfully crafts the furnace
+ - whether the agent retrieves the crafted furnace from the crafting output
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. opening and closing the inventory without performing any actions
+ - e.g. crafting unrelated items or using tools unnecessarily
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether the agent recognizes incorrect placement of cobblestone in the crafting grid
+ - whether the agent corrects the crafting pattern when it doesn't produce a furnace
+ - whether the corrected results demonstrate improvement in the crafting process
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. finding alternative materials or methods to gather necessary resources
+ - e.g. utilizing surrounding resources in a unique way to aid in crafting
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether effective crafting strategies were employed to minimize unnecessary repetitions or errors
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - e.g. using the correct type and amount of cobblestone for crafting
+ - e.g. ensuring no wastage of materials during the crafting process

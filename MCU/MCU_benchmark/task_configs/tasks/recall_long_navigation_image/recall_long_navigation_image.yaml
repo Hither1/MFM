@@ -1,0 +1,105 @@
+# Long-Navigation with the paper's IMAGE GOAL (MrSteve S4.4 / C.2.5).
+#
+# The difference from recall_long_navigation, and the only one: the target is designated
+# by a PICTURE instead of by the phrase "the place where you saw a patch of ground
+# burning, early on". Everything else -- the six landmarks, the teleport prologue, the
+# three transient ones, the 21,500-step gate, the seed and biome -- is identical, so the
+# pair is a single-variable contrast in how the goal is named.
+#
+# WHY THE PAIR EXISTS. The text designator was the right call for comparing memory
+# ARCHITECTURES across arms: a second image lands differently in the arc/vista/logbook
+# prompt paths, and that would be a confound inside the comparison. It is the wrong call
+# for comparing memory MODALITIES, because a phrase can be answered from a phrase -- a
+# text-only memory that wrote "burning ground, NE" has everything it needs. This variant
+# is for the modality question and should be run with the mfm rungs
+# (baseline / --text-only / --visual-only), not across arms.
+#
+# THE CUE IS THE AGENT'S OWN PAST VIEW, captured while it stood at the fire pit with no
+# goal at all, and handed back 18,000 steps later: "go back to where this was taken."
+# Nothing in the text says fire, ground, or burning -- see `describe` below, which had to
+# be neutered or the picture would be decoration.
+#
+# READ THE RESULT WITH THE CUE IN FRONT OF YOU. The agent looks wherever it was already
+# looking when it is teleported, so the capture is guarded (goalimage.py rejects flat
+# frames and retries across the window) but not guaranteed to be a good picture of the
+# landmark. `goal_image.captured_at` is in the report and attach/goal.png is kept: a run
+# whose cue turned out to be a picture of the sky measured nothing.
+
+custom_init_commands:
+# 1. the fire pit -- TRANSIENT, and the one the goal asks for.
+- /fill ~68 ~-1 ~-2 ~72 ~-1 ~2 minecraft:netherrack
+- /setblock ~70 ~ ~ minecraft:fire
+- /setblock ~69 ~ ~1 minecraft:fire
+# 2. a pond
+- /fill ~-2 ~-1 ~68 ~2 ~-1 ~72 minecraft:water
+# 3. a tower
+- /fill ~-72 ~-1 ~-2 ~-68 ~-1 ~2 minecraft:stone
+- /fill ~-70 ~ ~ ~-70 ~8 ~ minecraft:cobblestone
+# 4. a pumpkin patch -- TRANSIENT
+- /fill ~-2 ~-1 ~-72 ~2 ~-1 ~-68 minecraft:pumpkin
+# 5. a hut
+- /fill ~48 ~ ~48 ~52 ~3 ~52 minecraft:oak_planks hollow
+# 6. a gold block marker -- TRANSIENT
+- /fill ~-52 ~-1 ~48 ~-48 ~-1 ~52 minecraft:gold_block
+- /give @s minecraft:diamond_axe 1
+
+scheduled_commands:
+# The prologue: ~2,000 steps at each of six landmarks, as in the paper. Teleports rather
+# than a walked route -- see recall_first_house for why.
+- step: 100
+  commands: ["/tp @s {x+70} {y+1} {z}"]                 # 1. fire pit
+- step: 3600
+  commands: ["/tp @s {x} {y+1} {z+70}"]                 # 2. pond
+# The fire pit stops existing the moment the agent has left it. Absolute coordinates via
+# the {x}/{y}/{z} placeholders: `~` would resolve against the agent's position at step
+# 4100 -- standing at the pond -- and would erase the wrong place entirely.
+- step: 3700
+  commands:
+  - /fill {x+66} {y} {z-4} {x+74} {y+2} {z+4} minecraft:air replace minecraft:fire
+  - /fill {x+68} {y-1} {z-2} {x+72} {y-1} {z+2} minecraft:grass_block
+- step: 7100
+  commands: ["/tp @s {x-70} {y+1} {z}"]                 # 3. tower
+- step: 10600
+  commands: ["/tp @s {x} {y+1} {z-70}"]                 # 4. pumpkin patch
+- step: 14100
+  commands:
+  - /fill {x-2} {y-1} {z-72} {x+2} {y-1} {z-68} minecraft:grass_block   # patch gone
+  - /tp @s {x+50} {y+1} {z+50}                                          # 5. hut
+- step: 17600
+  commands: ["/tp @s {x-50} {y+1} {z+50}"]              # 6. gold marker
+- step: 21100
+  commands:
+  - /fill {x-52} {y-1} {z+48} {x-48} {y-1} {z+52} minecraft:grass_block  # marker gone
+  # Back to the middle. The recall journey starts from the start, not from landmark six.
+  - /tp @s {x} {y+1} {z}
+
+defaults:
+- base
+- _self_
+text: You are given one goal at a time. The next goal appears only once the current one has been verified by the environment. Anything you do towards a goal that has not appeared yet counts for nothing.
+milestone_reveal: sequential
+world_seed: 42
+spawn_biome: plains
+# The cue: captured at landmark 1, whose fire is removed at step 3700 -- so the picture
+# shows a thing that no longer exists by the time it is asked for, which is the property
+# the probe turns on. The window closes at 3300, before both the removal and the teleport.
+goal_image:
+  step: 300
+  window: 3000
+  every: 200
+  milestone: return_to_fire_pit
+
+milestone_reward_cfg:
+- event: reach
+  identity: return_to_fire_pit
+  objects: []
+  # Landmark 1, relative to the episode start.
+  target: [70, 0]
+  radius: 10
+  # Nothing at all is asked until the prologue has finished and the agent is back in the
+  # middle. 21,500 = the last teleport at 21,100 plus a margin.
+  not_before: 21500
+  # Deliberately says nothing about what is there: the picture is the designator.
+  describe: the place shown in the picture attached to this turn
+  reward: 1.0
+  max_reward_times: 1

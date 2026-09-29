@@ -1,0 +1,23 @@
+FROM ghcr.io/astral-sh/uv:python3.12-trixie
+
+RUN adduser agentbeats
+USER agentbeats
+RUN mkdir -p /home/agentbeats/.cache/uv
+WORKDIR /home/agentbeats/tutorial
+
+COPY pyproject.toml uv.lock README.md ./
+COPY src src
+
+RUN \
+    --mount=type=cache,target=/home/agentbeats/.cache/uv,uid=1000 \
+    uv sync --locked
+
+USER root
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+USER agentbeats
+
+COPY tutorial scenarios
+
+ENTRYPOINT ["uv", "run", "scenarios/mcu_evaluator.py"]
+CMD ["--host", "0.0.0.0"]
+EXPOSE 9009

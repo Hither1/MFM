@@ -1,0 +1,15 @@
+custom_init_commands:
+- /give @s minecraft:diamond_pickaxe
+- /setblock ~2 ~ ~ minecraft:chest
+- /give @s minecraft:torch 20
+defaults:
+- base
+- _self_
+text: Explore and open a chest to discover its contents.
+reward_cfg:
+- event: use_item
+  identity: open_chest
+  objects:
+  - chest
+  reward: 1.0
+  max_reward_times: 1.0

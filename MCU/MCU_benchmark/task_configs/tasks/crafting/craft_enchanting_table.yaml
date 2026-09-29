@@ -1,0 +1,17 @@
+custom_init_commands:
+- /give @s minecraft:obsidian 4
+- /give @s minecraft:diamond 2
+- /give @s minecraft:book 1
+- /give @s minecraft:crafting_table 1
+- /setblock ~2 ~ ~ minecraft:crafting_table
+defaults:
+- base
+- _self_
+text: Craft an enchanting table to enchant your items.
+reward_cfg:
+- event: craft_item
+  identity: craft_enchanting_table
+  objects:
+  - enchanting_table
+  reward: 1.0
+  max_reward_times: 1

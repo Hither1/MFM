@@ -1,0 +1,16 @@
+custom_init_commands:
+- /give @s minecraft:wheat_seeds 64
+- /give @s minecraft:iron_hoe
+- /give @s minecraft:water_bucket
+- /fill ~2 ~ ~2 ~5 ~ ~5 minecraft:farmland
+defaults:
+- base
+- _self_
+text: Plant wheat seeds in tilled soil.
+reward_cfg:
+- event: use_item
+  identity: plant_wheat_seeds
+  objects:
+  - wheat_seeds
+  reward: 1.0
+  max_reward_times: 5

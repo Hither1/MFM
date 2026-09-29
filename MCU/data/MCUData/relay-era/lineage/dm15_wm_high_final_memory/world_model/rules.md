@@ -1,0 +1,15 @@
+# Standing rules
+
+- Trust current-prefix events, matching STATE/frame, and the final duplicate-step map row; reject branch-contaminated claims [x55]
+- Preserve only event-backed natural-resource coordinates across resets; treat visual cross-trajectory estimates as hypotheses and shafts/workstations/drops as this-run-only [x26]
+- After a zero-result, obstruction, two-cycle stall, or governor stop, change aim, route, position, or method before retrying [x59]
+- After a desired block breaks, sweep immediately and require pickup/INV; after one directed revisit fails, harvest fresh or retire the drop [x8]
+- Trust events, INV deltas, and only the active screen's GRID over stale cursor labels and unopened-grid noise [x21]
+- Pair every GUI cursor landing with its click in the same plan segment; re-land after any abort or plan boundary [x6]
+- Never close with a real cursor stack; force-close only when INV plus active GRID prove every reported stack phantom [x17]
+- Furnace cells persist across closing; leave genuine input/fuel/output there until intentionally collected [x3]
+- Select a non-placeable item before opening a table/furnace, stay adjacent, and close before movement [x11]
+- Require `craft_item`/milestone and a stowed output before claiming a recipe succeeded [x19]
+- Use stone tier for iron and iron tier for diamond; prepare light before deep search and stop at lava/cave light [x16]
+- Do not price a long `go_to` through dense spruce as open-ground travel; clear or reroute after the first obstruction [x1]
+- With under 800 ticks, no current deep access, and only diamond unmet, mark it infeasible unless a verified adjacent ore block appears [x1]

@@ -1,0 +1,19 @@
+custom_init_commands:
+- /replaceitem entity @s armor.head minecraft:diamond_helmet
+- /replaceitem entity @s armor.chest minecraft:diamond_chestplate
+- /replaceitem entity @s armor.legs minecraft:diamond_leggings
+- /replaceitem entity @s armor.feet minecraft:diamond_boots
+- /replaceitem entity @s weapon.mainhand minecraft:diamond_sword
+- /give @p minecraft:ender_pearl 15
+- /execute at @p run summon minecraft:enderman ^2 ^ ^3
+defaults:
+- base
+- _self_
+text: Defeat the nearby enderman using weapons and protective gear.
+reward_cfg:
+- event: kill_entity
+  identity: kill_enderman
+  objects:
+  - enderman
+  reward: 1.0
+  max_reward_times: 1

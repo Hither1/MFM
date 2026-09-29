@@ -1,0 +1,42 @@
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent successfully mines wood (logs)
+ - whether the agent crafts a crafting table
+ - whether the agent crafts a wooden pickaxe
+ - whether the agent mines cobblestone with the wooden pickaxe
+ - whether the agent crafts a stone pickaxe
+ - whether the agent mines iron ore with the stone pickaxe
+ - whether the agent crafts a furnace
+ - whether the agent smelts iron ore into iron ingots
+ - whether the agent crafts an iron pickaxe
+ - whether the agent mines diamond ore with the iron pickaxe
+ - whether the agent successfully obtains diamond
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. wandering aimlessly without purpose
+ - e.g. repeatedly switching tools without progressing through the crafting sequence
+ - e.g. mining unnecessary blocks that don't contribute to the progression
+ - e.g. crafting items not required for the diamond mining progression
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether agents recognize using the wrong tool for mining (e.g., using wooden pickaxe on iron ore)
+ - e.g. whether agents correct their path when going too deep or getting lost in caves
+ - e.g. whether agents recognize when they run out of fuel for smelting and gather more
+ - whether the corrected results demonstrate improvement and reduce flaws in the progression
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. efficient mining strategies like branch mining or staircase mining
+ - e.g. creating temporary shelters or torches for safety while mining
+ - e.g. gathering extra resources for backup tools
+ - e.g. using lava or water creatively during mining
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether the agent follows the optimal progression path (wood → stone → iron → diamond)
+ - whether the agent minimizes unnecessary backtracking or resource gathering
+ - whether effective mining strategies were employed to find ores quickly
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - e.g. using the correct tier of pickaxe for each ore type (wooden for cobblestone, stone for iron, iron for diamond)
+ - e.g. efficient use of fuel for the furnace (coal, wood, or planks)
+ - e.g. crafting the minimum necessary tools without excessive waste
+ - e.g. using gathered materials appropriately for progression rather than hoarding

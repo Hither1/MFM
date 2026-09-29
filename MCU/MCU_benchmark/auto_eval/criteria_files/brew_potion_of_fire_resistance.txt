@@ -1,0 +1,33 @@
+To generate the score points for the task "brew_potion_of_fire_resistance.yaml," we need to focus on the process of brewing a potion of fire resistance in Minecraft. This involves using a brewing stand, water bottles, nether wart, and magma cream to create the potion. Below are the grading criteria for this task:
+
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent has access to a brewing stand
+ - whether the agent places water bottles in the brewing stand
+ - whether the agent adds nether wart to create an awkward potion first
+ - whether the agent adds magma cream to the awkward potion to create a fire resistance potion
+ - whether the agent successfully retrieves the completed fire resistance potion
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. placing incorrect ingredients in the brewing stand
+ - e.g. opening and closing the brewing stand interface repeatedly without adding ingredients
+ - e.g. interacting with unrelated items or blocks
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether the agent recognizes if incorrect ingredients were used and corrects the brewing process
+ - whether the agent recognizes if steps are done out of order (e.g., adding magma cream before nether wart)
+ - whether the corrected results demonstrate improvement and reduce flaws in the brewing process
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. brewing multiple potions simultaneously in the brewing stand
+ - e.g. organizing materials efficiently before starting the brewing process
+ - e.g. using blaze powder to fuel the brewing stand effectively
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether effective brewing strategies were employed to minimize unnecessary steps or errors
+ - whether the agent completes the brewing process without excessive waiting or redundant actions
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - whether the agent uses water bottles, nether wart, and magma cream in the correct sequence
+ - whether the agent uses blaze powder to fuel the brewing stand
+ - whether the agent avoids wasting materials on incorrect brewing attempts

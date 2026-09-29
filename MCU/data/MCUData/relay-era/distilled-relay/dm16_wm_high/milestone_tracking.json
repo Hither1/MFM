@@ -1,0 +1,122 @@
+{
+  "task": "mine_diamond_from_scratch",
+  "total_steps": 12000,
+  "total_reward": 10.0,
+  "milestones_achieved": 10,
+  "total_milestones": 10,
+  "completion_rate": 1.0,
+  "milestones": [
+    {
+      "identity": "mine_log",
+      "step": 480,
+      "timestamp": 140.98106741905212,
+      "reward": 1.0
+    },
+    {
+      "identity": "crafting_table",
+      "step": 1131,
+      "timestamp": 955.0186398029327,
+      "reward": 1.0
+    },
+    {
+      "identity": "wooden_pickaxe",
+      "step": 1323,
+      "timestamp": 1895.8056399822235,
+      "reward": 1.0
+    },
+    {
+      "identity": "mine_cobblestone",
+      "step": 2085,
+      "timestamp": 2874.205164194107,
+      "reward": 1.0
+    },
+    {
+      "identity": "stone_pickaxe",
+      "step": 3427,
+      "timestamp": 4677.05322599411,
+      "reward": 1.0
+    },
+    {
+      "identity": "furnace",
+      "step": 3494,
+      "timestamp": 4777.6296055316925,
+      "reward": 1.0
+    },
+    {
+      "identity": "mine_iron_ore",
+      "step": 4446,
+      "timestamp": 7014.874922513962,
+      "reward": 1.0
+    },
+    {
+      "identity": "iron_ingot",
+      "step": 5568,
+      "timestamp": 9244.723752737045,
+      "reward": 1.0
+    },
+    {
+      "identity": "iron_pickaxe",
+      "step": 6330,
+      "timestamp": 11552.619418144226,
+      "reward": 1.0
+    },
+    {
+      "identity": "diamond",
+      "step": 11444,
+      "timestamp": 21137.351052761078,
+      "reward": 1.0
+    }
+  ],
+  "milestone_summary": {
+    "mine_log": {
+      "achieved": true,
+      "step": 480,
+      "timestamp": 140.98106741905212
+    },
+    "crafting_table": {
+      "achieved": true,
+      "step": 1131,
+      "timestamp": 955.0186398029327
+    },
+    "wooden_pickaxe": {
+      "achieved": true,
+      "step": 1323,
+      "timestamp": 1895.8056399822235
+    },
+    "mine_cobblestone": {
+      "achieved": true,
+      "step": 2085,
+      "timestamp": 2874.205164194107
+    },
+    "stone_pickaxe": {
+      "achieved": true,
+      "step": 3427,
+      "timestamp": 4677.05322599411
+    },
+    "mine_iron_ore": {
+      "achieved": true,
+      "step": 4446,
+      "timestamp": 7014.874922513962
+    },
+    "furnace": {
+      "achieved": true,
+      "step": 3494,
+      "timestamp": 4777.6296055316925
+    },
+    "iron_ingot": {
+      "achieved": true,
+      "step": 5568,
+      "timestamp": 9244.723752737045
+    },
+    "iron_pickaxe": {
+      "achieved": true,
+      "step": 6330,
+      "timestamp": 11552.619418144226
+    },
+    "diamond": {
+      "achieved": true,
+      "step": 11444,
+      "timestamp": 21137.351052761078
+    }
+  }
+}

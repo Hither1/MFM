@@ -1,0 +1,14 @@
+custom_init_commands:
+- /give @s minecraft:iron_pickaxe 1
+- /execute as @p at @s run fill ~2 ~ ~ ~3 ~ ~ minecraft:stone
+defaults:
+- base
+- _self_
+text: Use a pickaxe to mine stone blocks.
+reward_cfg:
+- event: mine_block
+  identity: mine_stone
+  objects:
+  - stone
+  reward: 1.0
+  max_reward_times: 5

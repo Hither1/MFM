@@ -1,0 +1,25 @@
+arc-agi>=0.9.8
+openai>=1.72.0       # needed only for --backend qwen-openrouter
+python-dotenv>=1.0.0
+pillow>=10.0.0       # grid image rendering + image evidence storage
+torch>=2.1.0         # needed for Janus-Pro transformers backend
+transformers>=4.40.0 # needed for Janus-Pro transformers backend
+numpy                # needed for minecraft_agent.py (MineRL POV frame -> PIL.Image)
+rank_bm25            # BrowseComp-Plus corpus index; also needed to UNPICKLE a prebuilt
+                     # bm25_index.pkl, so every BrowseComp-Plus arm needs it, not just
+                     # the one that builds the index (browsecomp_plus_data.py)
+# janus               # install with: pip install git+https://github.com/deepseek-ai/Janus.git
+# vllm               # needed only for --backend qwen-vllm / showo2 / minecraft_agent.py --backend vllm (install separately on GPU node)
+
+# --- minecraft_agent.py (MineRL) -------------------------------------------
+# gym/minerl are UNVERIFIED alongside the rest of this file: minerl==0.4.4
+# predates this project's Python 3.12 "base" env by several years and builds
+# Minecraft/Malmo via gradle at install time, so `pip install -r
+# requirements.txt` in the existing base env may simply fail on these two
+# lines even though nothing above depends on them. If so, install minerl into
+# its own conda env instead (e.g. `conda create -n minerl python=3.9`) and
+# install the rest of this file there too — gym and gymnasium are separate
+# packages and don't conflict with each other, so that's a fallback, not a
+# requirement. Needs Java 8 + Xvfb on the host (both present on this machine).
+gym>=0.19,<0.20
+minerl==0.4.4

@@ -1,0 +1,19 @@
+custom_init_commands:
+- /give @s minecraft:pumpkin 5
+- /give @s minecraft:shears
+- /setblock ~2 ~ ~ minecraft:crafting_table
+defaults:
+- base
+- _self_
+text: Carve pumpkins to create jack-o'-lanterns.
+reward_cfg:
+  - event: pickup
+    identity: carve_first_pumpkin
+    objects: [carved_pumpkin]
+    reward: 1.0
+    max_reward_times: 1
+  - event: craft_item
+    identity: craft_jack_o_lantern
+    objects: [jack_o_lantern]
+    reward: 1.0
+    max_reward_times: 1

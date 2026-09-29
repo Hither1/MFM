@@ -1,0 +1,161 @@
+custom_init_commands: []
+defaults:
+- base
+- _self_
+text: Starting from nothing, defeat the Ender Dragon by gathering resources, exploring the Nether, finding a stronghold, and conquering The End.
+
+# Milestone-based reward configuration for killing Ender Dragon
+# Based on Minecraft advancement progression
+milestone_reward_cfg:
+  # === Stage 1: Basic Survival (Wood & Tools) ===
+  - event: mine_block
+    identity: mine_log
+    objects: [log, oak_log, birch_log, spruce_log, jungle_log, acacia_log, dark_oak_log]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: crafting_table
+    objects: [crafting_table]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: wooden_pickaxe
+    objects: [wooden_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 2: Stone Age ===
+  - event: mine_block
+    identity: mine_cobblestone
+    objects: [cobblestone]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: stone_pickaxe
+    objects: [stone_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 3: Iron Age ===
+  - event: mine_block
+    identity: mine_iron_ore
+    objects: [iron_ore, deepslate_iron_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: iron_ingot
+    objects: [iron_ingot]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: iron_pickaxe
+    objects: [iron_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 4: Diamond Age ===
+  - event: mine_block
+    identity: mine_diamond_ore
+    objects: [diamond_ore, deepslate_diamond_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: diamond
+    objects: [diamond]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: diamond_pickaxe
+    objects: [diamond_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: diamond_sword
+    objects: [diamond_sword]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 5: Nether Preparation ===
+  - event: mine_block
+    identity: mine_obsidian
+    objects: [obsidian]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: flint_and_steel
+    objects: [flint_and_steel]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 6: Nether Exploration ===
+  - event: pickup
+    identity: netherrack
+    objects: [netherrack]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: kill_entity
+    identity: kill_blaze
+    objects: [blaze]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: blaze_rod
+    objects: [blaze_rod]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: kill_entity
+    identity: kill_enderman
+    objects: [enderman]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: ender_pearl
+    objects: [ender_pearl]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 7: Eye of Ender ===
+  - event: craft_item
+    identity: blaze_powder
+    objects: [blaze_powder]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: eye_of_ender
+    objects: [ender_eye]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 8: The End ===
+  - event: pickup
+    identity: end_stone
+    objects: [end_stone]
+    reward: 1.0
+    max_reward_times: 1
+
+  # === Stage 9: Free the End ===
+  - event: kill_entity
+    identity: kill_ender_dragon
+    objects: [ender_dragon]
+    reward: 1.0
+    max_reward_times: 1

@@ -1,0 +1,13 @@
+custom_init_commands:
+- /give @p minecraft:potion{Potion:"minecraft:harming"} 1
+defaults:
+- base
+- _self_
+text: drink harming potion
+reward_cfg:
+- event: use_item
+  identity: drink_potion
+  objects:
+  - potion
+  reward: 1.0
+  max_reward_times: 1

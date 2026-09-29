@@ -1,0 +1,180 @@
+{
+  "task": "kill_ender_dragon",
+  "total_steps": 12000,
+  "total_reward": 8.0,
+  "milestones_achieved": 8,
+  "total_milestones": 24,
+  "completion_rate": 0.3333333333333333,
+  "milestones": [
+    {
+      "identity": "mine_log",
+      "step": 1091,
+      "timestamp": 321.25770449638367,
+      "reward": 1.0
+    },
+    {
+      "identity": "crafting_table",
+      "step": 2404,
+      "timestamp": 1084.7922096252441,
+      "reward": 1.0
+    },
+    {
+      "identity": "wooden_pickaxe",
+      "step": 4823,
+      "timestamp": 4191.79885840416,
+      "reward": 1.0
+    },
+    {
+      "identity": "mine_cobblestone",
+      "step": 6315,
+      "timestamp": 5272.105111122131,
+      "reward": 1.0
+    },
+    {
+      "identity": "stone_pickaxe",
+      "step": 7586,
+      "timestamp": 5875.5633454322815,
+      "reward": 1.0
+    },
+    {
+      "identity": "furnace",
+      "step": 7681,
+      "timestamp": 6243.66490483284,
+      "reward": 1.0
+    },
+    {
+      "identity": "mine_iron_ore",
+      "step": 8688,
+      "timestamp": 6898.485698223114,
+      "reward": 1.0
+    },
+    {
+      "identity": "iron_ingot",
+      "step": 9162,
+      "timestamp": 7510.789422035217,
+      "reward": 1.0
+    }
+  ],
+  "milestone_summary": {
+    "mine_log": {
+      "achieved": true,
+      "step": 1091,
+      "timestamp": 321.25770449638367
+    },
+    "crafting_table": {
+      "achieved": true,
+      "step": 2404,
+      "timestamp": 1084.7922096252441
+    },
+    "wooden_pickaxe": {
+      "achieved": true,
+      "step": 4823,
+      "timestamp": 4191.79885840416
+    },
+    "mine_cobblestone": {
+      "achieved": true,
+      "step": 6315,
+      "timestamp": 5272.105111122131
+    },
+    "stone_pickaxe": {
+      "achieved": true,
+      "step": 7586,
+      "timestamp": 5875.5633454322815
+    },
+    "mine_iron_ore": {
+      "achieved": true,
+      "step": 8688,
+      "timestamp": 6898.485698223114
+    },
+    "furnace": {
+      "achieved": true,
+      "step": 7681,
+      "timestamp": 6243.66490483284
+    },
+    "iron_ingot": {
+      "achieved": true,
+      "step": 9162,
+      "timestamp": 7510.789422035217
+    },
+    "iron_pickaxe": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "mine_diamond_ore": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "diamond": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "diamond_pickaxe": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "diamond_sword": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "mine_obsidian": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "flint_and_steel": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "netherrack": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "kill_blaze": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "blaze_rod": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "kill_enderman": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "ender_pearl": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "blaze_powder": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "eye_of_ender": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "end_stone": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    },
+    "kill_ender_dragon": {
+      "achieved": false,
+      "step": null,
+      "timestamp": null
+    }
+  }
+}

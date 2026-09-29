@@ -1,0 +1,10 @@
+[green_agent]
+endpoint = "http://127.0.0.1:9009"
+
+[[participants]]
+role = "agent"
+endpoint = "http://127.0.0.1:9019"
+
+[config]
+task_category = "mining_and_collecting"
+max_steps = 600

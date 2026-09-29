@@ -1,0 +1,15 @@
+custom_init_commands:
+- /give @s minecraft:gold_ingot 10
+- /give @s minecraft:redstone 5
+- /setblock ~2 ~ ~ minecraft:crafting_table
+defaults:
+- base
+- _self_
+text: Open inventory and craft a clock.
+reward_cfg:
+- event: craft_item
+  identity: craft_clock
+  objects:
+  - clock
+  reward: 1.0
+  max_reward_times: 1

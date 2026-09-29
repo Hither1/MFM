@@ -1,0 +1,14 @@
+custom_init_commands:
+- /give @s minecraft:oak_log 4
+- /setblock ~2 ~ ~ minecraft:crafting_table
+defaults:
+- base
+- _self_
+text: Open your inventory and craft a crafting table using wooden planks.
+reward_cfg:
+- event: craft_item
+  identity: craft_crafting_table
+  objects:
+  - crafting_table
+  reward: 1.0
+  max_reward_times: 1
