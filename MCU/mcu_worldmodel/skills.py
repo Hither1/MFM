@@ -131,7 +131,7 @@ EXAMPLE_PROCEDURES: dict[str, str] = {
     "stair_step.py": '''"""stair_step: one step of a staircase DOWN along the heading -- foot block, head block, step in."""
 # Example procedure (harness-written; copy it to mine/procedures/ and make it yours). The
 # grain a skill should have: one phase step, ~120 ticks, composed of atoms, with guards on
-# the pose that made it work. og14's north_stair (55 calls) is the same shape.
+# the pose that made it work. A model-written north_stair (55 calls) is the same shape.
 # One block = one raw {"attack": 1} hold of 30 ticks: the runner cuts it the moment the block
 # breaks (the leftover ticks are refunded, a [NOTE] says so) and the wall watcher samples it
 # for iron/diamond speckles (a [NOTE], the flag-time frame, the rest of the plan dropped).
@@ -194,7 +194,7 @@ print(json.dumps({"actions": plan}))
     "shaft_down.py": '''"""shaft_down: dig straight down toward a target y (default 12), one call of up to ~370 ticks -- the dig_down recipe, from atoms."""
 # Example procedure (harness-written; copy it to mine/procedures/ and make it yours).
 # Why it exists: a hand-built staircase costs ~80 ticks per level of depth -- two lives on
-# this chassis (2026-09-11) spent 3,500-4,000 steps going from y 66 to y 23 that way and
+# this chassis spent 3,500-4,000 steps going from y 66 to y 23 that way and
 # reached diamond depth with under 900 steps left. Holding attack at pitch 88 bores a 1x1
 # shaft instead: the floor breaks, you drop one block, the crosshair is already on the next
 # floor block. Measured break times on stone: ~17 ticks with a stone pickaxe, ~13 with iron,

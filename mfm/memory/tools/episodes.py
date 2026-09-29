@@ -207,7 +207,7 @@ def ore_hits(root: Path | None, r: dict) -> list[str]:
     what broke and what entered the inventory, and `inventory_delta` catches an ore that
     arrived without an event line. `craft_item` is excluded -- a furnace output is not a
     place where ore was found."""
-    if "events" in r:                       # a row that carries its outcome (the store since 2026-09-09;
+    if "events" in r:                       # a row that carries its outcome (the store;
         oc = {"events": r.get("events") or [],   # the carry enriches older lives' rows at seed time)
               "inventory_delta": r.get("inventory_delta") or {}}
     else:                                   # an older row: its outcome.json, one open per row

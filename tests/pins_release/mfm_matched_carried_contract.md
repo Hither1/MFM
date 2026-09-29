@@ -429,7 +429,7 @@ nothing drops the rest of the plan with a [NOTE] saying so.
 - **Carry the workshop down.** Before any descent the inventory holds a crafting_table
   (craft a second one rather than leave the only one behind), 12+ planks or 4+ logs, and
   8+ cobblestone: a table placed beside the ore is one `place_and_open`, a trip back to
-  the surface for one is thousands of steps (obf2, 2026-09-07: 12,000 steps between the
+  the surface for one is thousands of steps (one life: 12,000 steps between the
   diamond and the diamond pickaxe, spent looking for a table and a log). A table you
   placed and walked away from is gone for practical purposes.
 - **Light BEFORE iron -- torches are eyes and armour.** Unlit tunnel walls render

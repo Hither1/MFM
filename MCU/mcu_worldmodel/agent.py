@@ -885,7 +885,7 @@ class WorldModelAgent:
                     self.cursor_stats.get("bunker_followed", 0) + 1)
                 reflex = (f" Two hits {step - prev_hit_step} ticks apart while the runner "
                           f"dug the bunker: the melee mob is at arm's length and comes "
-                          f"DOWN WITH you -- a hole holds you both (og8 was capped in "
+                          f"DOWN WITH you -- a hole holds you both (one life was capped in "
                           f"with a zombie and died). The bunker is abandoned; the runner "
                           f"is FIGHTING BACK with the {weapon[1]} (hotbar {weapon[0]}) "
                           f"for up to {self.FIGHTBACK_TICKS} ticks, turning the aim a "
@@ -1009,7 +1009,7 @@ class WorldModelAgent:
                         self.cursor_stats.get("shaft_fightbacks", 0) + 1)
                     reflex = (f" You stand at the bottom of your own shaft: whatever hit "
                               f"you came down it and is IN the cell with you -- a hole dug "
-                              f"under you takes it along (og8 was capped in with a zombie "
+                              f"under you takes it along (one life was capped in with a zombie "
                               f"and died). The runner is FIGHTING BACK with the "
                               f"{weapon[1]} (hotbar {weapon[0]}) to the end, aimed at the "
                               f"middle of your cell; your next turn comes from where the "
@@ -2443,7 +2443,7 @@ class WorldModelAgent:
         from mcu_worldmodel import macros_world as MW
         bx, by, bz = MW.block_of(pos)
         return (f" The shaft over your head is open: a mob that drops down it lands IN "
-                f"your cell, where no bunker or wall separates you (og8 died so). Before "
+                f"your cell, where no bunker or wall separates you (one life died so). Before "
                 f"mining sideways close it -- place_at(x={int(bx)}, y={int(by) + 2}, "
                 f"z={int(bz)}, item=\"cobblestone\", face=\"north\") (any side is "
                 f"solid wall here) -- and keep the sword in the hotbar.")
