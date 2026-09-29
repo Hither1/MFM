@@ -1,15 +1,8 @@
 """Drive one turn through the Codex CLI.
 
-Vendored from MineExplorer's `prolong_mc/codex_backend.py`, essentially unchanged. It is
-copied rather than imported because the two repos are separate checkouts on this cluster
-and MCU should not import across into a sibling working tree -- but it is the same file,
-and the inline notes in it record measurements taken against that repo's campaign, not
-this one. Treat them as provenance.
-
-What this port adds is `read_outputs`: upstream's turn produced exactly one artefact
-(`actions.json`), while a turn here can also write `hypotheses_ops.json` and `claim.json`.
-They are read the same defensive way -- a missing or malformed file costs the turn that
-one channel, never the whole turn.
+One turn is one `codex exec` (or `codex exec resume`) in the workspace: the prompt and
+the current frame go in, `actions.json` and the last message come out. The inline notes
+record measurements taken while the channel was built; treat them as provenance.
 """
 from __future__ import annotations
 
@@ -193,12 +186,8 @@ def _metadata_args(context_window: int) -> list[str]:
 #                       tool list is exactly EXPECTED_NESTED_TOOLS and a new default
 #                       cannot slip in unnoticed.
 # Files a turn produces, cleared before each turn so a stale one from the previous turn
-# is never mistaken for this turn's output. `actions.json` is the only required one; the
-# other two are optional channels the agent may or may not use on any given turn, and an
-# absent one must read as "the agent said nothing", not as "the agent repeated itself".
-TURN_ARTEFACTS: tuple[str, ...] = (
-    "actions.json", "last_message.txt", "hypotheses_ops.json", "claim.json",
-)
+# is never mistaken for this turn's output.
+TURN_ARTEFACTS: tuple[str, ...] = ("actions.json", "last_message.txt")
 
 SAFE_CODEX_FLAGS: tuple[str, ...] = (
     "-c", 'web_search="disabled"',
@@ -387,12 +376,10 @@ def is_overflow(name: str, text: str) -> bool:
 #                           inside its own turn. These never reach the event stream: the
 #                           tool returns the failure to the model, it retries, writes
 #                           actions.json, and the harness sees a clean turn. Measured on
-#                           dm4: 75% of world model turns against 3% of PRO-LONG turns,
-#                           ~9s each. The world model's memory *is* the filesystem, so
-#                           its patch carries actions.json plus hypotheses_ops.json plus
-#                           whatever documents it touched, and two operations landing on
-#                           one path rejects the lot. A per-arm tax of exactly the kind a
-#                           comparison otherwise charges to the method.
+#                           an arm whose turns wrote several files: 75% of its turns
+#                           against 3% of PRO-LONG turns, ~9s each -- two operations
+#                           landing on one path reject the whole patch. A per-arm tax of
+#                           exactly the kind a comparison otherwise charges to the method.
 _ROLLOUT_VIEW_IMAGE = re.compile(r"view_image")
 _ROLLOUT_ATTACH_FAIL = re.compile(r"could not read the local image", re.I)
 # Broken out by kind, because the aggregate is actively misleading: on dm4_wm the two
@@ -770,8 +757,8 @@ class CodexTurn:
         current frame is what keeps the analyzer as informed as upstream's is, and as
         informed as the baseline agent it is compared against.
 
-        `expect_actions=False` for the induction pass, which produces no `actions.json`
-        by design. Without it every induction turn logs a missing-plan warning, which is
+        `expect_actions=False` for a turn that by design produces no `actions.json`
+        by design. Without it every such turn logs a missing-plan warning, which is
         not a defect and hides the ones that are.
         """
         if self.max_calls and self.calls >= self.max_calls:
@@ -935,7 +922,7 @@ class CodexTurn:
         message = message_path.read_text(encoding="utf-8").strip() if message_path.exists() else ""
 
         # Two independent facts, reported on separate lines. A tool error inside the turn
-        # is not why a plan is missing, and an induction turn writes no plan by design;
+        # is not why a plan is missing, and a turn run with expect_actions=False writes no plan by design;
         # gluing them into one warning cost two misdiagnoses in a single session, both of
         # them reading a self-healing apply_patch rejection as a lost action.
         quota = next((e for e in errors if _QUOTA_RE.search(e)), None)
@@ -964,7 +951,7 @@ class CodexTurn:
         # model. A broken `resume` is exactly this shape, and retrying into the same
         # session reproduces it forever; the agent's own retry loop then just multiplies
         # the cost. Cold-start instead, which is the one thing that can succeed. Checked
-        # for the induction pass too, where a missing plan is normal but silence is not.
+        # for a turn without a plan too, where a missing plan is normal but silence is not.
         if actions_json is None and not message and self.session_id:
             self._discard_session("produced no output at all", "empty_resets")
         return {
@@ -974,36 +961,6 @@ class CodexTurn:
             "error": errors[-1] if errors else None,
             "overflow": overflowed,
         }
-
-    def read_outputs(self) -> dict[str, Any]:
-        """The optional JSON channels this turn wrote.
-
-        Each is parsed independently and a failure is contained to its own key: a
-        malformed `claim.json` must not cost the turn its `hypotheses_ops.json`, and
-        neither may cost it the actions that were already parsed. The parse error is
-        returned so the runner can put it in front of the agent as a [NOTE] -- an
-        agent whose file silently never loaded will keep writing it the same wrong way.
-        """
-        out: dict[str, Any] = {"hypotheses_ops": None, "claim": None, "errors": []}
-        for key, name in (("hypotheses_ops", "hypotheses_ops.json"), ("claim", "claim.json")):
-            path = self.workspace / name
-            if not path.exists():
-                continue
-            try:
-                out[key] = json.loads(path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as exc:
-                out["errors"].append(f"{name} did not parse: {exc}")
-                logger.warning(f"[codex] {name} did not parse: {exc}")
-            finally:
-                # Consumed, not merely read. These files are one-shot assertions about
-                # *this* turn, and the pre-turn clear is not enough on its own: if a turn
-                # dies before it runs, or the process is killed between the clear and the
-                # write, a claim from three turns ago is still sitting there and would be
-                # re-applied -- and a rejected claim locks goals, so re-applying one
-                # punishes the agent repeatedly for a single mistake. Deleting on read
-                # makes that impossible regardless of how the previous turn ended.
-                path.unlink(missing_ok=True)
-        return out
 
     def _transcript_episodes_tool_calls(self) -> int:
         """Episode-tool calls counted from this backend's own saved turn events."""

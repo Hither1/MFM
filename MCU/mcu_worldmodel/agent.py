@@ -167,7 +167,7 @@ class WorldModelAgent:
         # Which CLI carries the model: "codex" (GPT through the Codex CLI, every arm so
         # far) or "claude" (Anthropic models through Claude Code). `self.codex` stays the
         # attribute name either way: it is the model channel, and both Turn classes hold
-        # the same contract (run / read_outputs / vision_audit / split_briefing).
+        # the same contract (run / vision_audit / split_briefing).
         cli: str = "codex",
         entry_cap: int = 40,
         repeat_cap: int = 200,
@@ -3997,12 +3997,7 @@ class WorldModelAgent:
                      for ln in plan_text.splitlines() if ln.strip()][:5]
         self._update_plan_streak(plan_text)
 
-        outs = self.codex.read_outputs()
         self.memory.sweep_foreign()
-        for err in outs["errors"]:
-            self.memory.add_note(err)
-        # logbook: hypotheses_ops.json / claim.json are not part of the contract; if the
-        # model writes them anyway they are consumed (read_outputs unlinks) and ignored.
 
         if not result.get("ok"):
             self.turns["act_failed"] += 1

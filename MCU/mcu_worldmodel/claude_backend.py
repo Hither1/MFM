@@ -1,13 +1,5 @@
 """Drive one turn through the Claude Code CLI.
 
-Vendored from `prolong_mc/claude_backend.py`, the way this package's
-`codex_backend.py` is vendored from its prolong sibling and for the same reason:
-the arms must not import across into a sibling module whose measurements and
-defaults move on that arm's schedule. What this port adds is what the codex port
-adds -- `read_outputs` for the extra JSON channels a worldmodel turn may write
-(`hypotheses_ops.json`, `claim.json`) and an `expect_actions=False` mode for the
-induction pass, which produces no actions.json by design.
-
 The Claude-side sibling of `codex_backend.CodexTurn`, holding the same contract --
 a persistent workspace, a project file carrying the system prompt (CLAUDE.md here,
 AGENTS.md there), a turn prompt pointing at logs.txt, `actions.json` as the only
@@ -79,12 +71,8 @@ from mcu_worldmodel.codex_backend import scrub_env
 ALLOWED_TOOLS: tuple[str, ...] = ("Bash", "Read", "Write", "Edit")
 
 # Files a turn produces, cleared before each turn so a stale one from the previous
-# turn is never mistaken for this turn's output. Same list and same reasoning as
-# the codex twin: `actions.json` is the only required one, the other JSON channels
-# are optional per turn and an absent one must read as "the agent said nothing".
-TURN_ARTEFACTS: tuple[str, ...] = (
-    "actions.json", "last_message.txt", "hypotheses_ops.json", "claim.json",
-)
+# turn is never mistaken for this turn's output. The codex twin's list.
+TURN_ARTEFACTS: tuple[str, ...] = ("actions.json", "last_message.txt")
 
 # What the CLI reports back in the init event when the allowlist is in force.
 # Compared as a set: an extra tool is a capability this arm must not have, a
@@ -521,8 +509,8 @@ class ClaudeTurn:
         """Execute one turn. Returns {"actions_json", "message", "ok", "error",
         "overflow"} -- the CodexTurn contract, unchanged.
 
-        `expect_actions=False` for the induction pass, which produces no
-        `actions.json` by design; without it every induction turn logs a
+        `expect_actions=False` for a turn that by design produces no
+        `actions.json` by design; without it every such turn logs a
         missing-plan warning, which is not a defect and hides the ones that are.
         """
         if self.max_calls and self.calls >= self.max_calls:
@@ -668,7 +656,7 @@ class ClaudeTurn:
         message = parsed["message"]
 
         # Two independent facts, reported on separate lines -- a tool error inside
-        # the turn is not why a plan is missing, and an induction turn writes no
+        # the turn is not why a plan is missing, and a turn run with expect_actions=False writes no
         # plan by design (the codex twin's lesson, kept).
         if error:
             logger.warning(f"[claude] turn {self.calls} reported: {error[:200]}")
@@ -679,7 +667,7 @@ class ClaudeTurn:
             )
         # Nothing at all -- no plan and no prose -- means the call never really
         # answered; a broken --resume is exactly this shape and a resumed retry
-        # reproduces it forever. Cold-start instead, induction turns included.
+        # reproduces it forever. Cold-start instead, those turns included.
         if actions_json is None and not message and self.session_id:
             self._discard_session("produced no output at all", "empty_resets")
         return {
@@ -689,28 +677,6 @@ class ClaudeTurn:
             "error": error,
             "overflow": overflowed,
         }
-
-    def read_outputs(self) -> dict[str, Any]:
-        """The optional JSON channels this turn wrote.
-
-        Byte-for-byte the codex twin's contract: each file parses independently, a
-        failure costs only its own key, the parse error travels back to the runner
-        as a [NOTE], and the files are consumed on read so a claim from three
-        turns ago can never be re-applied after a crashed turn.
-        """
-        out: dict[str, Any] = {"hypotheses_ops": None, "claim": None, "errors": []}
-        for key, name in (("hypotheses_ops", "hypotheses_ops.json"), ("claim", "claim.json")):
-            path = self.workspace / name
-            if not path.exists():
-                continue
-            try:
-                out[key] = json.loads(path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as exc:
-                out["errors"].append(f"{name} did not parse: {exc}")
-                logger.warning(f"[claude] {name} did not parse: {exc}")
-            finally:
-                path.unlink(missing_ok=True)
-        return out
 
     # -- event parsing -----------------------------------------------------
 

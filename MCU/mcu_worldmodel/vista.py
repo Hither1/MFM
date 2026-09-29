@@ -120,9 +120,6 @@ class VistaCodexShim:
         from mcu_worldmodel.codex_backend import CodexTurn
         return CodexTurn.split_briefing(message)
 
-    def read_outputs(self) -> dict[str, Any]:
-        return {"hypotheses_ops": None, "claim": None, "errors": []}
-
     def run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         raise RuntimeError("the vista arm runs no codex exec turns")
 

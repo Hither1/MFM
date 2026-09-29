@@ -73,15 +73,6 @@ class FakeCodex:
                 "message": turn.get("message", ""), "ok": "actions" in turn,
                 "error": None, "overflow": False}
 
-    def read_outputs(self):
-        out = {"hypotheses_ops": None, "claim": None, "errors": []}
-        for key, name in (("hypotheses_ops", "hypotheses_ops.json"), ("claim", "claim.json")):
-            p = self.workspace / name
-            if p.exists():
-                out[key] = json.loads(p.read_text())
-                p.unlink()          # consumed on read, as the real backend does
-        return out
-
     @staticmethod
     def split_briefing(message):
         from mcu_worldmodel.codex_backend import CodexTurn
