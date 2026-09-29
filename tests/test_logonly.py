@@ -2,7 +2,6 @@
 own files do not, and the log itself is that of the agent without the log-only view."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import test_pins_replay as R
@@ -75,7 +74,7 @@ def test_log_only_takes_the_models_files_back_each_turn(tmp_path, fake_codex, mo
     assert "write\nthem to a file" not in "".join(prompts[1:])
     audit = agent.audit()
     assert audit["log_only"] is True and audit["files_removed"] >= 2
-    assert agent.log.log_only and not agent.log.stateless and agent.log_window is None
+    assert agent.log.log_only
 
 
 def test_without_the_log_only_view_the_files_are_kept(tmp_path, fake_codex, monkeypatch):

@@ -10,7 +10,7 @@ every task boundary (so it is never stale and needs no separate state).
 """
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter
 from typing import Any, Iterable
 
 from mfm.memory.recall import norm_action, norm_text

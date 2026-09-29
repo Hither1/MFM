@@ -69,14 +69,9 @@ class EpisodeStore(MemorySink):
     line with the transition recall of `mfm.memory.recall`. Off, the store is
     byte-identical to what the MCU ladder runs on."""
 
-    def __init__(self, root: Path | str, *, recall: bool = False, tool: bool = True) -> None:
+    def __init__(self, root: Path | str, *, recall: bool = False) -> None:
         self.root = Path(root)
         self.recall = recall
-        # `tool=False` (the MCU "without structured episode retrieval" ablation,
-        # 2026-09-19): the record is written exactly as before -- episodes/, index.jsonl,
-        # every image -- but `tools/episodes.py` is not put in the workspace, so the
-        # model reaches the same files through ordinary text search only.
-        self.tool = bool(tool)
         self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
         self.index_path = self.root / "index.jsonl"
@@ -93,8 +88,7 @@ class EpisodeStore(MemorySink):
         self.n_closed = 0
         self.tags: Counter[str] = Counter()
         self.closed: list[dict[str, Any]] = []
-        if self.tool:
-            self._write_tool()
+        self._write_tool()
 
     def _write_tool(self) -> None:
         dst = self.root / "tools" / "episodes.py"
@@ -106,11 +100,6 @@ class EpisodeStore(MemorySink):
     # -- sink hooks -----------------------------------------------------------
 
     def prompt_note(self, agent: "MemoryAgent") -> str | None:
-        # Under the stateless ablation the visible workspace is rebuilt without
-        # `episodes/` or the tool every turn (see `publish`), so the model is not told
-        # about them; the record still holds them for the analysis.
-        if getattr(agent, "stateless", False):
-            return None
         return getattr(agent, "mfm_memory_note", None)
 
     def _state(self, agent: "MemoryAgent", obs: "Observation") -> dict[str, Any]:
@@ -236,36 +225,12 @@ class EpisodeStore(MemorySink):
             self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome,
                         extra_tags=tuple(tags))
 
-    def publish(self, agent: "MemoryAgent", visible: Path, window: int | None,
-                stateless: bool, current: str | None) -> None:
-        """Mirror the log's ablation rule onto `episodes/`: everything under a full
-        log, nothing under stateless or the no-log control, and under a window only
-        the episodes whose last step is inside it (a window of N sections is N ticks
-        in MCU and N turns in KiCad, and an episode's `last_step` is in those units)."""
+    def publish(self, agent: "MemoryAgent", visible: Path) -> None:
+        """Mirror the record's episodes, index and tool into a view of it."""
         if Path(visible) == self.root:
             return
         vis_dir = Path(visible) / "episodes"
-        if stateless or window == -1:
-            shutil.rmtree(vis_dir, ignore_errors=True)
-            (Path(visible) / "index.jsonl").unlink(missing_ok=True)
-            return
-        step_now = agent._obs.step if agent._obs is not None else 0
-
-        def inside(r: dict[str, Any]) -> bool:
-            # An episode is inside the window when the frame it opened on is: its
-            # image is that frame, and its ticks all come after it. Judged by what the
-            # log's publish left in `visible` (the attachment it opened on), so the two
-            # views cannot disagree; an episode with no attachment falls back to its
-            # first step. Keeping by `last_step` leaked frames from before the window
-            # through `episodes/` (window 3 at step 13 showed step 8's frame).
-            if window is None:
-                return True
-            att = r.get("attachment")
-            if att:
-                return (Path(visible) / att).exists()
-            return (r.get("first_step") or 0) > step_now - window
-
-        keep = [r for r in self.closed if inside(r)]
+        keep = list(self.closed)
         keep_ids = {r["id"] for r in keep}
         for r in self.closed:
             src, dst = self.dir / r["id"], vis_dir / r["id"]

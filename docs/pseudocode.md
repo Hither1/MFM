@@ -1,9 +1,10 @@
 # MFM (Multimodal Filesystem Memory): the method in pseudocode
 
-As run by the `mfm` arm on the logbook chassis (`--memory mfm --atoms --own --own-reflexes
---expect --retrieval --no-harness-reflexes --thin --skills`, one codex thread), read off
-`mcu_worldmodel/agent.py`, `mcu_worldmodel/previous.py`, `mcu_worldmodel/own.py` and
-`mfm/{agent,memory,backend}` on 2026-09-13.
+The `mfm` arm on the Minecraft chassis, as `MCU/mcu_worldmodel/arms.py` configures it
+and `scripts/run-arm.sh --memory mfm` runs it (one model session for the life), read
+off `MCU/mcu_worldmodel/{agent,previous,own,episodes}.py` and `mfm/{memory,backend}`.
+The KiCad arm (`CUA-KiCad/gym_codex/prolong_agent.py`) keeps the same record and
+retrieval on `mfm/memory`; what it carries between tasks is in `mfm/memory/carry.py`.
 
 The idea in one line: the agent's memory is a directory. The harness writes an immutable
 record into it (log, episodes, frames), the model writes its own files into it (digest,
@@ -31,7 +32,7 @@ W : workspace directory of this life = the model's cwd = its whole memory
                            example reflex scripts (lava_ahead, fell, hit, starving)
     references/            long reference docs read on demand (skills.md, survival.md, own.md)
     mine/                  THE MODEL'S OWN FILES, carried to the next life unchanged:
-                             digest.md     what is true of this world across lives
+                             digest.md     what is true of this world across lives (or GUIDE.md)
                              working.md    the continuation note, served back every turn
                              notes.md      what worked, what each script assumes
                              procedures/*.py   scripts that expand to atom lists
@@ -145,7 +146,7 @@ procedure ACT_TURN(o, s)                              # one model call
     plan ← PARSE(actions.json)
         # entries are {action, repeat} over ATOMS, or {procedure: <own name>, args}
         # an own procedure runs `python mine/procedures/<name>.py --args ...` on the live
-        # state and expands to its atom list; caps: 5 entries, 400 steps per plan
+        # state and expands to its atom list; caps: 40 entries, 400 steps per plan
     memory.add_note(each parse note)
     Q ← [(step, i) for i, entry in enumerate(plan.entries) for step in entry.steps]
 
@@ -203,7 +204,7 @@ every later turn
     read [OBSERVED] against your own EXPECT; look at the cited frame when they differ
     grep logs.txt / query episodes when the present does not explain itself
     rewrite mine/working.md when the plan changes (< 40 lines)
-    write ./actions.json: ≤ 5 entries of atoms or own procedures, with an EXPECT line
+    write ./actions.json: ≤ 40 entries of atoms or own procedures, with an EXPECT line
     write a new procedure or reflex when the same atom sequence recurs or the same
     event keeps killing you; write each reflex firing into mine/notes.md
 

@@ -3,8 +3,7 @@ nothing moved, and the hotbar noise that must not be reported as a loop.
 
 Evidence: the six full-task lives of1/of2/of3 and their reuse lives showed the model
 re-issuing one [PLAN]/EXPECT for 15-30 turns with moved=0, while the only thing the
-[RECALL] block had to say was that `hotbar.6` had changed nothing in its last 61 calls
-(tasks/mfm-three-layer.spatial-grid/analysis/worker_recall_2026-09-09.md).
+[RECALL] block had to say was that `hotbar.6` had changed nothing in its last 61 calls.
 """
 from __future__ import annotations
 

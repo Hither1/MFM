@@ -1,15 +1,14 @@
-"""Summarise the task-order ablation: the same carry arm run under several task orders.
+"""Summarise one arm across task orders: the seeds of the KiCad table.
 
-    python gym_codex/kicad_order_ablation.py runs/cua_bench_codex/kicad_mfmcarry3design_gpt6hint \
-        runs/cua_bench_codex/kicad_mfmcarry3design_gpt6hint_order*
+    python gym_codex/kicad_task_orders.py <run dir of seed 0> <run dir of seed 1> ...
 
-Each argument is a run dir with `results.jsonl` (and, for shuffled runs,
-`task_order.json`; a run without it is the registry order, position = sorted-id rank).
-Prints, per run, the seed, mean official reward and mean steps; per task, the reward
-across runs (which tasks move with the order at all); and per position third, the mean
-reward and steps pooled over runs -- the amortisation signal from the fixed-order
-comparison (carried minus fresh turns by thirds) re-measured with the order randomised.
-Official reward only; pass `--relaxed` to read `relaxed` from rows that carry it.
+Each argument is a run dir with `results.jsonl` and, for a run launched with
+`--task-order-seed`, `task_order.json` (a run without it took the registry order,
+position = sorted-id rank). Prints, per run, the seed, mean official reward and mean
+steps; per task, the reward across runs; and per position third, the mean reward and
+steps pooled over runs -- for an arm that carries memory across tasks, whether later
+tasks cost fewer steps. Official reward only; pass `--relaxed` to read `relaxed` from
+rows that carry it.
 """
 from __future__ import annotations
 

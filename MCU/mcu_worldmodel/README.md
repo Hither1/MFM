@@ -38,15 +38,17 @@ memory/
   tools/episodes.py    the query tool over the index (filters, --sheet, --then-now)
   tools/zoom.py        crop and magnify a region of a saved frame
   references/          the rules the short contract points to
-  skills/              the skill package, the model's to edit
-  mine/                the model's own notes, procedures/*.py and reflexes/*.py
+  skills/              harness-written: how to use the memory, and example procedures
+                       and reflexes to copy into mine/
+  mine/                the model's own: notes.md, working.md, GUIDE.md or digest.md,
+                       procedures/*.py and reflexes/*.py
   previous/life_<i>/   the record of an earlier life in the same world (--seed-memory)
 ```
 
 `logs.txt`, `index.jsonl` and the contract are harness-owned: a turn that shrinks one of
 them is a fault (`memory.py`). Everything the model is told about the past is a file it
-can open; nothing is summarised into the prompt except the `[RECALL]` block, which
-quotes index rows near the current position (`mfm/memory/recall.py`).
+can open; the turn prompt carries only `mine/working.md` and the `[RECALL]` block, which
+the harness computes from the index (`mfm/memory/retrieve.py`).
 
 ## Modules
 

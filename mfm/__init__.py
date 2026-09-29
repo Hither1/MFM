@@ -6,5 +6,6 @@ Three layers, each importable on its own and stdlib-only:
   mfm.agent     the benchmark-neutral turn protocol and plan queue
   mfm.memory    the append-only log, the episode store, the index and retrieval
 
-The benchmarks (MCU, CUA-KiCad) supply an adapter each; see PLAN_episodic_memory.md.
+The benchmarks supply an adapter each: `MCU/mcu_worldmodel/episodes.py` and
+`CUA-KiCad/gym_codex/prolong_agent.py`. `mfm.vista` is the VISTA baseline.
 """

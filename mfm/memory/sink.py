@@ -51,9 +51,8 @@ class MemorySink:
     def note(self, agent: "MemoryAgent", text: str) -> None:
         """A harness-side note was added to the log."""
 
-    def publish(self, agent: "MemoryAgent", visible: "Path", window: int | None,
-                stateless: bool, current: str | None) -> None:
-        """The visible workspace is being rebuilt for a model call (ablations)."""
+    def publish(self, agent: "MemoryAgent", visible: "Path") -> None:
+        """The visible workspace is being rebuilt for a model call."""
 
     def close(self, agent: "MemoryAgent", **outcome: Any) -> None:
         """The episode ended."""

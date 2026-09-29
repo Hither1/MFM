@@ -4,7 +4,6 @@ plan; a script that keeps failing is switched off until edited; the [OWN] block 
 the contract names what to write first."""
 from __future__ import annotations
 
-import json
 import os
 import time
 from pathlib import Path

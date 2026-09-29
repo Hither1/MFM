@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import test_pins_replay as R
-from conftest import pin_path
 
 
 def _agent(tmp_path: Path, kind: str, task: str, monkeypatch):

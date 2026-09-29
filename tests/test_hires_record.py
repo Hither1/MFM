@@ -8,14 +8,13 @@ under mcu_worldmodel/ names it; it is outside the model's working directory).
 from __future__ import annotations
 
 import base64
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-MCU = Path(os.environ.get("MFM_MCU_ROOT", Path(__file__).resolve().parents[1] / "MCU"))
+MCU = Path(__file__).resolve().parents[1] / "MCU"
 if str(MCU) not in sys.path:
     sys.path.insert(0, str(MCU))
 

@@ -126,7 +126,7 @@ class ProlongGuiAgent(MemoryAgent):
         # The conventions paragraph (`--conventions`): GND symbol on every return, no
         # labels the task does not ask for, designators in the task's order.
         self.conventions = conventions
-        visible, record = prepare_workspace(Path(workspace), ablated=log_only)
+        visible, record = prepare_workspace(Path(workspace), view=log_only)
         log = EpisodeLog(record, attachment_markers=("SCREEN",), attachment_dirs=("frames",),
                          log_only=log_only)
         # The frame tool the system prompt promises (`./tools/zoom.py`), for both arms.
@@ -360,13 +360,13 @@ class ProlongGuiAgent(MemoryAgent):
         ]
 
     def section(self, prev_item: dict[str, Any] | None,
-                obs: Observation) -> tuple[str, list[str], str | None] | None:
+                obs: Observation) -> tuple[str, list[str]] | None:
         assert self._open is not None
         lines = []
         if self._open["feedback"]:
             lines.append(f"[FEEDBACK] {self._open['feedback']}")
         lines.append(f"[SCREEN] {self._open['rel']}")
-        return self._open["title"], lines, None
+        return self._open["title"], lines
 
     def turn_prompt(self, obs: Observation) -> str:
         assert self._open is not None
@@ -474,8 +474,7 @@ class ProlongGuiAgent(MemoryAgent):
         assert self._open is not None
         self.act_turns += 1
         think = _briefing_and_plan(message)
-        self.log.append_lines([f"[ACTIONS] {pb.log_line}"], plan=think,
-                              title=self._open["title"])
+        self.log.append_lines([f"[ACTIONS] {pb.log_line}"], plan=think)
         if pb.feedback:
             self.add_feedback(pb.feedback)
         self._open = None

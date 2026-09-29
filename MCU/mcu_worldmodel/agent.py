@@ -184,9 +184,8 @@ class WorldModelAgent:
         # backend's environment fallback (the offline tests).
         session_max_turns: int | None = None,
         codex_timeout: int | None = None,
-        # The mfm arm's retrieval block in the turn prompt (PLAN_episodic_memory.md,
-        # "retrieval block ... a flag, default off"). Only the mfm mode has a store
-        # to compute it from.
+        # The mfm arm's retrieval block in the turn prompt. Only the mfm mode has a
+        # store to compute it from.
         retrieval: bool = False,
         # The vista arm's knobs (mcu_worldmodel/vista.py: thread_bytes, frame_every,
         # idle_timeout, close_timeout, codex_bin); None keeps its defaults.
@@ -464,7 +463,7 @@ class WorldModelAgent:
         #: on -- the island's edge is the void (stage s10 on the merged tree, 2026-09-04:
         #: the flee reflex sprinted the avatar off the platform to y -272).
         self._dimension = "the Overworld"
-        #: The Nether lock (2026-09-07, tasks/mfm-three-layer.spatial-grid, audit F): every
+        #: The Nether lock (2026-09-07): every
         #: Nether visit on record (og9 x2, og12, og13) died within 400 steps of arriving,
         #: all by walking, sprinting or jumping off a ledge into the lava sea (y ~31): og12
         #: pressed forward+sprint+jump down a slope from y 36 to 28 with LAVA AHEAD in its

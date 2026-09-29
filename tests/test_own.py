@@ -1,6 +1,5 @@
 """`--atoms` (procedures.ATOMS is the visible set) and `--own` (mine/ persists,
-mine/procedures/*.py are procedures run in a subprocess: mcu_worldmodel/own.py).
-tasks/mfm-three-layer.self-harness, 2026-09-07."""
+mine/procedures/*.py are procedures run in a subprocess: mcu_worldmodel/own.py)."""
 from __future__ import annotations
 
 import json

@@ -1,6 +1,7 @@
-"""The KiCad design turn (`--design-turn`) and the conventions paragraph
-(`--conventions`): off, the arm is the baseline; on, one design call at its own effort
-precedes the first action turn and the prompt carries the notes."""
+"""The KiCad design turn and the conventions paragraph of the MFM arms
+(`gym_codex.memory_agents.ARMS`): without them the agent is the log-and-episodes
+baseline; with them one design call at its own effort precedes the first action turn
+and the prompt carries the notes."""
 from __future__ import annotations
 
 import json
@@ -129,26 +130,24 @@ def test_baseline_arm_makes_no_design_call(tmp_path, fake_codex, monkeypatch):
 def _args(**over):
     base = dict(agent="mfm", model="gpt-6-astra", effort="low", max_steps=200,
                 codex_timeout=None, session_turns=None, codex_base_url=None,
-                carry_outcomes=False,
-                design_turn=False, design_effort="high", conventions=False,
                 env_id="cua.bench.local.kicad")
     base.update(over)
     return SimpleNamespace(**base)
 
 
-def test_flags_reach_the_agent_only_when_on(tmp_path, monkeypatch):
+def test_the_arm_table_reaches_the_agent(tmp_path, monkeypatch):
     seen = {}
     monkeypatch.setattr(run_eval, "make_agent", lambda kind, **kw: seen.update(kind=kind, **kw))
     run_eval._make_agent(_args(), tmp_path / "t")
-    assert "design" not in seen and "conventions" not in seen and "design_effort" not in seen
+    assert seen["design"] is True and seen["design_effort"] == "high"
+    assert seen["conventions"] is True and "carry_outcomes" not in seen
     seen.clear()
-    run_eval._make_agent(_args(design_turn=True, design_effort="medium", conventions=True),
-                         tmp_path / "t")
-    assert seen["design"] is True and seen["design_effort"] == "medium"
-    assert seen["conventions"] is True
+    run_eval._make_agent(_args(agent="mfm-carry"), tmp_path / "t")
+    assert seen["design"] is True and seen["carry_outcomes"] is True
+    assert seen["carry_dir"] == tmp_path / "carry" and seen["task_id"] == "t"
     seen.clear()
-    run_eval._make_agent(_args(agent="prolong-logonly", conventions=True), tmp_path / "t")
-    assert seen["conventions"] is True and "design" not in seen
+    run_eval._make_agent(_args(agent="prolong-logonly"), tmp_path / "t")
+    assert not {"design", "conventions", "carry_outcomes"} & set(seen)
 
 
 NET = """(export (version "E")

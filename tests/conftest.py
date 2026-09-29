@@ -1,6 +1,6 @@
 """Test setup shared by the pin tests.
 
-The two submodules are put on sys.path so both repos' modules import as they do in
+`MCU/` and `CUA-KiCad/` are put on sys.path so their modules import as they do in
 their own launchers. Every codex-related environment variable is cleared *before* any
 of those modules import, because several read the environment at import time
 (AUTO_COMPACT_TOKEN_LIMIT, DEFAULT_CONTEXT_WINDOW, the session age cap).
@@ -15,9 +15,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-# MFM_MCU_ROOT: test another checkout of the MCU code (a merge worktree) without
-# touching the one a running arm imports from.
-MCU = Path(os.environ.get("MFM_MCU_ROOT", ROOT / "MCU"))
+MCU = ROOT / "MCU"
 KICAD = ROOT / "CUA-KiCad"
 PINS = ROOT / "tests" / "pins"
 FAKE_CODEX = ROOT / "tests" / "fake_codex.py"

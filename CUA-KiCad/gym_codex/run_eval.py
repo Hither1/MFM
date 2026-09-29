@@ -36,7 +36,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from gym_codex.codex_gui_agent import CodexGuiAgent  # noqa: E402
-from gym_codex.memory_agents import make_agent  # noqa: E402
+from gym_codex.memory_agents import ARMS, make_agent  # noqa: E402
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -185,19 +185,10 @@ def _make_agent(args, task_dir: Path):
                              timeout=args.codex_timeout or 900, base_url=args.codex_base_url,
                              thread_bytes=args.vista_thread_bytes,
                              idle_timeout=args.vista_idle_timeout, **_cli_kw(args))
-    if args.agent.startswith(("prolong", "mfm")):
-        # The two prompt-level levers are keyword-only when on, so an arm without
-        # them is constructed with exactly the baseline's arguments.
-        if args.design_turn:
-            kw["design"] = True
-            kw["design_effort"] = args.design_effort
-        if args.conventions:
-            kw["conventions"] = True
     if args.agent.endswith("-carry"):
         kw["carry_dir"] = task_dir.parent / "carry"
         kw["task_id"] = task_dir.name
-        kw["carry_outcomes"] = args.carry_outcomes
-    return make_agent(args.agent, **kw)
+    return make_agent(args.agent, **kw, **ARMS[args.agent])
 
 
 #: cua.bench's KiCad grader only ever reads /home/cua/kicad_project (a .net there,
@@ -329,7 +320,7 @@ async def run_task(gym, row: dict, args, out_dir: Path) -> dict:
             result["instruction_hint"] = "kicad_project"
         screenshot = obs.image
         (task_dir / "instruction.txt").write_text(instruction, encoding="utf-8")
-        if args.design_turn and hasattr(agent, "seed_design"):
+        if getattr(agent, "design", False) and hasattr(agent, "seed_design"):
             # A modify task starts from a project that already holds a schematic. The
             # design call cannot reach the container, so its netlist is read back here
             # and handed over before the first predict; a from-scratch task has no
@@ -447,9 +438,9 @@ async def main() -> int:
                         "empty netlist, rewarding the submission of nothing)")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--task-order-seed", type=int, default=None,
-                   help="shuffle the selected tasks with this seed (default: the registry's "
-                        "sorted-id order, which every wave run used). The order ablation for "
-                        "the carry arms: what a task's memory holds depends on which tasks "
+                   help="the seed of a run: shuffle the selected tasks with it (default: "
+                        "the registry's sorted-id order). For an arm that carries memory "
+                        "across tasks, what a task's memory holds depends on which tasks "
                         "came before it. Recorded in <out>/task_order.json; a resumed run "
                         "must pass the same seed.")
     p.add_argument("--model", default="gpt-5.6-sol")
@@ -464,11 +455,13 @@ async def main() -> int:
                         "(PRO-LONG: an append-only log is the only memory), vista "
                         "(VISTA: one codex app-server thread, play one batch at a time, "
                         "inspect over the archived screenshots, GUIDE.md/WORKING.md, a "
-                        "checkpoint handoff when the context fills; no shell), mfm (the "
-                        "log plus the episode store and a multi-batch plan queue), "
-                        "mfm-carry (mfm with the finished tasks' records and a persistent "
-                        "notes/ carried into each task's workspace under <out>/carry; "
-                        "tasks run in order at concurrency 1)")
+                        "checkpoint handoff when the context fills; no shell), mfm (MFM "
+                        "without cross-task memory: the log plus the episode store and a "
+                        "multi-batch plan queue), mfm-carry (MFM: the same, with the "
+                        "finished tasks' records and a persistent notes/ carried into "
+                        "each task's workspace under <out>/carry; tasks run in order at "
+                        "concurrency 1). The options of the two MFM arms are "
+                        "gym_codex.memory_agents.ARMS")
     p.add_argument("--cli", choices=("codex", "claude"), default="codex",
                    help="which CLI carries the model: codex "
                         "(default), or claude -- Anthropic models through Claude Code "
@@ -495,36 +488,12 @@ async def main() -> int:
                    help="cua.bench kicad: pre-create the grader's /home/cua/kicad_project "
                         "and append its location to the instruction (the from-scratch "
                         "tasks are unscorable without it; see _KICAD_PROJECT_HINT)")
-    p.add_argument("--design-turn", action="store_true",
-                   help="cua.bench kicad, mfm arms: one design call before the "
-                        "first action turn, at --design-effort on a codex thread of its "
-                        "own, writing `design.md` + `intent.json` in the workspace "
-                        "(gym_codex.mfm_prompts.DESIGN_PROMPT); the action turns build "
-                        "from them (DESIGN_NOTE). Every design error on the from-scratch "
-                        "tasks was in the plan the model wrote at effort low and then "
-                        "executed faithfully; this spends one high-effort call on the plan. "
-                        "No reference, no score.")
-    p.add_argument("--design-effort", default="high",
-                   help="reasoning effort of the design call (default high)")
-    p.add_argument("--conventions", action="store_true",
-                   help="cua.bench kicad, mfm arms: append "
-                        "gym_codex.mfm_prompts.CONVENTIONS_NOTE to the system prompt -- GND "
-                        "symbol on every return, no labels the task does not ask for, "
-                        "designators in the task's order.")
-    p.add_argument("--carry-outcomes", action="store_true",
-                   help="mfm-carry: write `previous/outcomes.md` -- each finished task's "
-                        "score with its task text (mfm.memory.carry.CARRY_OUTCOMES_NOTE). "
-                        "Without it the carried notes are the model's own belief about "
-                        "what worked, never checked; the reference and the per-check "
-                        "verdicts are still not shown.")
     p.add_argument("--save-screens", action="store_true", default=True)
     p.add_argument("--resume", action="store_true", default=True)
     p.add_argument("--out", required=True)
     args = p.parse_args()
     if args.max_steps is None:
         args.max_steps = _DEFAULT_BUDGETS.get(args.env_id, _FALLBACK_BUDGET)
-    if args.design_turn and args.agent == "prolong-logonly":
-        p.error("--design-turn writes design files the log-only arm takes back every turn")
     if _cli_error(args):
         p.error(_cli_error(args))
     logger.info("env=%s budget=%d steps", args.env_id, args.max_steps)
@@ -585,10 +554,11 @@ async def main() -> int:
                "max_steps": args.max_steps, "domain": args.domain, "env_id": args.env_id,
                "task_order_seed": args.task_order_seed}
     summary.update(_cli_kw(args))
-    if args.design_turn or args.conventions:
-        summary["design"] = {"design_turn": args.design_turn,
-                             "design_effort": args.design_effort if args.design_turn else None,
-                             "conventions": args.conventions}
+    options = ARMS.get(args.agent, {})
+    if options:
+        summary["design"] = {"design_turn": options["design"],
+                             "design_effort": options["design_effort"],
+                             "conventions": options["conventions"]}
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     logger.info("SUMMARY %s", json.dumps(summary))
     return 0 if not errors else 1

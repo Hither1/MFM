@@ -176,8 +176,6 @@ def test_codex_stays_the_default(tmp_path, monkeypatch):
 def _args(**over):
     base = dict(agent="prolong-logonly", model=MODEL, effort="low", max_steps=200,
                 codex_timeout=None, session_turns=None, codex_base_url=None,
-                carry_outcomes=False,
-                design_turn=False, design_effort="high", conventions=False,
                 env_id="cua.bench.local.kicad")
     base.update(over)
     return SimpleNamespace(**base)

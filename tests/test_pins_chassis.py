@@ -154,7 +154,6 @@ def test_chassis_mfm_retrieval(tmp_path: Path):
     paragraph that names the block; the block appears once the scripted chops (20
     `attack x6` entries that change nothing) form a streak, and it is pinned."""
     import pytest
-    from mcu_worldmodel.agent import WorldModelAgent
     with pytest.raises(ValueError):
         drive_chassis(tmp_path / "x", "logbook", retrieval=True)
     agent, actions = drive_chassis(tmp_path, "mfm", retrieval=True)

@@ -21,12 +21,7 @@ from test_pins_replay import _dump_calls, _norm, drive_kicad
 from conftest import check_pin
 
 PINS = "../pins_release/kicad_"
-DESIGN = dict(design=True, design_effort="high", conventions=True)
-ARMS = {
-    "prolong-logonly": {},
-    "mfm": DESIGN,
-    "mfm-carry": dict(DESIGN, carry_outcomes=True),
-}
+ARMS = ("prolong-logonly", "mfm", "mfm-carry")
 INTENT = {"parts": [{"ref": "R1", "symbol": "Device:R", "value": "10k"}],
           "nets": [{"label": "GND", "pins": ["R1.2"]}]}
 
@@ -45,7 +40,7 @@ def _manifest(root: Path, tmp: Path) -> str:
 
 def _episode(kind: str, cli: str, task: str, tmp: Path, fake_codex):
     from gym_codex import memory_agents
-    kw = dict(ARMS[kind])
+    kw = dict(memory_agents.ARMS[kind])
     if kind.endswith("-carry"):
         kw.update(carry_dir=tmp / "out" / "carry", task_id=task)
     if cli == "claude":
@@ -65,7 +60,6 @@ def _episode(kind: str, cli: str, task: str, tmp: Path, fake_codex):
 
 @pytest.mark.parametrize("kind", sorted(ARMS))
 def test_kicad_arm(tmp_path, fake_codex, monkeypatch, kind):
-    from gym_codex import memory_agents
     monkeypatch.setattr("time.sleep", lambda s: None)
     agent, outputs = _episode(kind, "codex", "task_a", tmp_path, fake_codex)
     if kind.endswith("-carry"):          # the second task sees the first one's record

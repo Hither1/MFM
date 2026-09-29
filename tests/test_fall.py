@@ -4,7 +4,6 @@ a go_to fell 13 blocks in the Nether, the stall branch queued pillar_up(2) towar
 mid-air cell, the model jumped on and fell 9 more, dead with the kit."""
 from __future__ import annotations
 
-from collections import deque
 from types import SimpleNamespace
 
 from mcu_worldmodel.grid import Grid

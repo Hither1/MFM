@@ -1,4 +1,4 @@
-"""Memory that outlives a task: the `carry` layer of PLAN_episodic_memory.md section 5.
+"""Memory that outlives a task: the `carry` layer.
 
 A run of the KiCad benchmark is 25 tasks in one application, each in a fresh workspace,
 and the measured runs spent a median of 7 turns per task on the same preamble (dismiss
@@ -21,12 +21,7 @@ carried material is linked and copied *into* the workspace rather than reached t
 a symlink out of it. Single-writer: the tasks of a run execute in order at concurrency 1,
 and `seed` and `register` are called by consecutive tasks. The protocol consequence --
 task order is part of the arm and later tasks may benefit from earlier ones -- is the
-point, and it is why this is a separate arm (`*-carry`) rather than a default.
-
-Every arm on the carry rung gets the same carried material; what differs between
-`prolong-carry` and `mfm-carry` is only what the MFM store adds on top (the merged index,
-the query tool and the seen-before line), so the ladder isolates the structure from the
-mere existence of carry-over.
+point, and it is why this is a separate arm (`mfm-carry`) rather than a default.
 """
 from __future__ import annotations
 

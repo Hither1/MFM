@@ -287,9 +287,9 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None,
 
 def _frame(row: dict[str, Any]) -> str:
     """The frame path of a row (the index's `image`, else the conventional path). A row
-    that carries `image: None` was written by a store that kept no frame for it (the
-    "without historical images" ablation, or an encode failure): no path, rather than
-    the conventional one to a file that is not there."""
+    that carries `image: None` was written by a store that kept no frame for it (an
+    encode failure): no path, rather than the conventional one to a file that is not
+    there."""
     img = row.get("image")
     if img:
         return str(img)
@@ -680,12 +680,8 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                  movers: Iterable[str] = (), openers: Iterable[str] = (),
                  exclude_last: int = 6, streak_recent: int = 30, repeat_min: int = 3,
                  max_streaks: int = 2, max_here: int = 3, max_milestones: int = 0,
-                 plan_repeat_min: int = 3, plan_recent: int = PLAN_RECENT,
-                 frames: bool = True) -> str:
+                 plan_repeat_min: int = 3, plan_recent: int = PLAN_RECENT) -> str:
     """The retrieval block for one turn, or "" when there is nothing to say.
-
-    `frames=False`: no frame path is cited and the closing look-at-it line is left
-    out (the "without historical images" ablation: the record has no frames to open).
 
     Parts, each present only when it has content; every line names the episode ids it is
     computed from so the model can open them (`./tools/episodes.py --steps`, or the
@@ -747,19 +743,10 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
 
     if not lines:
         return ""
-    if not frames:
-        lines = [_FRAME_CITE.sub("", ln) for ln in lines]
     return ("[RECALL] computed from episodes/ by the harness -- what you did, not "
             "advice:\n" + "\n".join(lines)
-            + ("\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
-               "what you will see there.)" if frames else
-               "\n  (one line not enough? open the episode: `./tools/episodes.py --steps A B`, "
-               "or its directory.)"))
-
-
-#: The frame citations `streak_line` / the here-before lines carry, stripped under
-#: `frames=False`. Both shapes: " Frame: <path>" and " (frame: <path>)".
-_FRAME_CITE = re.compile(r" \(frame: [^)]*\)| Frame: \S+")
+            + "\n  (one line not enough? `view_image` the cited frame: what that entry saw is "
+              "what you will see there.)")
 
 
 def _milestone_name(row: dict[str, Any]) -> str:

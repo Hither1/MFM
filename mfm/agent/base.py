@@ -94,8 +94,6 @@ class MemoryAgent:
         log: EpisodeLog,
         codex: Any,
         analyzer_retries: int,
-        log_window: int | None = None,
-        stateless: bool = False,
         sinks: Sequence[MemorySink] = (),
     ) -> None:
         self.visible = Path(visible)
@@ -104,8 +102,6 @@ class MemoryAgent:
         self.log = log
         self.codex = codex
         self.analyzer_retries = analyzer_retries
-        self.log_window = log_window
-        self.stateless = stateless
         self.sinks: list[MemorySink] = list(sinks)
         self.queue: deque[dict[str, Any]] = deque()
         self.turn = 0
@@ -133,8 +129,8 @@ class MemoryAgent:
         raise NotImplementedError
 
     def section(self, prev_item: dict[str, Any] | None,
-                obs: Observation) -> tuple[str, list[str], str | None] | None:
-        """(title, lines, plans_title) of this step's section, or None to write none.
+                obs: Observation) -> tuple[str, list[str]] | None:
+        """(title, lines) of this step's section, or None to write none.
 
         `prev_item` is the queue item returned on the previous step, or None when there
         was none (the first step, or a step whose model call produced nothing)."""
@@ -236,8 +232,8 @@ class MemoryAgent:
             self._initial_written = True
         sec = self.section(self._prev_item, obs)
         if sec is not None:
-            title, lines, plans_title = sec
-            self.log.write_section(title, lines, plans_title=plans_title)
+            title, lines = sec
+            self.log.write_section(title, lines)
             for sink in self.sinks:
                 sink.open(self, obs, title, lines)
         # Consumed. Without this a failed refill would leave the item set and every
@@ -267,12 +263,11 @@ class MemoryAgent:
         plan was queued."""
         for sink in self.sinks:
             sink.refill(self, obs)
-        published = self.log.publish(self.visible, self.log_window, self.stateless,
-                                     current=obs.attachment)
+        published = self.log.publish(self.visible)
         self._published = published
         self.files_removed += published["removed"]
         for sink in self.sinks:
-            sink.publish(self, self.visible, self.log_window, self.stateless, obs.attachment)
+            sink.publish(self, self.visible)
 
         # Unconditional, not on demand. The comparison arms are handed their frames every
         # step; an analyzer that has to decide to look is not information-matched to

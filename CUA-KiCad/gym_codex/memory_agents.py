@@ -26,6 +26,20 @@ from typing import Any
 
 from gym_codex.prolong_agent import ProlongGuiAgent
 
+#: The MFM arms as the paper's runs configured them: one design call at high effort
+#: before the first action turn (`mfm_prompts.DESIGN_PROMPT`), the conventions
+#: paragraph (`mfm_prompts.CONVENTIONS_NOTE`) and, where memory is carried across
+#: tasks, each finished task's score beside its record (`previous/outcomes.md`).
+MFM: dict[str, Any] = dict(design=True, design_effort="high", conventions=True)
+
+#: What `run_eval.py` builds each memory arm with, beside the run's own arguments.
+ARMS: dict[str, dict[str, Any]] = {
+    "prolong-logonly": {},
+    "vista": {},
+    "mfm": MFM,
+    "mfm-carry": dict(MFM, carry_outcomes=True),
+}
+
 
 def make_agent(kind: str, **kw: Any):
     if kind == "prolong-logonly":

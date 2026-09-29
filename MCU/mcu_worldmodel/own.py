@@ -1,6 +1,6 @@
 """The model's own procedures (`--own`): scripts it writes under `mine/procedures/`.
 
-The self-harness arm (2026-09-07, tasks/mfm-three-layer.self-harness): the procedure
+The self-harness arm (2026-09-07): the procedure
 library the contract shows is cut to the atoms (`procedures.ATOMS`, `--atoms`) and the
 model rebuilds what it needs as scripts it keeps. A script at `mine/procedures/<name>.py`
 is a procedure from the next turn on: the harness runs it in a subprocess with the state

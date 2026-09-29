@@ -1,7 +1,6 @@
 """The runner's own cell map: what it knows for certain, kept between turns and lives.
 
-Measured on 148 dragon/diamond runs and the 2026-09-06 relay chain (findings in
-MFM-grid/tasks/mfm-three-layer.spatial-grid): 30-50% of blocked `go_to` targets were never
+Measured on 148 dragon/diamond runs and the 2026-09-06 relay chain: 30-50% of blocked `go_to` targets were never
 reached, the pond trap cost a median 612 steps per half run, and a remembered furnace
 one cell off cost obf1 ~10k steps. In every case the runner had walked the ground it
 needed -- from spawn to the pond, from the table to the shaft -- and threw the cells away

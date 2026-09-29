@@ -816,7 +816,7 @@ def register(p: Procedure) -> None:
     REGISTRY[p.name] = p
 
 
-#: `--atoms` (tasks/mfm-three-layer.self-harness, 2026-09-07): the procedure set a run
+#: `atoms` (2026-09-07): the procedure set a run
 #: shows and expands when the model is to build the rest itself (mcu_worldmodel/own.py).
 #: The primitives that carry a measured mechanic the model cannot redo from raw keys in
 #: one turn -- the closed-loop aims and walks, the GUI cursor and the one-call craft (9

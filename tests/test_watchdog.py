@@ -4,12 +4,10 @@ options expect and frames. The watchdog exists because every loop the
 (equip_hotbar, close_inventory, craft, use_until_gui, gui clicks, raw holds)."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
 
-from conftest import check_pin
 
 
 # ---------------- governor.check_plan ----------------

@@ -1,13 +1,12 @@
 """Memory v2 (2026-09-08): frames into decisions, working memory, the minimal contract,
-the distiller workspace. Evidence behind each: tasks/mfm-three-layer.spatial-grid/analysis/."""
+the carried lives."""
 import json
-import os
 import sys
 from pathlib import Path
 
 import pytest
 
-MCU = Path(os.environ.get("MFM_MCU_ROOT", Path(__file__).resolve().parents[1] / "MCU"))
+MCU = Path(__file__).resolve().parents[1] / "MCU"
 sys.path.insert(0, str(MCU))
 
 
