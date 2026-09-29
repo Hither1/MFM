@@ -39,7 +39,7 @@ from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 from a2a.utils import new_agent_text_message
 
 from mcu_worldmodel.agent import WorldModelAgent
-from mcu_worldmodel.arms import ARMS, SESSION_TURNS
+from mcu_worldmodel.arms import ARMS, MEMORY_MODE, SESSION_TURNS
 from mcu_worldmodel.milestones import MilestoneLedger
 from camera_contract import with_camera_truth
 from models import AckPayload, ActionPayload
@@ -115,8 +115,9 @@ class WorldModelExecutor(AgentExecutor):
         # The arm (mcu_worldmodel/arms.py). Same chassis every way -- execution engine,
         # perception, caps -- so the mode is the memory and nothing else.
         if memory_mode not in ARMS:
-            raise ValueError(f"unknown memory mode: {memory_mode!r}")
-        self.memory_mode = memory_mode
+            raise ValueError(f"unknown arm: {memory_mode!r}")
+        self.arm = memory_mode
+        self.memory_mode = MEMORY_MODE[memory_mode]
         # Which benchmark task this arm is being evaluated on. The milestone checklist
         # comes from the repo's public task config (task_milestones.py) now that the
         # wire no longer carries the scoring spec; the operator names the task the same
@@ -200,12 +201,14 @@ class WorldModelExecutor(AgentExecutor):
             vista_options=self.vista_options,
             previous_lives=previous_lives,
             frame_size=self.frame_size,
-            **ARMS[self.memory_mode],
+            **ARMS[self.arm],
         )
         if previous_lives:
             prev = self._agent.episodes.previous
-            logger.info(f"[adapter] episode {self._episode}: {prev.audit()['lives']} previous "
-                        f"life/lives carried from {previous_lives}: {prev.audit()['kinds']}")
+            audit = prev.audit()
+            logger.info(f"[adapter] episode {self._episode}: {audit['lives']} previous "
+                        f"life/lives carried from {previous_lives}: "
+                        f"{audit['files_linked']} files linked")
         if seeded_log:
             self._agent.memory.add_note(
                 "Memory inherited from a previous expedition in this world: "
@@ -229,7 +232,7 @@ class WorldModelExecutor(AgentExecutor):
         self._workspace = workspace
         logger.info(
             f"[adapter] episode {self._episode} workspace={workspace} "
-            f"memory={self.memory_mode} milestones={len(cfg)} "
+            f"arm={self.arm} milestones={len(cfg)} "
             f"platform_prompt={len(self._platform_prompt)} chars"
         )
 
@@ -267,7 +270,7 @@ class WorldModelExecutor(AgentExecutor):
         self._platform_prompt = with_camera_truth(self._platform_prompt)
         await self._send(
             event_queue, ctx_id,
-            AckPayload(success=True, message=f"{self.memory_mode} episode {self._episode} armed"),
+            AckPayload(success=True, message=f"{self.arm} episode {self._episode} armed"),
         )
 
     async def _handle_obs(self, payload: dict, event_queue: EventQueue, ctx_id: str) -> None:
@@ -302,8 +305,8 @@ class WorldModelExecutor(AgentExecutor):
                 self._keep_hires(encoded)
 
             if self._agent is None:
-                await asyncio.to_thread(self._build_agent, info)
                 try:
+                    await asyncio.to_thread(self._build_agent, info)
                     await asyncio.to_thread(self._agent.start, info)
                 except Exception:
                     # `_build_agent` has already assigned `self._agent`, so leaving it in
@@ -441,7 +444,10 @@ def main() -> None:
                         help="the arm: direct (no persistent memory), logbook (PRO-LONG: "
                              "an append-only logs.txt the model greps), vista (VISTA: one "
                              "thread calling `play`, the frame archive behind `inspect`, "
-                             "GUIDE.md/WORKING.md) or mfm (Multimodal Filesystem Memory)")
+                             "GUIDE.md/WORKING.md), mfm-matched (Multimodal Filesystem "
+                             "Memory on the baselines' contract, procedures and guards) or "
+                             "mfm (the same memory; the agent writes its own procedures "
+                             "and reflexes). Settings: mcu_worldmodel/arms.py")
     parser.add_argument("--task", type=str, default="mine_diamond_from_scratch",
                         help="task_category being evaluated; names the public task "
                              "config the milestone checklist is loaded from")
@@ -508,14 +514,15 @@ def main() -> None:
                        help="seconds of app-server silence before the thread is resumed")
     args = parser.parse_args()
 
-    if args.seed_memory and args.memory != "mfm":
-        parser.error("--seed-memory carries an earlier life's record: it needs --memory mfm")
-    if args.seed_log and args.memory != "logbook":
+    mode = MEMORY_MODE[args.memory]
+    if args.seed_memory and mode != "mfm":
+        parser.error("--seed-memory carries an earlier life's record: it needs an mfm arm")
+    if args.seed_log and mode != "logbook":
         parser.error("--seed-log carries an earlier life's log: it needs --memory logbook")
     vista_options = {k: v for k, v in (("thread_bytes", args.vista_thread_bytes),
                                        ("frame_every", args.vista_frame_every),
                                        ("idle_timeout", args.vista_idle_timeout)) if v is not None}
-    if vista_options and args.memory != "vista":
+    if vista_options and mode != "vista":
         parser.error("--vista-* options need --memory vista")
     try:
         fw, fh = (int(v) for v in args.frame_size.lower().split("x"))

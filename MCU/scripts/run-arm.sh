@@ -14,13 +14,16 @@
 # Options
 #   --arm NAME          names output/NAME, logs/NAME_* and the model-CLI home. Required,
 #                       and given first (scripts/stop_arm.py finds the run by it).
-#   --memory ARM        direct | logbook | vista | mfm. Required.
-#                         direct   no persistent memory: each turn is the present alone
-#                         logbook  PRO-LONG: one append-only logs.txt the model greps
-#                         vista    VISTA: one thread calling `play`, the frame archive
-#                                  behind `inspect` (codex only)
-#                         mfm      Multimodal Filesystem Memory, configured as in
-#                                  mcu_worldmodel/arms.py
+#   --memory ARM        direct | logbook | vista | mfm-matched | mfm. Required.
+#                         direct       no persistent memory: each turn is the present
+#                         logbook      PRO-LONG: one append-only logs.txt the model greps
+#                         vista        VISTA: one thread calling `play`, the frame
+#                                      archive behind `inspect` (codex only)
+#                         mfm-matched  Multimodal Filesystem Memory on the baselines'
+#                                      contract, procedure library and guards
+#                         mfm          the same memory; the agent writes its own
+#                                      procedures and reflexes
+#                       The settings of each arm: mcu_worldmodel/arms.py
 #   --task NAME         mine_diamond_from_scratch (default) | ender_dragon | nether_portal
 #   --steps N           the step budget. Default by task: 12000 (diamond), 36000
 #                       (dragon), 6000 (portal) -- the paper's budgets.
@@ -35,7 +38,7 @@
 #                       openrouter: a key file named by MCU_OPENROUTER_ENV holding
 #                       OPENROUTER_API_KEY=...; the key is read by the CLI through a
 #                       command and is never in any process environment.
-#   --seed-memory DIR   mfm: the memory dir of an earlier life in the same world
+#   --seed-memory DIR   mfm, mfm-matched: the memory dir of an earlier life in the same world
 #                       (output/<arm>/episode_001/memory), carried under previous/.
 #                       Repeatable, oldest first.
 #   --seed-log FILE     logbook: the logs.txt of an earlier life.
@@ -89,8 +92,8 @@ while [ $# -gt 0 ]; do
 done
 : "${ARM:?--arm is required}" "${MEMORY:?--memory is required}"
 : "${GREEN_PORT:?--green-port is required}" "${PURPLE_PORT:?--purple-port is required}"
-case "$MEMORY" in direct|logbook|vista|mfm) ;;
-    *) echo "unknown --memory: $MEMORY (direct|logbook|vista|mfm)" >&2; exit 2;; esac
+case "$MEMORY" in direct|logbook|vista|mfm-matched|mfm) ;;
+    *) echo "unknown --memory: $MEMORY (direct|logbook|vista|mfm-matched|mfm)" >&2; exit 2;; esac
 case "$CLI" in codex|claude) ;; *) echo "unknown --cli: $CLI (codex|claude)" >&2; exit 2;; esac
 case "$ROUTE" in account|openrouter) ;;
     *) echo "unknown --route: $ROUTE (account|openrouter)" >&2; exit 2;; esac

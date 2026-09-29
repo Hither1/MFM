@@ -1,14 +1,16 @@
-"""Pins of the four Minecraft arms under the settings the paper's runs used.
+"""Pins of the Minecraft arms under the settings of `mcu_worldmodel.arms`.
 
 Each arm is driven through the chassis with the scripted model of `test_pins_chassis`
 and everything it shows the model or writes beside it is pinned: the contract, every
 turn prompt, the log, the episode index, the actions returned to the driver, and a
 sha256 manifest of the whole workspace (references/, skills/, tools/, episodes/).
 
-    mfm      as `mcu_worldmodel.arms` defines it: from scratch, with a carried life,
-             and on the Claude Code channel
-    logbook  PRO-LONG's protocol on the same chassis
-    direct   no persistent memory
+    mfm          the self-writing arm: from scratch, with a carried life, and on the
+                 Claude Code channel
+    mfm-matched  the same memory on the baselines' contract, procedures and guards:
+                 from scratch and with a carried life
+    logbook      PRO-LONG's protocol on the same chassis
+    direct       no persistent memory
 
 The VISTA arm runs through the app-server thread and is pinned in `test_vista.py`.
 """
@@ -77,6 +79,27 @@ def test_mfm_with_a_carried_life(tmp_path: Path):
 def test_mfm_on_claude_code(tmp_path: Path):
     agent, actions = drive_chassis(tmp_path, "mfm", cli="claude", **_arm("mfm"))
     _pin_arm("mfm_claude", agent, actions, tmp_path)
+
+
+def test_mfm_matched_from_scratch(tmp_path: Path):
+    agent, actions = drive_chassis(tmp_path, "mfm", **_arm("mfm-matched"))
+    _pin_arm("mfm_matched", agent, actions, tmp_path)
+
+
+def test_mfm_matched_with_a_carried_life(tmp_path: Path):
+    first, _ = drive_chassis(tmp_path / "life_1", "mfm", **_arm("mfm-matched"))
+    agent, actions = drive_chassis(tmp_path / "life_2", "mfm",
+                                   previous_lives=[str(first.memory.root)],
+                                   **_arm("mfm-matched"))
+    _pin_arm("mfm_matched_carried", agent, actions, tmp_path)
+
+
+def test_the_two_mfm_arms_differ_in_the_harness_only():
+    from mcu_worldmodel.arms import ARMS, MEMORY_MODE, MFM_MEMORY, MFM_OWN
+    assert MEMORY_MODE["mfm"] == MEMORY_MODE["mfm-matched"] == "mfm"
+    assert ARMS["mfm-matched"] == MFM_MEMORY
+    assert ARMS["mfm"] == {**MFM_MEMORY, **MFM_OWN} and not set(MFM_MEMORY) & set(MFM_OWN)
+    assert ARMS["logbook"] == ARMS["direct"] == ARMS["vista"] == {}
 
 
 @pytest.mark.parametrize("mode", ["logbook", "direct"])

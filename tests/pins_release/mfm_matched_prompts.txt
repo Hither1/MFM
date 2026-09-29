@@ -1,0 +1,79 @@
+30c952933e0fb1acdbd82d423bdfdf621534197b3296e6775d54af85ca8aefb3
+32c759d5f39bf502d02ba8407cc68ec187b2f99495c7374e6f0343b64366d31f
+0ab04b5faf711196c3d76a23268fcf88da9c8fcb0fd5ba4a1bc867d936355605
+9a337d3e75adbd81cbb5ab55a75cdd3b7e5b19ecd8abca603e067d326921be9d
+0a297d23b3b01023479ce59fc237763e62907f5e4815c280bc72add15ef92dd6
+783f75124a2176d5d6dbf9f95956e46a95732fd0ad2e253b100fc2f53a53a371
+e14ff0dc9f10eee1987a113b68931a5cc233b181417720222817a42595a2dc1d
+e11a8feace2ac4c0fbd700b500c8a167c776485079ce95c8f79ffc64e95bc10c
+d6fb679d16bb84defe9a588d6ef351d8b34cbf1901bc69b624b71a02eb3f4d5a
+99ae0b813bfa8389bfe28ec22132d6c6955ed7aa942420b3b16b56e4a8ff0ab3
+49f6dcf29e75229299fe249d10e32f142574832a755d9374715e886ee18e25d3
+8464c0283ea8953e92afff413e367a0ba30b7158b8ade50d6cd8156bcc4fd1de
+3b054bf4f2b56fc696731024a7f85b56b5cf0f6df819b15180f5ecc2fb90f737
+971433a46526d2eae78f7efda3e00ea7c49d207dc92b5df36a37f679f244e6cc
+6f9cf4587cb0a9d52d88a19b0cf0192daa08366bfed395583c0c70594d74324a
+=====
+Step 0/6000 -- 6000 steps remain. Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `mine_log` (mine_block of oak_log).
+Act turns since anything verifiably changed (milestone or inventory): 0.
+
+Milestones:
+  [ ] mine_log <- mine_block: oak_log
+  [ ] crafting_table <- craft_item: crafting_table
+  [ ] iron_pickaxe <- craft_item: iron_pickaxe
+
+[STATE] pos=(1.0, 64.0, 2.0) pitch=0 yaw=0
+Vitals: health=20/20 food=20/20
+Inventory (35 slots free): oak_logx1
+Hotbar: hotbar.1=oak_logx1
+Held: unknown
+Nearby entities: none reported
+GUI open: False
+[CURSOR] no screen open
+
+Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
+`./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames; `view_image` opens a frame.
+The current view is attached.
+Write ./actions.json.
+=====
+Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
+Act turns since anything verifiably changed (milestone or inventory): 10.
+
+Milestones:
+  [x] mine_log (step 8)
+  [x] crafting_table (step 30)
+  [ ] iron_pickaxe <- craft_item: iron_pickaxe
+
+[STATE] pos=(35.5, 59.0, 2.0) pitch=0 yaw=0
+Vitals: health=16/20 food=20/20
+Inventory (35 slots free): oak_logx2
+Hotbar: hotbar.1=oak_logx2
+Held: unknown
+Nearby entities: none reported
+GUI open: False
+[CURSOR] no screen open
+
+[RECENT] the last entries that finished, from the harness's record:
+- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
+- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
+- step 97 {"attack":1} x6: moved 1.8
+- step 103 {"attack":1} x6: moved 1.8, descended 1.0
+- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
+- step 115 {"attack":1} x6: moved 1.8
+
+[MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
+- You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
+
+[EXPECTED] (your last briefing had no `EXPECT:` line)
+[OBSERVED] by the harness for that plan (each entry with the frame it started from):
+  {"attack":1} x6: moved 1.8, frame: episodes/ep_000014/observation/image.png
+Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they match, what differs, and what the VIEW shows that differs (the attached frame against the entry's frame: one visible change, or that nothing visible changed); end it with `EXPECT: ...` for this plan, including what the view should show.
+
+[RECALL] computed from episodes/ by the harness -- what you did, not advice:
+- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3) at (2, 64, 2), 33 blocks from here (33 west). Frame: episodes/ep_000014/observation/image.png
+  (one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)
+
+Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
+`./tools/episodes.py` queries the same history as episodes, by step, place, tag or text, with their frames; `view_image` opens a frame.
+The current view is attached.
+Write ./actions.json.

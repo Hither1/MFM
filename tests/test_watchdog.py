@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 
 
@@ -157,3 +158,26 @@ def test_frame_size_flag_reaches_the_agent():
     ex = WorldModelExecutor(workspace_root=Path("/tmp/does-not-matter-wm"), model="m",
                             codex_home=None, memory_mode="mfm", frame_size=(320, 180))
     assert ex.frame_size == (320, 180) and ex.memory_mode == "mfm"
+
+
+@pytest.mark.parametrize("arm", ["mfm", "mfm-matched"])
+def test_the_executor_builds_a_life_that_carries_an_earlier_one(tmp_path, arm):
+    """`--seed-memory` through the purple agent's own constructor path: the agent is
+    built, the earlier life is under previous/, and the life can start."""
+    from mcu_worldmodel.arms import ARMS
+    from mcu_worldmodel.testing import fake_info
+    from test_pins_chassis import drive_chassis
+    from worldmodel_purple_agent import WorldModelExecutor
+
+    first, _ = drive_chassis(tmp_path / "first", "mfm", steps=40, **ARMS[arm])
+    ex = WorldModelExecutor(workspace_root=tmp_path / "second", model="m", codex_home=None,
+                            memory_mode=arm, seed_memory=[str(first.memory.root)])
+    ex._episode, ex._task_text = 1, "get a log"
+    ex._workspace = ex.workspace_root / "episode_001"
+    info = fake_info(inventory={})
+    ex._build_agent(info)
+    root = ex._agent.memory.root
+    assert (root / "previous" / "life_1" / "logs.txt").exists()
+    assert (root / "previous" / "index.jsonl").read_text().strip()
+    ex._agent.start(info)
+    assert (root / "AGENTS.md").exists()
