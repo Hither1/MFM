@@ -273,7 +273,7 @@ def test_usage_limit_gives_up_past_its_budget(tmp_path, fake_claude, monkeypatch
 
 @pytest.mark.parametrize("error", [
     "Not logged in · Please run /login",
-    # op5 runs, 2026-09-14: the CLI's wording, missed by the pattern for 15 h of no-op turns.
+    # the CLI's wording, missed by the pattern for 15 h of no-op turns.
     "Failed to authenticate. API Error: 401 OAuth access token has been revoked.",
 ])
 def test_lost_credential_stops_the_run(tmp_path, fake_claude, monkeypatch, error):

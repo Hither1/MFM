@@ -367,8 +367,8 @@ class VistaController:
                 return {"ok": True, "metadata": {"checkpoint_saved": True, "already_saved": True}}
             if not isinstance(arguments, dict) or set(arguments) != {"guide", "working_memory"}:
                 # Naming the contract, because this text is the only thing the model gets
-                # to correct from and "Invalid arguments." taught it nothing. Measured
-                # (abaw_vista, 2026-09-07): the model called this with a single invented
+                # to correct from and "Invalid arguments." taught it nothing. Measured:
+                # the model called this with a single invented
                 # `checkpoint` key, was told "Invalid arguments.", repeated the same
                 # mistake, and the arm died at step 800 of 12,000. Unreachable unless a
                 # call is already malformed, so a run that never made one is unchanged.

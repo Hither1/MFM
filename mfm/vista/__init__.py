@@ -47,7 +47,7 @@ What is NOT ported: RESET / level semantics and the `attempts` view of `history`
 
 The one addition. On ARC a frame is a few KB; here it is 130-500 KB, and codex re-sends
 every image in the thread on every call, which on this cluster stalls the call near
-5-6 MB on the wire (measured 2026-08-25 on MCU and again on KiCad). A token-based
+5-6 MB on the wire (measured on MCU and again on KiCad). A token-based
 compaction trigger never fires that early, so the runner counts the bytes it has sent
 into the thread and, past `thread_bytes_budget` (4 MB by default), requests the SAME
 checkpoint-and-fresh-thread handoff VISTA's PreCompact hook requests. The audit reports

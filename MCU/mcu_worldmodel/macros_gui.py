@@ -2,7 +2,7 @@
 
 Why these exist. Across the landed dragon runs, 57-72% of every plan's entries were
 cursor micro-work -- cursor_to_slot, gui_click, cursor_to_cell, gui_right_click, repeated
-per ingredient and per cell (kd29z_wm 447 of 738 entries; kd30z_lb 660 of 921). The model
+per ingredient and per cell (one run 447 of 738 entries; another 660 of 921). The model
 was doing by hand, turn after turn, what is arithmetic over the real inventory: which
 slot holds the ingredient, which cell wants it, where the output goes. Every one of those
 hand-written sequences was also unverified until the next turn read [INV].
@@ -109,7 +109,7 @@ def _screen_is_open(cur, info: dict) -> bool:
 #: What a macro's cursor move is charged against the plan's step cap. The servo keeps
 #: its 16-tick give-up budget at run time, but real moves land in 3-6 ticks and a
 #: furnace recipe is twelve of them: charged at 16 each, two crafts overran the
-#: 400-tick cap and the second was truncated mid-grid (stage s1, 2026-09-03).
+#: 400-tick cap and the second was truncated mid-grid (a staged scene).
 SERVO_CHARGE = 10
 
 
@@ -124,8 +124,8 @@ def _charge(acts: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def recipe_name(item: Any) -> str:
     """The recipe key a model's spelling means: `minecraft:stick`, `sticks`,
-    `oak_planks`, `eye_of_ender` (the milestone's name for `ender_eye`). kp39's first
-    act turn (2026-09-03) lost its plan to "no recipe for 'sticks'"."""
+    `oak_planks`, `eye_of_ender` (the milestone's name for `ender_eye`). One run's first
+    act turn lost its plan to "no recipe for 'sticks'"."""
     name = str(item).strip().lower()
     if name.startswith("minecraft:"):
         name = name[len("minecraft:"):]
@@ -172,7 +172,7 @@ def craft(cur, info: dict, item: str = "crafting_table", count: int = 1,
     for ing in cells.values():
         per[ing] = per.get(ing, 0) + 1
     # Craft as many as the ingredients allow, up to `count`, rather than refusing the
-    # whole call: kd40z_lb (2026-09-03) asked for 3 planks crafts with 2 logs in hand
+    # whole call: one run asked for 3 planks crafts with 2 logs in hand
     # and got "need 3x logs, have 2" four times over -- 8 planks were a table and
     # sticks away the whole time.
     possible = count
@@ -236,7 +236,7 @@ def craft(cur, info: dict, item: str = "crafting_table", count: int = 1,
             acts += a + P.click("attack")                   # remainder back
         else:
             # A plain click on the (now empty) source slot even with nothing to put
-            # back. Measured 2026-09-04 (stage s9 probes, 5 of 5 one-rod crafts): when
+            # back. Measured (a staged scene, 5 of 5 one-rod crafts): when
             # the LAST item of a stack goes into a cell by right-click and the very
             # next click is the shift-click on the output, craft_item moves (+2
             # blaze_powder) but the product lands in no slot and the GUI frame stops
@@ -455,7 +455,7 @@ def furnace_take(cur, info: dict, item: str = "", slot: Any = None
 def drop_and_pickup(cur, info: dict, slot: int = 0) -> tuple[list[dict[str, Any]], str]:
     """Throw the stack in `slot` on the floor and walk over it. The `pickup`
     statistic counts items picked up OFF THE GROUND only: what comes out of a
-    furnace or a crafting grid is `craft_item` (measured 2026-09-03; every live run
+    furnace or a crafting grid is `craft_item` (measured; every live run
     that banked the iron_ingot milestone had dropped an ingot by accident first).
     A milestone written as `pickup X` for an X that was smelted or crafted needs
     exactly this. Lift, force-close (the game throws the cursor stack ~2 blocks
@@ -476,7 +476,7 @@ def drop_and_pickup(cur, info: dict, slot: int = 0) -> tuple[list[dict[str, Any]
     # Looking straight down, the thrown stack lands at the feet; a player-dropped
     # item has a 40-tick pickup delay and is then collected where it lies, without
     # a step. A level throw lands 2-3 blocks out and the first version's fixed walk
-    # plus sweep missed it (stage s1, 2026-09-03).
+    # plus sweep missed it (a staged scene).
     acts = P.look_abs(pitch=90, ticks=20)
     a, _ = P.open_screen(cur)
     acts += a
@@ -676,7 +676,7 @@ def _craftcheck_tick(agent, ck: dict[str, Any], mk_act):
         have = sum(v for k, v in agent._cur_inv.items() if product_matches(k, product))
         if have <= 0 and ck.get("t2", 0) < 20:
             # The statistic moves well before the inventory observation shows the
-            # product -- 6-15 ticks in stage s1 (2026-09-03: "+1 stone_pickaxe
+            # product -- 6-15 ticks in a staged scene ("+1 stone_pickaxe
             # crafted (you now carry 0)" and the pickaxe listed two entries later).
             # Wait for it, so the note and the next entry see the real inventory.
             ck["t2"] = ck.get("t2", 0) + 1
@@ -704,7 +704,7 @@ def _craftcheck_tick(agent, ck: dict[str, Any], mk_act):
     agent._note_failure("craft")
     # Clean up after itself: the ingredients this macro put into the cells go back
     # into the inventory NOW (stow_items on exactly those cells), so the drop guard
-    # does not refuse every later close. dm25z_lb (2026-09-03) laid a correct stone
+    # does not refuse every later close. One run laid a correct stone
     # pickaxe whose output never appeared, then sat 1,500+ steps behind "close
     # refused: cobblestonex3, stickx2 off-inventory" without ever stowing them.
     cleanup: list[dict[str, Any]] = []
@@ -786,7 +786,7 @@ def _furnacecheck_tick(agent, fc: dict[str, Any], mk_act):
     """After loading: the ore and the fuel must have LEFT the inventory (the gate's
     snapshot), and the smelt cell must show an item. The fuel cell is not read: the
     furnace consumes a fuel unit the instant smelting starts, so a load of exactly
-    one coal leaves that cell empty while the fire burns (stage s1, 2026-09-03 --
+    one coal leaves that cell empty while the fire burns (a staged scene --
     the frame check called every such load a missed click)."""
     from mcu_worldmodel import vision
     import numpy as np

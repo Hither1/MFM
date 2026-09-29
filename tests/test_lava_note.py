@@ -1,6 +1,6 @@
 """The LAVA AHEAD advice tells a sliver from a lake (agent.LAVA_SLIVER_FRAC).
 
-ob1/ob1b (3%) and og4 (1%, 2026-09-07) poured on a sliver seen from afar and mined stone:
+Two runs (3%) and one run (1%) poured on a sliver seen from afar and mined stone:
 flowing lava turns to cobblestone. Below the threshold the note says so, keeps the
 cells off the no-argument pour's record and asks for a closer, larger sighting; at
 lake size the pour sentence stands.

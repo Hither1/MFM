@@ -26,7 +26,7 @@ _COMPACTION_RE = re.compile(r'"(?:type|kind|action_trigger)"\s*:\s*"[^"]*compact
 # The account behind the credential has no usage left. Codex reports it as an ordinary
 # turn error carrying the reset time ("You've hit your usage limit ... try again at
 # Sep 7th, 2026 10:25 AM"), so nothing else in this backend can tell it apart from a
-# transient failure: on 2026-09-03 four arms each spent every turn spawning a codex,
+# transient failure: four arms each spent every turn spawning a codex,
 # waiting ~10 s for the same refusal and retrying, and would have run their whole
 # 12,000-step episode that way. A cap that resets days from now cannot clear inside an
 # episode, so after a short streak the calls stop; one probe every RETRY_AFTER refusals
@@ -122,7 +122,7 @@ def provider_auth_args() -> list[str]:
     by the model. CODEX_LOCAL_AUTH_COMMAND, a JSON list, names a command codex runs to
     obtain the key instead (OpenRouter's documented `auth.command` form) -- e.g.
     ["sed", "-n", "s/^OPENROUTER_API_KEY=//p", "/abs/path/openrouter.env"] reads a 600
-    file, and the key exists only inside codex's HTTP client. Measured 2026-09-09: the
+    file, and the key exists only inside codex's HTTP client. Measured: the
     turn ran, and `${OPENROUTER_API_KEY:+set}` printed nothing inside an exec cell.
     """
     raw = os.environ.get("CODEX_LOCAL_AUTH_COMMAND", "").strip()
@@ -162,7 +162,7 @@ def _metadata_args(context_window: int) -> list[str]:
 
 
 # What the model is allowed to hold in its hands, fixed here rather than left to codex's
-# defaults. Measured on codex-cli 0.147.0 (2026-08-17) on the sibling mllm-search port,
+# defaults. Measured on codex-cli 0.147.0 on a sibling port,
 # same subscription account: without these the tool list carried `web__run` -- and the
 # model used it to fetch a Wikipedia article -- plus ~250 account-level
 # `mcp__codex_apps__*` connectors (github, gmail, slack, google_drive, hugging_face, ...)
@@ -201,13 +201,13 @@ SAFE_CODEX_FLAGS: tuple[str, ...] = (
     # No shell snapshot. codex 0.153 otherwise writes `$CODEX_HOME/shell_snapshots/
     # <thread>.sh` at thread start -- `declare -x` of every variable in its environment --
     # and deletes it only on a clean exit, so an arm stopped mid-turn leaves the file
-    # (21 of 54 homes on 2026-09-09). With HOME at the arm's own home there is no profile
+    # (21 of 54 homes). With HOME at the arm's own home there is no profile
     # for the snapshot to capture, so nothing the model's commands see changes.
     "-c", "features.shell_snapshot=false",
 )
 
 # Variables that never reach codex. The model's exec cells inherit codex's whole
-# environment (measured on codex 0.153, 2026-09-09: `${GITHUB_PERSONAL_ACCESS_TOKEN:+set}`
+# environment (measured on codex 0.153: `${GITHUB_PERSONAL_ACCESS_TOKEN:+set}`
 # printed `set` inside a turn, and `shell_environment_policy.exclude` changed nothing), so
 # any credential exported by the launching shell was readable by the model and could have
 # been written into the workspace, which is carried across lives and staged. Dropped by
@@ -382,7 +382,7 @@ def is_overflow(name: str, text: str) -> bool:
 #                           exactly the kind a comparison otherwise charges to the method.
 _ROLLOUT_VIEW_IMAGE = re.compile(r"view_image")
 _ROLLOUT_ATTACH_FAIL = re.compile(r"could not read the local image", re.I)
-# Broken out by kind, because the aggregate is actively misleading: on dm4_wm the two
+# Broken out by kind, because the aggregate is actively misleading: on one run the two
 # `apply_patch verification failed` variants were 4 and 132 occurrences and have nothing
 # to do with each other, and counting them together turned a 4-event induction bug into a
 # claimed "67% of act turns". Whatever is added here, keep it separated.
@@ -391,7 +391,7 @@ _ROLLOUT_ATTACH_FAIL = re.compile(r"could not read the local image", re.I)
 #                        the start of the turn -- `actions.json` in 132 of 133 cases. It
 #                        retries as a create and succeeds, so nothing is lost but ~9 s.
 #   patch_dup_target     two operations on one path in one patch; codex rejects the whole
-#                        patch. All four on dm4_wm were induction turns rewriting
+#                        patch. All four on one run were induction turns rewriting
 #                        world_model/spatial.md.
 #   attach_miss          the model asked to view an image that is not there.
 #
@@ -452,7 +452,7 @@ def scan_rollout(path: Path) -> dict[str, int]:
         # Two shapes, depending on how codex ran the tool: nested inside a code-mode
         # `exec` cell it is a `custom_tool_call` mentioning view_image (the sibling
         # port's runs); called directly it is a `function_call` named view_image (every
-        # helixon run of 2026-08-18 -- the first version counted only the former and
+        # run here -- the first version counted only the former and
         # read 0 against rollouts that held the call).
         if '"custom_tool_call"' in line:
             out["view_image_calls"] += len(_ROLLOUT_VIEW_IMAGE.findall(line))
@@ -487,7 +487,7 @@ def find_rollout(codex_home: Path | None, workspace: Path, session_id: str | Non
 
     The first version of this function returned None unconditionally, which made every
     vision audit report zeros and log "no rollout found" while the rollouts sat under
-    the wrapper's home. Found 2026-08-18.
+    the wrapper's home. Found.
     """
     if not session_id:
         return None
@@ -527,7 +527,7 @@ def run_codex(
     `codex` on PATH is a bash wrapper that execs node, which spawns the native codex
     binary; `codex_sandbox.sh` is bash around bwrap -- so on a timeout the process
     that is actually talking to the model survives as an orphan and keeps looping.
-    Measured 2026-08-18: a default×codex call timed out at 420 s and its native codex
+    Measured: a default×codex call timed out at 420 s and its native codex
     was still issuing requests eight minutes later. Codex is started in its own
     session and the group is killed, so a timeout ends the requests as well as the
     wait. Raises `subprocess.TimeoutExpired` carrying the partial stdout/stderr, like
@@ -575,7 +575,7 @@ class CodexTurn:
     ) -> None:
         # Absolute, always. Codex runs with cwd == this directory, so every path derived
         # from it -- `-o last_message.txt`, the `-i` frames -- is handed to codex relative
-        # to *its* cwd. The sibling mllm-search port measured a relative workspace losing
+        # to *its* cwd. A sibling port measured a relative workspace losing
         # every attached frame and every last_message.txt, silently.
         self.workspace = Path(workspace).resolve()
         self.model = model
@@ -614,7 +614,7 @@ class CodexTurn:
         # roughly 5.5 MB on the wire the first call of every turn stalls at ~600s and the
         # arm effectively stops. Tracked because every other counter here is
         # token-triggered and reads 27% used at the point that happens -- nothing in this
-        # report moved while three arms ground to a halt on 2026-08-25. See F22.
+        # report moved while three arms ground to a halt.
         self.session_attachment_bytes = 0
         self.peak_attachment_bytes = 0
         # Read off the rollout at audit time, not from the event stream, which does not
@@ -641,8 +641,8 @@ class CodexTurn:
         # absence was a single point of failure the baseline does not share: this backend
         # dropped a session only on context overflow, so any *other* unclean ending left
         # `session_id` set and every later turn resumed into the same broken thread.
-        # Measured on the 200-step ender_dragon smoke (2026-08-24): `codex exec resume`
-        # failed host-wide with a corrupt thread store (F16), the baseline discarded and
+        # Measured on the 200-step ender_dragon smoke: `codex exec resume`
+        # failed host-wide with a corrupt thread store, the baseline discarded and
         # cold-started twice in 9 turns and kept planning, and this arm spent 27 of its 55
         # turns re-resuming the same dead session -- one successful plan in the whole run,
         # then a permanent 3-retries-and-noop loop. An agent that cannot recover its model
@@ -737,7 +737,7 @@ class CodexTurn:
         """Has the account's usage limit refused enough turns in a row that spawning
         another codex is pure cost?
 
-        The limit that stopped four arms on 2026-09-03 resets days later, so nothing an
+        The limit that stopped four arms resets days later, so nothing an
         episode does can clear it; every QUOTA_RETRY_AFTER-th blocked call is still let
         through as a probe, which is what picks up a shorter rolling window reopening
         mid-run.
@@ -805,7 +805,7 @@ class CodexTurn:
         # Absolute, and present. Codex resolves `-i` against ITS cwd -- the workspace --
         # so a relative path that exists for the runner does not exist for codex, and the
         # only trace is a line in the conversation that the event stream never shows. The
-        # sibling mllm-search port lost all 20 attachments of a run that way. Raise rather
+        # sibling port lost all 20 attachments of a run that way. Raise rather
         # than filter: an arm that quietly stops attaching frames is a different arm, and
         # this one is compared against a baseline that gets 20 frames every step.
         images = [Path(p) for p in images]
@@ -1049,7 +1049,7 @@ class CodexTurn:
             # Tool calls the model got an error back from and recovered inside its turn.
             # Invisible to the event stream and therefore to every other counter here.
             # `turns_with_tool_error / rollouts_scanned` is the rate to compare between
-            # arms: on dm4 it was 75% for the world model against 3% for PRO-LONG, ~9 s
+            # arms: on one run it was 75% for the world model against 3% for PRO-LONG, ~9 s
             # a turn, which a comparison would otherwise charge to the method.
             "tool_errors": self._tool_error_counts["tool_errors"],
             "patch_stale_target": self._tool_error_counts["patch_stale_target"],
@@ -1063,7 +1063,7 @@ class CodexTurn:
             # to grow, `overflow_resets` against `compactions` is the whole difference
             # between an arm that cold-starts when it fills and one that summarises and
             # carries on.
-            # Byte-side, unlike everything below it. The 2026-08-25 stall crossed at
+            # Byte-side, unlike everything below it. The stall crossed at
             # 5.15-6.15 MB with the token budget reading 27% used; if this number
             # approaches 5 MB the arm is about to slow by 10x with no other symptom.
             "attachment_bytes_peak": self.peak_attachment_bytes,

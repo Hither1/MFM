@@ -1,6 +1,6 @@
 """The lava escape walks back along the trail (agent._lava_home / _lava_tick).
-og11_mfm, 2026-09-07: the first lava hit got the 180-degree turn, the runner's `back`
-step then walked the avatar deeper into the pool; og10 got the bunker and dug INTO the
+One run: the first lava hit got the 180-degree turn, the runner's `back`
+step then walked the avatar deeper into the pool; one run got the bunker and dug INTO the
 pool. Three of the day's four deaths were at the pool the run had just found."""
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def test_lava_escape_turns_toward_the_trail_and_walks():
     from mcu_worldmodel.agent import WorldModelAgent as A
 
     walked = {(x, 11, 0): {"first": 10 * x, "last": 10 * x, "n": 1} for x in range(-4, 2)}
-    # facing +x (yaw -90), away from the trail -- the og11 case after the turn
+    # facing +x (yaw -90), away from the trail -- the case after the turn
     pos = {"x": 3.5, "y": 10.0, "z": 0.5, "pitch": 0.0, "yaw": -90.0}
     ns = _ns(pos, walked)
     rf = A._arm_lava(ns, {}, pos, 16.0, 0.3)

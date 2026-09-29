@@ -178,7 +178,7 @@ print(f"wrote {{out}}: {{w}}x{{h}} region at ({{x}},{{y}}), 4x")
         "AGENTS.md", "logs.txt", "actions.json", "last_message.txt",
         # The claude channel's system-prompt file and the CLI's own project-state dir
         # (claude_backend.write_system_prompt). Swept, the arm lost its contract after
-        # turn 1 (g4smoke_cc_mfm, 2026-09-10); harness-owned, so a rewrite is a fault.
+        # turn 1 (one run); harness-owned, so a rewrite is a fault.
         "CLAUDE.md", ".claude",
         "grid.jsonl",      # the runner's cell map (grid.py), harness-written
         "references",      # thin: the contract's long sections, read on demand

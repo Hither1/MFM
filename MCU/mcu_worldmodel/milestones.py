@@ -52,7 +52,7 @@ class MilestoneLedger:
         self.order = [c["identity"] for c in self.cfg]
         #: Milestones whose ITEMS the kit holds at reset (a second-half start: the task
         #: config says a previous expedition banked them). The scorer does NOT credit them:
-        #: measured 2026-09-07 on ender_dragon_half, a run that never died scored 4/24
+        #: measured on ender_dragon_half, a run that never died scored 4/24
         #: (diamond, diamond_pickaxe, diamond_sword, mine_iron_ore) while runs that died
         #: and rebuilt from a log scored 9/24. So they stay OPEN in the ledger and the
         #: checklist says why they are cheap. Unknown names are ignored.
@@ -132,7 +132,7 @@ class MilestoneLedger:
         """Every statistic that moved this step, not only the milestone-matching ones.
 
         `events.jsonl` was documented to the agent as "one line per discrete world event"
-        and actually carried only milestones -- one line in 1,900 steps of dm4_wmv2. The
+        and actually carried only milestones -- one line in 1,900 steps of one run. The
         gap bit twice: crafting planks (not a milestone) would leave the agent's declared
         authoritative channel silent, reading as a failed craft; and a chop that landed
         produced nothing greppable until the [INV] line at entry end. This closes the gap
@@ -238,7 +238,7 @@ def slot_is_empty(entry) -> bool:
     close-refusal slot hint, stow_items' target list) accepted only "air" -- so from the
     first turn of every live arm the Inventory line read "0 slots free" with nothing
     carried, and stow_items refused every call with "every inventory slot is full".
-    kd20 spent its last 7,000 steps freeing slots that were never taken. A zero quantity
+    One run spent its last 7,000 steps freeing slots that were never taken. A zero quantity
     is empty whatever the type string says.
     """
     if not isinstance(entry, dict):
@@ -307,7 +307,7 @@ def hotbar_line(info: dict) -> str:
 def held_line(info: dict) -> str:
     """The mainhand item with its remaining durability, from `equipped_items`.
 
-    dm4_wmv11's wooden pickaxe broke at step 5081 mid iron-hunt with no plank reserve;
+    One run's wooden pickaxe broke at step 5081 mid iron-hunt with no plank reserve;
     the run ended 4/10 holding 22 cobblestone it could no longer craft into anything.
     `damage`/`maxDamage` were on the wire the whole time -- "N uses left" turns a tool
     break from a post-mortem into a deadline a replacement can be planned against.

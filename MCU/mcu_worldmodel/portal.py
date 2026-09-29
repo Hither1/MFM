@@ -8,7 +8,7 @@ be omitted (so ten blocks is exactly enough) and whose 2x3 interior must be air.
 one cell wrong and the flint and steel lights a fire instead of a portal, and every
 statistic the agent can read still reads "ten placed, one lit".
 
-Measured on the first wave of this task (2026-09-09): four arms, each handed the
+Measured on the first wave of this task: four arms, each handed the
 blocks, struck the flint and steel into frames that were 4, 5, 6 and 6 cells right out
 of ten -- and then struck again at the *identical* geometry, five and seven times over,
 because nothing they could read told them which cell was wrong. That is the case this
@@ -19,8 +19,7 @@ never be stuck for want of a block; every failure is a failure to put blocks in 
 right cells and to notice that they are not.
 
 What the engine gives us. `action["voxels"] = [x0, x1, y0, y1, z0, z1]` makes the
-client answer with one JSON object per NON-AIR block in that box (`EnvServer`, decompiled
-2026-09-09):
+client answer with one JSON object per NON-AIR block in that box (`EnvServer`, decompiled):
 
     for x in range(x0, x1):          # half-open, all three axes
       for y in range(y0, y1):
@@ -389,7 +388,7 @@ class PortalTrace:
         collide -- they accumulate. And the Nether side of any portal is a
         game-generated, perfectly legal, already-lit frame, so `best_fit` would rank it
         above whatever the agent built and report the engine's own work as the arm's.
-        Measured on the second wave (2026-09-09): `arc` and `mfm` both came back with
+        Measured on the second wave: `arc` and `mfm` both came back with
         `best_frame.anchor` at the NETHER portal, which made every one of their real
         placements score as "into a cell the frame does not use". The task is finished
         the moment the agent steps through, so nothing is lost by stopping here.
@@ -471,8 +470,8 @@ class PortalTrace:
 def dimension_jump(start: tuple[float, float], now: tuple[float, float]) -> bool:
     """True when the coordinates say the player changed dimension.
 
-    `location_stats.biome_id` reads 0 in both dimensions on this engine (stage s5,
-    2026-09-03), so the signal is the coordinate scale: the Nether is the Overworld's
+    `location_stats.biome_id` reads 0 in both dimensions on this engine (a staged scene),
+    so the signal is the coordinate scale: the Nether is the Overworld's
     x and z divided by eight. `macros_nether._dimcheck_tick` uses the same test, and
     this is the host-side copy of it so the report does not depend on the agent
     running that macro.

@@ -2,7 +2,7 @@
 (`mfm/memory/tools/episodes.py`), importable by the harness, plus `recall_block` -- the
 retrieval block a harness puts into the turn prompt when the `retrieval` flag is on.
 
-The block exists because of what the lad2 diamond runs showed (2026-09-05): the model
+The block exists because of what the diamond runs showed: the model
 read the last few sections every turn and each looked like a fresh small setback, so a
 loop of twelve failed `harvest_tree` calls over 2,600 steps, or eight dark mining
 entries in a row, was never seen as one thing. It queried the store in a quarter of its
@@ -10,8 +10,8 @@ turns and only ever asked for `--last N`. So the harness asks the three question
 model did not, from the rows it already holds:
 
     plan repeat the same [PLAN]/EXPECT re-issued turn after turn with nothing moving --
-                the plan-grain stall an atom-grain streak cannot see (of1-of3r,
-                2026-09-09: the same EXPECT ran turn after turn while the only thing the
+                the plan-grain stall an atom-grain streak cannot see (several runs,
+                the same EXPECT ran turn after turn while the only thing the
                 block had to say was that `hotbar.6` had changed nothing)
     streaks     which actions have changed nothing in their last N calls, and when the
                 same action last did change something
@@ -45,8 +45,8 @@ from mfm.memory.tools.episodes import (  # noqa: F401
 #: except for the kinds the caller names in `movers`, whose point is to move: for
 #: those, not being tagged `stuck` is the change.
 #: `broke`: the MCU adapter's tag for a block-breaking event (mine_block, craft_item,
-#: pickup) -- an ore broken and not yet picked up changes no inventory, and lad8
-#: (2026-09-06) refused the `mine_ahead` that had just broken three iron ore as a
+#: pickup) -- an ore broken and not yet picked up changes no inventory, and one run
+#: refused the `mine_ahead` that had just broken three iron ore as a
 #: streak that "changed nothing".
 CHANGE_TAGS = frozenset({"milestone", "inventory_changed", "broke"})
 
@@ -55,8 +55,8 @@ _MOVE_KEYS = frozenset({"forward", "back", "left", "right", "jump", "sneak", "sp
 RAW_NUDGE_TICKS = 8
 
 #: A raw hotbar key (`hotbar.6`) and the procedure that presses one. Selecting a slot
-#: is bookkeeping: it never moves the world, so a run of them is not a loop. of3r
-#: (2026-09-09) pressed `hotbar.6` 67 times and the block reported "`hotbar.6` changed
+#: is bookkeeping: it never moves the world, so a run of them is not a loop. One run
+#: pressed `hotbar.6` 67 times and the block reported "`hotbar.6` changed
 #: nothing in its last 61 calls" while the real stall was plan-grain. The caller's
 #: `ignore` list lives in MCU (`mcu_worldmodel/episodes.py` RECALL_IGNORE_KINDS) and
 #: cannot name `hotbar.N` without enumerating nine kinds, so the shape is excluded here.
@@ -84,9 +84,9 @@ def moved_of(row: dict[str, Any]) -> float | None:
 
 def raw_nudge(row: dict[str, Any]) -> bool:
     """A raw movement shorter than RAW_NUDGE_TICKS: a one-tick `forward` to square up
-    before a dig. og21's RECALL read "forward changed nothing in its last 34 calls ...
+    before a dig. One run's RECALL read "forward changed nothing in its last 34 calls ...
     never changed anything" while the avatar walked fine: every nudge moved 0.1 and
-    counted as a failure (judge calibration, 2026-09-08). Nudges are not in the streak
+    counted as a failure (judge calibration). Nudges are not in the streak
     statistic at all."""
     return raw_move(row) and ((row.get("last_step") or 0) - (row.get("first_step") or 0)) < RAW_NUDGE_TICKS
 
@@ -103,7 +103,7 @@ def changed(row: dict[str, Any], movers: Iterable[str] = (),
         return mv is not None and mv >= 0.5 and "stuck" not in tags
     if kind in set(openers):
         # An entry whose job is to open a screen changed something iff one is open
-        # at its end. lad4 (2026-09-05) pressed `use_until_gui` at a table that was
+        # at its end. One run pressed `use_until_gui` at a table that was
         # not there for 1,200 steps; as bookkeeping it was invisible.
         return "gui" in tags
     return kind in set(movers) and "stuck" not in tags
@@ -113,7 +113,7 @@ def ran(row: dict[str, Any]) -> bool:
     """False for an entry that never executed: it spans no ticks and changed nothing --
     a `craft` the parser deferred for want of planks, a procedure refused before it
     started. Those are the FAILING entry's fault, not this kind's, and counting them
-    made the lad2 plank loop read as a `craft` streak when it was a `harvest_tree` one."""
+    made the plank loop read as a `craft` streak when it was a `harvest_tree` one."""
     if changed(row):
         return True
     return (row.get("last_step") or 0) > (row.get("first_step") or 0)
@@ -261,7 +261,7 @@ def streak_line(s: dict[str, Any], root: Path | str | None = None,
     """One streak as a sentence: the run, the note it last ended on, the last time
     the same action changed something -- and where, with the distance from `pos`,
     because "it worked at step 17" is a fact and "it worked 14 blocks north-west of
-    here" is somewhere to go (lad6b, 2026-09-05: refused `harvest_tree` eight calls
+    here" is somewhere to go (one run: refused `harvest_tree` eight calls
     into the plank loop, overrode with "a trunk is directly ahead", and it was not).
     Used by the recall block and, under the refusal flag, as the reason an entry of
     that kind is refused."""
@@ -301,7 +301,7 @@ def _frame(row: dict[str, Any]) -> str:
 
 def bearing(pos: tuple[float, float] | None, row: dict[str, Any]) -> str:
     """Where a cited episode lies from `pos`: "4 blocks NE", "here" under a block.
-    Minecraft axes: +x east, +z south. og14-og22 re-targeted a recalled place 0 times
+    Minecraft axes: +x east, +z south. Several runs re-targeted a recalled place 0 times
     in 30 sampled turns (analysis/recall-usage.md): a citation without a direction is
     a fact, not a move."""
     try:
@@ -335,7 +335,7 @@ def left_behind(rows: list[dict[str, Any]], root: Path | str | None, *,
     `inventory_delta` lost one (a placement, at that episode's position) that no later
     episode gained one back without crafting it (a pickup). Newest last.
 
-    lad3 (2026-09-05): the table was placed at step 571 at Y=68 and left there; at
+    One run: the table was placed at step 571 at Y=68 and left there; at
     step 7117, at Y=12 with every ingredient of the iron pickaxe, the climb back took
     4,800 steps. The contract's rule ("carry ONE table") was 400 lines from the
     decision; this is the fact, from the record, at the decision."""
@@ -371,9 +371,9 @@ def uncollected(rows: list[dict[str, Any]], root: Path | str | None,
     """Blocks broken in the last `recent` episodes whose drops were never picked up:
     [{item, broke, picked, row}] with the episode that broke them. `drops` maps the
     block to what it drops ({"iron_ore": "iron_ore", "coal_ore": "coal"}); from the
-    adapter's events ("mine_block X +n", "pickup Y +n"). lad8_mfmrr (2026-09-06)
+    adapter's events ("mine_block X +n", "pickup Y +n"). One run
     broke five iron ore and picked up none -- the drops lay in the dark cavity while
-    every later aim swung at the empty hole; lad6b and lad7a did the same with one."""
+    every later aim swung at the empty hole; two runs did the same with one."""
     if root is None:
         return []
     root = Path(root)
@@ -419,7 +419,7 @@ def override_of(root: Path | str | None, row: dict[str, Any]) -> str | None:
 def burned_override(root: Path | str | None, run: list[dict[str, Any]]) -> tuple[dict, str] | None:
     """The most recent episode in a streak's run that the agent ran past a refusal
     with a `why`, and what it said -- it ran, and changed nothing, so the claim is
-    spent (lad6b, 2026-09-05: "a spruce trunk is directly ahead", 300 ticks, none)."""
+    spent (one run: "a spruce trunk is directly ahead", 300 ticks, none)."""
     for r in reversed(run):
         why = override_of(root, r)
         if why:
@@ -463,7 +463,7 @@ def milestone_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # The store already keeps what a plan-grain view needs, one level below the index: every
 # episode's `action.json` carries the `turn` it belongs to, and the first entry of each
 # turn also carries that turn's `briefing` and `plan` (the text after `[PLAN]`, EXPECT
-# line included). of3r's record: 2,256 action.json, all with a turn, 388 turns, all 388
+# line included). One run's record: 2,256 action.json, all with a turn, 388 turns, all 388
 # with a plan and an EXPECT line. Nothing is added to the index for this; `turns_of`
 # reads the tail's action.json the way `repeated_note` reads the tail's outcome.json,
 # which also means the six finished lives can be read with the same code.
@@ -586,7 +586,7 @@ def plan_repeats(turns: list[dict[str, Any]], min_len: int = 3) -> dict[str, Any
 
 
 _NUMS = re.compile(r"-?\d+(?:\.\d+)?")
-#: A plan of this many entries that changed nothing is reported on its own (of3r's
+#: A plan of this many entries that changed nothing is reported on its own (one run's
 #: 21-entry plan at steps 24067-24188, moved 0.0; 43% of its entries sat in such plans).
 LONG_PLAN = 12
 
@@ -596,8 +596,8 @@ def plan_stall(turns: list[dict[str, Any]], min_turns: int = 3,
     """The run of latest consecutive turns in which NOTHING happened -- each moved less
     than 0.5 blocks and none scored or moved the inventory -- reported when it is
     `min_turns` long, or when the latest turn alone ran `long_plan` or more entries to
-    no effect. Outcome-based, not text-based: the six full-task lives (2026-09-09,
-    analysis/worker_recall_2026-09-09.md) never re-issued an identical EXPECT three
+    no effect. Outcome-based, not text-based: the six full-task lives
+    never re-issued an identical EXPECT three
     turns running, but 34-43% of their plan entries sat inside long plans that achieved
     nothing, and consecutive EXPECT lines were near-identical with the numbers changed.
     `same_text` says whether the run's EXPECT (or plan) lines are one text once numbers
@@ -731,7 +731,7 @@ def recall_block(rows: list[dict[str, Any]], root: Path | str | None = None, *,
                      + (f" (frame: {_frame(r)})" if _frame(r) else ""))
         lines.append(line)
 
-    # The milestone line is off by default since 2026-09-08: it repeated the ledger in
+    # The milestone line is off by default: it repeated the ledger in
     # [STATE] every turn (recall-usage.md case 7) and was never acted on.
     ms = milestone_rows(rows) if max_milestones > 0 else []
     if ms:

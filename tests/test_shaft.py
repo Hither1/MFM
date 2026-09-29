@@ -1,6 +1,6 @@
 """The shaft guard: grid.drop_ahead (a walked column of consecutive levels, last walked
 downward) and agent._shaft_guard (drop the plan before the feet enter it).
-og9_mfm 2026-09-07 step 19286: mine_forward from a stair at y 67 broke into its own
+One run step 19286: mine_forward from a stair at y 67 broke into its own
 y 9..67 shaft one block away and the avatar fell 58 blocks; the column was on the map."""
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _dig(g: Grid, x, z, top, bottom, step=1000, per=5):
 
 def test_drop_ahead_flags_a_dug_column_only():
     g = Grid()
-    end = _dig(g, -3005, -5581, 67, 9)                    # og9's shaft
+    end = _dig(g, -3005, -5581, 67, 9)                    # One run's shaft
     d = g.drop_ahead((-3005, 67, -5581))
     assert d == {"top": 67, "bottom": 9, "drop": 58, "dug": 1000, "reached": end - 5}
     assert g.drop_ahead((-3005, 66, -5581))["drop"] == 57  # entering mid-column
@@ -84,7 +84,7 @@ def _walk(ns, poses, step0=100):
 def test_shaft_guard_stops_the_walk_before_the_column():
     g = Grid()
     _dig(g, -3005, -5581, 67, 9)
-    # og9's geometry: at y 67 walking north (yaw 180) toward z -5580, the shaft at z -5581
+    # One run's geometry: at y 67 walking north (yaw 180) toward z -5580, the shaft at z -5581
     ns = _ns(g, [({"_goto": {}, "forward": 0}, 1)] * 3)
     _walk(ns, [_pos(-3004.6, 67, z, yaw=180) for z in (-5578.6, -5578.8, -5579.0, -5579.2, -5579.4)])
     assert ns.queue == [] and ns.cursor_stats["shaft_stops"] == 1

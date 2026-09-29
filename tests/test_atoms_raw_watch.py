@@ -1,6 +1,6 @@
 """`--atoms`: the wall watcher samples raw attack holds, exactly as it samples a macro.
 
-g4_mfm_gpt6_diamond v1-v3 (2026-09-11) mined 12,000 steps each on raw {"attack": 1}
+Three lives mined 12,000 steps each on raw {"attack": 1}
 holds -- the only mining step an atoms arm has that is cut at the break -- and the
 watcher, which lived only in the withheld macros and mine_ahead, never sampled them.
 """

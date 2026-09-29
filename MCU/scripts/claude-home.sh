@@ -2,7 +2,7 @@
 # Build an isolated CLAUDE_CONFIG_DIR for one experiment arm and print the exports
 # for it -- the claude twin of codex-home.sh:
 #
-#   eval "$(scripts/claude-home.sh dm8_wm)"
+#   eval "$(scripts/claude-home.sh <arm>)"
 #
 # Then every `claude` call in that shell uses a config dir no other arm touches.
 #
@@ -45,7 +45,7 @@ chmod 700 "$ROOT" "$HOME_DIR"
 # What the model must never read: this config dir (the key helper, or a subscription
 # arm's .credentials.json) and, on the OpenRouter route, the secrets directory the
 # helper reads. claude_backend turns the list into sandbox denyRead + Read-tool deny
-# rules (measured unreadable on 2.1.257, 2026-09-10).
+# rules (measured unreadable on 2.1.257).
 DENY="$HOME_DIR"
 if [ "${MCU_CLAUDE_ACCOUNT:-}" = "openrouter" ]; then
     # OpenRouter's Anthropic-compatible endpoint, keyed from a 600 file the CLI reads

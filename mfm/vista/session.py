@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 #: first attempt is where a malformed call happens, and the model only learns the
 #: contract from the error the *previous* attempt returned -- at 2 it got one correction
 #: and one chance to use it, in the same breath. Raising this changes nothing for a run
-#: whose checkpoint succeeds first time, which is the normal case (vista2_dragon: 233 act
+#: whose checkpoint succeeds first time, which is the normal case (one run: 233 act
 #: turns, ~23 checkpoints, no failure).
 MAX_CHECKPOINT_ATTEMPTS = 4
 MAX_COMPACT_CYCLES_WITHOUT_ACTION = 3

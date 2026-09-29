@@ -1,11 +1,11 @@
 """`--skills`: the three-layer skill package the self-harness arm reads and owns.
 
-The user's direction (2026-09-08 00:xx, after og14/og18/og19/og20): the model writes its
+The direction, after four runs: the model writes its
 own harness -- the memory it keeps, the skills it composes, the reflexes that guard its
 plans -- and the harness's part is META-level guidance per layer plus example code, packed
 the way wz1119/Codex-Minecraft-Gameplay packs its play instructions: a `SKILL.md` per
 skill with the doctrine, `scripts/` beside it with working examples. Nothing here is a
-fact about this world (no coordinates, no sites -- the carry-only rule of 2026-09-07);
+fact about this world (no coordinates, no sites -- the carry-only rule);
 everything here is about how to play, how to remember, what to protect against.
 
 What is written into the workspace, once per life, harness-owned and immutable:
@@ -21,7 +21,7 @@ What is written into the workspace, once per life, harness-owned and immutable:
                                     list from the earlier runs
 
 and, as EXAMPLES under `skills/reflexes/scripts/` (nothing is installed under
-`mine/reflexes/` since 2026-09-08: the model copies what it wants, edits it, and a leading
+`mine/reflexes/`: the model copies what it wants, edits it, and a leading
 underscore in the file name keeps a copied script off):
 
     lava_ahead.py   lava in the lower view while a walk or a dig moves you: stop, step back

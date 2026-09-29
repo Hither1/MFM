@@ -20,7 +20,7 @@ What is Minecraft or KiCad about the contents comes from the agent's hooks
 (`episode_state`, `episode_action`, `episode_outcome`); the store knows only the layout.
 Everything under `episodes/*/` is harness-written and immutable once closed; writes
 are atomic (`.tmp` + `replace`). (An `observation/crops/` the model could write zoom
-outputs into was part of the layout until 2026-09-05: 805 of them across every MCU and
+outputs into was part of the layout: 805 of them across every MCU and
 KiCad run, all empty.)
 """
 from __future__ import annotations
@@ -62,7 +62,7 @@ def _link(src: Path, dst: Path) -> None:
 
 
 class EpisodeStore(MemorySink):
-    """`recall=True` (the KiCad MFM arms since 2026-09-06) adds to every row what the
+    """`recall=True` (the KiCad MFM arms) adds to every row what the
     model said it saw (`perception`), meant (`intent`) and caused (`effect`, filled in
     from the next turn's perception), plus perceptual hashes of the frame the turn was
     decided on and the frame it closed on; and replaces the exact-hash "seen before"
@@ -118,7 +118,7 @@ class EpisodeStore(MemorySink):
         if ep is None:
             return
         # The entry's running state is kept in memory for the outcome; a per-tick
-        # `state/ticks.jsonl` was written until 2026-09-05 (12k lines a run) and
+        # `state/ticks.jsonl` was written (12k lines a run) and
         # nothing -- model, recall block, CLI -- ever read one.
         state = self._state(agent, obs)
         ep["last_state"] = state
@@ -220,7 +220,7 @@ class EpisodeStore(MemorySink):
     def close(self, agent: "MemoryAgent", *, tags: Iterable[str] = (), **outcome: Any) -> None:
         """`tags`: extra tags the adapter derives from what it alone can see (MCU: `broke`
         from the tick's block events -- an ore broken and not yet picked up changes no
-        inventory, and lad8 refused the entry that broke it as "changed nothing")."""
+        inventory, and one run refused the entry that broke it as "changed nothing")."""
         if self._open is not None:
             self._close(agent, flushed=False, last_step=self._open["last_step"], extra=outcome,
                         extra_tags=tuple(tags))
@@ -341,8 +341,8 @@ class EpisodeStore(MemorySink):
                         "next_dhash": self._dhash(closing) if ep["kind"] == "episode" else None})
         # What the query tool asks of `outcome.json` most, kept in the row so `--grep`
         # and `--ores` read the index alone: opening every episode's outcome.json cost
-        # ~40 ms a file on the shared storage, 85-120 s over a 2,800-episode life
-        # (2026-09-09), longer than a turn.
+        # ~40 ms a file on the shared storage, 85-120 s over a 2,800-episode life,
+        # longer than a turn.
         if ep["notes"]:
             row["note"] = " ".join(str(ep["notes"][0]).split())[:220]
         events = (extra or {}).get("events") or outcome.get("events") or []

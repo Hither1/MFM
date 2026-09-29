@@ -252,7 +252,7 @@ def open_screen(cur) -> tuple[list[dict[str, Any]], str]:
 
 def close_screen(cur, force: bool = False) -> tuple[list[dict[str, Any]], str]:
     """Close the screen. The runner refuses the toggle while items are off-inventory --
-    dm4_wmv2 dropped four of its five logs to exactly that close and re-chopped for ~700
+    One run dropped four of its five logs to exactly that close and re-chopped for ~700
     steps -- so a close that would drop something becomes a no-op plus a [NOTE], and the
     plan continues. `force=true` closes anyway, for the case where dropping the item is
     actually the intent (it stays on the floor at your feet)."""
@@ -282,12 +282,12 @@ def click(button: str = "attack", hold: int = 2, gui: bool = True,
     GUI, which distributes a stack across slots instead of picking it up.
 
     A marker rather than plain ticks so the runner can hold it against the screen it
-    is about to click: dm5_wm_high step 5367 clicked a slot the cursor had already
+    is about to click: one run step 5367 clicked a slot the cursor had already
     been snapped away from, lifted nothing, and the 25 queued entries after it placed
     an empty hand into every cell of the furnace ring.
 
     `gui=False` marks a WORLD click (place_block right-clicking the ground): the
-    screen-open and pointer checks do not apply, and dm6 proved they must not -- the
+    screen-open and pointer checks do not apply, and one run proved they must not -- the
     agent itself filed `mechanism_place_block_guard_failure` after its table
     placements were guard-stopped for having no screen open, which is exactly the
     state a world click wants.
@@ -298,7 +298,7 @@ def click(button: str = "attack", hold: int = 2, gui: bool = True,
     mostly such clicks.
 
     `shift=True` holds sneak with the button: the GUI's quick-move. Measured in the
-    standalone sim (2026-09-03): a stack jumps between hotbar and main rows, a chest
+    standalone sim: a stack jumps between hotbar and main rows, a chest
     slot empties into the inventory, a craft output crafts everything the grid holds
     and lands in the inventory directly -- nothing rides the cursor afterwards."""
     return [{"_click": {"btn": button, "hold": max(1, int(hold)), "t": 0,
@@ -310,7 +310,7 @@ def open_inventory() -> list[dict[str, Any]]:
     """Press E until a screen is up (closed loop on isGuiOpen; see
     agent._opengui_tick). The toggle is edge-triggered and a press within a tick or
     two of the last screen change is swallowed, so a single blind press queued a
-    whole recipe against a closed screen (stage s1, 2026-09-03)."""
+    whole recipe against a closed screen (a staged scene)."""
     return [{"_opengui": {"attempts": 3, "t": 0}, "_cost": 9}]
 
 
@@ -339,8 +339,8 @@ def stow_items(cur, info, grid: str = "3x3", cells: Any = None
 
     The close guard was working -- nothing dropped -- but the recovery it prescribed
     was five manual entries per stack, and under time pressure the models reached for
-    force=true instead: 11-26 deliberate drops per dm6/kd6 arm, one of which cost
-    dm6_wm the iron pickaxe. This is that recovery as one procedure: deposit whatever
+    force=true instead: 11-26 deliberate drops per arm in two runs, one of which cost
+    the iron pickaxe. This is that recovery as one procedure: deposit whatever
     the cursor holds first (a lift with a full hand would swap, not lift), then lift
     each named cell and deposit it. Every move is the same closed-loop servo + click
     the recipes use; `probe` keeps the lifted-nothing judgment quiet for clicks whose
@@ -437,7 +437,7 @@ def collect_drops(ticks: int = 48) -> list[dict[str, Any]]:
     Default sized down from 72 after the first live night: 16-46 empty sweeps per arm,
     each running its full budget, mostly called speculatively with no recent break. The
     sweep pays off within ~half a lap when a drop is actually there -- and since the
-    2026-09-03 audit (87% of all collect_drops ticks gained nothing) an empty sweep
+    audit (87% of all collect_drops ticks gained nothing) an empty sweep
     stops at the runner's 24-tick cap whatever `ticks` says; the budget only matters
     when items keep arriving."""
     t = max(24, min(240, int(ticks)))
@@ -541,11 +541,11 @@ def look_at(info: dict[str, Any], x: float = 0.0, y: float = 0.0, z: float = 0.0
     """Aim the crosshair at a world coordinate, computed from ground truth.
 
     [STATE]'s position and facing are exact, so pointing at a *known place* is
-    trigonometry, not estimation -- the same move that took dm4_wmv4 fifteen failed
+    trigonometry, not estimation -- the same move that took one run fifteen failed
     right-clicks and eight misplaced blocks when done by eye (steps 4434-5927, aiming
     for the table it had itself placed). Convention check against live data: spawn
     (-3009.5, 71, -5572.5) to the first trunk (-3008.7, 73, -5569.6) computes yaw -15,
-    which is the heading the wmv3 agent measured for that exact route.
+    which is the heading the agent measured for that exact route.
 
     Pass the point to aim at; a block's centre is its corner + 0.5 on each axis. Aims
     from the eye (feet + 1.62).
@@ -578,7 +578,7 @@ def use_until_gui(n: int = 6, item: Any = None) -> list[dict[str, Any]]:
     at the remembered spot first (see agent._use_gui_tick), so re-opening it is one
     call instead of a guessed look_at.
 
-    Opening a placed table/furnace by eye was dm4_wmv4's whole endgame: fifteen `use`
+    Opening a placed table/furnace by eye was one run's whole endgame: fifteen `use`
     presses that opened nothing, each costing a plan round trip to discover. The runner
     presses, waits two ticks for the screen to come up, reads `isGuiOpen`, and stops the
     moment it is true -- or after `n` presses plus a 20-tick wait for the game to report
@@ -601,7 +601,7 @@ def go_to(x: float = 0.0, z: float = 0.0, within: float = 1.5, n: int = 120
     """Walk to a world coordinate, correcting the heading against [STATE] each tick.
 
     `travel` walks the direction you happened to be facing; terrain deflects it and the
-    error is only visible a model turn later. Every run has paid for that -- wmv3's map
+    error is only visible a model turn later. Every run has paid for that -- one run's map
     covered a 3x7 block box after 1,900 steps of trying to reach trees it could see.
     This closes the loop the same way the GUI servo does: the position is ground truth,
     so the heading to a *known place* is arithmetic, re-done every tick. Stops within
@@ -617,10 +617,10 @@ def _mine_seq(steps: list[dict[str, Any]], ore_watch: bool) -> list[dict[str, An
     """Wrap a mining sequence in a marker so the runner can watch the walls go by.
 
     Long macros were where ore hid in plain sight: a 200-tick strip mine attaches ONE
-    frame, at the end, and every wall face in between went unread (dm4_wmv7 spent its
+    frame, at the end, and every wall face in between went unread (one run spent its
     last 1,100 steps mining past walls nobody looked at). The runner samples the frame
     every few ticks against the iron-ore speckle signature (vision.find_iron_ore;
-    2026-08-27 recalibration on the live corpus: 5 residual fires over 1,118 frames)
+    recalibration on the live corpus: 5 residual fires over 1,118 frames)
     and stops the macro with a [NOTE] naming the screen position when it sees a
     candidate.
     """
@@ -669,7 +669,7 @@ def dig_down(n: int = 40, until_y: float | None = None) -> list[dict[str, Any]]:
     surfaces the y coordinate every step.
 
     `until_y` makes the depth the target instead of the tick count: the runner stops the
-    moment [STATE] y reaches it. dm4_wmv3 planned its descent in fixed 160-tick slices
+    moment [STATE] y reaches it. One run planned its descent in fixed 160-tick slices
     and spent its last 1,700 steps strip-mining at y=51 because deeper was another model
     turn away; "dig to y=20" is one entry."""
     dig = [{"_dig": {"remaining": max(1, int(n)),
@@ -678,16 +678,16 @@ def dig_down(n: int = 40, until_y: float | None = None) -> list[dict[str, Any]]:
     # Absolute aim: the relative look(pitch=60) entry made the landing angle
     # previous_pose + 60 -- from the horizon that is a 60-degree ray into the block
     # diagonally ahead, and 9 of 11 logged digs succeeded or failed purely on the
-    # leftover pitch (dm6's record dig entered at 22 and won the 82-degree coin;
-    # kd10rec's entered at 22 and carved a wall for 390 ticks). Same lesson
-    # _lookabs_tick already records for stair_down (dm4_wmv11).
+    # leftover pitch (one run's record dig entered at 22 and won the 82-degree coin;
+    # another's entered at 22 and carved a wall for 390 ticks). Same lesson
+    # _lookabs_tick already records for stair_down (one run).
     return look_abs(pitch=88) + dig
 
 
 def stair_down(depth: int = 20, ore_watch: bool = True) -> list[dict[str, Any]]:
     """Descend on a walkable staircase: two blocks out, one step down, repeat.
 
-    The safe descent. `dig_down` bores a vertical shaft, and dm4_wmv9 died in its own
+    The safe descent. `dig_down` bores a vertical shaft, and one run died in its own
     twice -- once reaching y=16 (the run's whole purpose) and once jumping back in to
     recover the dropped items. A staircase cannot be fallen down, can be walked back up
     unaided, and exposes three faces per step to the ore watcher instead of one.
@@ -709,7 +709,7 @@ def strip_mine(length: int = 80, ore_watch: bool = True) -> list[dict[str, Any]]
 def chop_tree(n: int = 80, until_logs: int = 1) -> list[dict[str, Any]]:
     """Hold attack on a trunk, stopping as soon as wood actually lands in the inventory.
 
-    The blind version of this is where dm4_wmv2 spent 70% of its tick budget: 1,415 attack
+    The blind version of this is where one run spent 70% of its tick budget: 1,415 attack
     ticks for five logs, because a chop aimed at sky or leaves runs its full duration with
     nothing to say so until the [INV] line at the end. The runner resolves this marker one
     tick at a time and stops the moment the inventory gains `until_logs` items whose name
@@ -752,7 +752,7 @@ def _craft(info: dict[str, Any], item: str = "crafting_table"
 
 
 #: Closed-loop markers whose tick budget can be cut to fit a plan's step cap, and the
-#: key that holds it. kd24z_lb asked for dig_down(n=390, until_y=12) five times: the
+#: key that holds it. One run asked for dig_down(n=390, until_y=12) five times: the
 #: aim entry (40 ticks) plus the dig (390) exceeded the 400-tick cap, so the dig was
 #: DROPPED and only the aim ran -- "changing nothing" five turns in a row -- until the
 #: model dug straight down with mine_ahead instead and fell into a cave.
@@ -771,8 +771,8 @@ def shrink_marker(step: dict[str, Any], fit: int) -> dict[str, Any] | None:
     # A marker's own floor (`_min`): under it the macro cannot do its job at all, so the
     # parser drops it whole ("NOT STARTED ... put it first next turn") instead of
     # handing the runner a stub. find_lava shrunk to 112-242 ticks on the tails of
-    # 400-tick plans "NOT STARTED" at run time, one model turn each (hd41z, 2026-09-04);
-    # mine_obsidian shrunk to 74-102 ticks swung at a block that takes 190 (hd43z).
+    # 400-tick plans "NOT STARTED" at run time, one model turn each (one run);
+    # mine_obsidian shrunk to 74-102 ticks swung at a block that takes 190 (one run).
     if fit < int(step.get("_min", 0) or 0):
         return None
     if "_seq" in step and isinstance(step["_seq"], dict):
@@ -803,7 +803,7 @@ REGISTRY: dict[str, Procedure] = {}
 #: BEFORE them in the same plan (a harvest puts logs in the inventory, use_until_gui
 #: opens the table): when one of these is refused and is not the plan's first entry, the
 #: parser queues a `_later` marker that expands it at run time instead of dropping it
-#: (see actions.parse_actions and macros_gui._later_tick). Measured 2026-09-03 across
+#: (see actions.parse_actions and macros_gui._later_tick). Measured across
 #: 7 live arms: 56 of 76 "need Nx" refusals were of this kind, one model turn each.
 DEFERRABLE = {"craft", "furnace_load", "furnace_take", "place_and_open"}
 #: Procedures whose expansion is a run of independently resumable steps -- a placed
@@ -816,7 +816,7 @@ def register(p: Procedure) -> None:
     REGISTRY[p.name] = p
 
 
-#: `atoms` (2026-09-07): the procedure set a run
+#: `atoms`: the procedure set a run
 #: shows and expands when the model is to build the rest itself (mcu_worldmodel/own.py).
 #: The primitives that carry a measured mechanic the model cannot redo from raw keys in
 #: one turn -- the closed-loop aims and walks, the GUI cursor and the one-call craft (9

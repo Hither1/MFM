@@ -13,7 +13,7 @@ coordinate macros of macros_world and the vision loop shape of macros_entity:
   length for a 640-wide frame), its screen y trend says whether it climbed or dropped.
   The eye never drops back in this engine (seven throws, no item entity), so each throw
   costs an eye; `fetch=True` keeps the walk-out along the bearing for one where it does.
-  Measured on this engine (probe_eye, 2026-09-04): the sprite is ~100 px at tick 15
+  Measured on this engine (a probe): the sprite is ~100 px at tick 15
   after the throw, 16 px by tick 30, gone from the diff after 33; the first 12 ticks show
   only the hand animation in the lower right.
 - `travel_bearing(yaw, blocks)`: walk a heading for a distance in closed-loop legs.
@@ -42,7 +42,7 @@ from mcu_worldmodel import gui, macros, vision
 from mcu_worldmodel import macros_world as MW
 from mcu_worldmodel import macros_entity as ME
 
-#: Horizontal field of view the frames are rendered with (measured in stage s4: a mob
+#: Horizontal field of view the frames are rendered with (measured in a staged scene: a mob
 #: exactly 40 degrees off the facing rendered 225 px right of centre in a 640-wide frame,
 #: which a pinhole at 100 degrees predicts). The focal length in pixels is width/2/tan(50).
 HFOV_DEG = 100.0
@@ -67,10 +67,10 @@ EYE_DROP_TICKS = 70       # counted from the end of the watch (~50 ticks after t
 #: Screen-y slope (px per tick, + is down) beyond which the eye is read as descending.
 EYE_DOWN_SLOPE = 1.5
 #: End crystal colours: magenta/pink faces and a bright white core, on the near-black
-#: End sky or grey obsidian. Bands on the frame body; refined on stage s10 frames.
+#: End sky or grey obsidian. Bands on the frame body; refined on the frames of a staged scene.
 _CRYSTAL_MIN_PX = 16
-#: The dragon is black; the End sky is not quite (v 18-26 measured on probe_end,
-#: 2026-09-04). Body pixels at or below this brightness are the dragon.
+#: The dragon is black; the End sky is not quite (v 18-26 measured).
+#: Body pixels at or below this brightness are the dragon.
 DRAGON_V_MAX = 12
 DRAGON_MIN_PX = 250
 
@@ -122,7 +122,7 @@ def _hand_blob(x: float, y: float, w: int, h: int) -> bool:
 def throw_eye(cur, info: dict, fetch: bool = False) -> tuple[list[dict[str, Any]], str]:
     """Throw one eye of ender and watch where it flies. `fetch` walks out along the
     bearing afterwards for a dropped eye -- off by default: in this engine the eye never
-    drops back (probe_eye2, 2026-09-04: seven throws, no ender_eye item entity at any
+    drops back (a probe: seven throws, no ender_eye item entity at any
     tick after any of them, while a summoned one is found at once), so every throw
     consumes the eye."""
     from mcu_worldmodel import procedures as P
@@ -339,7 +339,7 @@ def _eyefetch_tick(agent, ef: dict[str, Any], mk_act):
         return mk_act()
     if ef["phase"] == "wait":
         # In vanilla the eye flies ~80 ticks, then drops from ~10 blocks up. Here the
-        # eye entity is gone by tick 60 and no item follows (probe_eye4, 2026-09-04).
+        # eye entity is gone by tick 60 and no item follows (measured).
         if agent.step - LAST_EYE.get("step", agent.step) < EYE_DROP_TICKS:
             return mk_act()
         ef["phase"] = "zigzag"
@@ -476,7 +476,7 @@ def fill_end_portal(cur, info: dict, x: float = 0.0, y: float = 0.0, z: float = 
 
 #: The frame's top seen from one block away with the crosshair on its centre: the
 #: EMPTY socket is a dark square, the eye a green iris. A 17x17 patch around the
-#: crosshair, measured on probe_frames (2026-09-04): empty -> green share 0.00 and a
+#: crosshair, measured on probe frames: empty -> green share 0.00 and a
 #: median brightness of 25 at 1-3 blocks; with an eye -> green share 0.76 / median 100
 #: at 1 block, 0.34 / 84 at 2 blocks, 0.18 / 45 at 3 blocks (too far to read).
 EYE_PATCH_RAD = 8
@@ -514,7 +514,7 @@ def frame_has_eye(frame) -> bool | None:
 def _fillportal_tick(agent, fp: dict[str, Any], mk_act):
     """Per frame: walk to its outside spot, steer the crosshair onto the centre of its
     TOP face, read whether an eye is already there (a click on a filled frame -- or a
-    click that misses the frame -- THROWS the eye instead: run 1 of stage s10 threw all
+    click that misses the frame -- THROWS the eye instead: a staged scene threw all
     twelve), click the top with the eye when it is empty, then look again and read the
     eye that should now be there."""
     pos = agent._cur_pos
@@ -765,7 +765,7 @@ def crystal_blob(frame) -> tuple[float, float, int, int, int] | None:
     r, g, b = body[..., 0], body[..., 1], body[..., 2]
     mn = np.minimum(np.minimum(r, g), b)
     # The cube: magenta faces in daylight, pale blue-white in the End's dark (measured
-    # 160,192,192 on stage s10), a white core; and the FIRE under it (180+ red, little
+    # 160,192,192 on a staged scene), a white core; and the FIRE under it (180+ red, little
     # blue), which nothing else in the End shows.
     magenta = (r > 110) & (b > 110) & (g < 0.80 * np.minimum(r, b))
     white = (mn > 215)
@@ -957,7 +957,7 @@ def _dragon_detect(agent, st: dict[str, Any]):
     """The black mass by colour first (it needs no still frames and the dragon is never
     rigid: even a perched one flaps), motion as the fallback. The point to swing at is
     the LOWEST central part of the mass, not its centroid: the centroid of a dragon
-    seen from below is a wing 8 blocks up (stage s10, 2026-09-04: five swings at the
+    seen from below is a wing 8 blocks up (a staged scene: five swings at the
     sky), the body, legs and head are at the bottom of the silhouette."""
     hit = dragon_blob(agent._last_pov)
     if hit is None and int(st.get("still", 0)) >= ME.STILL_MIN and ME._steady(st):

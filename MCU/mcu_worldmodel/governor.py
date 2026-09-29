@@ -39,7 +39,7 @@ WINDOW_STEPS = 500   # the ledger line's lookback
 # Only verbatim-churn procedures can arm a veto. Everything else is nudged but never
 # refused: travel changes the key by design; the descents carry their own tick
 # guards; GUI and cursor micro-ops legitimately produce "no inventory change" one
-# entry at a time inside a craft sequence (dmbr2: banning them broke the recovery
+# entry at a time inside a craft sequence (one run: banning them broke the recovery
 # of a dropped crafting table and burned 40 model calls at 2 per sim step); raw
 # entries include furnace waits. The veto itself is ALL-OR-NOTHING per plan -- see
 # Governor.check's caller -- because dropping one entry out of a composite plan
@@ -49,7 +49,7 @@ VETOABLE = {"look", "look_abs", "look_at", "aim_at_tree", "aim_at_ore",
             "strip_mine", "collect_drops"}
 
 # The plan-level watchdog. The per-label rule above never fired on the loops that
-# ate the 2026-09-06 chain: obf1's furnace loop was equip_hotbar / close_inventory /
+# ate the chain: one run's furnace loop was equip_hotbar / close_inventory /
 # craft / use_until_gui -- four labels, none vetoable, rotated turn after turn at
 # one spot for ~10k steps; historically 58% of the null actions were GUI micro-ops
 # and 13% raw holds. So a second ledger counts null entries per 8-block cell
@@ -197,8 +197,8 @@ class Governor:
 
         Fires when this cell has CELL_STREAK_VETO null entries in a row (any labels)
         or STALL_STEPS without a productive one, and the plan neither moves nor
-        opens a screen. With a screen open the GUI work is exempt (the dmbr2
-        lesson: banning cursor micro-ops broke a recovery); the clock still runs."""
+        opens a screen. With a screen open the GUI work is exempt (the
+        lesson of one run: banning cursor micro-ops broke a recovery); the clock still runs."""
         if cell is None or not entries:
             return None
         streak = self._cell_streak.get(cell)

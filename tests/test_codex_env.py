@@ -1,4 +1,4 @@
-"""What the codex process is handed, 2026-09-09.
+"""What the codex process is handed.
 
 Measured on codex 0.153: the model's exec cells inherit codex's whole environment, and
 `shell_environment_policy.exclude` does not remove anything; the shell snapshot codex writes

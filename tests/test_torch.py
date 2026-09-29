@@ -1,7 +1,7 @@
 """The torch phase of the level tunnelling tick (agent._torch_due / _torch_step): every
 TORCH_EVERY blocks underground, with a torch in the hotbar, the tunnel pauses, plants a
 torch on the floor of the cell just left, takes the tool back and faces the heading
-again. The 2026-09-06 runs carried torches through eleven DARK stretches and planted
+again. The runs carried torches through eleven DARK stretches and planted
 none."""
 from __future__ import annotations
 

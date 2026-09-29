@@ -53,12 +53,12 @@ def ensure_system_skills_marker(home: Path) -> Path:
 
     Two conventions exist for the same intent and both must be left standing. This
     package seeds a DIRECTORY `skills/.system` holding the marker file, the way the
-    codex_sandbox wrapper does. The MCU launcher (`MCU/scripts/codex-home.sh`,
-    2026-09-09) instead seeds a plain FILE at that path: codex 0.153 installs its bundled
+    codex_sandbox wrapper does. The MCU launcher (`MCU/scripts/codex-home.sh`)
+    instead seeds a plain FILE at that path: codex 0.153 installs its bundled
     skills there at every start, and a file makes that install fail harmlessly.
 
     `mkdir(exist_ok=True)` raises FileExistsError when the path is a file, and the VISTA
-    arm calls this on every episode start: on portal2_vista the adapter swallowed that
+    arm calls this on every episode start: on one run the adapter swallowed that
     exception, returned a noop, and retried `start` on the next step -- 5,910 identical
     failures, the player never leaving spawn, a node held for 25 minutes with nothing in
     the log calling it an error. A file already there is the launcher's marker, and it
@@ -203,10 +203,10 @@ def _metadata_args(context_window: int, headroom: int | None = None,
     in the audit, and a nonzero count means this argument is wrong and the arm needs
     re-describing rather than quietly re-running.
 
-    **That tripwire did not fire, and the guard still failed (2026-08-20).** codex-cli
-    0.148.0 -- installed 2026-08-19 11:20, two hours before the Qwen3.5 campaign started,
-    against code measured on 0.147.0 -- compacts *before* sampling, and does it against
-    `model_context_window` rather than the auto-compact limit. On the 2026-08-20 run the
+    **That tripwire did not fire, and the guard still failed.** codex-cli
+    0.148.0 -- installed two hours before a campaign started, against code measured
+    on 0.147.0 -- compacts *before* sampling, and does it against
+    `model_context_window` rather than the auto-compact limit. On that run the
     conversation reached that window at turn 763 and every turn after it died the same
     way: stderr `Failed to run pre-sampling compact`, then a 400 from the compaction
     request itself. 386 of 1150 turns and 64 questions were lost to it, and `compactions`
@@ -235,7 +235,7 @@ def _metadata_args(context_window: int, headroom: int | None = None,
 
 
 # What the model is allowed to hold in its hands, fixed here rather than left to codex's
-# defaults. Measured on codex-cli 0.147.0 (2026-08-17), through the production sandbox
+# defaults. Measured on codex-cli 0.147.0, through the production sandbox
 # wrapper, hosted account: without these the tool list carried `web__run` -- and the model
 # used it to fetch a Wikipedia article -- plus ~250 account-level `mcp__codex_apps__*`
 # connectors (github, gmail, slack, google_drive, hugging_face, ...) and the sub-agent
@@ -386,7 +386,7 @@ def merge_stats(parts: Sequence[dict[str, Any]]) -> dict[str, int]:
 # data, and asserted against in selftest, because the first version of this predicate was
 # written from what the error *ought* to say: it matched OpenAI's "maximum context length
 # is N tokens" and missed vLLM's "exceeds the max_model_len", which shares not one word
-# with it. The cost was silent. On one n=1042 PRO-LONG run (2026-08-20) 132 overflows
+# with it. The cost was silent. On one n=1042 PRO-LONG run 132 overflows
 # were reported by the server and `overflow_resets` recorded 0, so the one-turn cold start
 # this function exists to trigger never ran; recovery fell to the generic two-failures
 # rule, one turn later each time, and the questions lost in that extra turn came in blocks
@@ -562,7 +562,7 @@ def find_rollout(codex_home: Path | None, workspace: Path, session_id: str | Non
         Path(os.environ["CODEX_EPISODE_HOME"]) if os.environ.get("CODEX_EPISODE_HOME") else None,
         Path(str(workspace).rstrip("/") + ".codexhome"),
         # codex 0.148 writes rollouts under its own "runtime home" regardless of the
-        # CODEX_HOME it was handed (measured 2026-08-27: dbg_hard5's eleven sessions
+        # CODEX_HOME it was handed (measured: one run's eleven sessions
         # landed in ~/.codex/runtime-home/sessions while the per-episode home got only
         # auth.json and skills/). These shared homes are safe last resorts because the
         # lookup matches the exact session id.
@@ -591,7 +591,7 @@ def run_codex(
     `codex` on PATH is a bash wrapper that execs node, which spawns the native codex
     binary; `codex_sandbox.sh` is bash around bwrap -- so on a timeout the process that
     is actually talking to the model survives as an orphan and keeps issuing requests
-    (measured in MCU-AgentBeats 2026-08-18: still going eight minutes after its caller
+    (measured in MCU-AgentBeats: still going eight minutes after its caller
     gave up). Codex is started in its own session and the group is killed, so a timeout
     ends the requests as well as the wait. Raises `subprocess.TimeoutExpired` carrying
     the partial stdout/stderr, like `subprocess.run` does.
@@ -609,7 +609,7 @@ def run_codex(
             pass
         try:
             # Bounded, because SIGKILL does not reach a process blocked in the kernel:
-            # when holylfs6 dropped an OST on 2026-09-01 every codex turn in flight
+            # when a storage server dropped out every codex turn in flight
             # left a live `bwrap` with an unreaped child, and this drain -- written
             # without a timeout -- waited on a pipe that namespace never closed. Three
             # 12-hour shard jobs sat there until they were cancelled by hand, past a
@@ -758,7 +758,7 @@ class CodexTurn(LocalServerGate):
         # Absolute, always. Codex runs with cwd == this directory, so every path derived
         # from it -- `-o last_message.txt`, the `-i` frames -- is handed to codex relative
         # to *its* cwd, and a relative `--workspace` made both resolve to nothing: measured
-        # 2026-08-17 as `Failed to write last message file "runs/.../last_message.txt"`
+        # as `Failed to write last message file "runs/.../last_message.txt"`
         # (so no [PLAN] ever reached the log) and `Codex could not read the local image at
         # runs/.../frames/q0000_0.png` on every turn. Inside the sandbox nothing
         # but the absolute path exists, which is what made it visible.
@@ -818,7 +818,7 @@ class CodexTurn(LocalServerGate):
         # Bytes of attachment carried by the *current* session. On a resumed thread codex
         # re-sends every prior image with each call; past roughly 5.5 MB on the wire the
         # first call of every turn stalls near the timeout and the arm effectively stops
-        # (measured in MCU-AgentBeats, 2026-08-25). Tracked because the token counters
+        # (measured in MCU-AgentBeats). Tracked because the token counters
         # read far-from-full at the point that happens.
         self.session_attachment_bytes = 0
         self.peak_attachment_bytes = 0
@@ -833,7 +833,7 @@ class CodexTurn(LocalServerGate):
         self.timeout_resets = 0
         # A stalled stream is not a failed turn when the artifact is already on disk:
         # the workspace file is the contract, and the stale-clear at the top of run()
-        # guarantees one present after this attempt was written by it. g56low_v0 Q22
+        # guarantees one present after this attempt was written by it. One task
         # lost three completed answers to this over 45 minutes and scored a default.
         self.timeouts_salvaged = 0
         # The usage-limit gate (module docstring at `_QUOTA_RE`); off in the KiCad
@@ -859,7 +859,7 @@ class CodexTurn(LocalServerGate):
         # The same synthesised cold start, triggered by the frames the resumed thread
         # carries instead of by its age. Codex re-sends every earlier attachment on each
         # call, so a resumed session's payload grows ~0.48 MB an act turn and past ~5.5 MB
-        # on the wire every turn stalls near the timeout (MCU run-arm.sh, 2026-08-25). A
+        # on the wire every turn stalls near the timeout (MCU run-arm.sh). A
         # turn cap of 1 sidestepped that by giving up the conversation entirely; this
         # keeps one thread until the NEXT turn's frame would carry it past the budget,
         # then hands off to a fresh one -- VISTA's `thread_bytes_budget`, with the
@@ -1043,7 +1043,7 @@ class CodexTurn(LocalServerGate):
         `timeout` overrides this turn's ceiling. Not every turn is the same size: a
         world-model induction pass reads the whole accumulated record and rewrites five
         documents, and holding it to the budget an act turn needs killed two of four
-        induction passes in g56low_v1 -- the arm's distinctive mechanism, failing half
+        induction passes in one run -- the arm's distinctive mechanism, failing half
         the time because it was measured against the wrong clock.
         """
         if self.max_calls and self.calls >= self.max_calls:

@@ -1,6 +1,6 @@
 """The runner's cell map (mcu_worldmodel/grid.py) and the three macros that consume it:
 the go_to detour over walked cells, the re-open by replayed pose, and the walk out of
-the pond trap along the avatar's own trail. Measured need (2026-09-06 findings):
+the pond trap along the avatar's own trail. Measured need:
 30-50% of blocked go_to targets never reached, a median 612 steps from the water fill
 to the descent, a remembered furnace one cell off for ~10k steps."""
 from __future__ import annotations
@@ -295,7 +295,7 @@ def test_above_finds_the_rim_of_a_hole():
     _walk(g, [(6, 64, 0), (7, 64, 0)], step0=50)       # then the floor of a hole
     assert g.above(_pos(7.5, 64, 0.5)) == ((5, 69, 0), 5)
     assert g.above(_pos(2.5, 69, 0.5)) is None         # on the surface: nothing higher
-    # the mouth of a shaft 44 blocks up is not a rim (og9 at y 11 under its y 55 trail)
+    # the mouth of a shaft 44 blocks up is not a rim (one run at y 11 under its y 55 trail)
     g2 = Grid()
     g2.observe(1, _pos(-2993.5, 55, -5566.5))
     assert g2.above(_pos(-2992.5, 11, -5561.1)) is None

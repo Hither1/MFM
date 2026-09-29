@@ -22,14 +22,14 @@ Two things are different from `macros_gui` and are the reason for the extra mach
   reads the frame and *splices* the servo/click pairs it needs into the queue behind itself
   (`_splice`), as part of the same plan entry.
 * **Everything moves by quick-move (`click(shift=True)`).** Measured in the sim on
-  2026-09-03: a shift-click empties a chest cell into the inventory, and a shift-click on a
+  a shift-click empties a chest cell into the inventory, and a shift-click on a
   player slot routes an item to the cell of the open screen that accepts it -- a potion to a
   brewing stand's bottle slots, blaze powder to its fuel slot, nether wart or magma cream to
   its ingredient slot, lapis to the enchanting table's lapis slot, anything else to its item
   slot, stone to the stonecutter's input. Nothing rides the cursor afterwards, so no close
   can drop it and no bank click can miss.
 
-Engine facts measured in the sim stage `stages/s3_containers.py` (2026-09-03, 41 checks):
+Engine facts measured in a staged scene (41 checks):
 
 * Container heights, from the top bevel row on the centre column: a chest or barrel is 168
   (top row 96), a double chest 222 (top row 69), every other screen 166 (top row 97).
@@ -182,7 +182,7 @@ def _writeoff(agent, item: str, n: int) -> None:
     Same move `CursorState.crafted` makes for a recipe, for the same reason. Enchanting
     eats lapis and a stonecutter eats its input, and neither has a statistic; without
     this the difference reads as "off-inventory, would drop on the floor" and every
-    close_inventory after an enchant or a cut is refused (measured, stage s3 run 1:
+    close_inventory after an enchant or a cut is refused (measured, a staged scene:
     "close refused: lapis_lazulix1", "close refused: stonex4").
     """
     if n <= 0 or agent.cursor.baseline is None:
@@ -246,8 +246,8 @@ def _ccheck_tick(agent, ck: dict[str, Any], mk_act):
     named cells still hold.
 
     It waits for the gain rather than a fixed number of ticks, because the inventory
-    observation lags a GUI click by up to ~15 (stage s1, 2026-09-03) and a single-cell
-    take checked at a fixed 8 called every success a miss (stage s3)."""
+    observation lags a GUI click by up to ~15 (a staged scene) and a single-cell
+    take checked at a fixed 8 called every success a miss (a staged scene)."""
     gained = _gain(agent)
     if not gained and ck["t"] < int(ck.get("wait", 18)):
         ck["t"] += 1
@@ -417,7 +417,7 @@ def _cput_tick(agent, cp: dict[str, Any], mk_act):
         # probe clicks: a lift is verified by `_cputcheck`, and the runner's own
         # lifted-nothing judgment cannot see one here -- it re-reads the source slot
         # from the frame, where the lifted stack is drawn ON the pointer that is still
-        # over that slot, so it reads "still full" and clears the queue (stage s3).
+        # over that slot, so it reads "still full" and clears the queue (a staged scene).
         entries += [P._servo(src_tl, f"inventory slot {src}")]
         entries += P.click("attack", probe=True)
         entries += [P._servo(gui.centre(cells[empty]), f"chest cell {empty}")]
@@ -515,7 +515,7 @@ def brew(cur, info: dict, ingredient: str = "nether_wart", bottles: int = 3,
 def _brewcheck_tick(agent, bc: dict[str, Any], mk_act):
     """The ingredient must have left the inventory and the stand's cells must read full.
     The FUEL cell is not required: the stand burns a blaze powder the moment brewing
-    starts, exactly as a furnace consumes its fuel (stage s1's furnace lesson)."""
+    starts, exactly as a furnace consumes its fuel (a staged scene's furnace lesson)."""
     if bc["t"] < 8:
         bc["t"] += 1
         return mk_act()

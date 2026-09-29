@@ -1,4 +1,4 @@
-"""The obsidian macros after the 2026-09-06 fixes: a procedure with a tick floor is
+"""The obsidian macros after the fixes: a procedure with a tick floor is
 dropped whole at the step cap instead of shrunk into a stub, make_obsidian /
 mine_obsidian default to the last sighting's cells, and the closed-loop scoop and
 mining ticks end on the inventory and the statistics, not on a tick count."""

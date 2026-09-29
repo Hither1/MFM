@@ -1,5 +1,5 @@
 """The fightback after an abandoned bunker (agent._weapon_slot / _arm_fightback /
-_fightback_tick / _in_hole / _in_shaft). og8_mfm, 2026-09-07: at the bottom of its own
+_fightback_tick / _in_hole / _in_shaft). One run: at the bottom of its own
 shaft a zombie fell into the cell; the bunker dug two blocks with it aboard and capped
 them both in -- 4.5 hp every 20 ticks, dead at step 2603 with a diamond sword in the
 inventory and the kit lost."""
@@ -104,7 +104,7 @@ def test_fightback_aims_at_the_cell_centre():
     rf = A._arm_fightback(ns, pos, 15.0, 33.0, (1, "diamond_sword", 9), toward_center=True)
     assert rf["yaw"] == 33.0
     # ... and the first empty sweep re-aims from where the push has left the avatar:
-    # the corner (-.7, -.7) of the cell (stage s20) -> the mob is diagonal, yaw -45
+    # the corner (-.7, -.7) of the cell (a staged scene) -> the mob is diagonal, yaw -45
     ns._cur_pos = {"x": -2999.7, "y": 16.0, "z": -5559.7, "pitch": 0.0, "yaw": 33.0}
     ns._reflex = rf
     mk = lambda **kw: {"camera": [0.0, 0.0], **kw}

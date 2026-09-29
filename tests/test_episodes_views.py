@@ -1,4 +1,4 @@
-"""The two views added to the workspace query tool (2026-09-09): `--ores` (where ore was
+"""The two views added to the workspace query tool: `--ores` (where ore was
 seen, and at what y) and `--y-profile` (where the agent has already looked). Both on a
 tiny synthetic index, both with and without `--previous`."""
 from __future__ import annotations

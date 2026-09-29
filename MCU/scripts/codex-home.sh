@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build an isolated CODEX_HOME for one experiment arm and print the exports for it.
 #
-#   eval "$(scripts/codex-home.sh dm2_wm)"
+#   eval "$(scripts/codex-home.sh <arm>)"
 #
 # Then every `codex` call in that shell uses a home no other arm touches.
 #

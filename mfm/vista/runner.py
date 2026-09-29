@@ -128,7 +128,7 @@ def prepare_codex_home(home: Path) -> Path:
     (home / "sessions").mkdir(parents=True, exist_ok=True)
     (home / "tmp").mkdir(parents=True, exist_ok=True)
     # Shared with the backend: the launcher may already have put a FILE at
-    # skills/.system, and mkdir on a file is what took portal2_vista down.
+    # skills/.system, and mkdir on a file is what took one run down.
     ensure_system_skills_marker(home)
     return home
 

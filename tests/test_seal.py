@@ -1,7 +1,7 @@
 """The flee-then-seal reflex (agent._arm_seal / _seal_tick): after the sprint the
 runner turns to face the way back, clicks the floor's top so a block fills the cell at
-feet level, clicks that block's top so one fills the head cell, and reports. Measured
-2026-09-06: the blind fightback dealt 0 damage in 3 reflexes, the bunker was hit into
+feet level, clicks that block's top so one fills the head cell, and reports. Measured:
+the blind fightback dealt 0 damage in 3 reflexes, the bunker was hit into
 4 times of 4, the fight macro in a dark tunnel traded 1 swing for 15 hp."""
 from __future__ import annotations
 

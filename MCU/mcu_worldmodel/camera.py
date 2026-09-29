@@ -31,7 +31,7 @@ import os
 
 from loguru import logger
 
-#: Fallback, used only if minestudio cannot be imported. Measured 2026-08-24 against
+#: Fallback, used only if minestudio cannot be imported. Measured against
 #: `CameraConfig()` defaults; `reachable()` recomputes it so a config change is followed.
 _FALLBACK = (-10.0, -5.8095, -3.2154, -1.6095, -0.6154,
              0.0, 0.6154, 1.6095, 3.2154, 5.8095, 10.0)

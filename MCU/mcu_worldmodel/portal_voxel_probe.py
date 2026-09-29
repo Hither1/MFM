@@ -1,7 +1,7 @@
 r"""Live test: does the engine's voxel channel say what `portal.py` assumes it says?
 
 The nether-portal case study is scored entirely from `info["voxels"]`, and every claim
-in that sentence came from decompiling `EnvServer` (2026-09-09), not from a run:
+in that sentence came from decompiling `EnvServer`, not from a run:
 
     the key comes back      sending `action["voxels"] = [x0, x1, y0, y1, z0, z1]` makes
                             the client answer at all

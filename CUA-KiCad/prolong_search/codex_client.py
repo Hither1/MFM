@@ -186,7 +186,7 @@ class CodexClient(LocalServerGate):
         fails while the server is not answering waits for the file to name a live
         address, adopts it, and runs once more -- without spending the caller's retry
         budget. Without the gate the direct arm answered 69 questions in a row as
-        index-0 defaults against a dead node (qwen38_1042, 2026-09-02); the agent arms,
+        index-0 defaults against a dead node (one run); the agent arms,
         which already had it, stopped cleanly and waited.
         """
         if self._address_file() is not None:
@@ -234,7 +234,7 @@ class CodexClient(LocalServerGate):
                 # its callers parse that message -- BrowseComp-Plus's "Action: search /
                 # Action Input: ...", the judge's
                 # verdict. Leave codex's exec tools in its hands and the model does not
-                # answer, it *acts*: measured 2026-08-18 on qwen3.8-27b, one
+                # answer, it *acts*: measured on qwen3.8-27b, one
                 # BrowseComp-Plus question ran 66 shell commands in a single call --
                 # `echo "Action: search"`, dozens of `echo done`, then reading its own
                 # rollout out of $CODEX_HOME and a `find / -xdev` sweep -- reaching
@@ -382,7 +382,7 @@ def add_codex_args(parser: Any) -> None:
                        help="CODEX_HOME for the subprocess (auth + session storage).")
     # Without this the direct arms keep nothing from a stalled call but its duration,
     # while the PRO-LONG arms keep the partial event stream (CodexTurn.run). A stall is
-    # exactly where the two arms have to be equally diagnosable: measured 2026-08-18, a
+    # exactly where the two arms have to be equally diagnosable: measured, a
     # `--use-codex` BrowseComp-Plus call ran past the 1200s timeout with no shell child
     # and no saved transcript, so what codex was doing could not be read off anything.
     group.add_argument("--codex-transcript-dir", default=None,

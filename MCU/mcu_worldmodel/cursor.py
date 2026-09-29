@@ -307,7 +307,7 @@ class CursorState:
     def crafted(self, item: str, count: int) -> dict[str, int]:
         """A craft output landed: its ingredients left the grid for good, so they
         come off the baseline (else they read as "off-inventory" until the screen
-        closes -- kd26z_wm step 3172: one log became four planks and every close for
+        closes -- one run step 3172: one log became four planks and every close for
         the next 200 steps was refused over a log that no longer existed). Returns
         what was written off. Recipes with a wildcard ingredient ('@planks', '@logs')
         write off whichever matching baseline item still has a count."""

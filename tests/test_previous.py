@@ -75,7 +75,7 @@ def test_seed_links_the_record_and_chains_lives(tmp_path: Path):
     rows = [json.loads(l) for l in (ws2 / "previous" / "index.jsonl").read_text().splitlines()]
     assert rows[0]["path"] == "previous/life_1/episodes/ep_000001" and rows[0]["life"] == 1
     assert pl2.sources == [str(gen1)]
-    # gen2 becomes a seed itself: its carried life comes first, then its own record.
+    # the second life becomes a seed itself: its carried life comes first, then its own record.
     (ws2 / "logs.txt").write_text(LOG.replace("-3013, 70, -5580", "-2993, 69, -5572"))
     assert [p.name for p in lives_of(ws2)] == ["life_1", "gen2"]
     pl3 = PreviousLives(tmp_path / "gen3")

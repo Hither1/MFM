@@ -1,5 +1,5 @@
 """Falls: mid-air ticks are not walked cells (grid.observe, FALL_DY) and an unplanned drop
-of 4+ blocks stops the plan on landing (agent._fall_guard). og13_mfm 2026-09-07 18768:
+of 4+ blocks stops the plan on landing (agent._fall_guard). One run 18768:
 a go_to fell 13 blocks in the Nether, the stall branch queued pillar_up(2) toward a
 mid-air cell, the model jumped on and fell 9 more, dead with the kit."""
 from __future__ import annotations

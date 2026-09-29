@@ -675,7 +675,7 @@ _SCORING_LINE = {
           "get. The\nenvironment verifies each milestone from the game's own statistics -- "
           "you do not get to\ndecide you have achieved one.",
     # Wording deliberately neutral: it says what the episode is, not what any grader
-    # looks for (audit 2026-09-03).
+    # looks for (audit).
     False: "This task has no milestone list: it is judged on what you actually accomplish in "
            "the episode,\nas a human player would do it. Plan from the task text, do the "
            "thing completely, and verify\neach step on the game's own statistics ([EVENT] / "
@@ -753,8 +753,8 @@ def _logbook_contract_with_previous() -> str:
         _LOGBOOK_NOTHING_ELSE, _LOGBOOK_PREVIOUS_NOTE + "\n" + _LOGBOOK_NOTHING_ELSE, 1)
 
 #: The logbook arm's tool line (no image tool: it has no frames) and the mfm arm's, which
-#: names `view_image` and what it can be pointed at. Until 2026-09-08 the mfm contract
-#: kept the logbook line verbatim: view_image was never listed, and across og14-og22 the
+#: names `view_image` and what it can be pointed at. Earlier the mfm contract
+#: kept the logbook line verbatim: view_image was never listed, and across several runs the
 #: model pointed it at zooms of the current view 250 times, at an earlier episode's frame
 #: 32 times, at an earlier life's frame 3 times (tasks/.../scripts/vision_use.py).
 _LOGBOOK_TOOLS_LINE = ("**Tools**: Read, Bash, Grep, Glob to read the log; Write to create "
@@ -806,7 +806,7 @@ for _d in (_GROUND_TRUTH_CHANNELS, _ACTIONS_CHANNEL, _PROCEDURE_NOTES, _OUTPUT_F
 #: `--thin`: the standing contract keeps the task, the memory protocol, the response
 #: format, the action schema and the procedure index; these sections (by their heading)
 #: move to `references/<file>` in the workspace, read on demand. Modelled on the
-#: SKILL.md + references layout of wz1119/Codex-Minecraft-Gameplay (2026-09-07): one
+#: SKILL.md + references layout of wz1119/Codex-Minecraft-Gameplay: one
 #: page of loop and rules, the long tables next to it. The mfm AGENTS.md was 14,300
 #: words; a session reads it once, a turn message points back into it.
 _THIN_MOVED = (
@@ -839,7 +839,7 @@ _THIN_HEADING = re.compile(r"^(\*\*[^*]+\*\*|#{1,3} )")
 
 #: The loop, after the "Plan and act" / "Inspect and recover" sections of
 #: wz1119/Codex-Minecraft-Gameplay's SKILL.md (Apache-2.0; agents/skills/minecraft-gameplay/
-#: SKILL.md, 2026-09-07), in this harness's vocabulary: their "final image" and pixel
+#: SKILL.md), in this harness's vocabulary: their "final image" and pixel
 #: checks are our next turn's [STATE]/[INV]/[EVENT] lines and the attached view.
 _THIN_LOOP = """\
 **Loop.** Every turn: observe, plan, act, verify.
@@ -960,10 +960,10 @@ def platform_block(platform_prompt: str,
     )
 
 
-#: `--minimal` (2026-09-08): VISTA's bet -- a five-sentence prompt plus memory tools beat
+#: `--minimal`: VISTA's bet -- a five-sentence prompt plus memory tools beat
 #: a long rulebook on ARC-AGI-3. Ours keeps the task, the loop, the tools, the memory
 #: line, one safety line and the procedure INDEX; every rule moves to references/ (as
-#: `--thin` writes them) and the meta layer to skills/. Measured against og21/og22.
+#: `--thin` writes them) and the meta layer to skills/. Measured against two runs.
 MINIMAL_CONTRACT = """\
 You are an embodied agent playing Minecraft, controlling a player by writing action plans.
 
@@ -1021,7 +1021,7 @@ _MINIMAL_SAFETY = {
 
 def _previous_note() -> str:
     """The carried-lives paragraph every other mfm contract appends (mcu_worldmodel/previous.py):
-    a pointer to previous/, not a digest -- the minimal contract went to of1r (2026-09-08)
+    a pointer to previous/, not a digest -- the minimal contract went to one run
     without it and the model never opened previous/ in 24 turns."""
     from mcu_worldmodel.previous import MFM_PREVIOUS_NOTE
     return MFM_PREVIOUS_NOTE

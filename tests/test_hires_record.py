@@ -1,4 +1,4 @@
-"""The full-resolution frame record (episode_NNN/hires/), 2026-09-09.
+"""The full-resolution frame record (episode_NNN/hires/).
 
 The purple adapter keeps every observation's frame exactly as the green agent sent it,
 named by step, beside memory/ -- for a video of the life. Two things must hold: the bytes

@@ -14,7 +14,7 @@ loop that is VERIFIED on statistics: `use_item.<weapon>` counts the swings that 
 `custom.damage_dealt` the tenths of hp taken off, `kill_entity.<mob>` the kill, the
 inventory the wool/milk/lead, and the position the boat you boarded.
 
-The measured facts this is built on (standalone sim, 2026-09-03):
+The measured facts this is built on (standalone sim):
 - attack must be PULSED. Held 60 ticks it hits nothing; 1 tick on / 9 off with a
   diamond sword on a zombie at 2 blocks gives `use_item.diamond_sword +4` (four
   landed swings), `custom.damage_dealt +201`, `kill_entity.zombie +1`.
@@ -42,7 +42,7 @@ sweeps 21 degrees down and back up before the macro gives up -- a pig two blocks
 renders below the middle of the view and, at 2.5 blocks, under the HUD line, and stage
 s4's first run could not see a sheep it was standing next to.
 
-Detector accuracy, measured on the stage-s4 calibration corpus (15 frames, one mob each
+Detector accuracy, measured on the staged-scene calibration corpus (15 frames, one mob each
 at 2.5-8 blocks, on a stone platform against a FOREST horizon -- the cluttered case,
 not a swept arena):
   * `entity_hint(frame, want=<mob>)`, the normal call, puts its blob on the mob in
@@ -55,7 +55,7 @@ not a swept arena):
   * shearing a sheep drops the wool ON THE GROUND. Nothing this module can read moves:
     not the inventory, not use_item. `use_on_entity(shears)` therefore reports a
     failure it did not have, and the plan is `use_on_entity(shears)` then
-    `collect_drops` (measured in stage s4: the sheep in the frame was bare and the
+    `collect_drops` (measured in a staged scene: the sheep in the frame was bare and the
     wool block was lying two blocks away).
   * a DROPPED ITEM bobs and spins on the ground and is a real 132 px moving blob. If a
     fight ends and something small and low is still "moving" where the mob died, that
@@ -79,11 +79,11 @@ from mcu_worldmodel import macros_world as MW
 #: HITBOX, not against zero: a zombie is 0.6 blocks wide, so at the 3-block melee reach
 #: its half-width is 5.7 degrees = 27 px, and an animal is wider still. The first cut
 #: (14/12 px) was tighter than the target and cost iterations the budget needed --
-#: stage s4 got one right-click into a 200-tick shear because the loop kept refining an
+#: a staged scene got one right-click into a 200-tick shear because the loop kept refining an
 #: aim that was already on the sheep.
 AIM_TOL_X, AIM_TOL_Y = 18.0, 16.0
 #: Pixels -> degrees per tick. The horizontal field of view was MEASURED at ~100
-#: degrees (stage s4: a zombie summoned exactly 40 degrees off the facing rendered
+#: degrees (a staged scene: a zombie summoned exactly 40 degrees off the facing rendered
 #: 225 px right of the crosshair, and a pinhole projection puts tan(50 deg) at half
 #: the frame), which is 4.7 px per degree near the centre, i.e. 0.213 degrees per
 #: pixel on both axes (the pixels are square). The gain is 75% of that: it converges
@@ -95,14 +95,14 @@ MISS_MAX = 26
 #: Pitch steps (degrees, + is down) walked while nothing is detected. A mob is often
 #: simply BELOW the middle of the view: an eye sits 1.62 blocks up and a pig's hitbox
 #: is 0.9 high, so a pig two blocks away renders under the crosshair and, at 2.5
-#: blocks, under the HUD line -- stage s4 run 1 could not see a sheep it was standing
+#: blocks, under the HUD line -- a staged scene could not see a sheep it was standing
 #: next to. The sequence sums to zero, so a macro that finds nothing leaves the camera
 #: where it found it, and it spans 21 degrees down and 21 up.
 SWEEP = (7.0, 7.0, 7.0, 0.0, -7.0, -7.0, -7.0, -7.0, -7.0, -7.0, 0.0, 7.0, 7.0, 7.0, 0.0)
 #: Ticks with nothing pressed AND an unchanged measured heading before a pixel diff is
 #: trusted. Three, not two: the rendered frame lags the avatar's state by one tick, so
 #: the first frame after a turn still shows the old view even though [STATE] already
-#: reports the new yaw. With two, stage s4 kept finding the tree line sliding in from
+#: reports the new yaw. With two, a staged scene kept finding the tree line sliding in from
 #: the right after every aim step, turned toward it, and span in a circle -- a whole
 #: 300-tick fight budget, 100 aim steps, the error stuck at +268 px.
 STILL_MIN = 3
@@ -150,7 +150,7 @@ def _track(agent, st: dict[str, Any]) -> None:
     `_still` says what the macro PRESSED; this says what the engine did. They disagree
     by one tick: a camera action applied at tick N is still settling in the frame
     observed after tick N+1, so two "still" ticks after a turn can still bracket a
-    moving view. Stage s4 run 3 spent a whole 300-tick fight budget on that -- the diff
+    moving view. A staged scene spent a whole 300-tick fight budget on that -- the diff
     kept finding the tree line sliding in from the right, the aim turned toward it, and
     the loop span in a circle reporting a 268 px error after 100 aim steps. The pitch
     and yaw in [STATE] are exact, so the gate is: the two frames were taken at the SAME
@@ -180,7 +180,7 @@ def _detect(agent, st: dict[str, Any]) -> tuple[int, int, int, int, int, str] | 
     # A registered detector (by `detect=` or by the label) goes FIRST: a mob with a
     # dedicated detector is one whose own particles fool the motion path -- an
     # enderman's purple motes and a blaze's smoke are real moving blobs beside the
-    # body (stage s9: a fight aimed at the motes for 96 steps, +303 px off the
+    # body (a staged scene: a fight aimed at the motes for 96 steps, +303 px off the
     # enderman standing centred in the view).
     custom = DETECTORS.get(str(st.get("detect") or "")) or DETECTORS.get(
         str(st.get("label") or ""))
@@ -242,7 +242,7 @@ def _aim_error(agent, hit) -> tuple[float, float]:
     bottom = cy + bh / 2.0
     # Only for a SMALL blob, and never by much: a big one that reaches the HUD line is
     # something filling the view (a boat at your feet is 288x247 px and centred), and
-    # correcting it aimed 74 px below the hull -- stage s4 spent a whole budget on that.
+    # correcting it aimed 74 px below the hull -- a staged scene spent a whole budget on that.
     if bottom >= h * 0.82 - 3.0 and bh <= h * 0.35:
         cy += min(25.0, (bottom - cy) * 0.6)
     return (float(hit[0]) - w / 2.0, cy - h / 2.0)

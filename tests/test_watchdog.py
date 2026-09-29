@@ -1,6 +1,6 @@
 """Slice 2: the plan-level stall watchdog (harness, every arm) and the mfm arm's
-options expect and frames. The watchdog exists because every loop the
-2026-09-06 chain lost steps to was made of labels the per-label governor never vetoes
+options expect and frames. The watchdog exists because every loop a
+chain of lives lost steps to was made of labels the per-label governor never vetoes
 (equip_hotbar, close_inventory, craft, use_until_gui, gui clicks, raw holds)."""
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def test_watchdog_aspiration_clears_the_streak_on_a_milestone():
 
 
 def test_agent_drops_a_stalled_plan_with_the_maps_hint(tmp_path: Path):
-    """A model that rotates null labels at one spot (the obf1 furnace loop) is
+    """A model that rotates null labels at one spot (the furnace loop) is
     refused after four, with the map's hint; a plan that moves runs."""
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
@@ -128,7 +128,7 @@ def test_expect_option_echoes_the_line_against_the_record(tmp_path: Path):
     second = next(p for p in prompts[1:] if "[EXPECTED]" in p)
     assert "[EXPECTED] moved about 1 block east" in second
     assert "[OBSERVED] by the harness for that plan (each entry with the frame it started from):" in second
-    assert "one visible change" in second          # VISTA's observe step, 2026-09-08
+    assert "one visible change" in second          # VISTA's observe step
     assert "forward" in second.split("[OBSERVED]")[1].split("Begin your briefing")[0]
     assert "OBSERVED vs EXPECTED" in second
     # a briefing without the line is said so

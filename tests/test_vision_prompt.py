@@ -1,4 +1,4 @@
-"""The visual memory is for looking (2026-09-08): the mfm contract names `view_image` in its
+"""The visual memory is for looking: the mfm contract names `view_image` in its
 tool line and says when to look back at a frame; the RECALL block cites each entry's frame;
 the human contract names the tool; the logbook contract is unchanged."""
 from __future__ import annotations

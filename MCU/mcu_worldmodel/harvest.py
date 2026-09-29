@@ -5,9 +5,9 @@ log 473 times (21%); 1,110 ran their 75 ticks with nothing breaking (out of reac
 and 477 broke leaves or dirt. Each miss cost a model turn to notice and another to
 "walk 2-3 blocks forward and chop again" -- 2,000-8,000 ticks per run in wood
 macros, the first ~3,000 steps of every run, and a second helping when the torch
-rule sends the run back for charcoal logs (kd21z2_lb: 3,456 macro ticks for 5 logs
-between its stone pickaxe and its furnace). A calibration episode (scratchpad
-calib_reach, 2026-09-02) showed that the trunk's apparent size is no reach test
+rule sends the run back for charcoal logs (one run: 3,456 macro ticks for 5 logs
+between its stone pickaxe and its furnace). A calibration episode showed that the
+trunk's apparent size is no reach test
 (dark spruce bark passes the colour mask in a 16-26 px strip even when adjacent),
 but that walking at the centred trunk until it physically blocks the avatar puts
 the crosshair within reach every time: the chop from there broke the log in 64
@@ -22,15 +22,15 @@ geometry is known, so no more detector and NO MOVEMENT until the trunk is used u
 from the spot where the trunk stopped the avatar (0.3 from the face) the foot block
 is 54 degrees down and the blocks above the eye-level gap are 48, 67 and 74 degrees
 up, all within reach -- five logs without taking a step. Every version that moved
-between chops paid for it: a sweep walked the avatar off its angles (kd25z), a
-fixed forward+jump walk-in flew through the gap on jump momentum (kd27z), and a
+between chops paid for it: a sweep walked the avatar off its angles (one run), a
+fixed forward+jump walk-in flew through the gap on jump momentum (one run), and a
 position servo still overshot the column by a block when the first ticks read
-"stuck" and jumped (kd28z).
+"stuck" and jumped (one run).
 
-v5 (2026-09-03): "the avatar stopped" is not "the trunk stopped it". v4 read five
+v5: "the avatar stopped" is not "the trunk stopped it". v4 read five
 static ticks as arrival and, at every tree that was not on flat ground, chopped from
 2-4 blocks away: the counter fired while the avatar climbed a one-block ledge or
-pressed against a terrace (kd29z_wm calls at steps 293/604/1080 -- 0 logs, 1 broken
+pressed against a terrace (one run calls at steps 293/604/1080 -- 0 logs, 1 broken
 far away, ~270 ticks each; replayed from their live poses in the sim). No frame
 statistic separates bark in the face from a dirt step (the bark mask fires on earth
 too, and its recall on real bark is ~0.55), so the loop PROBES: a jump-and-walk
@@ -41,7 +41,7 @@ here with an honest note), while a log absorbs the swing and the chop simply car
 on at the foot. Near the trunk the detector loses it (a trunk within ~2.5 blocks is
 wider than its run limit, and raising that limit reads every dirt face as bark), so
 once a centred run has been seen close the walk holds its heading and ignores
-neighbouring trunks instead of steering off to them (the drive-by of kd29z's second
+neighbouring trunks instead of steering off to them (the drive-by of one run's second
 call). Bark near the centre re-centres the yaw before each upper chop. Leaves in the
 way of the eye chop are simply broken (two non-wood breaks -> re-aim); an eye chop
 that breaks nothing in 75 ticks means the block that stopped us was not the trunk,
@@ -86,7 +86,7 @@ FOOT_PROBES_MAX = 3
 #: A detection this wide (px) marks the trunk as NEAR (within ~6 blocks); from then
 #: on a re-aim may accept a run wider than the stock limit, but only within
 #: COMMIT_JUMP_PX of where the trunk was (a dirt face elsewhere passes the same
-#: mask). Tried and dropped (2026-09-03 sims): holding the tracked x during the
+#: mask). Tried and dropped (sims): holding the tracked x during the
 #: walk-in, or steering by the wide run -- both lost the spawn trunk that the
 #: plain servo reaches.
 NEAR_DET_W = 50
@@ -108,7 +108,7 @@ SWEEP_CYCLE = (("forward", 8), ("back", 16), ("forward", 8), ("left", 8), ("righ
 #: A far chop's drops lie blocks ahead, so the end sweep IS the collection: ticks kept
 #: back for it (the pitch step and the swing of one more chop, then the hop and the
 #: lap). With less than this left, the ladder ends and the sweep starts instead of
-#: another chop. rp03 (2026-09-03) stopped on the ledge 3 blocks short of the spawn
+#: another chop. One run stopped on the ledge 3 blocks short of the spawn
 #: spruce, broke 3 logs from there and spent the whole 400-tick budget on the chops:
 #: the sweep never ran, 0 collected, and every later call saw dirt ("no trunk").
 SWEEP_RESERVE = 12 + CHOP_EMPTY_TICKS + 14 + SWEEP_TICKS
@@ -410,7 +410,7 @@ def tick(hv: dict[str, Any], frame, pos: dict[str, float] | None, log_breaks: fl
         if cur is not None and abs(tgt - cur) > 2.0 and hv["pitch_t"] <= 12:
             return {"camera": (max(-20.0, min(20.0, tgt - cur)), 0.0)}, None
         # At the angle: bark near the centre re-centres the yaw (a walk against a
-        # terrace slides the avatar sideways; kd26z's -48 chop hit sky beside the
+        # terrace slides the avatar sideways; one run's -48 chop hit sky beside the
         # trunk). Straight up the detector sees log ends, not bark, and is skipped.
         hv["recenter_t"] += 1
         if det is not None and hv["recenter_t"] <= RECENTER_TICKS:

@@ -42,7 +42,7 @@ ROLLOUT_EPISODES_TOOL = re.compile(r"tools/episodes\.py")
 #: Procedures whose point is to move; an entry of one that moved under half a block
 #: gets the `stuck` tag, the same rule the raw movement keys get. The registered
 #: names (procedures.py) -- the first list had "goto" for `go_to`, so no go_to entry
-#: was ever tagged stuck (lad1/lad2).
+#: was ever tagged stuck.
 _MOVERS = frozenset({
     "go_to", "travel", "mine_forward", "strip_mine", "stair_down", "dig_down",
     "dig_up", "pillar_up", "walk", "explore", "swim_up", "climb", "descend", "tunnel",
@@ -128,7 +128,7 @@ RECALL_IGNORE_KINDS = frozenset({
 })
 #: Entries whose job is to open a screen: they changed something iff a screen is
 #: open at their end (the `gui` tag). Not bookkeeping: five `use_until_gui` that
-#: opened nothing is the loop lad4 sat in.
+#: opened nothing is the loop one run sat in.
 _OPENERS = frozenset({"use_until_gui", "open_inventory", "place_and_open"})
 
 

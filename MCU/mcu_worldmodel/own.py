@@ -1,6 +1,6 @@
 """The model's own procedures (`--own`): scripts it writes under `mine/procedures/`.
 
-The self-harness arm (2026-09-07): the procedure
+The self-harness arm: the procedure
 library the contract shows is cut to the atoms (`procedures.ATOMS`, `--atoms`) and the
 model rebuilds what it needs as scripts it keeps. A script at `mine/procedures/<name>.py`
 is a procedure from the next turn on: the harness runs it in a subprocess with the state
@@ -194,7 +194,7 @@ ATOMS_REF_LINE = ("The macros this file names (harvest_tree, strip_mine, dig_dow
                   "is for continuous digging (a shaft).")
 
 
-# -- reflexes (`--own-reflexes`, 2026-09-07) ------------------------------------------
+# -- reflexes (`--own-reflexes`) ------------------------------------------
 #
 # The model's tick layer. A procedure runs when the model calls it, between turns; what
 # killed the runs happened INSIDE a plan, between one turn and the next (lava coming into
@@ -321,8 +321,8 @@ def reflex_block(reflexes: dict[str, OwnReflex], fires: dict[str, int],
 
 
 #: The contract section (`--own-reflexes`), after MFM_OWN_NOTE. It names what to write
-#: first: the four things that killed the earlier runs (the user's call, 2026-09-07:
-#: the self-harness arm may be TOLD what its harness is missing).
+#: first: the four things that killed the earlier runs (the
+#: self-harness arm may be TOLD what its harness is missing).
 _REFLEX_NOTE = """\
 **Your own reflexes.** A script at `mine/reflexes/<name>.py` is a REFLEX: the harness
 runs it every 4 ticks WHILE YOUR PLAN EXECUTES (never inside a screen, never while the

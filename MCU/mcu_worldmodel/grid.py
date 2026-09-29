@@ -1,8 +1,8 @@
 """The runner's own cell map: what it knows for certain, kept between turns and lives.
 
-Measured on 148 dragon/diamond runs and the 2026-09-06 relay chain: 30-50% of blocked `go_to` targets were never
+Measured on 148 dragon/diamond runs and the relay chain: 30-50% of blocked `go_to` targets were never
 reached, the pond trap cost a median 612 steps per half run, and a remembered furnace
-one cell off cost obf1 ~10k steps. In every case the runner had walked the ground it
+one cell off cost one run ~10k steps. In every case the runner had walked the ground it
 needed -- from spawn to the pond, from the table to the shaft -- and threw the cells away
 at the end of the tick. The observation is at human parity (frame + position + inventory,
 no voxels), so this map records only what positions and the runner's own events prove:
@@ -87,7 +87,7 @@ class Grid:
     KINDS = ("walked", "floor", "blocked", "water", "lava", "hazard", "placed", "opened")
     #: A tick that drops the feet faster than this is a FALL, not a walk, and its cell is
     #: not recorded: a fall reaches it after ~4 ticks (1.7 blocks), a jump's descent stays
-    #: under it, a swim or a stair is far slower. og13_mfm (2026-09-07, step 18768): a
+    #: under it, a swim or a stair is far slower. One run (step 18768): a
     #: 13-block fall left mid-air cells on the map, `above()` took one two blocks up for
     #: the rim and queued pillar_up(2) at the bottom of the hole; routes would run through
     #: air. Standing ticks always record, so the landing cell is on the map.
@@ -317,7 +317,7 @@ class Grid:
         walk cannot climb (a 2-block rise has no edge on the map). None on level ground.
         31% of 1,387 blocked walks in 208 runs were made from such a hole (pitstalls.py).
         A cell more than `max_rise` higher is not a rim but the mouth of the shaft the
-        avatar came down (og9, 2026-09-07: "44 blocks below" the y 55 trail while walking
+        avatar came down (one run: "44 blocks below" the y 55 trail while walking
         one block at y 11 -- pillar_up(6) reaches nothing up there)."""
         here = cell_of(pos)
         if here is None or not self.walked:
@@ -345,15 +345,15 @@ class Grid:
     def drop_ahead(self, cell: Cell, min_drop: int = SHAFT_MIN_DROP) -> dict[str, Any] | None:
         """The open shaft under `cell` (a feet cell the avatar is about to step into), or
         None. A shaft is a column (x, z) of walked cells on CONSECUTIVE levels -- the
-        avatar's own dig_down records every level on the way down (og9's y 9..67 column
+        avatar's own dig_down records every level on the way down (one run's y 9..67 column
         at (-3005, -5581): 59 levels) -- whose top is the cell or the one under it and
         whose bottom lies `min_drop`+ blocks lower. The column's LAST traversal must have
         gone down: a pillar_up leaves the same levels, solid, walked upward last, and so
         does a shaft the avatar pillared back out of. A staircase is one level per column
         and a fall records no intermediate levels: neither is a shaft here.
-        og9 (2026-09-07, step 19286): mine_forward north from a stair at y 67 broke into
+        One run (step 19286): mine_forward north from a stair at y 67 broke into
         its own shaft and the avatar fell 58 blocks onto the drops it had come for;
-        dm4_wmv9 died the same way. Neither was told: the column was in this map."""
+        one run died the same way. Neither was told: the column was in this map."""
         x, y, z = cell
         col = self._column(x, z)
         if not col:

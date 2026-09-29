@@ -92,7 +92,7 @@ def fake_codex(tmp_path: Path):
 def pytest_collection_modifyitems(config, items):
     """Without the CUA-KiCad submodule (`gym_codex`) the kicad pin tests and test_carry
     cannot import their subject: report them as skipped with the reason, not as failures
-    that hide a real one (2026-09-09; the submodule is a private repo this host cannot
+    that hide a real one (the submodule is a private repo this host cannot
     clone -- `git submodule update --init CUA-KiCad` from a host with access)."""
     if (KICAD / "gym_codex").is_dir():
         return

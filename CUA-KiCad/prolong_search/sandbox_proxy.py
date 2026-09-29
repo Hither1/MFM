@@ -18,8 +18,8 @@ networking at all -- and it is the same design on apptainer `--network none`.
 
 The allowlist is a comma-separated list of `host:port` entries. A leading dot matches
 the domain and every subdomain (`.chatgpt.com:443`). Plain-HTTP entries are how a local
-model server (`--codex-base-url http://gh142:30000/v1`) is reached: the request line
-arrives in absolute form (`POST http://gh142:30000/v1/responses HTTP/1.1`) and is
+model server (`--codex-base-url http://node:30000/v1`) is reached: the request line
+arrives in absolute form (`POST http://node:30000/v1/responses HTTP/1.1`) and is
 rewritten to origin form before it is forwarded, request by request, so keep-alive
 works. Every decision is logged to stderr as `sandbox-proxy: ALLOW|DENY host:port`, and
 the wrapper's stderr is what `CodexTurn` saves as `turn_NNNN.stderr.txt`, so the

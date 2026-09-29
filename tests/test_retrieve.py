@@ -38,8 +38,8 @@ def test_streak_names_the_run_its_note_and_the_last_success(tmp_path: Path):
             _row(6, "harvest_tree", 700, 800, x=8, z=9)]
     _write_outcome(tmp_path, rows[6], ["harvest_tree: no trunk detected (6 frames). Turn "
                                        "toward visible LEAVES and retry", "second note"])
-    # three calls make a streak only when asked for (the default asks for four since
-    # 2026-09-09: of3g's prompts carried an entry-grain line 169 turns out of 229)
+    # three calls make a streak only when asked for (the default asks for four: one
+    # run's prompts carried an entry-grain line 169 turns out of 229)
     assert "changed nothing" not in R.recall_block(rows, tmp_path, pos=(100.0, 100.0))
     block = R.recall_block(rows, tmp_path, pos=(100.0, 100.0), streak_min=3)
     assert block.startswith("[RECALL]")
@@ -80,13 +80,13 @@ def test_uncollected_reads_mine_and_pickup_events(tmp_path: Path):
     assert got[0]["row"]["id"] == "ep_000003"
     assert R.uncollected(rows, tmp_path, {"diamond_ore": "diamond"}) == []
     assert R.uncollected(rows, None, drops) == []
-    # coal ore drops coal, not the block (lad4: "mine_block coal_ore", "pickup coal")
+    # coal ore drops coal, not the block (one run: "mine_block coal_ore", "pickup coal")
     (tmp_path / rows[1]["path"] / "outcome.json").write_text(json.dumps({"events": ["mine_block coal_ore +1", "pickup coal +1"], "notes": []}))
     assert [d["item"] for d in R.uncollected(rows, tmp_path, drops)] == ["iron_ore"]
 
 
 def test_broke_tag_counts_as_a_change():
-    # lad8 (2026-09-06): mine_ahead broke three iron ore, picked nothing up, and was
+    # One run: mine_ahead broke three iron ore, picked nothing up, and was
     # refused as a streak that "changed nothing".
     rows = [_row(i, "mine_ahead", i * 100, i * 100 + 80) for i in range(1, 7)]
     assert [s["kind"] for s in R.streaks(rows, min_len=5)] == ["mine_ahead"]
@@ -102,7 +102,7 @@ def test_stale_streak_is_history_not_a_loop():
     assert [s["kind"] for s in R.streaks(rows, recent=0)] == ["stow_items"]
     assert R.recall_block(rows) == ""
     # Bookkeeping and never-ran entries do not age a run: 40 rows of equip / open /
-    # deferred craft / close after the run leave it a loop (lad6b's plank loop).
+    # deferred craft / close after the run leave it a loop (one run's plank loop).
     rows = [_row(i, "harvest_tree", i * 10, i * 10 + 5) for i in range(1, 6)]
     rows += [_row(10 + i, ["equip_hotbar", "open_inventory", "craft", "close_inventory"][i % 4],
                   100 + i * 10, 100 + i * 10 + (0 if i % 4 == 2 else 1)) for i in range(40)]
@@ -176,7 +176,7 @@ def test_here_before_excludes_the_visible_tail_and_cites_what_changed():
     rows += [_row(10 + i, "walk", 100 + i, 101 + i, x=5, z=5) for i in range(6)]  # the tail
     block = R.recall_block(rows, pos=(5.0, 5.0), streak_min=99)
     assert "Here before (within 6 blocks): 3 episodes, steps 10-40: dig_down x2, craft x1; 1 changed something, 2 stuck." in block
-    # since 2026-09-08 the cite carries a bearing from `pos` ("ep_000002 step 20, 3 blocks N: ...")
+    # the cite carries a bearing from `pos` ("ep_000002 step 20, 3 blocks N: ...")
     assert "ep_000002 step 20, " in block
     assert "craft(item=planks,count=1) -> moved 0.0, inv {'planks': 4}" in block
     assert "walk" not in block
@@ -189,7 +189,7 @@ def test_milestone_recipe_index():
                  summary='[ACTION] {"attack":1} x110 -> 110 ticks: moved 0.0, inv {\'spruce_log\': 1}, milestone [\'mine_log\']'),
             _row(2, "craft", 562, 562, tags=["milestone", "inventory_changed"],
                  summary="[ACTION] craft(item=crafting_table,count=1) -> 1 ticks: moved 0.0, inv {'crafting_table': 1}, milestone ['crafting_table']")]
-    assert "Milestones so far" not in R.recall_block(rows)      # off by default (2026-09-08)
+    assert "Milestones so far" not in R.recall_block(rows)      # off by default
     block = R.recall_block(rows, max_milestones=10)
     assert ("- Milestones so far, with the entry that scored each: mine_log step 300 "
             '(ep_000001: {"attack":1} x110); crafting_table step 562 '

@@ -1,6 +1,6 @@
 """Drive one KiCad turn through the Claude Code CLI -- `CodexTurn`'s contract on `claude -p`.
 
-Vendored from the Minecraft chassis (`mcu_worldmodel/claude_backend.py`, gen 4), itself
+Vendored from the Minecraft chassis (`mcu_worldmodel/claude_backend.py`), itself
 modeled on upstream PRO-LONG's Claude Code agent. Vendored rather than imported for the
 reason `codex_backend.py` is: an arm must not move when a sibling benchmark retunes its
 backend. The measurements quoted below were made there, on claude 2.1.233-2.1.257.
@@ -69,8 +69,7 @@ _SANDBOX_DEGRADED = re.compile(r"Sandbox disabled|WITHOUT sandboxing|Sandbox is 
 _QUOTA_RE = re.compile(r"usage limit|out of (?:extra )?usage", re.I)
 
 #: The CLI has no working credential. Every later turn fails the same way, so the run stops
-#: instead of spending the remaining steps and tasks as no-ops ("Not logged in" smokes,
-#: 2026-09-14).
+#: instead of spending the remaining steps and tasks as no-ops (the "Not logged in" smokes).
 _AUTH_RE = re.compile(r"Not logged in|Please run /login|OAuth (?:access )?token (?:has )?expired|"
                       r"authentication_error|Invalid (?:API key|bearer token)|"
                       r"OAuth (?:access )?token has been revoked", re.I)

@@ -5,8 +5,8 @@ Claude Code spawns this script (`--mcp-config`) and speaks MCP to it over stdio;
 `tools/call` is forwarded, one line of JSON, to the runner's unix socket
 (`mfm/vista/claude_runner.py`), which executes it against the controller and answers
 with the MCP content blocks -- the play result text, then the resulting frame as an
-image block, which Claude Code shows the model directly (measured on 2.1.257,
-2026-09-15: the model read a 120x80 red frame back from a tool result), so none of the
+image block, which Claude Code shows the model directly (measured on 2.1.257:
+the model read a 120x80 red frame back from a tool result), so none of the
 steer / interrupt choreography the codex app-server needs. The tool list itself comes
 from the runner at startup: this file knows nothing about the benchmark.
 

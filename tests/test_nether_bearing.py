@@ -1,5 +1,5 @@
 """explore_nether(bearing=...) walks along a yaw instead of an axis -- the walk TOWARD a
-fortress sighting. og9_mfm 2026-09-07 step 17727: "FORTRESS IN VIEW ... bearing yaw 61",
+fortress sighting. One run step 17727: "FORTRESS IN VIEW ... bearing yaw 61",
 the model turned, tunnelled 1.2 blocks, stalled and went west along the axis; the only
 fortress any run has seen was never approached."""
 from __future__ import annotations

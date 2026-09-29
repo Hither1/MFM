@@ -71,7 +71,7 @@ def portal_fraction(frame) -> float:
 #: The camera's field of view: 70 degrees down the height (Minecraft's FOV setting is
 #: the VERTICAL one) and ~102 across at 16:9, which is the same camera read the other way
 #: -- tan(h/2) = (16/9) * tan(35) = 1.245, h = 102.3 (macros_world.FETCHW_HFOV, the tree
-#: world's measurement, confirmed on the engine in stage s11).
+#: world's measurement, confirmed on the engine in a staged scene).
 LAVA_HFOV, LAVA_VFOV = 102.0, 70.0
 #: Below this depression the near edge of the mass is at or above the horizon: it is a
 #: lava FALL down a wall, or the far shore of something huge, and no ground distance
@@ -129,7 +129,7 @@ def lava_cells(pos: dict[str, float], cx: float, bottom: float,
     both cases -- which is where the rim block to pour from is. `drop` is escalated only
     when even that puts the lava nearer than `min_dist`, i.e. when the avatar stands at
     the edge looking down into a lake below the floor, and then it says how far under.
-    The same lip has a second consequence, measured in stage s11: a pool `drop` blocks
+    The same lip has a second consequence, measured in a staged scene: a pool `drop` blocks
     down is INVISIBLE from further than `W * EYE / drop` (W = the pool's own width), so a
     3-wide pool one block under the floor cannot be seen at all beyond ~4.8 blocks. A
     sunk pool is therefore found near or not at all -- which is why find_lava walks its
@@ -170,7 +170,7 @@ def lava_cells(pos: dict[str, float], cx: float, bottom: float,
     # One step short of the pool along the bearing, snapped to the axis so the rim is
     # always a face neighbour of the pool cell on OUR side of it. Its level: flush with
     # the pool when the pool lies in our own floor, otherwise the floor block at the
-    # near edge of the pit -- stage s5 poured a sunk 3x3 pool from exactly there.
+    # near edge of the pit -- a staged scene poured a sunk 3x3 pool from exactly there.
     ax, az = MW.axis_facing(bearing)
     rim = (pool[0] - ax, pool[1] if drop == 0 else foot - 1, pool[2] - az)
     return {"pool": pool, "rim": rim, "dist": dist, "far": far, "bearing": bearing,
@@ -180,11 +180,11 @@ def lava_cells(pos: dict[str, float], cx: float, bottom: float,
 #: The last lava sighting whose geometry was read (find_lava's stop, or the runner's
 #: LAVA AHEAD guard with a bucket carried): pool cell, rim cell, where the avatar stood.
 #: `make_obsidian()` and `mine_obsidian()` called WITHOUT coordinates use it, so the
-#: cells never pass through the model's transcription -- hd12z (2026-09-04) read
+#: cells never pass through the model's transcription -- one run read
 #: "(-2992, 10, -5561)" out of the note, wrote (-2992, 10, -5560), and mined stone.
 LAST_LAVA: dict[str, Any] | None = None
 #: The cells of the last pour: mine_obsidian() aims at the pool cell as it was when the
-#: water went out, not at whatever the guard re-sighted afterwards (ob5, 2026-09-07: a
+#: water went out, not at whatever the guard re-sighted afterwards (one run: a
 #: walk after the pour re-sighted the remaining lava with the poured rim as "pool",
 #: and mine_obsidian() broke the rim's stone three times).
 LAST_POUR: dict[str, Any] | None = None
@@ -233,8 +233,8 @@ def lava_sentence(cells: dict[str, Any]) -> str:
 #: diamond pickaxe takes ~188 ticks of UNBROKEN attack (a released button resets the
 #: block's progress), plus the aim; under MINEOBS_MIN the call cannot finish.
 SCOOP_TICKS = 120
-#: The scoop walks up to this close to the source cell before pressing (ob5, 2026-09-07:
-#: 17 presses at 4.2 blocks took nothing; stages s12/s14 scooped at 2-3).
+#: The scoop walks up to this close to the source cell before pressing (one run:
+#: 17 presses at 4.2 blocks took nothing; a staged scene scooped at 2-3).
 SCOOP_NEAR = 3.2
 SCOOP_MIN = 60
 MINEOBS_MIN = 240
@@ -266,7 +266,7 @@ def _lava_cells_default(x, y, z, label: str) -> tuple[tuple[int, int, int] | Non
 LAVA_SEEN_FRAC = 0.01
 #: Before the pour the avatar backs away from the pool: to at least this far from the
 #: sighting's pool cell AND at least BACKOFF_MIN_MOVE blocks from where it stood, in at
-#: most BACKOFF_TICKS. ob3_mfm (2026-09-06) stood at the lip of a lake the guard had
+#: most BACKOFF_TICKS. One run stood at the lip of a lake the guard had
 #: put 3 blocks off ("at most"), poured, was carried off the ledge by the flow and
 #: died in the lava 40 ticks later.
 BACKOFF_STANDOFF = 3.5
@@ -313,7 +313,7 @@ def make_obsidian(cur, info: dict, x: float | None = None, y: float | None = Non
         rim = LAST_LAVA["rim"]
     elif not _lava_in_evidence(info):
         # A pour by coordinates with no lava in view and no sighting by the frame is a
-        # blind pour: ob1, ob1b and ob2 (2026-09-06) each tunnelled to a remembered rim
+        # blind pour: three runs each tunnelled to a remembered rim
         # in the dark, poured on stone, lost the water and two of them died there.
         return [], (f"make_obsidian: no lava is in view ({100 * _lava_now(info):.0f}% of "
                     f"the lower view) and the runner has not sighted any -- a pour by "
@@ -330,8 +330,8 @@ def make_obsidian(cur, info: dict, x: float | None = None, y: float | None = Non
     LAST_POUR = {"pool": tuple(pool), "rim": tuple(rim), "seq": _next_seq(),
                  "bearing": (pool[0] - rim[0], pool[2] - rim[2])}
     # A sighting whose lava ran off the bottom of the view put the pool "at most" that
-    # far: the avatar may be at the lip (ob3), so only backing off is allowed. An
-    # unclipped one is a measured distance: a far pool (ob5: 8 blocks, the rim out of
+    # far: the avatar may be at the lip (one run), so only backing off is allowed. An
+    # unclipped one is a measured distance: a far pool (one run: 8 blocks, the rim out of
     # reach) is approached to the standoff band instead.
     clipped = bool(LAST_LAVA.get("clipped", True)) if from_sighting else False
     back = macros.marker("_backoff", {"pool": list(pool), "t": 0, "n": BACKOFF_TICKS,
@@ -343,8 +343,8 @@ def make_obsidian(cur, info: dict, x: float | None = None, y: float | None = Non
         # A pour by coordinates (a KNOWN SITES rim, or the model's own reading) is a
         # sighting too: mine_obsidian() afterwards aims at THIS cell -- if it was the
         # rim, the rim breaks first and the obsidian behind it is next along the ray
-        # (stage s5); if the model named the lava cell itself, that cell is the obsidian
-        # now. ob1_mfm (2026-09-06) poured by coordinates and then had mine_obsidian()
+        # (a staged scene); if the model named the lava cell itself, that cell is the obsidian
+        # now. One run poured by coordinates and then had mine_obsidian()
         # refused for want of a sighting.
         from mcu_worldmodel.milestones import location
         pos = location(info) or {"x": rim[0] - 1.0, "y": rim[1] + 1.0, "z": rim[2] - 1.0}
@@ -352,8 +352,8 @@ def make_obsidian(cur, info: dict, x: float | None = None, y: float | None = Non
     acts.append(macros.marker("_wait", {"t": 0, "n": 50, "label": "make_obsidian: the "
                                         "water flows over the lava"}, 50))
     # The source sits in the cell above the rim block. The scoop is closed-loop: the
-    # flow that spread from the source pushes the avatar around (stage s5: 4.6 blocks
-    # of drift; hd39z/hd43z 2026-09-04: the scoop refused as "out of reach" at 4.5-5.5
+    # flow that spread from the source pushes the avatar around (a staged scene: 4.6 blocks
+    # of drift; two runs: the scoop refused as "out of reach" at 4.5-5.5
     # blocks and the source left flowing), so it walks back into reach and re-aims
     # every tick until the bucket reads water again.
     above = (rim[0], rim[1] + 1, rim[2])
@@ -449,7 +449,7 @@ def _scoop_tick(agent, st: dict[str, Any], mk_act):
     cx, cy, cz = st["cell"]
     # The top of the source cell, as use_at(face="above") aims: the flow that spread
     # from it lies lower in the cells between, and an empty bucket on FLOWING water
-    # scoops nothing (ob1b, 2026-09-06: 20 presses at the cell's centre, nothing;
+    # scoops nothing (one run: 20 presses at the cell's centre, nothing;
     # the model's own use_at at the top face, one press).
     point = (cx + 0.5, cy + 0.8, cz + 0.5)     # under the 0.875 surface: the ray meets it inside the cell
     pitch, yaw, dist = MW.angles_to(pos, point)
@@ -467,7 +467,7 @@ def _scoop_tick(agent, st: dict[str, Any], mk_act):
         # Walk toward the cell against the current, heading corrected every tick; no
         # sprint (a running jump over the rim would land in what was lava a moment
         # ago). A step in the way is climbed with a jump once the walk stalls:
-        # ob1_mfm (2026-09-06) poured from a tunnel one level under the rim, was
+        # One run poured from a tunnel one level under the rim, was
         # pushed 9 blocks back by the flow, and walked at the step for 120 ticks.
         st["phase"] = "walk"
         last = st.get("last_xz")
@@ -553,7 +553,7 @@ def mine_obsidian(cur, info: dict, x: float | None = None, y: float | None = Non
                                    "more": [list(c) for c in more]}, n)
     m["_min"] = MINEOBS_MIN
     acts.append(m)
-    # No drop sweep after the break: the emptied cell is a hole over the pool (og8 fell
+    # No drop sweep after the break: the emptied cell is a hole over the pool (one run fell
     # in one turn later); the note that follows says how to fill it and take the drop.
     return acts, (f"mine_obsidian: swinging the diamond pickaxe at {tuple(cell)}"
                   + ((" (the last pour's pool cell" + (f"; then {', '.join(str(c) for c in more)}"
@@ -582,7 +582,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
     cx, cy, cz = st["cell"]
     if mined - st["base_obs"] >= 1 or have > st["base_inv"]:
         agent.cursor_stats["obsidian_mined"] = agent.cursor_stats.get("obsidian_mined", 0) + 1
-        # The cell is a HOLE over the pool now: og8_mfm (2026-09-07, step 14294) walked
+        # The cell is a HOLE over the pool now: one run (step 14294) walked
         # west across the one it had just emptied and burned to death with 5 obsidian.
         # On the map it is lava, and the note says to fill it from the rim.
         agent.grid.mark_lava(agent.step, (cx, cy, cz), None, 1.0)
@@ -609,7 +609,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
         return None
     # A block that is NOT obsidian broke under the crosshair. Once or twice that is the
     # rim: a pool one level down sits behind the rim block's top face from where the
-    # pour was made, so the ray meets the rim first (stage s5, 2026-09-06: stone in 12
+    # pour was made, so the ray meets the rim first (a staged scene: stone in 12
     # ticks, then the obsidian behind it). The swing goes on, re-aimed. A third foreign
     # break means the cell is wrong or the pour made cobblestone; say so and stop.
     foreign = breaks - st["base_breaks"]
@@ -640,7 +640,7 @@ def _mineobs_tick(agent, st: dict[str, Any], mk_act):
         st["phase"] = "aim"
         return mk_act()
     # A cell below the eye shows its TOP face; aiming at the centre of a cell that sits
-    # behind another's top face hits the nearer block (stage s5 mined the rim instead).
+    # behind another's top face hits the nearer block (a staged scene mined the rim instead).
     aim_y = cy + 0.9 if (float(pos["y"]) + MW.EYE > cy + 1) else cy + 0.5
     pitch, yaw, dist = MW.angles_to(pos, (cx + 0.5, aim_y, cz + 0.5))
     dp = pitch - float(pos["pitch"])
@@ -702,7 +702,7 @@ FIND_LAVA_Y = 11.0
 FIND_LEG = 40
 FIND_PITCH, FIND_PITCH_LAVA = 8.0, 28.0
 #: The sighting threshold, EXPLORE_LAVA_WALK's: 2% of the lower view is a pool several
-#: blocks off (stage s9: a trench 4 blocks ahead read 4.5% at pitch 8), while every
+#: blocks off (a staged scene: a trench 4 blocks ahead read 4.5% at pitch 8), while every
 #: archived lava-free underground frame read <= 0.002.
 FIND_SEEN = 0.02
 #: Never closer than this: the walk stops on the sighting frame and backs off if the
@@ -713,7 +713,7 @@ FIND_MIN_DIST = 2.0
 #: block, which has to be inside the 4.4-block reach, and a big lake is sighted from 8+.
 #: So a distant sighting is closed on -- sneaking, re-reading every tick, never past
 #: FIND_MIN_DIST -- for at most FIND_APPROACH ticks, and only then is the note written.
-#: On the engine (stage s11) a 3x3 pool crosses FIND_SEEN at about 3 blocks, so this
+#: On the engine (a staged scene) a 3x3 pool crosses FIND_SEEN at about 3 blocks, so this
 #: fires for lakes rather than for pools.
 FIND_POUR_DIST = 3.5
 FIND_APPROACH = 80
@@ -725,7 +725,7 @@ FIND_TICKS_PER_BLOCK = 22
 
 
 #: Under this many ticks the search does not start: a leg tunnels ~40 ticks a block, so
-#: a shrunk tail buys 4-5 blocks and no sighting (hd23z_wm, 2026-09-04: three calls of
+#: a shrunk tail buys 4-5 blocks and no sighting (one run: three calls of
 #: 162-198 ticks on the tails of 400-tick plans, nothing found).
 FINDLAVA_MIN_TICKS = 250
 
@@ -1240,7 +1240,7 @@ def enter_portal(cur, info: dict, dist: int = 2, x: float | None = None,
         ground = cell[1]
         if pos["y"] > ground + 1.5:
             # Still up the building pillar: walking straight at the frame lands on
-            # its top row (stage s5, 2026-09-03: "standing in the cell" five blocks
+            # its top row (a staged scene: "standing in the cell" five blocks
             # up), and stepping off BACKWARD leaves the pillar between you and the
             # portal (the next pass: "go_to blocked 2.8 blocks short"). Step off to
             # the SIDE, then walk in at ground level around the pillar.
@@ -1287,7 +1287,7 @@ def _dimcheck_tick(agent, dc: dict[str, Any], mk_act):
     jumped = math.dist(dc["pos0"], (pos["x"], pos["y"], pos["z"])) > 12.0
     if (b is not None and b != dc["biome0"] and dimension_of(b) != dimension_of(dc["biome0"])) \
             or jumped:
-        # `biome_id` reads 0 in both dimensions in this engine (stage s5, 2026-09-03),
+        # `biome_id` reads 0 in both dimensions in this engine (a staged scene),
         # so the coordinate jump is the signal: the Overworld's x/z divided by 8
         # means the Nether, multiplied by 8 means the way back.
         x0, z0 = dc["pos0"][0], dc["pos0"][2]
@@ -1318,8 +1318,8 @@ def _dimcheck_tick(agent, dc: dict[str, Any], mk_act):
                "or this cell is beside the purple, not in it; a portal also needs ~300 "
                "ticks after a trip before it works again."))
         return None
-    # Hold the cell: a sprinting go_to overshoots its arrival by a block (stage s5,
-    # 2026-09-03: arrived, coasted 1.3 blocks out of the purple, waited outside).
+    # Hold the cell: a sprinting go_to overshoots its arrival by a block (a staged scene,
+    # arrived, coasted 1.3 blocks out of the purple, waited outside).
     d = math.hypot(dc["x"] - pos["x"], dc["z"] - pos["z"])
     if d > 0.35:
         yaw_t = math.degrees(math.atan2(-(dc["x"] - pos["x"]), dc["z"] - pos["z"]))
@@ -1346,7 +1346,7 @@ EXPLORE_TICKS_PER_BLOCK = 9
 EXPLORE_TICKS_PER_BLOCK_LOCKED = 18
 #: Pitch held while walking: slightly down. The lava band is measured over the lower
 #: 65% of the frame, which at pitch 8 is the ground from ~3 blocks out to the
-#: horizon -- lava right in front is BELOW it (stage s9 run 4: a trench 4 blocks wide
+#: horizon -- lava right in front is BELOW it (a staged scene: a trench 4 blocks wide
 #: read 15% only once the avatar stood in it). So once any lava is in view the walk
 #: tilts to EXPLORE_PITCH_LAVA, where the band covers the ground 1.5-6 blocks out and
 #: an edge fills it before the feet reach it.
@@ -1355,9 +1355,9 @@ EXPLORE_PITCH_LAVA = 28.0
 #: Lava at this share of the lower view stops the sprint-jump (a jump carries the
 #: avatar over an edge before the next frame is read) and samples every 2nd tick;
 #: at EXPLORE_LAVA_BRIDGE the walk stops and a bridge is laid from where the avatar
-#: stands. Sneaking does not stop a walk at an edge in this engine (probe_bridge,
-#: 2026-09-03), so the edge is found by PLACING: bridge_forward's first cells fall
-#: on solid floor and are refused, the first over the lava goes down (stage s9 run 2:
+#: stands. Sneaking does not stop a walk at an edge in this engine (measured),
+#: so the edge is found by PLACING: bridge_forward's first cells fall
+#: on solid floor and are refused, the first over the lava goes down (a staged scene:
 #: a trench 4 blocks ahead read 4.5% at pitch 8, and the sprint-jump was in it
 #: before the 5% sneak rule fired).
 EXPLORE_LAVA_WALK = 0.02
@@ -1382,8 +1382,8 @@ def explore_nether(cur, info: dict, axis: str = "x", sign: int = 1, length: int 
                    ) -> tuple[list[dict[str, Any]], str]:
     """Walk `length` blocks along one world axis in the Nether -- or, with `bearing`,
     along that yaw -- tunnelling through netherrack and bridging lava, until a fortress
-    or a blaze is in view. `bearing` is the walk TOWARD a sighting: og9_mfm (2026-09-07,
-    step 17727) was told "FORTRESS IN VIEW ... bearing yaw 61 ... travel/go_to toward
+    or a blaze is in view. `bearing` is the walk TOWARD a sighting: one run (step 17727)
+    was told "FORTRESS IN VIEW ... bearing yaw 61 ... travel/go_to toward
     it", turned, tunnelled 1.2 blocks with mine_forward, stalled, and went west along the
     axis instead -- the only fortress any run has seen was never approached."""
     from mcu_worldmodel.milestones import location
@@ -1570,7 +1570,7 @@ def _nexplore_tick(agent, st: dict[str, Any], mk_act):
         if st["lava"] >= EXPLORE_LAVA_BRIDGE and st["block"]:
             # Only from the ground: a bridge compiled mid-jump takes the airborne y
             # as its floor and stops at once as "dropped below the bridge level"
-            # (stage s9 run 5: compiled at y 72 over a floor at 71).
+            # (a staged scene: compiled at y 72 over a floor at 71).
             grounded = (abs(pos["y"] - round(pos["y"])) < 0.05
                         and st.get("last_y") is not None
                         and abs(pos["y"] - st["last_y"]) < 0.01)

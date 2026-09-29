@@ -57,7 +57,7 @@ from mcu_worldmodel.milestones import (
 def _first_empty_slot(info: dict) -> int | None:
     """The lowest empty MAIN-ROW slot id (9-35), falling back to the hotbar (0-8).
 
-    Named in the close-refusal [NOTE]: dm4_ked1 burned ~19 refused closes in a row with
+    Named in the close-refusal [NOTE]: one run burned ~19 refused closes in a row with
     logs stuck in the cursor because "put it back in a slot" never said which slot was
     free. Main rows first so stowing never silently displaces a selected tool."""
     inv = info.get("inventory")
@@ -71,7 +71,7 @@ def _first_empty_slot(info: dict) -> int | None:
 def _empty_slot_count(info: dict) -> int | None:
     """How many of the 36 player slots are empty, or None when the shape is unknown.
 
-    Rendered on the Inventory line: dm6_wm reached its furnace endgame with out=FULL
+    Rendered on the Inventory line: one run reached its furnace endgame with out=FULL
     and nowhere to stow, and nothing in the prompt had said fullness was approaching.
     `slot_is_empty` is the shared predicate: with the old "air"-only test this line
     read "0 slots free" on every turn of every live arm, from an empty inventory on."""
@@ -140,7 +140,7 @@ def _is_attack_hold(a: dict) -> bool:
 def _cut_short_hint(atoms: bool) -> str:
     """The tail of the attack-hold cut-short note: names tools that exist in this run.
     Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
-    241 times in g4_mfm_gpt6_diamond (2026-09-11) to a model that could not call them.
+    241 times in one run to a model that could not call them.
     A raw attack hold is also never watched for ore: mine_ahead(ore_watch=true) is the
     one entry point to the wall watcher there (that life: 79 turns of raw holds, zero
     sightings, 9/10). Same shape as MCU main's 1ac1c7f."""
@@ -281,7 +281,7 @@ class WorldModelAgent:
         self.platform_prompt = platform_prompt
         # The episode's hard step budget. Surfaced in every turn header: an agent that
         # cannot see the deadline plans a two-visit endgame with 190 steps left
-        # (dm4_wmv11) and loses milestones it was already carrying the materials for.
+        # (one run) and loses milestones it was already carrying the materials for.
         self.max_steps = max_steps
 
         self.memory = MultimodalMemory(workspace, direct=memory_mode == "direct",
@@ -439,7 +439,7 @@ class WorldModelAgent:
         self._last_water_seen: tuple[int, float, float] | None = None
         self._last_lava_frac = 0.0
         # Plans the lava guard stopped, per 3-block cell of the avatar's position: the
-        # second stop at one place says so (og3/og4 2026-09-07: three plans each dropped
+        # second stop at one place says so (two runs: three plans each dropped
         # at one 1% sliver, the model walking back to it every time).
         self._lava_stops: dict[tuple[int, int, int], dict[str, Any]] = {}   # 3-block cell -> {n, frac}
         self._pos_hist: deque = deque(maxlen=5)
@@ -449,7 +449,7 @@ class WorldModelAgent:
         # (drowning, burning, starvation at 1 hp a time) interrupts, once per 100
         # ticks for the slow kind. On a hit the runner turns the player to face where
         # it came from before the next act turn: `Nearby entities` is never on the
-        # wire, so a miner was blind to the zombie behind it -- dm11c read five 4-hp
+        # wire, so a miner was blind to the zombie behind it -- one run read five 4-hp
         # hits as "a short fall" and kept digging until it died.
         self._hp_hist: deque[tuple[int, float]] = deque()
         self._last_hit_step = -1000
@@ -460,20 +460,20 @@ class WorldModelAgent:
         #: Where the avatar is: "the Overworld" until a portal wait confirms "the Nether"
         #: or "the End" (macros_nether._dimcheck_tick / macros_end._endcheck_tick); a
         #: death puts it back (respawn is in the Overworld). The End has no ground to run
-        #: on -- the island's edge is the void (stage s10 on the merged tree, 2026-09-04:
+        #: on -- the island's edge is the void (a staged scene on the merged tree:
         #: the flee reflex sprinted the avatar off the platform to y -272).
         self._dimension = "the Overworld"
-        #: The Nether lock (2026-09-07): every
-        #: Nether visit on record (og9 x2, og12, og13) died within 400 steps of arriving,
-        #: all by walking, sprinting or jumping off a ledge into the lava sea (y ~31): og12
+        #: The Nether lock: every
+        #: Nether visit on record (four visits, three lives) died within 400 steps of arriving,
+        #: all by walking, sprinting or jumping off a ledge into the lava sea (y ~31): one run
         #: pressed forward+sprint+jump down a slope from y 36 to 28 with LAVA AHEAD in its
-        #: notes; og13's go_to walked into a 13-block hole above the lake; og9's explore
+        #: notes; one run's go_to walked into a 13-block hole above the lake; another's explore
         #: walked down-slope to the lake's edge and fell in placing a bridge. A sneaking
         #: avatar cannot step off an edge, so here every plan action that moves gets sneak,
         #: loses sprint, and loses a jump taken while moving (a vertical pillar jump keeps
         #: it); the runner's own escape reflexes are not touched (`_nether_lock`). One
         #: NETHER LOCK note per visit says so. Sneaking does NOT hold an edge in this
-        #: engine (probe_bridge, 2026-09-03: the position overhangs ~0.25 and falls), it
+        #: engine (measured: the position overhangs ~0.25 and falls), it
         #: walks at ~0.055 blocks a tick, a quarter of a walk -- so the lock buys the
         #: sampled guards four times the ticks per block, and the prevention itself is
         #: `_nether_descent_guard`: a plan entry that has walked the avatar a block DOWN
@@ -485,7 +485,7 @@ class WorldModelAgent:
         self._stall_turns = 0
         self._progress_marker: tuple | None = None
         # Plan-repetition streak: token-set signature of the last plan text and how
-        # many consecutive act turns stayed near-identical to it. dm6_wm issued seven
+        # many consecutive act turns stayed near-identical to it. One run issued seven
         # copies of "Collect the nearby log drops" in a row; the count makes that
         # visible as a fact the way _proc_fails does for guard stops.
         self._plan_sig: frozenset | None = None
@@ -638,12 +638,12 @@ class WorldModelAgent:
                 # already moved past. Dropped before the entry-done check below, so the
                 # abandoned entry is still logged with the position it reached.
                 # Exception: harvest_tree. Its first log IS the mine_log milestone, and
-                # its whole point is the three logs after it; kd24z lost 400-500 steps of
-                # hand-chopping to this drop on its very first call (2026-09-02).
+                # its whole point is the three logs after it; one run lost 400-500 steps of
+                # hand-chopping to this drop on its very first call.
                 # Exception: a screen is open. A craft_item milestone fires the moment
                 # the output is lifted, and the entries behind that click (bank it,
-                # close the screen) are what make the milestone bankable -- stage s1
-                # (2026-09-03) ended every craft milestone with the product riding
+                # close the screen) are what make the milestone bankable -- a staged scene
+                # ended every craft milestone with the product riding
                 # the cursor and a refused close.
                 # Exception: a module macro (macros.TICKS) is at the head. Those are
                 # goal-directed and end themselves (build_wall places its N blocks;
@@ -663,7 +663,7 @@ class WorldModelAgent:
                             self.cursor_stats.get("craft_writeoffs", 0) + 1)
             # Running counts of blocks BROKEN, which is what a chop macro keys on. Wood
             # breaking proves the aim; anything else breaking names what the crosshair
-            # is actually on -- dm4_wmv6 spent 4,000 steps and 25 chop calls gaining one
+            # is actually on -- one run spent 4,000 steps and 25 chop calls gaining one
             # log because every miss ran its full duration with the answer (leaves) in
             # the stat stream the whole time.
             for s in stats:
@@ -675,7 +675,7 @@ class WorldModelAgent:
                     self._other_breaks += s["delta"]
                     self._last_break_item = s["item"]
         pos = location(info)
-        # Survival ground truth, checked before the position rolls over. dm4_wmv9 died
+        # Survival ground truth, checked before the position rolls over. One run died
         # twice -- at y=16 with the run's purpose in reach, then again jumping into its
         # own shaft after the drops -- and the only trace in its memory was its own
         # guess. A death is a position teleport to spawn with health restored; damage is
@@ -691,7 +691,7 @@ class WorldModelAgent:
             # A portal trip is a teleport too: the coordinates divide by 8 and the
             # height changes, health untouched. While an enter_portal wait (`_dimcheck`)
             # heads the queue the jump is the trip it is waiting for, not a death
-            # (stage s5, 2026-09-03: the first Nether arrival was logged as "YOU DIED"
+            # (a staged scene: the first Nether arrival was logged as "YOU DIED"
             # and the queue -- with the marker that would have said "the Nether" --
             # was cleared).
             # The End portal's `_endcheck` (macros_end.enter_end) is the same wait.
@@ -738,12 +738,12 @@ class WorldModelAgent:
                 (self._head_is_movement() or combat_head) and hp > self.CRITICAL_HP):
             # Lava, fire, drowning, a mob that keeps swinging: the first hit already
             # interrupted the plan and turned the avatar. Interrupting AGAIN on every
-            # damage tick cut dm23z_lb's escape plan ("left + jump x80") to ten ticks
+            # damage tick cut one run's escape plan ("left + jump x80") to ten ticks
             # at a time, and each 180-degree turn made "left" the opposite direction --
             # it swam in circles in lava at 4 hp per interrupt. So a plan that MOVES
             # the avatar keeps running; the loss is logged (at most every 40 ticks)
             # and the hazard node keeps merging. A plan that mines, sweeps or clicks
-            # in place while the hits keep coming is a different thing: kr30_lb took
+            # in place while the hits keep coming is a different thing: one run took
             # 16 -> 14 -> 2 -> dead inside one stair_down at y28 (cave spiders), the
             # macro digging the whole time -- that plan is interrupted below like a
             # first hit, and so is anything once health is critical.
@@ -797,10 +797,10 @@ class WorldModelAgent:
                 water_now = vision.water_view(np.asarray(frame), rows_from=0.30)[0]
             # Lava's damage is exactly 4.0 every 10 ticks (a zombie on hard 4.5, an
             # arrow 2-5, fire 1, drowning 2): a 4.0 loss with any lava in view is lava
-            # contact. og10/og11 (2026-09-07) took their first lava hit with under 15%
+            # contact. Two runs took their first lava hit with under 15%
             # in the frame and got the bunker (dug INTO the pool) and the 180-degree
             # turn instead; both burned to death at the pool they had just found.
-            # Inside the pool the frame is fog, not the lava texture (stage s21: 2% at
+            # Inside the pool the frame is fog, not the lava texture (a staged scene: 2% at
             # the first hit while chest-deep in it), so the second sign is the ground:
             # the 4.0 loss while the avatar stands lower than the dry trail beside it.
             touch = (3.9 <= tick_drop <= 4.1 and self._dimension != "the End"
@@ -814,7 +814,7 @@ class WorldModelAgent:
                         or (touch and (lava_now >= self.LAVA_TOUCH_FRAC or sunk)))
             # Drowning evidence is water: in the frame now, or seen by the guard lately
             # within reach of this spot -- the frame at the interrupt itself is often a
-            # shaft wall (hd13z_wm's two hit frames read no water from the flooded
+            # shaft wall (one run's two hit frames read no water from the flooded
             # shaft's floor). A fractional y alone is NOT evidence: every jump arc,
             # slab, soul-sand and falling tick has one (9% of all archived position
             # rows), and it outranked the pillar at 1 hp mid-jump (audit pass 17).
@@ -831,7 +831,7 @@ class WorldModelAgent:
             # underground and low. The knockback (a shove while the plan stood still)
             # says which way is away from it.
             # (a gap under 4 ticks is one blow's damage arriving in two observations --
-            # an instant-damage effect on stage s8 read 20 -> 17 -> 13 on consecutive
+            # an instant-damage effect on a staged scene read 20 -> 17 -> 13 on consecutive
             # ticks -- not a second swing: a zombie's cooldown is 20 ticks)
             melee_now = (bool(pos) and hp is not None and tick_drop >= 3.0
                          and 4 <= step - prev_hit_step <= self.MELEE_CADENCE
@@ -844,7 +844,7 @@ class WorldModelAgent:
                 kz = float(pos["z"]) - float(self._prev_pos["z"])
                 if math.hypot(kx, kz) >= self.KNOCKBACK_MIN:
                     away_yaw = norm_yaw(math.degrees(math.atan2(-kx, kz)))
-            # A bunker under way is NOT abandoned for further hits (stage s16, 2026-09-06:
+            # A bunker under way is NOT abandoned for further hits (a staged scene:
             # aborted at the second hit, the flee ran into the mining face, 20 -> 5 hp;
             # the dig takes 2-3 hits and the cap ends them for good).
             if active == "fightback":
@@ -857,7 +857,7 @@ class WorldModelAgent:
                     self._reflex["phase"] = "turn"
             if (lava_hit or drown_hit) and active in ("bunker", "flee", "fightback"):
                 # a dig that opened into lava or water, or a run that ended in it: the
-                # escape takes over (hd5z_wm burned while the runner dug beside it)
+                # escape takes over (one run burned while the runner dug beside it)
                 if active == "bunker":
                     self._finish_bunker(self._reflex, "the dig met lava" if lava_hit
                                         else "the dig flooded")
@@ -869,7 +869,7 @@ class WorldModelAgent:
             if active == "pillar":
                 reflex = " The runner is still pillaring you up."
             elif active == "bunker" and melee_now and self._weapon_slot(info) is not None:
-                # og8_mfm (2026-09-07, y 11 at the bottom of its own shaft): the zombie
+                # One run (y 11 at the bottom of its own shaft): the zombie
                 # that fell down the shaft was in the cell; the bunker dug two blocks
                 # with it aboard and capped them both in -- 4.5 hp every 20 ticks,
                 # dead at step 2603 with a diamond sword in the inventory. A melee hit
@@ -915,7 +915,7 @@ class WorldModelAgent:
                 melee = combat_head
                 underground = float(pos["y"]) < self.BUNKER_Y
                 # No bunker with lava or fire in view: the dig goes INTO the pool
-                # (og10, 2026-09-07: "the dig met lava", dead 30 ticks later).
+                # (one run: "the dig met lava", dead 30 ticks later).
                 bunker = (self._bunker_plan(info)
                           if (hp <= self.BUNKER_HP and underground
                               and lava_now < self.LAVA_TOUCH_FRAC
@@ -999,7 +999,7 @@ class WorldModelAgent:
                         and self._in_shaft(MW.block_of(pos))):
                     # At the bottom of its own shaft the hit is from what came down it:
                     # it is IN the column, a dig takes it along and a cap seals it in
-                    # (og8). With a sword in the hotbar the fight is the answer at the
+                    # (one run). With a sword in the hotbar the fight is the answer at the
                     # first hit, while the health is still there (s20: 4.5 hp a hit on
                     # hard, every 20 ticks; two hits later it is 12.5 -> a coin toss).
                     weapon = self._weapon_slot(info)
@@ -1027,7 +1027,7 @@ class WorldModelAgent:
                               f"and it is not abandoned for further hits; your next turn "
                               f"comes from inside it" + ".")
                 elif melee_now and underground and self._pillar_slot(info) is not None:
-                    # Measured on the 2026-09-06 relay runs and stage s15: the blind
+                    # Measured on the relay runs and a staged scene: the blind
                     # fightback dealt 0 damage in 3 reflexes, the fight macro in a dark
                     # tunnel landed one swing for 15 taken, and the bunker was hit into
                     # 4 times out of 4. A zombie cannot break blocks: sprint away, then
@@ -1044,7 +1044,7 @@ class WorldModelAgent:
                 elif (melee_now and underground and hp > self.CRITICAL_HP
                         and self._sword_slot(info) is not None):
                     # A one-wide tunnel is where the melee cadence is met, and a sprint
-                    # there does not outrun a zombie (hd21z_wm, 2026-09-04: 8 blocks up its
+                    # there does not outrun a zombie (one run: 8 blocks up its
                     # own staircase, hit every 26 ticks, dead at 4 hp with a diamond sword
                     # in the hotbar). With a sword the answer is to face it and swing.
                     sword = self._sword_slot(info)
@@ -1085,7 +1085,7 @@ class WorldModelAgent:
                               f"of every mob's reach; your next turn comes from inside it"
                               + ".")
                 elif slot is not None:
-                    # kd34z_wm at 4/20 chose to fight the zombie with a stone pickaxe
+                    # One run at 4/20 chose to fight the zombie with a stone pickaxe
                     # and died two turns later, the note above notwithstanding; the
                     # escape is the runner's now: two blocks straight up, out of a
                     # melee mob's reach, then the model gets the view from the top.
@@ -1138,8 +1138,8 @@ class WorldModelAgent:
             self._own_reflex_tick(step, info)
         if (self.reflexes and not self._sword_nudged and self.stat_now("craft_item", "stone_pickaxe") >= 1
                 and not any(k.endswith("_sword") for k in self._cur_inv)):
-            # Nine arms on 2026-09-03 crafted no sword; the one that fought a zombie
-            # with its pickaxe (dm26z_lb, y 18) died. The doctrine line in the prompt
+            # Nine arms crafted no sword; the one that fought a zombie
+            # with its pickaxe (one run, y 18) died. The doctrine line in the prompt
             # was not enough; the moment the table is open for the pickaxe is the moment.
             self._sword_nudged = True
             self.cursor_stats["sword_nudges"] = self.cursor_stats.get("sword_nudges", 0) + 1
@@ -1151,7 +1151,7 @@ class WorldModelAgent:
         if coal > self._coal_seen:
             self._coal_seen = coal
             if not self._cur_inv.get("torch") and step - self._last_torch_nudge > 3000:
-                # Eight arms on 2026-09-03 mined 0-10 coal each and crafted no torch;
+                # Eight arms mined 0-10 coal each and crafted no torch;
                 # their ore watch ran blind in unlit tunnels the whole night.
                 self._last_torch_nudge = step
                 self.cursor_stats["torch_nudges"] = self.cursor_stats.get("torch_nudges", 0) + 1
@@ -1194,7 +1194,7 @@ class WorldModelAgent:
 
         The close-tick diff alone is blind to WITHIN-inventory moves: an item riding the
         cursor between slots never leaves the inventory count, so an involuntary close
-        (container auto-close out of reach) drops it with a zero diff -- ked3 lost its
+        (container auto-close out of reach) drops it with a zero diff -- one run lost its
         stone pickaxe exactly this way, silently, and burned its endgame on a recovery
         gamble built from inference. Hence the one-tick recheck below: the drop lands in
         the observation a tick later, and a loss with no matching gain (no craft output
@@ -1306,7 +1306,7 @@ class WorldModelAgent:
                 return action
         # A raw attack-hold is cut the moment its block breaks. Markers already key on
         # the stat stream; plain steps popped blind ran a 100-tick attack 71 ticks past
-        # the grass it was written for (dm4_wmv11, step 5242). Multi-block digs belong
+        # the grass it was written for (one run, step 5242). Multi-block digs belong
         # to mine_forward/strip_mine, which re-aim between blocks.
         total_breaks = self._log_breaks + self._other_breaks
         if total_breaks > self._breaks_seen:
@@ -1365,7 +1365,7 @@ class WorldModelAgent:
                     # macros that carried the wall watcher are withheld), so the watcher
                     # samples it too. Same marker semantics as a macro: every 8th tick,
                     # one flag per 100 steps, the rest of the plan flushed with the
-                    # [NOTE]. Three lives of g4_mfm_gpt6_diamond (2026-09-11) mined
+                    # [NOTE]. Three lives mined
                     # 12,000 steps each on raw holds with 0-3 sightings between them.
                     if self.atoms and _is_attack_hold(head) and self._ore_flag(self._raw_ore):
                         self.cursor_stats["raw_hold_flags"] = (
@@ -1461,7 +1461,7 @@ class WorldModelAgent:
     def _guard_close(self, action: dict[str, Any], noop) -> dict[str, Any]:
         """Refuse an `inventory` toggle that would drop items on the floor.
 
-        The single most expensive GUI mistake across every run: dm4_wmv2 lost four of its
+        The single most expensive GUI mistake across every run: one run lost four of its
         five logs to two such closes and re-chopped for ~700 steps. The agent was told the
         rule and still hit it, because by the time the close executes the warning is three
         entries old. A rule the harness can check at the moment it matters should be
@@ -1573,7 +1573,7 @@ class WorldModelAgent:
 
         Two facts a human sees before pressing the button, checked the same way: the
         screen is still open, and the pointer is still where the last cursor move left
-        it. dm5_wm_high step 5367: the servo landed on the cobble slot, the pointer was
+        it. One run step 5367: the servo landed on the cobble slot, the pointer was
         back at the container's opening position three ticks later, and the click --
         plus the 25 entries queued behind it -- ran anyway and built nothing."""
         if ck["t"] == 0 and ck.get("gui", True):
@@ -1613,7 +1613,7 @@ class WorldModelAgent:
             if (not held and "slot" in over and not ck.get("probe")
                     and not ck.get("shift")):
                 # Judged hold+3 ticks on: the inventory observation lagged a lift by
-                # more than the old hold+1 in stage s1 (2026-09-03) -- a lifted
+                # more than the old hold+1 in a staged scene -- a lifted
                 # cobblestone stack was judged "lifted nothing", the queue cleared
                 # and the forced close that followed threw the stack on the floor.
                 self._pending_click = {"over": over, "inv": dict(self._cur_inv),
@@ -1621,7 +1621,7 @@ class WorldModelAgent:
         if ck["t"] < ck["hold"]:
             ck["t"] += 1
             # `shift`: sneak held with the button is the GUI's quick-move (shift-click)
-            # -- measured in the standalone sim (2026-09-03): a stack jumps between
+            # -- measured in the standalone sim: a stack jumps between
             # the hotbar and the main rows, a chest slot empties into the inventory,
             # a craft output crafts everything the grid holds and banks it. No stack
             # ever rides the cursor, so no bank click can miss.
@@ -1649,7 +1649,7 @@ class WorldModelAgent:
             return
         # The frame is the direct evidence: a lifted stack vanishes from its slot on
         # the client at once, while the inventory observation can lag a lift by 5+
-        # ticks (stage s1, 2026-09-03: a 3-cobblestone lift right after a quick-move
+        # ticks (a staged scene: a 3-cobblestone lift right after a quick-move
         # craft was judged "lifted nothing" while the stack was already on the
         # cursor and being placed into the grid). A slot that renders EMPTY under
         # the pointer means the lift happened, whatever the counts say.
@@ -1685,7 +1685,7 @@ class WorldModelAgent:
 
         Keyed on the `mine_block` statistic, not the inventory: the block breaking is the
         instant the aim is proven (the drop can take seconds to be walked over, or fall
-        out of reach entirely), and dm4_wmv3 ran a whole episode with zero early stops
+        out of reach entirely), and one run ran a whole episode with zero early stops
         because it waited on the pickup. The inventory count is kept as a second trigger
         for the case where a drop from an earlier miss rolls in mid-chop.
         """
@@ -1733,7 +1733,7 @@ class WorldModelAgent:
         """Press `inventory` until a screen is actually up (isGuiOpen), a few tries.
 
         The toggle is edge-triggered and the engine drops a press that lands within a
-        tick or two of the previous screen change: stage s1 (2026-09-03) pressed E four
+        tick or two of the previous screen change: a staged scene pressed E four
         ticks after a forced close and nothing opened, so the whole recipe queued
         behind it ran against a closed screen. The same check `use_until_gui` makes,
         for the one key that opens the survival inventory."""
@@ -1757,7 +1757,7 @@ class WorldModelAgent:
 
         A close is verified on `isGuiOpen`, not assumed from the press: right after a
         `use`-opened container the first E is swallowed (every container in the
-        2026-09-03 probe needed two), and a plan that believed the screen shut then
+        probe needed two), and a plan that believed the screen shut then
         walked away with a stack still on the cursor. `force` arms the guard for every
         press of this close, so a swallowed first press does not turn the second into
         a refusal."""
@@ -1785,12 +1785,12 @@ class WorldModelAgent:
         """Press use, give the screen two ticks to come up, check, repeat.
 
         `isGuiOpen` is the arbiter -- the press either opened a screen or it did not,
-        and dm4_wmv4 spent fifteen model-turn round trips discovering "did not" one
+        and one run spent fifteen model-turn round trips discovering "did not" one
         plan at a time. Stops the moment the screen is up.
         """
         if self._gui_open:
             # One settle tick with the screen up: a click or an E sent on the very
-            # tick the screen appeared was swallowed in the 2026-09-03 probes.
+            # tick the screen appeared was swallowed in the probes.
             if not ug.get("settled"):
                 ug["settled"] = True
                 return mk_act()
@@ -1825,8 +1825,8 @@ class WorldModelAgent:
                 ug["pose_done"] = "unreachable"
         if item and not ug.get("aimed"):
             # Aim at the block place_and_open put down (its estimate, see
-            # _placecheck_tick) before the first press: kd40z_lb and dm25z_lb
-            # (2026-09-03) pressed `use` at guessed angles 18 times between them and
+            # _placecheck_tick) before the first press: two runs
+            # pressed `use` at guessed angles 18 times between them and
             # opened nothing -- the runner knew where the table went, the model did not.
             at = self._placed.get(str(item))
             if at is None:
@@ -1843,7 +1843,7 @@ class WorldModelAgent:
                                   (at[0] + 0.5, at[1] + 0.5, at[2] + 0.5))
                         if pos else 0.0)
                 if dist > REACH + 0.3:
-                    # kd41z_lb (2026-09-03) called use_until_gui(item="crafting_table")
+                    # One run called use_until_gui(item="crafting_table")
                     # from 5, 16 and 18 blocks away: the camera turned toward the
                     # remembered table and eight presses opened nothing, seven times
                     # over. Out of reach is a walk, not a press.
@@ -2077,7 +2077,7 @@ class WorldModelAgent:
             if self.stat_now("custom", "damage_dealt") > rf.get("dealt0", 0.0):
                 # The pickaxe swung straight down and hit the MOB: it is in the cell
                 # (fallen down the shaft), the crosshair is on it and the floor never
-                # breaks under a held attack (og6 "the floor did not break", s20 A/B
+                # breaks under a held attack (one run "the floor did not break", a staged scene
                 # "bunker_blocks 0/1"). Nothing to dig into: fight it now, aiming at
                 # the cell's centre, with whatever the hotbar holds.
                 weapon = self._weapon_slot(self._cur_info or {})
@@ -2114,7 +2114,7 @@ class WorldModelAgent:
                 return None
             # A hit's knockback pushes the avatar off the cell, the swing lands on the
             # next floor block and the breaking progress resets: a zombie at the rim
-            # kept the hole at zero blocks for 79 ticks (s8 run 3). Walk back over the
+            # kept the hole at zero blocks for 79 ticks (a staged scene). Walk back over the
             # cell while swinging; once a block down the walls hold the avatar.
             keys: dict[str, int] = {}
             dx = rf["cell"][0] + 0.5 - float(pos["x"])
@@ -2199,8 +2199,8 @@ class WorldModelAgent:
         """(x, z) of the centre of the cell the avatar walked most recently that is a
         block or more from here, not below it, and where it was never hurt: the dry
         ground it came from. A plain `back` step retreats INTO the pool once the avatar
-        has turned (og11, 2026-09-07: the 180-degree turn at the first hit, then the
-        runner's back-step; og8 fell in facing the rim it had come from)."""
+        has turned (one run: the 180-degree turn at the first hit, then the
+        runner's back-step; one run fell in facing the rim it had come from)."""
         c = self._lava_home_cell(pos)
         return (c[0] + 0.5, c[2] + 0.5) if c else None
 
@@ -2250,8 +2250,8 @@ class WorldModelAgent:
             rf["t"] += 1
             moved = math.hypot(float(pos["x"]) - rf["x0"], float(pos["z"]) - rf["z0"])
             # in lava the avatar crawls: keep going until it is a block away, up to
-            # LAVA_OUT_MAX ticks (stage s8 D2: 14 ticks moved it 0.2 blocks; D1 run of
-            # 2026-09-04: it climbed out of the sunk cell in 14 ticks but stood on its
+            # LAVA_OUT_MAX ticks (a staged scene: 14 ticks moved it 0.2 blocks; in another
+            # it climbed out of the sunk cell in 14 ticks but stood on its
             # lip, half a block along -- a rise alone is not out)
             out = rf["t"] > self.LAVA_OUT_TICKS and moved >= 1.0
             home = rf.get("home")
@@ -2349,7 +2349,7 @@ class WorldModelAgent:
         d = math.hypot(float(pos["x"]) - seen[1], float(pos["z"]) - seen[2])
         if d > self.DIG_WATER_BLOCKS:
             return None
-        # The way out, as one call: hd41z (2026-09-04) spent steps 579-4113 beside the
+        # The way out, as one call: one run spent steps 579-4113 beside the
         # pond it had filled the bucket at, refused here twice and swimming in circles.
         from mcu_worldmodel import macros_world as MW
         if d >= 0.5:
@@ -2435,7 +2435,7 @@ class WorldModelAgent:
 
     def _shaft_cap_line(self) -> str:
         """The line after a dig_down: the shaft over the head is the way a mob gets
-        into the cell (og8_mfm, 2026-09-07: a zombie down a 60-block shaft at y 11,
+        into the cell (one run: a zombie down a 60-block shaft at y 11,
         dead with the bunker reflex and a diamond sword in the inventory)."""
         pos = self._cur_pos
         if pos is None:
@@ -2450,7 +2450,7 @@ class WorldModelAgent:
 
     def _in_shaft(self, cell: tuple[int, int, int] | list[int]) -> bool:
         """The column over `cell` is open and walked: the avatar dug straight down to
-        it (og8_mfm: walked (-3009, 12) then (-3009, 11), hit at 11)."""
+        it (one run: walked (-3009, 12) then (-3009, 11), hit at 11)."""
         cx, cy, cz = (int(v) for v in cell)
         return any((cx, cy + k, cz) in self.grid.walked for k in (1, 2, 3))
 
@@ -2461,7 +2461,7 @@ class WorldModelAgent:
         CRITICAL_HP (nowhere to run: a shaft bottom, a capped hole); `close_gui`
         presses the screen shut first (the drop guard armed -- a mob does not wait);
         `toward_center` aims at the centre of the cell the avatar stands in: a mob in
-        the same 1x1 column is pushed to the far side of it (stage s20: the blind
+        the same 1x1 column is pushed to the far side of it (a staged scene: the blind
         sweep at the shove's yaw landed one swing in 60 ticks)."""
         self.cursor_stats["fightback_reflexes"] = (
             self.cursor_stats.get("fightback_reflexes", 0) + 1)
@@ -2767,7 +2767,7 @@ class WorldModelAgent:
         `look()` is relative and correct only when the entry pose is known:
         `stair_down`'s opening `look(pitch=38)` entered at pitch 25 dug its staircase
         at 63, and entered at pitch 90 clamped into digging straight down -- the exact
-        shaft the macro exists to avoid (dm4_wmv11). Absolute aim needs the measured
+        shaft the macro exists to avoid (one run). Absolute aim needs the measured
         [STATE] angles, which exist only at run time, hence a marker.
         """
         pos = self._cur_pos
@@ -2791,7 +2791,7 @@ class WorldModelAgent:
     def _aimore_tick(self, ao: dict[str, Any], mk_act) -> dict[str, Any] | None:
         """One tick of steering the crosshair onto the iron-ore speckle cluster.
 
-        The missing link the flag->conversion gap exposed: four runs (wmv8/9/11/14) had
+        The missing link the flag->conversion gap exposed: four runs had
         the sentinel stop a macro on a genuine sighting, and none converted, because the
         NOTE hands over a SCREEN pixel while `look_at` wants a WORLD coordinate. This
         closes the loop in screen space directly: re-detect the cluster in each tick's
@@ -2816,7 +2816,7 @@ class WorldModelAgent:
             if ao.get("walk", 0) and ao["miss"] >= 3:
                 # Lost WHILE closing in: within ~2 blocks the speckles outgrow the
                 # detector's blob and density caps and the face reads as solid (both
-                # ore faces in the s6 stage) -- the crosshair still points at it.
+                # ore faces in a staged scene) -- the crosshair still points at it.
                 self.cursor_stats["ore_aimed"] = self.cursor_stats.get("ore_aimed", 0) + 1
                 self.memory.add_note(
                     f"aim_at_ore: walked {ao['walk']} ticks up to the speckles; they are "
@@ -2838,7 +2838,7 @@ class WorldModelAgent:
         dy = max(-20.0, min(20.0, ex * 0.14 * 0.8))
         if abs(ex) <= 10.0 and abs(ey) <= 10.0:
             # Centred -- but centred on WHAT distance? The sentinel fires on a face up
-            # to ~6 blocks off (s6 stage, 2026-09-03: 320 px at 5 blocks) and arm's
+            # to ~6 blocks off (a staged scene: 320 px at 5 blocks) and arm's
             # reach is 4.5, so mine_ahead from the flag spot swung 120 ticks at air.
             # Close the distance first: walk at the cluster, re-centring as it grows,
             # until the wall stops the walk (the face is now in reach), the cluster
@@ -2873,7 +2873,7 @@ class WorldModelAgent:
 
         The wood-phase counterpart of `_aimore_tick`, against `vision.find_tree_trunk`:
         wood-phase aim variance is the largest cross-task loss source (1,900-3,000
-        steps in wmv12/16/19 and ked1), and every one of those losses was an aiming
+        steps in four runs), and every one of those losses was an aiming
         problem, not a finding problem -- leaves were on screen the whole time. Same
         gains, damping and stop rules as the ore servo.
         """
@@ -3012,7 +3012,7 @@ class WorldModelAgent:
         detour ONCE over cells this life has walked (grid.detour) when that ends
         nearer the target; otherwise stop with the note. Measured before this:
         30-50% of blocked targets were never reached, and the ground between was
-        usually the avatar's own trail (findings, 2026-09-06)."""
+        usually the avatar's own trail."""
         self.grid.mark_blocked(self.step, pos)
         short = math.hypot(gt["x"] - pos["x"], gt["z"] - pos["z"])
         if not gt.get("detoured"):
@@ -3054,7 +3054,7 @@ class WorldModelAgent:
         a hole (a fall, a shaft, a ravine floor) the walk cannot climb. Queue
         `pillar_up(rise)` and the same go_to once more behind the stalled one, so the
         next try starts at the rim. False (with a note) when no block can be placed.
-        og5 (2026-09-07) sat 700 steps at y 63-64 under its y 69 trail re-issuing go_to."""
+        One run sat 700 steps at y 63-64 under its y 69 trail re-issuing go_to."""
         from mcu_worldmodel import macros_world
         from mcu_worldmodel.procedures import go_to
         cell, rise = up
@@ -3135,7 +3135,7 @@ class WorldModelAgent:
                           ) -> dict[str, Any] | None:
         """Walk to the recorded standing spot (sneaking the last block), turn to the
         recorded pitch/yaw, then let the presses run. None when done or given up.
-        The estimated cell was one block off in obf1 (~10k steps) and obf2 (4 failed
+        The estimated cell was one block off in one run (~10k steps) and another (4 failed
         re-opens by step 1073); the pose that opened the screen is exact."""
         pos = self._cur_pos
         st = ug.setdefault("replay", {"phase": "walk", "t": 0, "stuck": 0, "last": None})
@@ -3208,7 +3208,7 @@ class WorldModelAgent:
     #: forward leg comes first and is the long one because the drops a sweep is
     #: called for lie AHEAD (the trunk or the face just worked), and an empty sweep
     #: ends at SWEEP_EMPTY_CAP: with 8/16 those 24 ticks were 1.7 blocks out and 3.5
-    #: back, ending further from the drops than they began (rp03, 2026-09-03: three
+    #: back, ending further from the drops than they began (one run: three
     #: logs 3 blocks ahead, "picked up nothing"); 12/24 is 2.6 blocks out and back
     #: to the start.
     _SWEEP_CYCLE = (("forward", 12), ("back", 24), ("forward", 12),
@@ -3223,25 +3223,25 @@ class WorldModelAgent:
     AIM_NEAR_PX = 1500
     AIM_WALK_TICKS = 30
     #: Ticks use_until_gui waits after its last press before calling the screen
-    #: absent. `isGuiOpen` reports a screen late under server load: kd41z_lb (step
+    #: absent. `isGuiOpen` reports a screen late under server load: one run (step
     #: 11775, ten arms on the node) got "no screen opened" from a two-press call and
     #: its next block showed the furnace screen OPEN -- the last take of its run.
     GUI_LAG_TICKS = 20
     #: Mean brightness (0-255) of the lower-central view below which a mining macro
-    #: ran in the dark. Measured 2026-09-03: an unlit stage tunnel reads 11-16, a
-    #: torch-lit one 41-91, dm25z_wm's y=11 strip mine 18. The colour ore watch sees
-    #: nothing in the dark (probe_diamond run 1: n=0 on dark frames), and no arm
-    #: tonight crafted a torch while five of them mined 1-10 coal.
+    #: ran in the dark. Measured: an unlit stage tunnel reads 11-16, a
+    #: torch-lit one 41-91, one run's y=11 strip mine 18. The colour ore watch sees
+    #: nothing in the dark (a probe: n=0 on dark frames), and no arm
+    #: of that cohort crafted a torch while five of them mined 1-10 coal.
     DARK_TUNNEL_LUM = 30.0
     #: Health at or below which a repeated hit always interrupts the plan.
     CRITICAL_HP = 6.0
     #: Underground (below BUNKER_Y), a hit at or below BUNKER_HP makes the runner dig
     #: two blocks down and cap the hole instead of pillaring: a pillar needs headroom
-    #: to jump into, and under a tunnel ceiling the block never places. kd40z_wm (twice)
-    #: and kd41z_lb died at y 14-28 in the iron search, 2026-09-03, each after "tried
+    #: to jump into, and under a tunnel ceiling the block never places. One run (twice)
+    #: and one run died at y 14-28 in the iron search, each after "tried
     #: to pillar you up ... but the block did not place". The threshold is above
-    #: CRITICAL_HP because the dig itself takes ~40 ticks under fire: hd9z_wm
-    #: (2026-09-04, y 44) armed it at 8 hp against 4-damage hits every ~25 ticks and
+    #: CRITICAL_HP because the dig itself takes ~40 ticks under fire: one run
+    #: (y 44) armed it at 8 hp against 4-damage hits every ~25 ticks and
     #: died at 4 hp with the hole one block deep -- the dig plus the cap needs 47+
     #: ticks, three hits of margin, so it starts at 14.
     BUNKER_HP = 17.5        # any hit of 3+ underground (was 14: the second hit came too late)
@@ -3250,13 +3250,13 @@ class WorldModelAgent:
     BUNKER_Y = 50.0
     #: A second hit within this many ticks of the first is a melee mob at arm's length
     #: (a zombie swings every 20-25 ticks; arrows come 40+ apart): under it a dig
-    #: cannot finish (hd9z, dm26z_lb, s8 run 4: the zombie followed the avatar into
+    #: cannot finish (two runs and a staged scene: the zombie followed the avatar into
     #: the hole), so the runner sprints instead -- along the knockback when the plan
     #: stood still (the shove points away from the attacker), else the 180 turn.
     MELEE_CADENCE = 30
     KNOCKBACK_MIN = 0.2
     #: With a sword in the hotbar the melee cadence is answered by facing the attacker
-    #: and swinging, not by the sprint: hd21z_wm (2026-09-04, y 25) fled up its own
+    #: and swinging, not by the sprint: one run (y 25) fled up its own
     #: one-wide staircase at 12 hp, was hit every 26 ticks for 8 blocks and died at 4
     #: with a diamond sword in hand. A diamond sword kills a zombie in three swings.
     FIGHTBACK_TICKS = 80
@@ -3271,16 +3271,16 @@ class WorldModelAgent:
     #: A hit inside a capped hole this many ticks after the cap is from something IN it.
     BUNKER_HOLE_STEPS = 600
     #: A hit while this share of the lower view is lava-coloured is the lava (or the
-    #: fire it lit), not a mob: hd5z_wm (2026-09-04) burned 13 -> 9 -> 4 -> dead standing
+    #: fire it lit), not a mob: one run burned 13 -> 9 -> 4 -> dead standing
     #: in a lava pool with a water bucket in its hotbar while the runner dug a bunker
-    #: beside it. vision.lava_fraction on the corpus (2026-09-04): the seven LAVA AHEAD
-    #: frames (lakes, not yet burning) 0.011-0.099, hd5z's in-lava frames 0.21 and 0.07,
-    #: kd26z/kd35z/kd46z's lava-death frames 0.17-0.47, <= 0.002 without lava. 0.15 is the
+    #: beside it. vision.lava_fraction on the corpus: the seven LAVA AHEAD
+    #: frames (lakes, not yet burning) 0.011-0.099, one run's in-lava frames 0.21 and 0.07,
+    #: three runs' lava-death frames 0.17-0.47, <= 0.002 without lava. 0.15 is the
     #: standing-in-it band (a lake ahead at the bridge level, 0.10, is not it: a blaze's or
     #: a ghast's hit taken on a ledge above a lava sea must go to the fight or the flee, not
     #: to a blind step back -- audit pass 15). Flames count too (vision.fire_fraction): in a
     #: lava cell at eye level no lava shows, only the fire, and the flames are what arm the
-    #: reflex there (stage s8 D1).
+    #: reflex there (a staged scene).
     LAVA_ESCAPE_FRAC = 0.15
     #: Any lava in view at all (the vision floor is 1%): with a 4.0 loss it is contact.
     LAVA_TOUCH_FRAC = 0.02
@@ -3299,7 +3299,7 @@ class WorldModelAgent:
     FALL_VMAX = 0.5
     LAVA_OUT_TICKS = 14
     LAVA_OUT_MAX = 40
-    #: A gradual loss with water around the avatar is drowning: hd13z_wm (2026-09-04) dug a
+    #: A gradual loss with water around the avatar is drowning: one run dug a
     #: shaft one block from a pond (the guard read the water at 0.30-0.32 of the view at
     #: the dig's start), the shaft flooded at y 60, the avatar lost 4 then 9 health per
     #: 100 ticks with its hit frames showing only the shaft's dirt, tried pillar_up (no
@@ -3312,22 +3312,22 @@ class WorldModelAgent:
     DROWN_TICKS = 40
     DROWN_MAX = 100
     #: dig_down / stair_down are refused within this many blocks of water seen in the last
-    #: DIG_WATER_STEPS ticks (the shaft floods; hd13z's ran a block from the pond it had
+    #: DIG_WATER_STEPS ticks (the shaft floods; one run's ran a block from the pond it had
     #: just tried to fill the bucket at).
     DIG_WATER_BLOCKS = 6.0
     DIG_WATER_STEPS = 200
-    #: A melee attacker keeps hitting through a dig or a pillar: dm26z_lb (2026-09-03,
-    #: y 18) fought a zombie from 16 hp, was bunkered at 4 and died inside the dig;
-    #: stage s8 run 4 saw a zombie follow the avatar into the hole. Melee is read off
+    #: A melee attacker keeps hitting through a dig or a pillar: one run (y 18)
+    #: fought a zombie from 16 hp, was bunkered at 4 and died inside the dig;
+    #: a staged scene saw a zombie follow the avatar into the hole. Melee is read off
     #: the plan: a combat head means the model is toe to toe with a mob it can see
-    #: (the hit cadence was tried and misread a slow zombie as arrows, s8 run 7).
+    #: (the hit cadence was tried and misread a slow zombie as arrows, in a staged scene).
     #: The escape is a sprint: a zombie walks at ~4.3 blocks/s, a sprint-jump runs ~7.
     FLEE_TICKS = 60
     SEAL_TICKS = 40         # the wall behind after the run: turn, two clicks, a retry
     #: Below this share of the lower view a lava sighting is a SLIVER -- a fall down a
     #: wall or one source in a cave face, most often flowing lava (cobblestone after a
     #: pour) -- not the lake the obsidian needs (30%+ in every lake sighting on record).
-    #: ob1/ob1b (3%) and og4 (1%) poured on slivers and mined stone. Same threshold as
+    #: two runs (3%) and one run (1%) poured on slivers and mined stone. Same threshold as
     #: previous.LAKE_FRAC.
     LAVA_SLIVER_FRAC = 0.08
     #: Pickaxes the bunker digs with, best first (the floor of a mine is stone).
@@ -3340,10 +3340,10 @@ class WorldModelAgent:
 
     def _head_is_movement(self) -> bool:
         """True when the queued plan's head moves the avatar (see the repeat-hit rule):
-        a walk (go_to / a position servo) or raw movement keys -- dm23z_lb's lava
+        a walk (go_to / a position servo) or raw movement keys -- one run's lava
         escape was "left + jump x80". The mining cycles (`_mfwd`: stair_down and
         strip_mine) are NOT movement here: they stand at a face most of the time, and
-        kr30_lb died inside one with the hits arriving every few seconds."""
+        one run died inside one with the hits arriving every few seconds."""
         if not self.queue:
             return False
         head = self.queue[0][0]
@@ -3359,7 +3359,7 @@ class WorldModelAgent:
     def _sweep_tick(self, sw: dict[str, Any], mk_act) -> dict[str, Any] | None:
         """One tick of a pickup sweep; done the moment the inventory total rises.
 
-        Exists because mined drops kept being left on the ground: dm6_wm chopped two
+        Exists because mined drops kept being left on the ground: one run chopped two
         logs by step 518 and reached step 600 with an empty hotbar, then spent seven
         near-identical turns hunting them; its endgame lost two iron ores the same way.
         Pickup is proximity-triggered, so the fix is to *walk the area*, keyed on the
@@ -3435,7 +3435,7 @@ class WorldModelAgent:
             self.cursor_stats["ore_flagged_diamond"] = (
                 self.cursor_stats.get("ore_flagged_diamond", 0) + 1)
         # Flush the rest of the plan, exactly as the damage interrupt does. Hardening,
-        # not a bug fix: the 2026-08-27 trajectory audit found every live flag happened
+        # not a bug fix: the trajectory audit found every live flag happened
         # to sit in the plan's LAST entry (models put the open-ended mining entry last),
         # so the act turn arrived within 0-2 steps anyway. The flush guarantees that
         # alignment for mid-plan flags too. The executing marker stays at the head --
@@ -3502,19 +3502,19 @@ class WorldModelAgent:
     def _mfwd_tick(self, mf: dict[str, Any], mk_act) -> dict[str, Any] | None:
         """One tick of displacement-verified tunnelling: foot block, eye block, walk in.
 
-        The 2026-08-27 census: 58-97% of mining entries ended with <0.5 blocks of
+        The census: 58-97% of mining entries ended with <0.5 blocks of
         movement -- the old macros held attack at eye level (or walked 2 ticks into an
         unbroken wall) and the avatar dug in place while the iron search scanned no new
         rock. Both endgame models independently re-derived the working cycle in their
         world models (ked_final1: "pitch28 mine ~100, forward+jump 40, pitch0 mine
-        ~100"; final3: "check coordinates rather than assuming advance"). This marker
+        ~100"; one run: "check coordinates rather than assuming advance"). This marker
         is that discovery promoted into mechanism, closed on the two signals that
         matter: the break stat (did the face open?) and [STATE] position (did we move?).
         Two consecutive cycles that break blocks without gaining ground stop the entry
         with a diagnosis instead of spending the rest of the budget in place.
         """
         if self._gui_open:
-            # With a screen up, attack/movement do nothing in the world: dm4_wmv22
+            # With a screen up, attack/movement do nothing in the world: one run
             # spent 4x158 ticks swinging at a crafting menu before this check existed.
             # One tick, an honest note, and the model can close the screen properly.
             self.cursor_stats["mine_gui_stops"] = (
@@ -3570,7 +3570,7 @@ class WorldModelAgent:
         mf["used"] += 1
         if mf["down_by"] is not None:
             # A staircase that is not going down is the one thing its cycle cannot
-            # see from breaks and advance alone: dm5 ran stair_downs that broke 4-13
+            # see from breaks and advance alone: one run ran stair_downs that broke 4-13
             # blocks, advanced 2-5, and descended 0.0 to their full tick budgets, on
             # both arms. ~32 ticks buys a block of depth when the carve works, so 96
             # ticks with less than one block of descent means it is not working.
@@ -3580,7 +3580,7 @@ class WorldModelAgent:
                 if mf["desc_y"] - pos["y"] < 1.0:
                     # Escalate before giving up. A failing carve cycle runs ~97
                     # ticks, so this checkpoint always fires one tick before the
-                    # first cycle-end bump could: dm9/kd9 ended with every arm at
+                    # first cycle-end bump could: two runs ended with every arm at
                     # min_y>=50 and stair_steepened=0 across all six -- the
                     # steepening ladder was dead code behind this abort.
                     if mf.get("p_lo_bump", 0.0) < 14.0:
@@ -3628,8 +3628,8 @@ class WorldModelAgent:
             # Walk up to the face first. The foot carve at p_lo assumes the face is
             # adjacent: from 2.3+ blocks the pitch-35 ray lands on the FLOOR of the
             # cell before it, and the walk-in then hops into that hole -- y 11 -> 10 at
-            # the third cycle, "did not move" for the rest (probe_strip_depth,
-            # 2026-09-04; hd15z_wm stalled the same way three times at y 12, each
+            # the third cycle, "did not move" for the rest (a probe;
+            # one run stalled the same way three times at y 12, each
             # strip_mine resumed from 2+ blocks behind its face). Blocked = no ground
             # gained on a tick; an open passage is walked for up to 40 ticks before
             # the carve. The walk is reported apart from `advanced` (tunnelled
@@ -3652,8 +3652,8 @@ class WorldModelAgent:
             mf["phase_t"] += 1
             # The stair carve is aim-geometry-sensitive: at the stock 48 the ray can
             # land on the same-level floor block instead of the one-below step, and the
-            # avatar then advances without dropping -- every stair failure of the
-            # dm7/kd7 night read "broke 3, advanced 1.0, descended 0.0". Each cycle
+            # avatar then advances without dropping -- every stair failure of
+            # two runs read "broke 3, advanced 1.0, descended 0.0". Each cycle
             # that completes without descending steepens the next foot carve by 5
             # degrees (up to +14); a cycle that actually drops resets the bump.
             target = (mf["p_lo"] + mf.get("p_lo_bump", 0.0) if ph == "foot"
@@ -3687,7 +3687,7 @@ class WorldModelAgent:
                     mf["p_lo_bump"] = min(14.0, mf.get("p_lo_bump", 0.0) + 5.0)
                     self.cursor_stats["stair_steepened"] = (
                         self.cursor_stats.get("stair_steepened", 0) + 1)
-                # A cycle that descended KEEPS its bump: kd8_lb's live entries showed
+                # A cycle that descended KEEPS its bump: one run's live entries showed
                 # the first fix's reset-on-success re-failing every other cycle at the
                 # stock pitch ("193 ticks, descended 1.0" -- one earned drop per
                 # entry, then the 96-tick checkpoint fired before the bump was earned
@@ -3703,7 +3703,7 @@ class WorldModelAgent:
                 self._note_failure(mf["label"])
                 self.cursor_stats["mine_stall_stops"] = (
                     self.cursor_stats.get("mine_stall_stops", 0) + 1)
-                # Flush the queued rest of the plan, as the ore flag does: dm4_wmv22
+                # Flush the queued rest of the plan, as the ore flag does: one run
                 # ran three identical doomed stair_downs back to back because the
                 # diagnosis note is only read at the NEXT act turn, and the queue got
                 # there first.
@@ -3736,8 +3736,8 @@ class WorldModelAgent:
 
     def _torch_due(self, mf: dict[str, Any], pos: dict[str, float]) -> bool:
         """Arm the torch phase of a level tunnel when another TORCH_EVERY blocks have
-        been tunnelled underground and a torch is in the hotbar. The 2026-09-06 runs
-        (ob1/ob1b/ob2) carried 8+ torches through 11 stretches the ore watch reported
+        been tunnelled underground and a torch is in the hotbar. Three runs
+        carried 8+ torches through 11 stretches the ore watch reported
         as DARK and placed none; two of them were killed by mobs in those tunnels."""
         from mcu_worldmodel import macros_world as MW
 
@@ -3810,7 +3810,7 @@ class WorldModelAgent:
         """One tick of digging, ending when the target depth is reached.
 
         Reports what it did on every exit, and stops early when nothing is happening:
-        dm5_lb_high ran three dig_downs for 600+ ticks that broke zero blocks and moved
+        One run ran three dig_downs for 600+ ticks that broke zero blocks and moved
         zero y, and the model repeated the call because no note ever said so --
         `_mine_cycle` had the self-report and the stall stop, `_dig` had neither."""
         if self._gui_open:
@@ -3865,7 +3865,7 @@ class WorldModelAgent:
                 f"before digging again.", "dig_stall_stops")
             return None
         # Breaking-but-not-descending is the case the zero-break guard misses:
-        # kd10rec's one deep commit read "broke 4 blocks, descended 0.0 in 390
+        # One run's one deep commit read "broke 4 blocks, descended 0.0 in 390
         # ticks" -- the whole budget burned carving a wall beside the shaft, and
         # the only report came at the end. Same windowing as the stair.
         if y is not None:
@@ -3888,7 +3888,7 @@ class WorldModelAgent:
         dg["used"] = used + 1
         # Stay over the column: the swings carve the block under the crosshair, and an
         # avatar standing on a cell's edge (a knockback, a diagonal approach) breaks the
-        # neighbour instead and never descends -- hd2z/hd4z/hd8z (2026-09-04) each burned
+        # neighbour instead and never descends -- three runs each burned
         # 96-tick windows "breaking but no depth". Walk back over the cell centre while
         # swinging, the bunker's own rule.
         keys: dict[str, int] = {}
@@ -4017,7 +4017,7 @@ class WorldModelAgent:
         The governor's veto is ALL-OR-NOTHING on the plan: dropping one entry out
         of a composite (the aim before a mine) corrupts the plan instead of saving
         its steps, and entry-wise refusal storms burned 2 model calls per sim step
-        in dmbr2. A plan runs untouched unless EVERY entry is a known-null at this
+        in one run. A plan runs untouched unless EVERY entry is a known-null at this
         cell; then the whole plan is dropped, one no-op is queued so the world
         still advances, and a single note names what was refused."""
         from mcu_worldmodel.procedures import noop
@@ -4382,7 +4382,7 @@ class WorldModelAgent:
             f"{max(0, self.max_steps - self.step)} steps remain. "
             f"{self.ledger.progress_line()}\n"
         )
-        # Shown to the planner: goal_furnace burned 2,400 steps (dm5) while nothing
+        # Shown to the planner: goal_furnace burned 2,400 steps (one run) while nothing
         # said out loud that nothing had changed. Identical in the memory arms.
         stall_part = (
             f"Act turns since anything verifiably changed (milestone or inventory): "
@@ -4470,7 +4470,7 @@ class WorldModelAgent:
         if self.vista:
             self.vista.entry_done(index)
         # The frame the entry started from, for [OBSERVED] (VISTA's observe step made
-        # concrete: a mismatch has a one-step look). og14-og22 opened an earlier episode's
+        # concrete: a mismatch has a one-step look). Several runs opened an earlier episode's
         # frame 32 times in 850k steps; the compare line never pointed at one.
         ep_frame = None
         if self.episodes:
@@ -4497,7 +4497,7 @@ class WorldModelAgent:
             inventory_delta=self._inventory_delta(),
             gui_open=self._gui_open,
             # The measured cursor line, so a grep over the log can reconstruct where the
-            # pointer was when a click ran. dm4_wmv2's turns grepped for [CURSOR] three
+            # pointer was when a click ran. One run's turns grepped for [CURSOR] three
             # turns running and found nothing: the line existed only in the prompt. The
             # [GRID] occupancy rides along for the same reason.
             cursor_line=(self.cursor.line(self._cur_inv, self._screen)
@@ -4594,9 +4594,9 @@ class WorldModelAgent:
         """The Nether's walked descent (with `_nether_lock`): every 4th tick the lower
         view's lava share is sampled, and a plan entry that has taken the avatar
         NETHER_DESCENT_MIN+ blocks below where it started, with lava in that view, is
-        dropped with a NETHER DESCENT note. og12 (2026-09-07, 30472-30505): forward+
+        dropped with a NETHER DESCENT note. One run (30472-30505): forward+
         sprint+jump down a slope from y 36 to 28 into the sea, one raw entry after
-        another, LAVA AHEAD already in its notes; og9 (17893-17976): the explore walk
+        another, LAVA AHEAD already in its notes; one run (17893-17976): the explore walk
         went 4 blocks down-slope to the lake's edge and fell in. Dug descents
         (NETHER_DESCENT_OK) and the runner's own escapes are exempt."""
         if pos is None or self._dimension != "the Nether" or not getattr(self, "reflexes", True):
@@ -4633,8 +4633,8 @@ class WorldModelAgent:
     def _lava_guard(self, step: int, pos: dict[str, float] | None) -> None:
         """Stop the plan when lava fills the lower view while the avatar moves underground.
 
-        dm23z_lb stood at a lava lake's edge with the lake filling the frame, planned a
-        go_to across it and died (2026-09-02); kd14 and dm14x met lava at y 6-13 too.
+        One run stood at a lava lake's edge with the lake filling the frame, planned a
+        go_to across it and died; two runs met lava at y 6-13 too.
         Sampled every 4th tick, only below y 40, only when the avatar covered >= 0.15
         blocks (or dropped >= 0.5) since the previous sample -- a table or a torch seen
         standing still is never an alarm, and the colour band excludes both anyway.
@@ -4666,7 +4666,7 @@ class WorldModelAgent:
             return
         # The cooldown holds within the plan entry the guard stopped: action_num advances
         # when that entry closes (the queue is cleared), so the model's next entry -- the
-        # first of its next plan included -- is checked afresh. og8_mfm (2026-09-07):
+        # first of its next plan included -- is checked afresh. One run:
         # stopped at 27% during Action 617 (mine_obsidian, action_num 616); the next
         # plan's FIRST entry, go_to west (Action 618, action_num 617), crossed the cell
         # it had just mined the obsidian out of 30 ticks later and it burned to death
@@ -4707,13 +4707,13 @@ class WorldModelAgent:
     def _shaft_guard(self, step: int, pos: dict[str, float] | None) -> None:
         """Stop the plan before the avatar steps into its own open shaft.
 
-        og9_mfm (2026-09-07, step 19286): after a stair_down at y 67 it ran
+        One run (step 19286): after a stair_down at y 67 it ran
         mine_forward north, broke through into the y 9..67 shaft it had dug at steps
         3955-4663 one block away, walked into the column and fell 58 blocks -- dead, the
-        kit lost, 6k steps of rebuilding; dm4_wmv9 jumped into its own shaft after the
+        kit lost, 6k steps of rebuilding; one run jumped into its own shaft after the
         drops. Both shafts were on the map as walked columns (grid.drop_ahead). The
         cells ahead are taken along the motion of the last tick -- as far as a jump at
-        that speed carries (stage s23: the go_to servo sprint-jumps at 0.35 a tick and a
+        that speed carries (a staged scene: the go_to servo sprint-jumps at 0.35 a tick and a
         1-block lookahead fired in mid-air over the hole) -- and, when the queued action
         holds `forward`/`back`, along the facing too (the first moving tick after a wall
         breaks starts 0.3 blocks from the edge). No sneak exemption: in the simulator
@@ -4794,10 +4794,10 @@ class WorldModelAgent:
     def _fall_guard(self, step: int, pos: dict[str, float] | None) -> None:
         """Stop the plan when the avatar lands after a fall it did not plan.
 
-        og13_mfm (2026-09-07, 18768-18818, the Nether): a go_to dropped 13 blocks into a
+        One run (18768-18818, the Nether): a go_to dropped 13 blocks into a
         hole; the plan went on (the stall branch queued pillar_up(2) toward a mid-air
         cell), the model pressed forward+jump+use and fell 9 more, a mob followed it
-        down, dead with the kit. og9 (26888): mine_forward into a cliff, a 20-block fall
+        down, dead with the kit. One run (26888): mine_forward into a cliff, a 20-block fall
         into lava. A descent that is walked (a stair, dig_down, a jump down one block, a
         swim) never exceeds FALL_VMAX in one tick; free fall does after ~1.7 blocks. On
         landing (two still ticks) after a drop of FALL_MIN_DROP+ blocks the queue is
@@ -4857,10 +4857,10 @@ class WorldModelAgent:
         since the last stop here while the avatar carries the water bucket and the
         obsidian milestone is open: then it is approaching the pool the advice above
         told it to approach, and the clause says so instead of sending it away.
-        og13_mfm (2026-09-07): stops at 5764 (2%) and 5820 (4%) at (-2998, 12, -5554),
+        One run: stops at 5764 (2%) and 5820 (4%) at (-2998, 12, -5554),
         the second carried REPEAT ("tunnel away ... do not target this spot again"); the
         model obeyed, searched 7.6k steps for another pool and found one at 13358.
-        og12 made its obsidian at 6134 from the SAME pool ((-2996, 11, -5553), five
+        One run made its obsidian at 6134 from the SAME pool ((-2996, 11, -5553), five
         sliver stops there) by ignoring the clause."""
         cell = (int(math.floor(pos["x"] / 3)), int(math.floor(pos["y"] / 3)),
                 int(math.floor(pos["z"] / 3)))

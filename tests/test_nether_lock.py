@@ -1,7 +1,7 @@
-"""The Nether lock (agent._nether_lock, 2026-09-07): in the Nether a plan action that moves
+"""The Nether lock (agent._nether_lock): in the Nether a plan action that moves
 gets sneak, loses sprint, and loses a jump taken while moving; a vertical jump keeps it;
 nothing changes with a screen open, outside the Nether, or without the runner's reflexes.
-Every Nether visit on record (og9 x2, og12, og13) died walking, sprinting or jumping off a
+Every Nether visit on record (four visits, three lives) died walking, sprinting or jumping off a
 ledge into the lava sea."""
 from __future__ import annotations
 

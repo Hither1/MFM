@@ -131,7 +131,7 @@ for _d in "${_rw[@]}"; do [ -n "$_d" ] && [ -d "$_d" ] && EXTRA_BINDS+=(--bind "
 
 # The shell rc files are blanked only where the host has them: /etc is read-only inside,
 # so bwrap cannot create a mountpoint for one that does not exist (Ubuntu has no
-# /etc/bashrc; "Can't create file at /etc/bashrc: Read-only file system", 2026-09-15).
+# /etc/bashrc; "Can't create file at /etc/bashrc: Read-only file system").
 RC_BINDS=()
 for _rc in /etc/bashrc /etc/bash.bashrc /etc/zshrc /etc/zshenv /etc/zprofile; do
     [ -e "$_rc" ] && RC_BINDS+=(--ro-bind "$RUN_DIR/empty" "$_rc")

@@ -129,11 +129,11 @@ class VistaBridge:
                  transcript_dir: Path | None, timeout: float, base_url: str | None = None,
                  options: dict[str, Any] | None = None) -> None:
         opts = dict(options or {})
-        # --base-url (the OpenRouter route, gen 4): the provider reaches the app-server
+        # --base-url (the OpenRouter route): the provider reaches the app-server
         # thread through its config.toml (mfm/vista/runner.py write_codex_config), the
         # twin of codex_backend's -c set (model_provider=local, name/base_url/wire_api,
         # CODEX_LOCAL_AUTH_COMMAND, CODEX_MODEL_CONTEXT_WINDOW). None keeps the account's
-        # hosted models, as every vista run before gen 4 did.
+        # hosted models, as the vista runs on the account did.
         self.base_url = base_url or None
         self.agent = agent
         self.root: Path = agent.memory.root
@@ -222,7 +222,7 @@ class VistaBridge:
         `VistaSession._run` records the failure and forces the controller terminal, but
         nothing on the chassis side reads either, so a dead loop is indistinguishable from
         a slow one: `act_turn` keeps waiting out the full turn ceiling for a play no
-        thread will ever make. Measured on abaw_vista (2026-09-07): the loop died at
+        thread will ever make. Measured: the loop died at
         step 800 on a checkpoint failure and the arm spent 9.8 h of a 12-core node
         advancing at roughly six steps an hour, which no log line called an error.
         """
@@ -249,7 +249,7 @@ class VistaBridge:
         # break (`_cut_attack_hold`) -- reaches this turn before the next `observe`
         # could write its section, and `next_action` clears `_entry_index` after two
         # empty turns: the section would never be written and the play never answered
-        # (lad12a stalled 48 min on `{"attack":1} x100`). Written here the way the
+        # (one run stalled 48 min on `{"attack":1} x100`). Written here the way the
         # marker path writes it: observe has run this tick already.
         if agent._entry_index is not None and not agent.queue:
             agent._log_entry_done(agent._entry_index)
@@ -262,7 +262,7 @@ class VistaBridge:
             # drops a *running* entry and clears `_entry_index` in the same breath --
             # `queue.clear()` on a gui_click that lifted nothing (agent.py), and seven
             # other sites like it. `take` below would then park with the play owed and
-            # both threads would sleep until the walltime (vista1_dragon, step 6109,
+            # both threads would sleep until the walltime (one run, step 6109,
             # `craft furnace` on the open table screen). Answer it here instead, with
             # the notes that say why the plan was dropped, and let the model replan.
             self.dropped_entries += 1

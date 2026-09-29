@@ -470,7 +470,7 @@ def test_the_nether_side_portal_cannot_be_scored_as_the_agents_work(P):
     The map is keyed by absolute cell and the Nether's coordinates are the Overworld's
     over eight, so the two do not collide, they accumulate -- and the Nether side of any
     portal is a game-generated, perfectly legal, already-lit frame. Measured on the
-    second wave (2026-09-09): `arc` and `mfm` came back with `best_frame.anchor` at the
+    second wave: `arc` and `mfm` came back with `best_frame.anchor` at the
     NETHER portal, which scored all fourteen of their real placements as "into a cell the
     frame does not use" and turned a precise build into an apparent pile of waste.
     """

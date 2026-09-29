@@ -1,7 +1,7 @@
-"""Plan-grain recall (2026-09-09): the run of turns that re-issued the same EXPECT while
+"""Plan-grain recall: the run of turns that re-issued the same EXPECT while
 nothing moved, and the hotbar noise that must not be reported as a loop.
 
-Evidence: the six full-task lives of1/of2/of3 and their reuse lives showed the model
+Evidence: the six full-task lives three runs and their reuse lives showed the model
 re-issuing one [PLAN]/EXPECT for 15-30 turns with moved=0, while the only thing the
 [RECALL] block had to say was that `hotbar.6` had changed nothing in its last 61 calls.
 """
@@ -104,7 +104,7 @@ def test_a_hotbar_streak_is_not_a_loop():
 
 
 def test_plan_stall_is_outcome_based_and_flags_a_long_dead_plan(tmp_path: Path):
-    """The record's real shape (worker_recall_2026-09-09.md): EXPECT lines rephrased every
+    """The record's real shape: EXPECT lines rephrased every
     turn with the numbers changed, and single plans of 15-24 entries that achieve nothing."""
     # three turns, three different EXPECT texts, nothing moved: a stall all the same
     root = tmp_path / "rephrased"

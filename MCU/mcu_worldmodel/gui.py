@@ -71,7 +71,7 @@ TABLE_CRAFT_IN = [(30 + 18 * c, 17 + 18 * r) for r in range(3) for c in range(3)
 TABLE_CRAFT_OUT = (124, 35)
 #: `AbstractFurnaceScreen` (1.16): smelt input above the flame, fuel below it, result to
 #: the right of the arrow. Same 176x166 centred container as the crafting screens, so the
-#: player-inventory offsets are shared and only these three slots are new. dm4_wmv3 hit
+#: player-inventory offsets are shared and only these three slots are new. One run hit
 #: this gap live: it reached `furnace` at step 4316 with no addressable furnace slots.
 FURNACE_IN = (56, 17)
 FURNACE_FUEL = (56, 53)
@@ -105,8 +105,8 @@ def centre(topleft: tuple[int, int]) -> tuple[float, float]:
 #: Where the cursor sits, in container coordinates, when the inventory opens. The screen
 #: centre -- which frame evidence settled after the sweep calibration had said otherwise:
 #: `vision.find_cursor` run over four runs' saved frames finds the arrow at exactly
-#: (320, 180) screen = (88, 83) container on freshly-opened screens (dm4_wmv2 step 535,
-#: dm4_pl step 2160, dm4_wmv_base step 1200). The sweep's (16, 60) was the scale error of
+#: (320, 180) screen = (88, 83) container on freshly-opened screens (one run step 535,
+#: one run step 2160, another step 1200). The sweep's (16, 60) was the scale error of
 #: its own probe moves folded into the origin. With per-tick anchoring this value only
 #: covers the tick or two before the arrow is first measured, but it should still be the
 #: right value.
@@ -468,7 +468,7 @@ def reference() -> str:
 
 # -- containers beyond the crafting table and the furnace ----------------------
 #
-# Six more screens, all measured from real sim frames on 2026-09-03 (the reference
+# Six more screens, all measured from real sim frames (the reference
 # JPEGs the probe left behind, cross-checked against Minecraft 1.16's screen handlers).
 #
 # The one fact that makes all of them addressable: **the container is centred, so a
@@ -590,7 +590,7 @@ def cursor_park(kind: str = "inventory") -> tuple[float, float]:
     The white arrow (and any stack riding it) is drawn over whatever slot it sits on,
     and `vision.slot_occupied` reads texture, so a pointer left on a cell makes that
     cell read FULL: after `container_take` emptied a chest the last cell it clicked
-    still reported an item, and the next take clicked at nothing (stage s3, 2026-09-03).
+    still reported an item, and the next take clicked at nothing (a staged scene).
     Every container's bottom strip, below the hotbar row and inside the frame, is plain
     body on all nine screens.
     """

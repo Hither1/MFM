@@ -2,7 +2,7 @@
 
 Why a separate module. `vision.py` holds the ore, tree, screen and mob detectors that
 every arm already runs; the two here are only ever asked for in the Nether, and both
-are colour bands measured on THIS engine's frames in stage s9 (2026-09-04), not read
+are colour bands measured on THIS engine's frames in a staged scene, not read
 off texture files:
 
 - `fortress_fraction(frame)`: the share of the frame body that is nether-brick coloured,
@@ -43,7 +43,7 @@ FORTRESS_MIN_PX = 900
 #: view ~100 degrees; the same constant macros_entity aims with).
 DEG_PER_PX = 0.213
 
-#: Blaze body: YELLOW, measured on this engine (probe s9, 2026-09-04, a blaze 3.5
+#: Blaze body: YELLOW, measured on this engine (a probe, a blaze 3.5
 #: blocks out at midday): (151, 112, 24) -- red 118+, green at ~0.74 of red, blue far
 #: below both. `vision`'s blaze band asks for red > 160, which the shaded body never
 #: reaches here, and it admits lava's ORANGE ((172, 72, 6): green at 0.42 of red);
@@ -55,7 +55,7 @@ _BZ_B_MAX = 110.0
 _BZ_BR_MAX = 0.22                    # b / r per pixel: lava's yellow carries more blue
 BLAZE_MAX_FRAC = 0.20
 #: Three gates on a candidate, each measured on the probe frames (a blaze 3.5 and 7
-#: blocks out vs a sunk lava pool at pitch 25, 2026-09-04) to separate the two on its
+#: blocks out vs a sunk lava pool at pitch 25) to separate the two on its
 #: own: the blaze is TALLER than wide (0.67-0.83 vs a pool's 0.27-0.30), a quarter of
 #: its box is the grey of its rods (0.22-0.42 vs 0.01-0.12 around a pool), and its
 #: yellow has almost no blue (b/r 0.06-0.16 vs 0.20-0.25 for lava's yellow patches).
@@ -138,7 +138,7 @@ def fortress_in_view(frame: np.ndarray | None) -> tuple[float, float] | None:
     return (frac, (cx - fw / 2.0) * DEG_PER_PX)
 
 
-#: Enderman: near-black pixels (measured from the pit, stage s9: the body renders
+#: Enderman: near-black pixels (measured from the pit, a staged scene: the body renders
 #: ~(20, 20, 20) against the sky), a tall blob. `vision.entity_hint` has the same
 #: band but rejects any blob ringed by SKY as a cloud -- and from a 2-deep pit every
 #: mob at the rim stands against the sky, so this one keeps the ring test (terrain
@@ -167,7 +167,7 @@ def enderman_hint(frame: np.ndarray | None, near: tuple[float, float] | None = N
     if float(raw.sum()) / max(area, 1.0) > 0.55:
         return None                              # a dark cave, not a mob
     # Dilate, never erode: the limbs are 2-4 px wide at 2-3 blocks and an erosion
-    # cuts the silhouette into a 66x69 torso (aspect 1.05, stage s9 run 2) -- the
+    # cuts the silhouette into a 66x69 torso (aspect 1.05, a staged scene) -- the
     # tallness that makes an enderman recognisable is in the pieces the erosion drops.
     mask = raw.copy()
     mask[1:, :] |= raw[:-1, :]
@@ -189,7 +189,7 @@ def enderman_hint(frame: np.ndarray | None, near: tuple[float, float] | None = N
         if not ok or inner < 0.25:
             continue
         # The ring around a mob is LIT (sky, or ground in the light); a dark patch of a
-        # shadowed pit wall is ringed by more shadow (stage s9 run 5: the fight loop
+        # shadowed pit wall is ringed by more shadow (a staged scene: the fight loop
         # steered down into the pit chasing one).
         x0, y0 = int(c["x0"]), int(c["y0"])
         bw, bh = int(c["w"]), int(c["h"])

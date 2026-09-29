@@ -14,7 +14,7 @@ here -- `claude_sandbox.sh` (bwrap) stands where Docker stood, exactly as
 `codex_sandbox.sh` does for the codex arms.
 
 Differences from CodexTurn worth naming, each measured on claude 2.1.233
-(2026-08-30) unless said otherwise:
+ unless said otherwise:
 
   * Frames travel as base64 image blocks on a stream-json stdin message, not as
     `-i` flags. BLOCK ORDER IS LOAD-BEARING: text first, then images. An image
@@ -66,7 +66,7 @@ from mcu_worldmodel.codex_backend import scrub_env
 # on this list; the init event check below is what keeps a future default from
 # slipping in unnoticed.
 # TodoWrite (codex's update_plan analog) is not grantable here: 2.1.233 silently
-# drops it from a --tools allowlist in this mode (measured 2026-08-30), and a
+# drops it from a --tools allowlist in this mode, and a
 # plan-list renderer changes nothing about the workspace contract anyway.
 ALLOWED_TOOLS: tuple[str, ...] = ("Bash", "Read", "Write", "Edit")
 
@@ -94,14 +94,14 @@ _EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
 # at all, so the agent's own commands cannot reach the Minecraft server or
 # anything else even when the outer claude_sandbox.sh is not in force. The CLI
 # process itself still reaches the model API: the sandbox wraps tool commands,
-# not the harness. Measured 2026-08-30, on haiku, both ways: curl NET_DOWN with
+# not the harness. Measured, on haiku, both ways: curl NET_DOWN with
 # echo and Write working, bare and under the outer sandbox alike (inside the
 # outer bwrap no bwrap binary exists for srt to nest, and the egress proxy is
 # what bounds the shell there -- the observable contract is the same).
 # CLAUDE_NATIVE_SANDBOX=0 turns the setting off for debugging.
 NATIVE_SANDBOX = os.environ.get("CLAUDE_NATIVE_SANDBOX", "1") != "0"
 
-# Credential isolation for a hosted-provider arm (OpenRouter, 2026-09-10): a script
+# Credential isolation for a hosted-provider arm (OpenRouter): a script
 # that prints the API key, run by the CLI itself (settings `apiKeyHelper`), so the key
 # exists only inside the CLI's HTTP client -- the twin of codex's auth.command
 # (codex_backend.provider_auth_args). Measured on 2.1.257: `env | grep -i key` inside
@@ -113,7 +113,7 @@ API_KEY_HELPER = os.environ.get("CLAUDE_API_KEY_HELPER", "").strip()
 # subscription arm, .credentials.json). Enforced twice, because two tools read files:
 # the native sandbox denies the model's Bash (bwrap: `cat` sees "No such file"), and
 # `permissions.deny` Read(...) rules cover the CLI's own Read tool, which the sandbox
-# does not wrap. Measured 2026-09-10 on 2.1.257 -- both paths unreadable, workspace
+# does not wrap. Measured on 2.1.257 -- both paths unreadable, workspace
 # writable, a write outside it "Read-only file system".
 SANDBOX_DENY_READ = [p for p in os.environ.get("CLAUDE_SANDBOX_DENY_READ", "").split(os.pathsep) if p]
 
@@ -122,7 +122,7 @@ SANDBOX_DENY_READ = [p for p in os.environ.get("CLAUDE_SANDBOX_DENY_READ", "").s
 # 2.1.251 prints "Sandbox disabled: ... socat not installed ... Commands will run
 # WITHOUT sandboxing" and then runs every command bare: the no-net shell this arm
 # is defined by (docs/cli-fairness.md) silently becomes full-net, which is how
-# cld3_pl_low ran unsandboxed with nothing failing (logs/cld3_notes.md). Wording
+# one run ran unsandboxed with nothing failing. Wording
 # drift would disarm this classifier, so the positive NET_DOWN probe
 # (scripts/preflight-claude-sandbox.sh) is the check that survives rewording;
 # this trip is what catches a degradation mid-campaign.
@@ -339,7 +339,7 @@ class ClaudeTurn:
         # Bytes of attachment carried by the current session, on the wire (4/3 for
         # base64). Claude's prompt cache makes a resumed thread's old frames cheap
         # rather than free; the counter is kept comparable with the codex arms,
-        # where 5 MB of carried attachment was a measured 10x stall (F22).
+        # where 5 MB of carried attachment was a measured 10x stall.
         self.session_attachment_bytes = 0
         self.peak_attachment_bytes = 0
         # Read off the live event stream (visible here, unlike codex 0.147):
@@ -394,7 +394,7 @@ class ClaudeTurn:
 
         Sharing codex's AGENTS.md instead does not work: claude 2.1.233 ignores a
         workspace AGENTS.md under both `--setting-sources ""` and `project`
-        (measured 2026-08-30; the AGENTS.md strings in the CLI bundle belong to
+        (measured; the AGENTS.md strings in the CLI bundle belong to
         `claude import`, which converts other agents' config INTO CLAUDE.md).
         Upstream PRO-LONG draws the same line: its codex agent writes AGENTS.md
         and its claude agent writes CLAUDE.md, one system prompt behind two
@@ -483,8 +483,8 @@ class ClaudeTurn:
     def _build_stdin(self, prompt: str, images: Sequence[Path]) -> str:
         """One stream-json user message: text block first, then image blocks.
 
-        The order is the whole function. Image-before-text was measured (2.1.233,
-        2026-08-30) to store the block and silently never show it to the model --
+        The order is the whole function. Image-before-text was measured (2.1.233)
+        to store the block and silently never show it to the model --
         the exact failure the codex arms' vision audit hunts -- while text-first
         landed. Do not reorder.
         """

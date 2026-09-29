@@ -1,7 +1,7 @@
 """Find the GUI cursor in the frame, so the tracked position can be measured, not summed.
 
 Why this exists. `CursorState` dead-reckons: it sums the camera deltas the runner emits at
-4.17 px/degree. Run dm4_wmv2 measured what that is worth over a long GUI session -- after
+4.17 px/degree. Run one run measured what that is worth over a long GUI session -- after
 ~50 one-tick nudges the tracked position read container (-29.5, 90.0), off the left edge
 of the screen, while the rendered arrow sat 11 px above hotbar slot 0 (container ~(24,
 147)). Sixty pixels of drift is three slots; every absolute address computed from it was a
@@ -21,7 +21,7 @@ is what makes the sprite separable from the panel it floats over. An all-white r
 matches the body trivially but scores zero on the outline, and the acceptance floor on
 outline hits is what rejects it.
 
-The sprite below was read out of a live frame (dm4_wmv2 step 1929, arrow over the plain
+The sprite below was read out of a live frame (one run step 1929, arrow over the plain
 panel at (358, 141)), classifying each pixel against those thresholds and keeping bright
 pixels only where the same row has outline on both sides -- that enclosure test is what
 kept the panel's own white bevel, which crosses the sprite's bounding box, out of the
@@ -116,23 +116,23 @@ def find_cursor(frame: np.ndarray) -> tuple[int, int] | None:
 #: have no tan at all.
 _ORE_RB_LO, _ORE_RB_HI = 0.28, 0.36
 _ORE_RG_LO, _ORE_RG_HI = 0.15, 0.22
-#: Local-contrast gate, replacing the old absolute `r > 150`. dm4_ked2 strip-mined for
+#: Local-contrast gate, replacing the old absolute `r > 150`. One run strip-mined for
 #: ~7,700 steps without one sighting; its tunnel frames measured mean r 60.7 and 95th
 #: percentile 68 -- the absolute gate made ore literally undetectable underground, where
 #: all the ore is. The ratio bands are shading-invariant; brightness is judged against
 #: a 33px local mean instead (speckles are brighter than the stone AROUND them at any
 #: light level), with a floor for near-black noise.
 _ORE_CONTRAST = 1.35
-#: 38 admitted near-black scenes where nothing is verifiable: dm4_final1 parked beside
+#: 38 admitted near-black scenes where nothing is verifiable: one run parked beside
 #: a dark dirt face (mask mean r=43) and would have flagged it 7 times; ked_final1's
 #: own world model records r~40 frames as "too dark to classify side-wall textures".
 #: A sighting the model cannot confirm in a zoom is pure interruption cost, and the
 #: torch doctrine means actionable ore is lit (r>=60). Still far below the old r>150
-#: absolute gate that blinded ked2's tunnels.
+#: absolute gate that blinded one run's tunnels.
 _ORE_FLOOR = 48.0
 _ORE_MIN_CLUSTER = 12
 #: Speckles are INTRA-block texture: many tiny blobs on a grey base. The two false-
-#: positive families the corpus scan surfaced (306 underground frames, 2026-08-26) are
+#: positive families the corpus scan surfaced (306 underground frames) are
 #: both block-scale tan -- sunlit dirt/villagers (dense fields) and dirt clumps beside
 #: stone (few large blobs on a brown base). Hence: window density cap, blob-scale
 #: bounds, and a grey-base majority requirement.
@@ -178,7 +178,7 @@ def _blob_sizes(window: np.ndarray) -> list[int]:
     return sizes
 
 
-#: Lava colour, from the frames of three runs that met it (dm23z_lb, kd14, dm14x):
+#: Lava colour, from the frames of three runs that met it:
 #: r 140-220 with g/r ~0.42 and b/r 0.03-0.15. A crafting-table top is the nearest
 #: look-alike (g/r 0.49, b/r 0.27) and a torch flame the other (b/r 0.00), so the
 #: band is closed on both sides. Fractions measured over the lower 65% of the frame
@@ -195,11 +195,11 @@ LAVA_FRAC_MIN = 0.010
 #: is on fire (or in lava). Brighter and yellower than lava's band: r >= 150, g/r
 #: 0.35-0.80, b/r <= 0.30, measured over the lower 45% of the frame minus the hotbar box
 #: (bottom 10%, middle 46%) and the held-item corner (bottom 30%, right 25%). Measured
-#: 2026-09-04: hd5z_wm's burning frames 0.41-0.50, stage s8's burning frames in a 1x1
+#: one run's burning frames 0.41-0.50, a staged scene's burning frames in a 1x1
 #: lava pit 0.20-0.30 (the chat overlay hides part of the flames), the same avatar one
 #: hit earlier with no flames yet 0.000, 138 ordinary frames of five arms max 0.001.
 #: The band is lava's too, so a lake AHEAD reads here as well: the seven LAVA AHEAD frames
-#: of kd27z/kd29z2/kd35z/kd46z read 0.018-0.116 while not yet burning (lava_fraction
+#: of four runs read 0.018-0.116 while not yet burning (lava_fraction
 #: 0.011-0.099), and 36 mob-hit frames of the other arms max 0.062. The threshold sits
 #: between the lakes (<= 0.12) and the flames (>= 0.20): a hit taken beside a lava lake
 #: is the mob's, not the lava's (audit pass 15).
@@ -227,9 +227,9 @@ def fire_fraction(frame: np.ndarray) -> float:
     return float(low.mean()) if low.size else 0.0
 
 
-#: Still water in daylight, measured 2026-09-04 on the live corpus: hd5z_wm step 481 (a
-#: pond 2-6 blocks ahead: 15% of the frame), kd20z_wm step 2400 (a river: 25% of the
-#: lower view), hd11z_wm steps 457/597 and kd27z_wm step 3780 (a pond glimpsed through
+#: Still water in daylight, measured on the live corpus: one run step 481 (a
+#: pond 2-6 blocks ahead: 15% of the frame), one run step 2400 (a river: 25% of the
+#: lower view), one run steps 457/597 and another step 3780 (a pond glimpsed through
 #: spruce leaves: 0.1-5%). Blue over green over red, mean (62, 84, 130), blue 115-147
 #: (10th-90th percentiles), (B-R)/B >= 0.40. The open sky keeps the same order but is
 #: brighter (blue >= 210 by day) and sits above the horizon: the callers measure from one
@@ -237,7 +237,7 @@ def fire_fraction(frame: np.ndarray) -> float:
 #: which at pitch 12 is the 34% line; 78 other frames of the corpus read <= 0.018 there.
 _WATER_B = (70.0, 210.0)
 _WATER_BR_MIN = 0.40
-#: A glimpse worth walking toward: ~300 px of the lower view (hd11z's pond through the
+#: A glimpse worth walking toward: ~300 px of the lower view (one run's pond through the
 #: spruce leaves at pitch 35 read 0.0014; 130 of 200 corpus frames read exactly 0 and 49
 #: below 0.001; the readings of 0.001-0.002 were the night sky seen at pitch 0 with the
 #: inventory open -- the macro pitches 12-15 down, which puts the sky above the 35% line).
@@ -335,8 +335,8 @@ def lava_view(frame: np.ndarray, rows_from: float = 0.35
             (float(ys.max()) + cut) / float(h), (float(ys.min()) + cut) / float(h))
 
 
-#: Diamond-ore speckles, measured in the standalone sim (scratchpad probe_diamond2,
-#: 2026-09-03, torch-lit stone tunnel, the block 2/4/6 blocks ahead): the cyan pixels
+#: Diamond-ore speckles, measured in the standalone sim (a probe:
+#: torch-lit stone tunnel, the block 2/4/6 blocks ahead): the cyan pixels
 #: average (87, 191, 182) at every distance -- (B-R)/B 0.33-0.73 and (G-R)/G 0.38-0.73
 #: (10th-90th percentiles), with blue and green EQUAL: |(B-G)/B| <= 0.08. That last band
 #: is what separates them from everything else blue underground: lapis (16,53,125:
@@ -426,7 +426,7 @@ def _find_ore(frame: np.ndarray, kind: str) -> tuple[int, int, int] | None:
     ys, xs = np.where(window)
     if ys.std() < 2.0 or xs.std() < 2.0:
         return None
-    # Single-pixel mask hits are texture noise, not speckle: the 2026-08-27 sweep of
+    # Single-pixel mask hits are texture noise, not speckle: the sweep of
     # all 1,118 saved frames found 29 fires -- granite grain, near-black dirt faces,
     # water edges, the inventory player model -- and every one had median blob size 1.
     # Ore speckles are >=2px structures at any distance worth stopping for, so salt
@@ -445,7 +445,7 @@ def _find_ore(frame: np.ndarray, kind: str) -> tuple[int, int, int] | None:
     if kind == "diamond":
         # Grey means grey in BOTH differences here: leaves (43,58,40) are r~b and
         # passed the iron test's r-b reading, and sky seen through a canopy fired the
-        # cyan band once in the 1,300-frame corpus sweep (kd26z step 967).
+        # cyan band once in the 1,300-frame corpus sweep (one run step 967).
         wg = body[..., 1][y0:cy + 24, x0:cx + 24]
         sat = np.maximum(sat, np.abs(wr - wg) / np.maximum(wr, 1.0))
     if float((sat[nonmask] < _ORE_GREY_SAT).mean()) < _ORE_GREY_FRAC:
@@ -489,7 +489,7 @@ _TRUNK_FLANK_RATIO = 0.5
 #: a frame whose body is more than ~30% bark-coloured is terrain filling the view (a
 #: dirt wall face-on), not a tree standing in it -- no aim target exists in such a
 #: frame anyway. And a tree carries GREEN: leaves above, grass at its foot. The dirt
-#: shoulders that defeat the flank test (final2 step 5354) sit in green-free tunnels.
+#: shoulders that defeat the flank test (one run step 5354) sit in green-free tunnels.
 _TRUNK_MAX_MASK_FRAC = 0.30
 _TRUNK_GREEN_MARGIN = 8.0
 _TRUNK_GREEN_MIN_FRAC = 0.08
@@ -528,10 +528,10 @@ def find_tree_trunk(frame: np.ndarray, prefer_x: float | None = None,
     a few blocks off). harvest_tree's walk-in passes `TRUNK_NEAR_MAX_W`: within ~1.5
     blocks a trunk is 150-400 px wide and the stock limit made it vanish exactly when
     the servo had to hold it -- the walk then steered to the next detected trunk and
-    drove past the one it had reached (kd29z_wm's second call, replayed in the sim).
+    drove past the one it had reached (one run's second call, replayed in the sim).
 
     An aiming aid for the wood phase -- the largest remaining variance source on both
-    tasks (wmv12/16/19 and ked1 lost 1,900-3,000 steps re-finding trees). Invoked
+    tasks (four runs lost 1,900-3,000 steps re-finding trees). Invoked
     deliberately by the model (`aim_at_tree`), not as an autonomous sentinel, so a
     false positive costs a look, not an interrupt: the bar is set for daylight scenes
     with a tree somewhere in view. The y returned is biased toward the lower part of
@@ -608,7 +608,7 @@ def find_tree_trunk(frame: np.ndarray, prefer_x: float | None = None,
 #: 3x3 grid has its cells 0 and 6 (31..45 x 18..32 / 54..68), the furnace screen
 #: shows plain body (~198) and the survival inventory shows the player-model box
 #: (dark, ~0-30); a cell's inner grey is ~139, and an item in it only lowers that.
-#: Measured over 160 archived GUI frames (2026-09-03): cell means 0-29 (inventory),
+#: Measured over 160 archived GUI frames: cell means 0-29 (inventory),
 #: 64-139 (table), 186-198 (furnace); nothing between 30 and 60 or 150 and 185.
 #: Container top rows the engine can draw at 640x360: 166-tall screens (inventory,
 #: table, furnace/smoker/blast furnace, brewing stand, enchanting table, stonecutter,
@@ -618,7 +618,7 @@ _CONTAINER_TOPS = (69, 96, 97)
 
 #: (kind, required slots, forbidden slots, misses allowed) in container pixels, each
 #: (x, y) or (x, y, pad) the top-left of a slot's 16x16 item area. Measured on the sim
-#: frames of every container screen, 2026-09-03: these four are exactly the 166-tall
+#: frames of every container screen: these four are exactly the 166-tall
 #: layouts the cell probes below cannot name, and each one's forbidden list carries the
 #: slot that would otherwise let a furnace or another of the four match it. The three
 #: legacy kinds are deliberately absent -- they are still decided by the cell probes.
@@ -641,7 +641,7 @@ def _container_top(f: np.ndarray, render: tuple[int, int]) -> int | None:
     The container is CENTRED, so this one reading gives its `backgroundHeight`
     (`render_h - 2*oy`) and therefore which family of screen is open before a single
     slot is probed. The border pattern is the same on every container the engine draws
-    and was measured on the sim's own frames (2026-09-03): one near-black row, two
+    and was measured on the sim's own frames: one near-black row, two
     near-white bevel rows, then the flat #C6C6C6 body -- e.g. a chest reads
     0, 253, 255, 197 at rows 96-99 of the centre column and the survival inventory
     reads 2, 255, 254, 199 at 97-100.
@@ -711,7 +711,7 @@ def screen_kind(frame: np.ndarray | None,
 
     'inventory', 'table' and 'furnace' (smoker and blast furnace share the furnace's
     layout and are reported as one) come from the cell probes below, unchanged. The
-    container screens added on 2026-09-03 come first: 'chest' (single chest, barrel,
+    container screens added come first: 'chest' (single chest, barrel,
     shulker box -- a 3-row 176x168 container), 'chest2' (double chest, 6 rows,
     176x222) and, among the 166-tall screens, 'brewing', 'enchanting' and
     'stonecutter'. An 'anvil' is recognised but has no macro.
@@ -767,7 +767,7 @@ def screen_kind(frame: np.ndarray | None,
 
 # -- grid occupancy -------------------------------------------------------
 
-#: An empty slot renders as flat grey (luminance std 0.0-2.7 measured over dm4_wmv8's
+#: An empty slot renders as flat grey (luminance std 0.0-2.7 measured over one run's
 #: GUI frames); any item icon is texture (std 28.8-57.1 over the same frames). The gap
 #: is an order of magnitude, so the threshold sits comfortably between.
 _SLOT_STD_MIN = 12.0
@@ -778,7 +778,7 @@ def slot_occupied(frame: np.ndarray, screen_x: int, screen_y: int) -> bool:
 
     This is what makes crafting-grid state observable at all: MineRL's inventory
     observation covers the 36 player slots and nothing else, so two sticks left behind
-    in a grid cell were invisible to every channel -- dm4_wmv8 spent its endgame lifting
+    in a grid cell were invisible to every channel -- one run spent its endgame lifting
     and replacing a cobblestone stack around a grid it could not read, and lost the
     ingredients to an out-of-range screen close. The frame has the answer at a known
     coordinate.
@@ -806,7 +806,7 @@ def slot_occupied(frame: np.ndarray, screen_x: int, screen_y: int) -> bool:
 # changes every pixel in the frame and the diff becomes meaningless.
 #
 # Colour is the label, and the fallback where motion is unavailable: a `/summon`ed
-# NoAI mob is perfectly rigid (measured in stage s4, 2026-09-03: two still frames of a
+# NoAI mob is perfectly rigid (measured in a staged scene: two still frames of a
 # NoAI zombie 3 blocks ahead differ in 0 pixels above the threshold), which is exactly
 # the case a stage prepares and never the case in a live world.
 #
@@ -817,10 +817,10 @@ def slot_occupied(frame: np.ndarray, screen_x: int, screen_y: int) -> bool:
 #: repaints on every hit and every item change; it is never an entity.
 _ENT_HUD_FRAC = 0.82
 #: The held item and the avatar's arm live in the lower right and swing on attack.
-#: Measured on stage-s4 frames (2026-09-03): a bare arm covers x 455-640 / y 255-360,
+#: Measured on staged-scene frames: a bare arm covers x 455-640 / y 255-360,
 #: a drawn bow x 540-640 / y 195-330. The mask is deliberately the SMALLER of those:
 #: an over-wide corner mask hid two thirds of a zombie standing at the right of the
-#: view (run 1 of stage s4) and face_entity turned the wrong way.
+#: view (a staged scene) and face_entity turned the wrong way.
 _ENT_HAND_X_FRAC, _ENT_HAND_Y_FRAC = 0.84, 0.70
 #: Advancement / recipe toasts stack down the upper-right corner (measured x 490-640,
 #: y 0-70 for two of them). They are game UI drawn over the scene, like the hotbar,
@@ -828,7 +828,7 @@ _ENT_HAND_X_FRAC, _ENT_HAND_Y_FRAC = 0.84, 0.70
 _ENT_TOAST_X_FRAC, _ENT_TOAST_Y_FRAC = 0.75, 0.22
 #: Per-channel difference (0-255) a pixel must move to count as changed. Set well above
 #: the JPEG and lighting noise of two consecutive frames and well below a silhouette
-#: sliding across terrain. What was actually measured (stage s4, 2026-09-03): two still
+#: sliding across terrain. What was actually measured (a staged scene): two still
 #: frames of an empty stone platform under a forest horizon produce NO blob at this
 #: threshold, and a live pig 3 blocks ahead produces a 95 px one. The mob is what
 #: moves; the ambient animations that could compete (water, lava, fire) are gradual
@@ -839,10 +839,10 @@ _MOTION_THRESH = 30.0
 #: 12 blocks is still ~10 px across and survives.
 #: Blobs smaller than this are not worth turning toward. 40 px is a mob at ~10 blocks
 #: shifting its weight; a skeleton across a gap has to be findable, or the bow has no
-#: target (stage s4 measured one at 8 blocks that a 60 px floor missed entirely).
+#: target (a staged scene measured one at 8 blocks that a 60 px floor missed entirely).
 _MOTION_MIN_PX = 40
 #: And a silhouette is TALL: chat text fading out and an arrow stuck in the ground are
-#: wide 5-6 px slivers (measured 43x5 and 29x6 in stage s4). A mob 40 blocks away is
+#: wide 5-6 px slivers (measured 43x5 and 29x6 in a staged scene). A mob 40 blocks away is
 #: still 13 px tall, so the floor costs nothing real.
 _MOTION_MIN_SIDE, _MOTION_MIN_H = 5, 12
 #: A change covering more than this fraction of the searched body is the whole scene
@@ -955,7 +955,7 @@ def find_moving_blob(prev: np.ndarray | None, cur: np.ndarray | None,
     asks. The returned (x, y) is the blob's centroid in full-frame coordinates -- the
     point to steer the crosshair onto, and for a mob the middle of its hitbox, which
     is where a melee swing has to land (aiming at a pig's head from 3 blocks missed;
-    a pig's hitbox is 0.9 blocks high, probe 2026-09-03).
+    a pig's hitbox is 0.9 blocks high, probe).
 
     Rejects: everything below the HUD line and the held-item corner (both repaint on
     their own); single-pixel changes (chat text strokes, particles, JPEG noise) via a
@@ -1000,8 +1000,8 @@ def find_moving_blob(prev: np.ndarray | None, cur: np.ndarray | None,
 
 
 #: Colour signatures for the mobs the task suite names. These are MEASURED off the
-#: stage-s4 calibration corpus (each mob summoned alone 3-6 blocks ahead on a stone
-#: platform in a forest, 2026-09-03), not read off the wiki, and two of them were
+#: staged-scene calibration corpus (each mob summoned alone 3-6 blocks ahead on a stone
+#: platform in a forest), not read off the wiki, and two of them were
 #: wrong when read off the wiki:
 #:   * a zombie's identity is its CYAN SHIRT (0,120,120 / 0,144,144 -- 13% of its
 #:     silhouette) and its blue-purple trousers, NOT the green skin, which is almost
@@ -1085,7 +1085,7 @@ _mob_band("skeleton", lambda r, g, b, v, s: (s <= 0.11) & (v >= 96) & (v <= 200)
           min_px=110, max_frac=0.14, ar_lo=1.2, ar_hi=8.0)
 # Not a mob: a BOAT floating in front of you is an entity you right-click to get in,
 # and three tasks in the suite ride or trap with one. Measured off a placed oak boat
-# (stage s4): bright tan planks, 151-185 / 114-150 / 67-94, and a hull that is much
+# (a staged scene): bright tan planks, 151-185 / 114-150 / 67-94, and a hull that is much
 # wider than it is tall. Sand and bare planks fall in the same band, which is why this
 # label is only ever reached through `want="boat"`.
 _mob_band("boat", lambda r, g, b, v, s: (

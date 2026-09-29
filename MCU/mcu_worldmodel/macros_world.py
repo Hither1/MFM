@@ -4,8 +4,8 @@ Why. Every building task in the suite ("build a wall / pillar / tower / house / 
 maze", "lay a carpet", "place an item frame", "decorate the ground", "light up the
 surroundings", a nether portal, a snow golem) and every tool task ("use flint and steel",
 "pour a water bucket", "till soil and plant seeds", "carve a pumpkin with shears") is the same
-motor act for a human: look at a block face, right-click. For the model it was a guess: the
-2026-09-03 probe placed nothing when the avatar stood off a block's centre and aimed 55
+motor act for a human: look at a block face, right-click. For the model it was a guess: a
+probe placed nothing when the avatar stood off a block's centre and aimed 55
 degrees down (the ray landed on the block its own hitbox overlaps, so the game refused),
 and every torch/frame/hoe/seed use aimed by eye missed. `[STATE]` is exact, so the aim at a
 WORLD BLOCK FACE is trigonometry, done every tick from the live position, and the click is
@@ -51,7 +51,7 @@ HALF_W, HEIGHT = 0.3, 1.8
 #: Aim tolerance (degrees) before the click.
 AIM_TOL = 1.5
 AIM_TICKS = 14
-#: The use_item statistic lags the inventory by several ticks (stage s2).
+#: The use_item statistic lags the inventory by several ticks (a staged scene).
 VERIFY_TICKS = 10
 #: Charged per placement inside `_build`; a real one costs ~10-20.
 PLACE_COST = 24
@@ -98,8 +98,8 @@ def aim_point(target: tuple[int, int, int], face: str, inset: float = 0.45
 
     Placing uses 0.5: the ray must meet the support's face ON the plane, because
     from a steep angle a point short of the plane makes the ray cross it lower --
-    below the face's bottom edge when bridging from an overhang (probe_bridge,
-    2026-09-03: the block went one level down every time). Using a block (a bed, a
+    below the face's bottom edge when bridging from an overhang (a probe:
+    the block went one level down every time). Using a block (a bed, a
     grass block, a chest) uses 0.45, inside the target: a low block like a bed (0.56
     high) is still hit, where a point on its top plane would fly over it."""
     ox, oy, oz = FACE_OFFSET[face]
@@ -141,8 +141,8 @@ def face_visible(pos: dict[str, float], target: tuple[int, int, int], face: str,
                  solid: set, floor_y: float | None) -> bool:
     """Can the eye at `pos` see the SUPPORT's face shared with `target`?
 
-    Two conditions the engine enforces and a build must respect (stage s5,
-    2026-09-03: from the ground the third block of a column landed in FRONT of the
+    Two conditions the engine enforces and a build must respect (a staged scene,
+    from the ground the third block of a column landed in FRONT of the
     column, because the ray met the support's front face before its hidden top):
     the eye must be on the target's side of the shared plane, and no known solid
     cell (`solid`, plus everything at or below `floor_y`) may sit on the ray between
@@ -219,7 +219,7 @@ def _use_gain(agent, st: dict[str, Any]) -> float:
 def _mainhand_damage(agent) -> float | None:
     """Durability used on the held item -- a tool that acted on a block (shears on a
     pumpkin, a hoe on grass) takes 1 damage even when no statistic moves and no count
-    changes (stage s2, 2026-09-03: shearing a pumpkin left use_item and the inventory
+    changes (a staged scene: shearing a pumpkin left use_item and the inventory
     untouched; the seeds it dropped lay two blocks away)."""
     eq = (agent.ledger._prev or {}).get("equipped_items")
     hand = eq.get("mainhand") if isinstance(eq, dict) else None
@@ -430,7 +430,7 @@ def look_at_point(x: float, y: float, z: float, ticks: int = 20,
     """Steer the crosshair onto the WORLD point (x, y, z) from the live position each
     tick (procedures.look_at computes its deltas once, at plan time -- a push from
     flowing water between planning and execution left mine_obsidian swinging at the
-    sky, stage s5 2026-09-03)."""
+    sky, a staged scene)."""
     t = max(4, min(60, int(ticks)))
     return [macros.marker("_lookat", {"x": float(x), "y": float(y), "z": float(z),
                                       "t": 0, "n": t, "tol": float(tol)}, t)]
@@ -556,21 +556,21 @@ def _usehold_tick(agent, uh: dict[str, Any], mk_act):
 # -- fill a bucket at water you can see -----------------------------------------
 #
 # Why closed-loop. use_at(bucket) needs the exact water cell AND the right face; the model
-# reads neither off a frame (half-start arms hd2z/hd3z, 2026-09-04: three use_at calls at
+# reads neither off a frame (two runs: three use_at calls at
 # guessed cells, "no visible effect" each time, then 260 ticks of scanning). A bucket fills
 # from any still source block under the crosshair within reach, so the runner sweeps the
 # crosshair over the ground ahead with the bucket held and taps use at each aim until the
 # inventory shows a filled bucket. Verified on the inventory (water_bucket / lava_bucket /
 # milk_bucket: whatever the sweep met is named).
 
-#: Measured on this engine (probe 2026-09-04, eye 1.62 above the feet, a source 3 blocks
+#: Measured on this engine (probe, eye 1.62 above the feet, a source 3 blocks
 #: ahead at feet level): a one-tick use fills at pitch 15-30 and not at 10 or 35. Nearer
 #: water wants a steeper aim (2 ahead: ~17-33; the next cell: ~26-58; water a block below
 #: the shore: steeper still). At a natural pond's bank the water IS a block below: at
-#: hd13z_wm's shore pose (probe_fillb3, 2026-09-04) pitch 35 and 45 filled nothing and 55/65
+#: one run's shore pose pitch 35 and 45 filled nothing and 55/65
 #: filled (the sweep's steep aim is 60, between them), so the sweep runs every pitch at one
 #: heading before widening -- the model faces
-#: the water it saw, and hd13z's 140-tick budget (15 aims) had ended before the first steep
+#: the water it saw, and one run's 140-tick budget (15 aims) had ended before the first steep
 #: aim of the old pitch-major order.
 FILLB_PITCHES = (25.0, 35.0, 45.0, 60.0, 18.0)
 FILLB_YAWS = (0.0, -20.0, 20.0, -40.0, 40.0)
@@ -654,7 +654,7 @@ def _fillb_tick(agent, fb: dict[str, Any], mk_act):
 
 
 # -- fetch water: find it, walk to the shore, fill --------------------------------------
-# hd11z_wm / hd13z_wm (2026-09-04, the second-half start): a pond 10 blocks away behind
+# Two runs: a pond 10 blocks away behind
 # spruce leaves; go_to stopped "blocked" 6 blocks short twice, harvest_tree saw no trunk,
 # fill_bucket swept 36 aims at nothing, and the governor refused a third call -- 400
 # steps at the crafting table with the bucket in hand. The model can see the water and
@@ -766,7 +766,7 @@ def _fetchw_tick(agent, st: dict[str, Any], mk_act):
         st["x0"], st["z0"], st["yaw0"] = float(pos["x"]), float(pos["z"]), float(pos["yaw"])
         if st["n"] < FETCHW_MIN_TICKS:
             # only the runner's step-cap shrink gets here (the compile raises a small n
-            # to FETCHW_MIN_TICKS): three hd arms (2026-09-04) spent 100-200 leftover
+            # to FETCHW_MIN_TICKS): three arms spent 100-200 leftover
             # ticks on a scan that could not end in a walk. Say so and let the next
             # plan lead with it.
             agent.cursor_stats["fetchw_not_started"] = (
@@ -916,7 +916,7 @@ def _fetchw_tick(agent, st: dict[str, Any], mk_act):
     if abs(dyaw) > 20.0:
         return mk_act(camera=[max(-30.0, min(30.0, dp)), max(-30.0, min(30.0, dyaw))])
     # The hop (a one-block step) stays on until the water is near: airborne the eye sits
-    # a block higher and the shore test's window looks past the pool -- stage s2 run 2
+    # a block higher and the shore test's window looks past the pool -- a staged scene
     # sprint-hopped 4 blocks past the shore into the water.
     hop = 1 if frac < FETCHW_NEAR_FRAC or st["stuck"] else 0
     return mk_act(forward=1, sprint=1, jump=hop,
@@ -1236,7 +1236,7 @@ def _build_lines(cur, info, item, length, height, dist, along, label):
         # is hidden once it rises above the eye, and even 0.62 below the eye (row 1
         # from the ground) the view grazes it -- a 1.5-degree aim error moved the
         # click onto the block's front and the last block of every row landed one
-        # cell forward (stage s2, 2026-09-03). With the eye 1.62 above every row's
+        # cell forward (a staged scene). With the eye 1.62 above every row's
         # plane the ray meets the face squarely. Row 0 from the ground; then one
         # pillar block of `item` per row, from the same spot. The pillar stays
         # (walking off a 3-block drop costs nothing). A call from the pillar top --
@@ -1295,9 +1295,9 @@ def bridge_forward(cur, info: dict, n: int = 5, item: str = "cobblestone"
     back = {(0, 1): "north", (0, -1): "south", (1, 0): "west", (-1, 0): "east"}[(dx, dz)]
     # The side face of the block you stand on is hidden behind its own top face from
     # anywhere ON the block: the ray reaches the face plane exactly where it crosses
-    # foot level (stage s2, 2026-09-03: four blocks placed, all one level down, the
+    # foot level (a staged scene: four blocks placed, all one level down, the
     # avatar walking off them into the trench). The face is reachable only with the
-    # eye PAST the edge. Measured (probe_bridge, 2026-09-03): sneaking does NOT stop
+    # eye PAST the edge. Measured: sneaking does NOT stop
     # the walk at an edge in this engine, but the hitbox lets the position overhang
     # by ~0.25 before falling, and a sneak-walk moves ~0.055 blocks a tick -- so the
     # standing spot is the edge + 0.2 (centre + 0.7 along the heading), reached one
@@ -1420,7 +1420,7 @@ def _build_tick(agent, bd: dict[str, Any], mk_act):
             # The eye less than a block above a top face sees it at a grazing angle:
             # a 1.5-degree aim error over 2-3 blocks moves the ray past the face's
             # edge onto the block's FRONT (the block lands one cell toward you; stage
-            # s2, 2026-09-03) or over its back. A vertical side face has a full
+            # s2) or over its back. A vertical side face has a full
             # block of margin, so beside a placed neighbour it is clicked instead.
             shallow = (pos["y"] + EYE) - float(target[1]) < 1.0
             sides = ["west", "east", "north", "south"]

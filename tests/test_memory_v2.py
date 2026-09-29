@@ -1,4 +1,4 @@
-"""Memory v2 (2026-09-08): frames into decisions, working memory, the minimal contract,
+"""Memory v2: frames into decisions, working memory, the minimal contract,
 the carried lives."""
 import json
 import sys

@@ -2,7 +2,7 @@
 
 The store's index is lossless at the file level and lossy at the index: a turn's row
 carried the raw action string and the screenshot's exact hash, nothing of what the model
-saw, meant, or caused. The exact hash matched twice in 24 KiCad tasks (2026-09-05 wave);
+saw, meant, or caused. The exact hash matched twice in 24 KiCad tasks;
 a whole-frame perceptual hash alone matched half of all frames and conflated the
 update-check dialog with the library-setup dialog. What recurs reliably is the
 *transition*: the model's one-line perception of a screen, the action it took there, and
@@ -54,7 +54,7 @@ NEAR_SAME_BITS = 3
 #: same situation (with a compatible outcome frame).
 SIMILAR_TEXT = 0.5
 #: The image-only fallback (no transition match): near-identical frames only. Off by
-#: default: replayed over the 2026-09-05 mfm-carry run, a 64-bit whole-frame hash within
+#: default: replayed over the mfm-carry run, a 64-bit whole-frame hash within
 #: 2 bits matched 64% of all turns (a canvas with one more part hashes like the canvas),
 #: while the transition route fired on 9% and its suggested next action was the one the
 #: model then took in 33 of 74 cases.

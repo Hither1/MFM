@@ -183,7 +183,7 @@ def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None 
                    "region": {"x": 288, "y": 148, "width": 64, "height": 64}}]}})
     # Turn 2 (after the inspection visuals): a long attack hold -- cut short by the
     # break the info stream delivers every 15 ticks, the one drain that happens inside
-    # `next_action` before `_act_turn` (lad12a's stall) -- then chops, enough to trip
+    # `next_action` before `_act_turn` (one run's stall) -- then chops, enough to trip
     # the byte budget.
     fake.turn("Chopping.", play(action={"attack": 1}, repeat=40),
               *[play(action={"attack": 1}, repeat=6) for _ in range(6)])
@@ -245,7 +245,7 @@ def test_chassis_vista_mode(tmp_path: Path, fake_appserver):
     steers = [r for r in rec if r["kind"] == "steer"]
     assert steers and "<current_visual turn=\"1\"" in steers[0]["input"][0]["text"]
     # The 40-tick hold was cut at a break inside `next_action` and still answered, with
-    # the refund note (before the fix the play was never answered: lad12a, 48 min).
+    # the refund note (before the fix the play was never answered: one run, 48 min).
     hold = next((r for r in results if r.get("entry", "").startswith("[ACTION] {\"attack\":1} x40")),
                 None)
     assert hold is not None, "the cut hold was never answered"
@@ -310,7 +310,7 @@ def test_dropped_entry_play_is_answered(tmp_path: Path, fake_appserver):
 
     Before the fix nothing set the bridge's `_owed`, so `act_turn` went straight to
     `channel.take()` with the play still owed: the model slept in `play`, the
-    environment slept in `take`, and the episode was over -- vista1_dragon deadlocked
+    environment slept in `take`, and the episode was over -- one run deadlocked
     at step 6109 on `craft furnace` and held its node until it was cancelled. The
     reproduction is run on a thread so a regression fails by timeout instead of
     hanging the suite.
@@ -467,7 +467,7 @@ def test_session_failed_reports_the_exception_that_ended_the_loop():
 
 def test_act_turn_returns_at_once_when_the_session_is_dead():
     """The regression this exists for: `act_turn` waited the full turn ceiling for a play
-    no thread could make. abaw_vista spent 9.8 h of a node at ~6 steps an hour that way,
+    no thread could make. One run spent 9.8 h of a node at ~6 steps an hour that way,
     and no log line called it an error."""
     import time
     from mcu_worldmodel.vista import VistaBridge
@@ -520,7 +520,7 @@ def _controller(tmp_path):
 
 
 def test_malformed_checkpoint_error_names_the_contract(tmp_path):
-    """The exact call that killed abaw_vista: one invented key. The reply is the only
+    """The exact call that killed one run: one invented key. The reply is the only
     thing the model can correct from, and "Invalid arguments." named nothing."""
     c = _controller(tmp_path)
     out = c._save_compact_checkpoint({"checkpoint": "Turn 10: pos=(3185,71,1399) ..."})
@@ -548,7 +548,7 @@ def test_checkpoint_attempts_leave_room_to_correct():
 def test_codex_home_survives_the_launchers_file_marker(tmp_path: Path):
     """`skills/.system` may already be a plain FILE, seeded by MCU/scripts/codex-home.sh
     to keep codex 0.153 from installing its bundled skills. Both seeders must leave it
-    standing rather than mkdir over it: on portal2_vista (2026-09-09) that mkdir raised
+    standing rather than mkdir over it: on one run that mkdir raised
     FileExistsError on every episode start, the adapter swallowed it into a noop, and
     the arm held a node for 25 minutes without moving from spawn."""
     from mfm.backend.codex_turn import ensure_system_skills_marker, prepare_codex_home
@@ -573,7 +573,7 @@ def test_codex_home_survives_the_launchers_file_marker(tmp_path: Path):
 
 
 def test_app_server_config_carries_the_base_url_provider(tmp_path, monkeypatch):
-    """The OpenRouter route (gen 4, 2026-09-10): the app-server thread takes no -c, so
+    """The OpenRouter route: the app-server thread takes no -c, so
     its provider is written into config.toml -- the twin of codex_backend's -c set on
     the exec arms. Without a base_url the file is what it was, byte for byte."""
     import tomllib

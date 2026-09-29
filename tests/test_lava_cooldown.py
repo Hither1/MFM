@@ -1,5 +1,5 @@
 """The lava guard's cooldown ends with the plan entry it stopped (agent._lava_guard).
-og8_mfm 2026-09-07: LAVA AHEAD fired during Action 617 (mine_obsidian, action_num 616);
+One run: LAVA AHEAD fired during Action 617 (mine_obsidian, action_num 616);
 the next plan's first entry, go_to west (Action 618, action_num 617), ran 30 ticks later
 inside the old `action_num <= last + 1` window unguarded, and the avatar burned to death
 with 5 obsidian."""
@@ -44,7 +44,7 @@ def test_the_next_entry_is_guarded_again(monkeypatch):
     A._lava_guard(ns, 14292, _pos(-2988.8, -5558.5))
     assert ns.cursor_stats["lava_flagged"] == 1 and ns.queue
     # the stopped entry closed (action_num 617); the next plan's FIRST entry walks on:
-    # og8's go_to -- it must be stopped again, 8 ticks into the old 150-tick window
+    # One run's go_to -- it must be stopped again, 8 ticks into the old 150-tick window
     ns.action_num = 617
     ns.queue = [({"_goto": {}}, 1), ({"forward": 1}, 1)]
     A._lava_guard(ns, 14296, _pos(-2989.2, -5558.5))
@@ -58,7 +58,7 @@ def test_repeat_clause_yields_to_a_growing_sighting_with_the_bucket():
     ns = SimpleNamespace(_lava_stops={}, cursor_stats={}, _cur_inv={"water_bucket": 1},
                          _obsidian_unmet=lambda: True)
     pos = {"x": -2998.0, "y": 12.0, "z": -5554.0}
-    assert A._lava_repeat_clause(ns, pos, 0.02) == ""                 # og13 step 5764
+    assert A._lava_repeat_clause(ns, pos, 0.02) == ""                 # One run step 5764
     c = A._lava_repeat_clause(ns, pos, 0.04)                           # step 5820: it grew
     assert c.startswith(" CLOSER") and "GREW from 2% to 4%" in c and "do not turn away" in c
     assert ns.cursor_stats == {"lava_closer": 1}

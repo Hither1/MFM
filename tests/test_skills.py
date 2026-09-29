@@ -1,4 +1,4 @@
-"""`--skills` (mcu_worldmodel/skills.py, 2026-09-08): the meta-level skill package (four
+"""`--skills` (mcu_worldmodel/skills.py): the meta-level skill package (four
 SKILL.md + example scripts) written into skills/, the starter reflexes installed under
 mine/reflexes/, `--no-harness-reflexes` (the runner's guards off, the survival text says
 so), the sweep keeping skills/."""
@@ -77,7 +77,7 @@ def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
     assert res["stop"] is True and "took 5 damage (health 11/20)" in res["note"]
     assert _run(rx / "hit.py", dict(BASE, health=11.0, lava_frac=0.3))[1] is None
     assert _run(rx / "hit.py", dict(BASE, health=15.0))[1] is None
-    # starving (gen 4, 2026-09-10): the bar dropping below 18 -- eat what you carry (no stop),
+    # starving: the bar dropping below 18 -- eat what you carry (no stop),
     # else one note at the 18 crossing; a stop at health 10.5 with nothing to eat; nothing at
     # a steady bar, with a GUI open, or at the old <= 6 crossing
     rc, res, _ = _run(rx / "starving.py", dict(BASE, food=17.0))

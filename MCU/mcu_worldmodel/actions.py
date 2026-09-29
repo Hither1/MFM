@@ -128,7 +128,7 @@ OVERRIDE_KEYS = ("why", "leave_table")
 
 
 def _overrides(entry: dict[str, Any]) -> dict[str, Any]:
-    """The override keys, from the entry or from inside its `args` (lad4 put
+    """The override keys, from the entry or from inside its `args` (one run put
     `leave_table` in `args` and the procedure rejected the whole entry as a bad
     argument -- the note said "give the entry", which reads either way)."""
     args = entry.get("args") if isinstance(entry.get("args"), dict) else {}
@@ -266,7 +266,7 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                         # A build that resumes (a filled cell is skipped next call) keeps
                         # what fits: build_portal_frame's 870 ticks were meant to run as
                         # two calls, and the all-or-nothing rule below dropped it whole
-                        # (stage s5, 2026-09-05: "NOT STARTED: it needs 870 ticks").
+                        # (a staged scene: "NOT STARTED: it needs 870 ticks").
                         need = sum(max(0, int(x.get("_cost", 1))) for x in expanded)
                         notes.append(f"procedure {name!r} cut at the step cap after "
                                      f"{cost} of its {need} ticks; call it again from the "
@@ -274,7 +274,7 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                     else:
                         # A macro that cannot shrink is all or nothing: a craft cut
                         # after its first clicks fills cells and never takes the output
-                        # (hd7z_wm, 2026-09-04: "craft(diamond_pickaxe) -> 1 ticks",
+                        # (one run: "craft(diamond_pickaxe) -> 1 ticks",
                         # then 400 steps of manual clicking). Drop the whole procedure
                         # and say so; it comes first next turn.
                         need = sum(max(0, int(x.get("_cost", 1))) for x in expanded)

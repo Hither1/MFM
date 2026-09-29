@@ -3,7 +3,7 @@
 The codex runner (`runner.py`) drives one app-server thread whose dynamic tools are the
 VISTA contract; frames reach the thread as steered images and inspection views as a
 fresh turn, because a codex tool result cannot carry an image. Claude Code's MCP tool
-results can (measured on 2.1.257, 2026-09-15), so this twin is simpler where the
+results can (measured on 2.1.257), so this twin is simpler where the
 protocol is concerned: the tools are an MCP server (`mcp_bridge.py`, spawned by the CLI,
 forwarding every call to this runner over a unix socket), a play's result text and the
 resulting frame go back in the same tool result, and an `inspect` returns its views the
@@ -344,7 +344,7 @@ class ClaudeCodeRunner:
         # the two paths that exist besides the system.
         self.bridge_path = self.config_dir / "mcp_bridge.py"
         # Replaced on every construction (a resumed task reuses its config dir, and the
-        # copy is read-only: copying over it raised PermissionError, 2026-09-15).
+        # copy is read-only: copying over it raised PermissionError).
         self.bridge_path.unlink(missing_ok=True)
         shutil.copyfile(BRIDGE_SOURCE, self.bridge_path)
         self.bridge_path.chmod(0o500)
