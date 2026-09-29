@@ -181,6 +181,14 @@ ATOMS_LINE = ("This run's procedure set is the ATOMS above: the task-shaped macr
               "not provided. Compose them from the atoms and raw actions; when a "
               "composition has worked twice, keep it as your own procedure.")
 
+
+def atoms_line() -> str:
+    """ATOMS_LINE for this run's arm: an arm without procedures of its own is not told
+    to keep one."""
+    from mcu_worldmodel import procedures as P
+    return ATOMS_LINE if P.OWN else ATOMS_LINE.split("; when a composition")[0] + "."
+
+
 #: `--atoms`, head of references/skills.md: its situations name the task-shaped macros.
 ATOMS_REF_LINE = ("The macros this file names (harvest_tree, strip_mine, dig_down, make_obsidian, "
                   "build_portal_frame, light_portal, fight, travel, scan_around, aim_at_ore, ...) "
@@ -192,6 +200,13 @@ ATOMS_REF_LINE = ("The macros this file names (harvest_tree, strip_mine, dig_dow
                   "hold is also cut the moment its block breaks, so a 30-tick hold per block "
                   "is the cheap, sighted way to mine; mine_ahead(n) spends all n ticks and "
                   "is for continuous digging (a shaft).")
+
+
+def atoms_ref_line() -> str:
+    """ATOMS_REF_LINE for this run's arm (see `atoms_line`)."""
+    from mcu_worldmodel import procedures as P
+    return (ATOMS_REF_LINE if P.OWN
+            else ATOMS_REF_LINE.replace("from the atoms and your own scripts", "from the atoms"))
 
 
 # -- reflexes (`--own-reflexes`) ------------------------------------------

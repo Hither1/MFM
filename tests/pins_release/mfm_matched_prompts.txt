@@ -1,18 +1,22 @@
 30c952933e0fb1acdbd82d423bdfdf621534197b3296e6775d54af85ca8aefb3
 32c759d5f39bf502d02ba8407cc68ec187b2f99495c7374e6f0343b64366d31f
 0ab04b5faf711196c3d76a23268fcf88da9c8fcb0fd5ba4a1bc867d936355605
-9a337d3e75adbd81cbb5ab55a75cdd3b7e5b19ecd8abca603e067d326921be9d
-0a297d23b3b01023479ce59fc237763e62907f5e4815c280bc72add15ef92dd6
-783f75124a2176d5d6dbf9f95956e46a95732fd0ad2e253b100fc2f53a53a371
-e14ff0dc9f10eee1987a113b68931a5cc233b181417720222817a42595a2dc1d
-e11a8feace2ac4c0fbd700b500c8a167c776485079ce95c8f79ffc64e95bc10c
-d6fb679d16bb84defe9a588d6ef351d8b34cbf1901bc69b624b71a02eb3f4d5a
-99ae0b813bfa8389bfe28ec22132d6c6955ed7aa942420b3b16b56e4a8ff0ab3
-49f6dcf29e75229299fe249d10e32f142574832a755d9374715e886ee18e25d3
-8464c0283ea8953e92afff413e367a0ba30b7158b8ade50d6cd8156bcc4fd1de
-3b054bf4f2b56fc696731024a7f85b56b5cf0f6df819b15180f5ecc2fb90f737
-971433a46526d2eae78f7efda3e00ea7c49d207dc92b5df36a37f679f244e6cc
-6f9cf4587cb0a9d52d88a19b0cf0192daa08366bfed395583c0c70594d74324a
+2bf7f073bcf12421c910d74a6f879bf8451a2b3a2c2e2b8c4559cae6944041bd
+0a88c7a33ee223ca02662c7251352bc84cd405b0e45acf835030579d24c5a472
+6b83f060c6c12ec3cc8b7c4513106e55d397c233446858558fd4fa08a69c0b22
+bfae310e2e4060133b830e387feff1a8fe158d5336d9be8679226ec9d3ade21c
+f23e26607364820aef54bc8fcd577bcda7ef2d0ed6b7ec2622fdfeccda500bfe
+bd1e767b6a5c23175796e50ebf094fed34f9a91b2e3059ac5cb846104c5f191f
+99598af90039cb571442353b656d84686fba2e05b07f5786c7f4c7378f9f576c
+ba9a1f34d978c5f8d8d68e5b978ce070741aecd323de25a6beff7b5fa6c3e96f
+d75d9e68566b234aa8004a7f48ac22b38e897f4926e6d916e98c33be0c636920
+a80a36ae53b3a3432fdd954b4153315d824265e836debcac8ff19d9f3876e28f
+552ef4380984d308f9334532782ed3109c8be8ed0fee4e4a9aa2440c409571f3
+278941b135684ad6f86f88c196505dfe1e0e485e1961ed06c53a70daf2ce2c96
+7e20b1627ccebb400dfd383242ca5777026ae77999a0f817eb0017bc414e81df
+5a1fe1978b4f9a43e65e6c0d24d02c95ebce377ce614ea3118be70e4a77f8fbc
+24b14bb2f5e476999fccd1d54b46a01b5098dde63275575e997a32a12fdbc2a7
+5909e6bcbbf67af52c65fdd8d3a111dc04bc5a88732943a89aed900e23523cb2
 =====
 Step 0/6000 -- 6000 steps remain. Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `mine_log` (mine_block of oak_log).
 Act turns since anything verifiably changed (milestone or inventory): 0.
@@ -37,7 +41,7 @@ The current view is attached.
 Write ./actions.json.
 =====
 Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
-Act turns since anything verifiably changed (milestone or inventory): 10.
+Act turns since anything verifiably changed (milestone or inventory): 11.
 
 Milestones:
   [x] mine_log (step 8)
@@ -66,11 +70,11 @@ GUI open: False
 
 [EXPECTED] (your last briefing had no `EXPECT:` line)
 [OBSERVED] by the harness for that plan (each entry with the frame it started from):
-  {"attack":1} x6: moved 1.8, frame: episodes/ep_000014/observation/image.png
+  {"attack":1} x6: moved 1.8, frame: episodes/ep_000017/observation/image.png
 Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they match, what differs, and what the VIEW shows that differs (the attached frame against the entry's frame: one visible change, or that nothing visible changed); end it with `EXPECT: ...` for this plan, including what the view should show.
 
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
-- `attack` changed nothing in its last 10 calls (since step 42, 10 spots; latest ep_000014, steps 109-115). It last changed something at step 5 (ep_000002: {"attack":1} x3) at (2, 64, 2), 33 blocks from here (33 west). Frame: episodes/ep_000014/observation/image.png
+- `attack` changed nothing in its last 11 calls (since step 36, 11 spots; latest ep_000017, steps 109-115). It last changed something at step 30 (ep_000006: {"attack":1} x6) at (10, 63, 2), 26 blocks from here (26 west). Frame: episodes/ep_000017/observation/image.png
   (one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.

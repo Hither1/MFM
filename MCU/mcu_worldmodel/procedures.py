@@ -831,11 +831,15 @@ ATOMS = ("look", "look_at", "look_abs", "equip_hotbar", "open_inventory", "close
 #: None = every registered procedure; a set = the names the contract shows and `expand`
 #: accepts (the rest answer with a note, never silently).
 VISIBLE: set[str] | None = None
+#: Whether the arm keeps procedures of its own (`own`): the notes about the atom set
+#: offer that way out only where it exists.
+OWN: bool = True
 
 
-def set_visible(names) -> None:
-    global VISIBLE
+def set_visible(names, own: bool = True) -> None:
+    global VISIBLE, OWN
     VISIBLE = None if names is None else set(names)
+    OWN = bool(own)
 
 
 def visible():
@@ -1084,8 +1088,9 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
     proc = REGISTRY.get(name)
     if proc is not None and VISIBLE is not None and name not in VISIBLE:
         return [], (f"{name!r} is not in this run's procedure set (the atoms): compose it "
-                    f"from the atoms and raw actions, or write it as your own procedure "
-                    f"under mine/procedures/")
+                    f"from the atoms and raw actions"
+                    + (", or write it as your own procedure under mine/procedures/"
+                       if OWN else ""))
     if proc is None:
         logger.warning(f"[procedures] unknown procedure {name!r}")
         return [], f"unknown procedure {name!r}"

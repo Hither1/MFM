@@ -35,7 +35,7 @@ plan, the briefing and plan it came from) and `outcome.json` (what it changed: m
 descended, inventory delta, [EVENT]s, milestone transition, harness notes, tags such as
 `stuck`, `inventory_changed`, `milestone`, `damage`, `gui`, `flushed`). `index.jsonl`
 has one line per episode. `./tools/episodes.py --last 5 | --steps A B | --near X Z
-[--radius R] | --tag stuck | --action dig_down | --grep text` lists matching episodes
+[--radius R] | --tag stuck | --action go_to | --grep text` lists matching episodes
 one per line with their paths; add `--sheet out.png` to tile their frames into one
 image you can view, `--json` for the rows. These files persist across turns like
 `logs.txt`; they are harness-written and immutable.

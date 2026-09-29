@@ -7,23 +7,26 @@ sha256 manifest of the whole workspace (references/, skills/, tools/, episodes/)
 
     mfm          the self-writing arm: from scratch, with a carried life, and on the
                  Claude Code channel
-    mfm-matched  the same memory on the baselines' contract, procedures and guards:
-                 from scratch and with a carried life
+    mfm-matched  the same memory on the baselines' contract and guards: from scratch
+                 and with a carried life
     logbook      PRO-LONG's protocol on the same chassis
     direct       no persistent memory
+    vista        the contract alone; the app-server thread is pinned in `test_vista.py`
 
-The VISTA arm runs through the app-server thread and is pinned in `test_vista.py`.
+Every arm reads a short contract and has the 28 atoms as its procedure set.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from conftest import ROOT, check_pin
 from test_pins_chassis import _norm, drive_chassis
+from test_vista import drive_vista_chassis, fake_appserver  # noqa: F401
 
 PINS = "../pins_release/"
 FRAME_SIZE = (320, 180)
@@ -95,17 +98,57 @@ def test_mfm_matched_with_a_carried_life(tmp_path: Path):
 
 
 def test_the_two_mfm_arms_differ_in_the_harness_only():
-    from mcu_worldmodel.arms import ARMS, MEMORY_MODE, MFM_MEMORY, MFM_OWN
+    from mcu_worldmodel.arms import ARMS, MEMORY_MODE, MFM_MEMORY, MFM_OWN, SHARED
     assert MEMORY_MODE["mfm"] == MEMORY_MODE["mfm-matched"] == "mfm"
-    assert ARMS["mfm-matched"] == MFM_MEMORY
-    assert ARMS["mfm"] == {**MFM_MEMORY, **MFM_OWN} and not set(MFM_MEMORY) & set(MFM_OWN)
-    assert ARMS["logbook"] == ARMS["direct"] == ARMS["vista"] == {}
+    assert ARMS["logbook"] == ARMS["direct"] == ARMS["vista"] == SHARED
+    assert ARMS["mfm-matched"] == {**SHARED, **MFM_MEMORY}
+    assert ARMS["mfm"] == {**SHARED, **MFM_MEMORY, **MFM_OWN}
+    assert not set(SHARED) & set(MFM_MEMORY) and not set(MFM_MEMORY) & set(MFM_OWN)
 
 
 @pytest.mark.parametrize("mode", ["logbook", "direct"])
 def test_baseline_arm(tmp_path: Path, mode: str):
     agent, actions = drive_chassis(tmp_path, mode, **_arm(mode))
     _pin_arm(mode, agent, actions, tmp_path)
+
+
+def test_vista_arm_contract(tmp_path: Path, fake_appserver):  # noqa: F811
+    from mcu_worldmodel.arms import ARMS
+    agent, _ = drive_vista_chassis(tmp_path, fake_appserver, steps=40, arm=ARMS["vista"])
+    check_pin(f"{PINS}vista_contract.md",
+              _norm((agent.memory.root / "AGENTS.md").read_text(), tmp_path))
+
+
+@pytest.mark.parametrize("name", ["direct", "logbook", "vista", "mfm-matched", "mfm"])
+def test_every_arm_has_the_atoms_and_a_short_contract(tmp_path: Path, name: str,
+                                                      fake_appserver):  # noqa: F811
+    """No arm is given a macro, none is pointed at a file it cannot read, and only the
+    arm that keeps procedures of its own is told to write one."""
+    from mcu_worldmodel import procedures as P
+    from mcu_worldmodel.arms import ARMS, MEMORY_MODE
+    mode = MEMORY_MODE[name]
+    if mode == "vista":
+        agent, _ = drive_vista_chassis(tmp_path, fake_appserver, steps=20, arm=ARMS[name])
+    else:
+        agent, _ = drive_chassis(tmp_path, mode, steps=20, **_arm(name))
+    ws = agent.memory.root
+    contract = (ws / "AGENTS.md").read_text()
+    assert len(contract.encode()) < 20_000
+    # `fight` is a word of the text; the other four are named inside the descriptions
+    # of the atoms, which direct and vista read in the contract itself
+    in_passing = {"fight", "aim_at_ore", "cursor_to", "use_until_gui", "face_entity"}
+    macros = set(P.REGISTRY) - set(P.ATOMS) - in_passing
+    named = set(re.findall(r"[a-z_]+", contract)) & macros
+    assert not named, named
+    table = contract[contract.index("**Procedures**"):].split("procedure set is the ATOMS")[0]
+    listed = {ln.split("(")[0].strip("-` ") for ln in table.splitlines() if ln.startswith("- `")}
+    assert listed == set(P.ATOMS)
+    note = P.expand("dig_down", {"n": 4})[1]
+    assert "not in this run's procedure set" in note
+    assert ("mine/procedures" in note) == (name == "mfm")
+    assert ("your own procedure" in contract) == (name == "mfm")
+    assert (ws / "references").is_dir() == (mode not in ("direct", "vista"))
+    assert ("references/" in contract) == (mode not in ("direct", "vista"))
 
 
 def test_release_pins_are_under_the_repo():

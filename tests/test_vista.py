@@ -150,7 +150,8 @@ def _pov(step: int) -> np.ndarray:
     return frame
 
 
-def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None = None, **options):
+def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None = None,
+                        arm: dict | None = None, **options):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
     from mcu_worldmodel.testing import fake_info
@@ -166,7 +167,8 @@ def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None 
     agent = WorldModelAgent(workspace=root / "ws", task_text="get a log, a table, an iron pickaxe",
                             ledger=MilestoneLedger(cfg, "t"),
                             step_cap=50, memory_mode="vista", platform_prompt="HOST REFERENCE",
-                            codex_home=root / "home", codex_timeout=1, vista_options=opts)
+                            codex_home=root / "home", codex_timeout=1, vista_options=opts,
+                            **(arm or {}))
     # Turn 1: a walk, a dig, an invalid play, a procedure refused against the state, the
     # notes, the history, then an inspect (which ends the turn).
     fake.turn("I expect to walk five ticks north.",

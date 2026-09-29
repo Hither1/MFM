@@ -1,18 +1,22 @@
 4e24f71c8510f1b55f80ee84875adfe62942bfb57921a39568eb0a73d94f6715
 05e38e1beda3754b01d01a14f49ca9b4aa7498ed5dc1dccbd64764770515b739
 0ab04b5faf711196c3d76a23268fcf88da9c8fcb0fd5ba4a1bc867d936355605
-b6107c6214af62b2b5bc5f3beb14874494995043ed3d3336d4138126ce2023ac
-1c31271cc5ae2af13677cf9c42a41893e1ce73bb933842e990ad8f08c879f41d
-0319e9b8759ec8ff00479ef18b1d710eba6437ef273f01a593de39330d370096
-27fd1d1335fcc7a4979bccc7b86b9faf786786ab56daf5bfcb0860a9faa44ec3
-822e2378756c0606ee1e42c0881a37518cc48541e8ff318724cbb206e9a6e952
-4f449a66defa17794c830dc04b6618ff6e5d63905199903994ae5aa97a633ab7
-1aa00d74254140d1358f05ae9ed39668010538cbe079bbffa0db5f5bd3457b07
-5fd6f9b2eadd1ea74a7055489a073177b41f0dd047c3140e413da3a00629e76b
-ba5eaab2639e59acea8355c98087a3056b546fe69d92756ae0b4ff293a543dfa
-5e324136152e35423abcc522d92daf029472318150aca25a3eae24e742c9fbcd
-2e2b7aace898911f6f11ff2eaa44f9d0eaa3ee3354816ffc0b51d4fef83d882b
-d5bcb383f1f1fc4dd9acd7525a0866333c1c78540b4e51ecf78e43950cf8d1f3
+0e5fc1f97122d00ef4128c9f24f89ffb147e615325bb602b66880620f94e1381
+c6a17a463adb1ae2299eef947a2ebb1d7b87ff37072cf81e4582a8e70386668b
+4591df4ce5bf0d8a01b01f7227d95d1cd2e40d194844d6241f5bbf6128fff7e2
+8bcf83f79980692eb121926a584ecc939a23ed402bc4f8d106e7929a454bd6b8
+4d5627fb9f9e095b5673e3b6c8098dc3c21f160706b6dbf474a5c4d1ef1f24f9
+ff4b7c3946a4c7b81cce73531899bfa96d368cee0d2f650b4038a593bbe3863f
+4fcfe620b8adf43b2e324b1eca0e81eb2bef691fb344838211b4badcd1673444
+11404d61580e8f905ab675ff4dff84a2741d0ca92717d00c77f1ae4f67cd8f29
+ba0967a8054eea5020946f1f1f427b0b9501507ec21a9ff6df4cc13e26d3a734
+efd881a180bfa3872b0f2805a63b52e19ed5077604354cdce46601075172e918
+c0b9a4fe066c020e4bfb95184f0173569c72a3fdcf071c6e2a1f34217d84a912
+ec9fdb3624130810dadbd7822728494c5d67d2609f4403a539123b59b6b2ed5b
+91395e9159a49b2cff95b23e5ec7c38d08a3892f4840655d0c2aa8d425e03080
+b593232d07e860a77a90855f965afea44ee8ad33baa113beae38c29c7897b12f
+25eed139e0cca12cd3f07d537a9ac467827ca383f398e4c15764d8746ed39d42
+e13e42539e082dda914efa48883505b7ab90c5cd9d3a3f49584a14fb699f09f3
 =====
 Step 0/6000 -- 6000 steps remain. Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `mine_log` (mine_block of oak_log).
 Act turns since anything verifiably changed (milestone or inventory): 0.
@@ -36,7 +40,7 @@ The current view is attached.
 Write ./actions.json.
 =====
 Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
-Act turns since anything verifiably changed (milestone or inventory): 10.
+Act turns since anything verifiably changed (milestone or inventory): 11.
 
 Milestones:
   [x] mine_log (step 8)

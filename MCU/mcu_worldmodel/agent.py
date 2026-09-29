@@ -238,7 +238,7 @@ class WorldModelAgent:
         self.atoms, self.own = bool(atoms), bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
-        _P.set_visible(_P.ATOMS if self.atoms else None)
+        _P.set_visible(_P.ATOMS if self.atoms else None, own=self.own)
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
         #: `--own-reflexes` (mcu_worldmodel/own.py): mine/reflexes/<name>.py scripts run
@@ -504,7 +504,10 @@ class WorldModelAgent:
         # standing instructions underneath it, and Codex only reads it at thread start.
         contract = self._act_prompt()
         if self.thin or self.minimal:
-            contract, refs = prompts.thin_split(contract, tools=self.memory_mode != "direct")
+            # direct and vista have no file tools: what the short contract moves out is
+            # dropped for them, and the procedures keep their descriptions in place
+            contract, refs = prompts.thin_split(
+                contract, tools=self.memory_mode not in ("direct", "vista"))
             if self.minimal:
                 tail = (contract[contract.index("**References.**"):]
                         if "**References.**" in contract else "")
@@ -525,7 +528,7 @@ class WorldModelAgent:
             if self.atoms and refs.get("skills.md"):
                 # the situations reference names the task-shaped macros: say they are recipes here
                 from mcu_worldmodel import own as _own
-                refs["skills.md"] = _own.ATOMS_REF_LINE + "\n\n" + refs["skills.md"]
+                refs["skills.md"] = _own.atoms_ref_line() + "\n\n" + refs["skills.md"]
             if refs:
                 self.memory.write_references(refs)
         if self.skills:

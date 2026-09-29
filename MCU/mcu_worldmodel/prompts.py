@@ -867,7 +867,8 @@ _THIN_LOOP = """\
 def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
     """(short contract, {reference file: text}). Sections are cut at their headings;
     from the first moved heading on, every section goes to a reference file (unknown
-    headings to more.md). Without `tools` (the direct arm) the moved text is dropped."""
+    headings to more.md). Without `tools` (the direct and vista arms) the moved text is
+    dropped."""
     lines = contract.splitlines()
     blocks: list[list[str]] = [[]]
     for ln in lines:
@@ -896,7 +897,7 @@ def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
                 kept.append(head)
                 kept.append(P.index())
                 if P.VISIBLE is not None:
-                    kept.append(_own_mod().ATOMS_LINE)
+                    kept.append(_own_mod().atoms_line())
                 kept.append("Full descriptions, preconditions and the notes on each: "
                             "`references/procedures.md`.")
                 kept.append("")
@@ -921,8 +922,8 @@ def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
                   "do about them.\n")
     else:
         tail = ("\n\n**Kept short.** The GUI, skills, survival and control references "
-                "are not in this run's contract; the procedures' own [NOTE]s and the "
-                "milestone block are what you have.\n")
+                "are not in this run's contract; the procedure descriptions above and "
+                "the milestone block are what you have.\n")
         files = {}
     return "\n".join(kept).rstrip() + tail, files
 
@@ -1051,7 +1052,7 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         safety_line=_MINIMAL_SAFETY[bool(harness_reflexes)],
         reference_head=head.rstrip() + "\n",
         procedures=P.index(),
-        atoms_line=("\n" + _own_mod().ATOMS_LINE) if atoms else "",
+        atoms_line=("\n" + _own_mod().atoms_line()) if atoms else "",
         references_tail=("\n" + references_tail.strip() + "\n") if references_tail.strip() else "",
     )
 
@@ -1105,7 +1106,7 @@ def action_reference(*, entry_cap: int, step_cap: int,
     checkable rather than aspirational."""
     ref = ACTION_REFERENCE.format(
         entry_cap=entry_cap, step_cap=step_cap,
-        procedures=P.reference() + (("\n\n" + _own_mod().ATOMS_LINE) if atoms else ""),
+        procedures=P.reference() + (("\n\n" + _own_mod().atoms_line()) if atoms else ""),
         recipes=G.reference(),
         actions_channel=_ACTIONS_CHANNEL[memory_mode],
         ground_truth_channels=_GROUND_TRUTH_CHANNELS[memory_mode],
@@ -1166,7 +1167,8 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                                 action="plan entry"),
             ground_truth_bullet=_GROUND_TRUTH_BULLET["vista"],
             action_reference=(action_reference(entry_cap=1, step_cap=step_cap,
-                                               memory_mode="vista", task_family=task_family)
+                                               memory_mode="vista", task_family=task_family,
+                                               atoms=atoms)
                               + platform_block(platform_prompt, "your `play` call")),
         )
     contract = {"logbook": (_logbook_contract_with_previous() if previous
