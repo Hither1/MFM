@@ -757,9 +757,9 @@ class CodexTurn:
         current frame is what keeps the analyzer as informed as upstream's is, and as
         informed as the baseline agent it is compared against.
 
-        `expect_actions=False` for a turn that by design produces no `actions.json`
-        by design. Without it every such turn logs a missing-plan warning, which is
-        not a defect and hides the ones that are.
+        `expect_actions=False` for a turn that by design produces no `actions.json`.
+        Without it every such turn logs a missing-plan warning, which is not a defect
+        and hides the ones that are.
         """
         if self.max_calls and self.calls >= self.max_calls:
             self.ceiling_hits += 1

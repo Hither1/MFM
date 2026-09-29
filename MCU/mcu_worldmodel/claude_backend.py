@@ -510,7 +510,7 @@ class ClaudeTurn:
         "overflow"} -- the CodexTurn contract, unchanged.
 
         `expect_actions=False` for a turn that by design produces no
-        `actions.json` by design; without it every such turn logs a
+        `actions.json`; without it every such turn logs a
         missing-plan warning, which is not a defect and hides the ones that are.
         """
         if self.max_calls and self.calls >= self.max_calls:
