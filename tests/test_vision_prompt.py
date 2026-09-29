@@ -20,13 +20,10 @@ def test_mfm_tools_line_names_view_image():
     assert "`view_image <png>` to LOOK at a frame" in thin       # the tool line stays in the thin head
 
 
-def test_retrieval_note_and_human_contract_point_at_frames():
-    from mcu_worldmodel import prompts
+def test_retrieval_note_points_at_frames():
     from mcu_worldmodel.episodes import MFM_RETRIEVAL_NOTE
 
     assert "carries its frame path" in MFM_RETRIEVAL_NOTE and "`view_image` that frame" in MFM_RETRIEVAL_NOTE
-    h = prompts.human_contract(task_text="t", progress_block="", entry_cap=4, step_cap=40)
-    assert "`view_image <png>`" in h and "**Look back.**" in h
 
 
 def test_recall_block_cites_frames():

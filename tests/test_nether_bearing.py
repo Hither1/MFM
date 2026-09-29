@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 
 def _inv():
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
     return fake_info(inventory={"diamond_pickaxe": 1, "cobblestone": 40})
 
 

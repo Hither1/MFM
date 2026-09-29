@@ -78,8 +78,7 @@ def test_minimal_contract_is_short_and_points_at_the_references():
     from mcu_worldmodel import prompts
     from mcu_worldmodel import procedures as P
     P.set_visible(P.ATOMS)                       # the index the atoms run shows (test order must not matter)
-    full = prompts.act_prompt(task_text="Kill the dragon", progress_block="0/24", graph_summary="",
-                              plan_summary="", discipline_summary="", entry_cap=6, step_cap=400,
+    full = prompts.act_prompt(task_text="Kill the dragon", progress_block="0/24", entry_cap=6, step_cap=400,
                               memory_mode="mfm", retrieval=True, previous=True, expect=True,
                               frames=True, own=True, atoms=True, own_reflexes=True,
                               harness_reflexes=False)
@@ -111,38 +110,6 @@ def test_minimal_contract_is_short_and_points_at_the_references():
     assert "reflexes of its own" in on and "tools/zoom.py" not in on
     assert '{"procedure": "dig_down", "args": {"n": 40}}' in on        # the full library keeps its example
     P.set_visible(None)
-
-
-def test_distill_workspace_links_the_lives_and_writes_the_tool_and_skills(tmp_path: Path):
-    from mcu_worldmodel import distill
-    seed = tmp_path / "seed" / "memory"
-    seed.mkdir(parents=True)
-    (seed / "logs.txt").write_text("Action 0 | Step 0 | INITIAL STATE\n\nTask: t\n[STATE] pos=(1.0, 70.0, 2.0) pitch=0 yaw=0\n")
-    _png(seed / "episodes/ep_000000/observation/image.png")
-    (seed / "index.jsonl").write_text(json.dumps({"id": "ep_000000", "kind": "initial", "first_step": 0,
-                                                  "last_step": 0, "x": 1.0, "y": 70.0, "z": 2.0,
-                                                  "image": "episodes/ep_000000/observation/image.png",
-                                                  "path": "episodes/ep_000000", "tags": ["initial"],
-                                                  "summary": "initial state"}) + "\n")
-    (seed / "mine").mkdir(); (seed / "mine" / "notes.md").write_text("a note\n")
-    mem = distill.build_workspace(tmp_path / "out", [seed])
-    assert (mem / "previous" / "life_1" / "logs.txt").exists()
-    assert (mem / "previous" / "life_1" / "mine" / "notes.md").exists()
-    assert (mem / "tools" / "episodes.py").exists() and os.access(mem / "tools" / "episodes.py", os.X_OK)
-    assert (mem / "skills" / "reflexes" / "scripts" / "known_hazards.py").exists()
-    assert (mem / "mine").is_dir() and not list((mem / "mine").iterdir())
-    assert not (mem / "mine" / "reflexes").exists()            # examples only, no starters
-    prompt = distill.DISTILL_PROMPT.format(minutes=40)
-    for must in ("mine/GUIDE.md", "UNDER THEIR ORIGINAL NAMES", "mine/frames.md", "known_hazards.py",
-                 "Do not invent a coordinate", "about 40 minutes"):
-        assert must in prompt, must
-    args = distill._args("codex", "gpt-5.6-sol", "xhigh", tmp_path / "out")
-    assert args[:2] == ["codex", "exec"] and "-m" in args and args[-1] == "-" and "-i" not in args
-    assert 'sandbox_mode="workspace-write"' in args
-    rep = distill.audit(mem)
-    assert rep["guide_lines"] == 0 and rep["procedures"] == [] and rep["files"] == []
-    with pytest.raises(SystemExit):
-        distill.build_workspace(tmp_path / "out", [seed])       # never over an existing one
 
 
 def test_expect_block_cites_the_entrys_frame(tmp_path: Path):

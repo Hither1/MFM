@@ -32,7 +32,7 @@ def _ns(info=None, pos=None, **kw):
 
 
 def test_weapon_slot_prefers_sword_then_axe_then_pickaxe():
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     ns = _ns()
     assert ns._weapon_slot(fake_info(inventory={"iron_pickaxe": 1})) [1:] == ("iron_pickaxe", 17)
@@ -117,7 +117,7 @@ def test_fightback_aims_at_the_cell_centre():
 
 def test_bunker_hands_over_when_its_swings_hit_the_mob():
     from mcu_worldmodel.agent import WorldModelAgent as A
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"iron_pickaxe": 1, "cobblestone": 8})
     pos = {"x": -2999.3, "y": 16.0, "z": -5559.7, "pitch": 90.0, "yaw": 0.0}

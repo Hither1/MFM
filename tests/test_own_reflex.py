@@ -93,9 +93,6 @@ def test_contract_carries_the_reflex_and_digest_notes():
     assert "**Your own reflexes.**" not in c2 and MFM_DIGEST_NOTE.strip() not in c2
     c3 = prompts._mfm_contract(own=False, own_reflexes=True, previous=True)
     assert "**Your own reflexes.**" not in c3 and "mine/digest.md" not in c3
-    h = prompts.human_contract(task_text="t", progress_block="", entry_cap=4, step_cap=40,
-                               previous=True, own_reflexes=True)
-    assert "**Your own reflexes.**" in h and "mine/digest.md" in h
 
 
 def test_chassis_reflex_fires_and_a_broken_one_is_switched_off(tmp_path: Path):

@@ -281,7 +281,7 @@ def test_recent_block_renders_the_last_entries(tmp_path: Path):
 def test_grid_file_is_kept_by_the_sweep_and_carried(tmp_path: Path):
     from mcu_worldmodel.memory import MultimodalMemory
     from mcu_worldmodel.previous import NOT_CARRIED
-    m = MultimodalMemory(tmp_path / "ws", structured=False)
+    m = MultimodalMemory(tmp_path / "ws")
     (m.root / "grid.jsonl").write_text('{"kind":"walked","step":1,"cell":[0,64,0]}\n')
     (m.root / "scratch.md").write_text("x")
     removed = m.sweep_foreign()

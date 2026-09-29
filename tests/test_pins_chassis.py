@@ -1,4 +1,4 @@
-"""Pin 4: the world-model chassis in its logbook mode, replayed with the selftest's fakes.
+"""Pin 4: the world-model chassis in its logbook mode, replayed with the fakes of `mcu_worldmodel.testing`.
 
 The logbook arm is the control the MFM arm is built on (same chassis, one append-only
 log). This pins what that arm writes and returns so the MFM changes to the chassis
@@ -31,7 +31,7 @@ def _pov(step: int) -> np.ndarray:
 def drive_chassis(root: Path, memory_mode: str, steps: int = 120, script=None, **kw):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
-    from mcu_worldmodel.selftest import FakeCodex, fake_info
+    from mcu_worldmodel.testing import FakeCodex, fake_info
 
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1},
@@ -41,7 +41,7 @@ def drive_chassis(root: Path, memory_mode: str, steps: int = 120, script=None, *
            {"event": "craft_item", "identity": "iron_pickaxe",
             "objects": ["iron_pickaxe"], "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=root / "ws", task_text="get a log, a table, an iron pickaxe",
-                            ledger=MilestoneLedger(cfg, "t"), induction_every=10,
+                            ledger=MilestoneLedger(cfg, "t"),
                             step_cap=50, memory_mode=memory_mode,
                             platform_prompt="HOST REFERENCE", **kw)
     default_script = [
@@ -102,8 +102,7 @@ def test_chassis_logbook_pins(tmp_path: Path):
 
 def test_chassis_system_prompts_pin():
     from mcu_worldmodel import prompts
-    kw = dict(task_text="get a log", progress_block="0/2", graph_summary="",
-              plan_summary="", discipline_summary="", entry_cap=20, step_cap=400,
+    kw = dict(task_text="get a log", progress_block="0/2", entry_cap=20, step_cap=400,
               platform_prompt="HOST REFERENCE")
     out = {mode: hashlib.sha256(prompts.act_prompt(**kw, memory_mode=mode).encode()).hexdigest()
            for mode in ("logbook", "direct")}
@@ -188,7 +187,7 @@ def test_chassis_mfm_retrieval(tmp_path: Path):
 def test_chassis_vision_audit_survives_a_real_rollout(tmp_path: Path):
     """`report()` must not raise on the real backend.
 
-    The pin tests above drive the agent with the selftest's FakeCodex, whose
+    The pin tests above drive the agent with the scripted FakeCodex, whose
     `vision_audit` is a fixed dict, so an audit key the real backend cannot produce is
     invisible to them. One did happen: `vision_audit` read a key that the rollout scan
     did not write, every `save_report` raised KeyError inside the adapter's

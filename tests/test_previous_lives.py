@@ -57,7 +57,7 @@ def test_a_life_is_its_log_bytes_so_a_shared_ancestor_carries_once(tmp_path):
     b = _life(tmp_path / "b", "b run\n")
     _life(b / "previous" / "life_1", "ancestor\n")        # the same life, carried by b
     lives = previous.PreviousLives(tmp_path / "ws")
-    lives.seed([a, b], sites=False)
+    lives.seed([a, b])
     assert len(lives.lives) == 2, "the shared ancestor was carried twice"
     assert [p.name for p in lives.lives] == ["life_1", "life_2"]
 
@@ -65,7 +65,7 @@ def test_a_life_is_its_log_bytes_so_a_shared_ancestor_carries_once(tmp_path):
 def test_the_record_travels_and_the_machinery_does_not(tmp_path):
     a = _life(tmp_path / "a", "ancestor\n")
     lives = previous.PreviousLives(tmp_path / "ws")
-    lives.seed([a], sites=False)
+    lives.seed([a])
     life = tmp_path / "ws" / "previous" / "life_1"
     for kept in ("logs.txt", "grid.jsonl", "notes.md", "index.jsonl",
                  "episodes/ep_000001/state.json"):
@@ -78,7 +78,7 @@ def test_the_record_travels_and_the_machinery_does_not(tmp_path):
 def test_the_merged_index_stamps_the_life_and_rewrites_every_path(tmp_path):
     a, b = _life(tmp_path / "a", "one\n"), _life(tmp_path / "b", "two\n")
     lives = previous.PreviousLives(tmp_path / "ws")
-    lives.seed([a, b], sites=False)
+    lives.seed([a, b])
     rows = [json.loads(l) for l in
             (tmp_path / "ws" / "previous" / "index.jsonl").read_text().splitlines() if l.strip()]
     assert [r["life"] for r in rows] == [1, 2]
@@ -91,19 +91,8 @@ def test_the_merged_index_stamps_the_life_and_rewrites_every_path(tmp_path):
 def test_a_life_without_a_store_contributes_no_rows(tmp_path):
     a = _life(tmp_path / "a", "one\n", episodes=False)
     lives = previous.PreviousLives(tmp_path / "ws")
-    lives.seed([a], sites=False)
+    lives.seed([a])
     assert lives.rows == []
     assert not (tmp_path / "ws" / "previous" / "index.jsonl").exists()
     assert (tmp_path / "ws" / "previous" / "life_1" / "logs.txt").exists()
 
-
-def test_sites_are_the_push_and_are_off_unless_asked(tmp_path):
-    a = _life(tmp_path / "a", "one\n")
-    off = previous.PreviousLives(tmp_path / "off")
-    off.seed([a], sites=False)
-    assert not (tmp_path / "off" / "previous" / "sites.json").exists()
-    assert off.pushed_sites is False
-    on = previous.PreviousLives(tmp_path / "on")
-    on.seed([a], sites=True)
-    assert (tmp_path / "on" / "previous" / "sites.json").exists()
-    assert on.pushed_sites is True

@@ -27,7 +27,7 @@ def _stub(info, pos, inv):
 def test_seal_walls_the_way_back():
     from mcu_worldmodel import gui
     from mcu_worldmodel.agent import WorldModelAgent as A
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"cobblestone": 16, "diamond_pickaxe": 1})
     slot = gui.find_slots(info, "cobblestone")[0][0] + 1
@@ -65,7 +65,7 @@ def test_seal_walls_the_way_back():
 
 def test_seal_needs_a_block_and_a_run():
     from mcu_worldmodel.agent import WorldModelAgent as A
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"diamond_pickaxe": 1})
     pos = {"x": 0.5, "y": 12.0, "z": 6.5, "pitch": 0.0, "yaw": 0.0}

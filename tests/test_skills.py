@@ -111,7 +111,7 @@ def test_example_reflexes_fire_on_their_class_only(tmp_path: Path):
 def test_sweep_keeps_skills(tmp_path: Path):
     from mcu_worldmodel.memory import MultimodalMemory
 
-    mem = MultimodalMemory(tmp_path / "a", structured=False, episodes=True, own=True)
+    mem = MultimodalMemory(tmp_path / "a", episodes=True, own=True)
     (mem.root / "skills" / "memory").mkdir(parents=True)
     (mem.root / "skills" / "memory" / "SKILL.md").write_text("kept")
     (mem.root / "scratch.md").write_text("swept")

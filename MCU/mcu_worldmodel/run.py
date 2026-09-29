@@ -95,7 +95,6 @@ def run(args: argparse.Namespace) -> dict:
         codex_home=args.codex_home or None,
         transcript_dir=out / "codex_turns",
         step_cap=args.step_cap,
-        induction_every=args.induction_every,
         extended_actions=True,
     )
 
@@ -162,8 +161,6 @@ def main() -> None:
     p.add_argument("--codex-home", default="")
     p.add_argument("--step-cap", type=int, default=400,
                    help="max env ticks one turn's plan may run")
-    p.add_argument("--induction-every", type=int, default=600,
-                   help="env steps between world-model induction turns (0 disables)")
     p.add_argument("--fps", type=int, default=20)
     p.add_argument("--no-record", action="store_true")
     p.add_argument("--flush-every", type=int, default=1000,
@@ -181,8 +178,7 @@ def main() -> None:
     m = report["milestones"]
     print(f"\n{m['milestones_achieved']}/{m['total_milestones']} milestones "
           f"({m['completion_rate']*100:.0f}%) in {report['steps']} steps, "
-          f"{report['turns']['act']} act turns, "
-          f"{report['turns']['induction']} induction turns")
+          f"{report['turns']['act']} act turns")
 
 
 if __name__ == "__main__":

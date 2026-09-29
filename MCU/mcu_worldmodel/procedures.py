@@ -830,11 +830,6 @@ ATOMS = ("look", "look_at", "look_abs", "equip_hotbar", "open_inventory", "close
          "throw", "drop_and_pickup", "stow_items", "discard_stack")
 #: None = every registered procedure; a set = the names the contract shows and `expand`
 #: accepts (the rest answer with a note, never silently).
-#: `--visual-only`: the atoms minus the five that take a coordinate (visual.py).
-VISUAL_ATOMS = tuple(n for n in ATOMS if n not in ("look_at", "look_abs", "place_at", "use_at", "go_to"))
-#: `--human-play`: the GUI cursor primitives and the one closed-loop sensor (human.py).
-HUMAN_ATOMS = ("open_inventory", "close_inventory", "cursor_to_slot", "cursor_to_cell",
-               "gui_click", "gui_right_click", "watch")
 VISIBLE: set[str] | None = None
 
 
@@ -1088,10 +1083,6 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
     """
     proc = REGISTRY.get(name)
     if proc is not None and VISIBLE is not None and name not in VISIBLE:
-        if VISIBLE == set(HUMAN_ATOMS):
-            return [], (f"{name!r} is not a built-in in this run; there are none beyond the GUI "
-                        f"cursor primitives and watch -- do it with raw keys, or write it as your "
-                        f"own script under mine/procedures/ and call it by name")
         return [], (f"{name!r} is not in this run's procedure set (the atoms): compose it "
                     f"from the atoms and raw actions, or write it as your own procedure "
                     f"under mine/procedures/")

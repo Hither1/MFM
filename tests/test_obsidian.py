@@ -41,7 +41,7 @@ def _run(tick, agent, payload, mk=None, limit=600):
 
 def test_find_lava_is_not_shrunk_below_its_floor():
     from mcu_worldmodel.actions import parse_actions
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"iron_pickaxe": 1, "water_bucket": 1})
     info["location_stats"]["ypos"] = np.array(11.0)
@@ -58,7 +58,7 @@ def test_find_lava_is_not_shrunk_below_its_floor():
 
 def test_obsidian_macros_default_to_the_sighting():
     from mcu_worldmodel import macros_nether as MN
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"diamond_pickaxe": 1, "water_bucket": 1})
     pos = {"x": 0.5, "y": 64.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}

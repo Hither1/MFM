@@ -232,7 +232,7 @@ def probe(tmp_path):
 
 
 def _info(x=0.5, y=0.0, z=0.5, **stats):
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
     info = fake_info(**stats)
     info["location_stats"]["xpos"] = x
     info["location_stats"]["ypos"] = y

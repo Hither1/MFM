@@ -29,7 +29,7 @@ from typing import Any
 from loguru import logger
 
 from mfm.agent.base import Observation
-from mfm.memory.retrieve import left_behind, recall_block, streak_line, streaks
+from mfm.memory.retrieve import recall_block
 from mfm.memory.store import EpisodeStore
 
 from mcu_worldmodel.actions import describe_entry
@@ -63,8 +63,7 @@ briefing with `OBSERVED vs EXPECTED: ...` -- one sentence saying whether they ma
 what differs -- before deciding anything. A plan whose expectation failed twice is not
 re-proposed with the same target."""
 
-#: `--frames`: the arm can read frames at pixel level (and, with `--sites`, the sites
-#: carry frame pointers).
+#: `frames`: the arm can read frames at pixel level.
 MFM_FRAMES_NOTE = """\
 **Frames.** `./tools/zoom.py <frame.png> <x> <y> <w> <h> [out.png]` crops a region of a
 frame (640x360 pixels) and magnifies it 4x for `view_image`.
@@ -78,10 +77,6 @@ Frames are FILES: a script (numpy and PIL are available) can read many of them a
 answer one question over the whole set -- where the orange was, which frames show a
 screen -- faster than viewing them one by one; `./tools/episodes.py --near X Z` lists
 them by place with their paths."""
-
-MFM_FRAMES_SITES_NOTE = """\
-`[KNOWN SITES]` lines carry `frame=` paths into the earlier lives' episodes (the view
-that sighting was made from)."""
 
 MFM_MEMORY_NOTE = """\
 `episodes/` holds the same history as `logs.txt` a second time, structured: one
@@ -123,35 +118,6 @@ episode (`./tools/episodes.py --steps A B`). Each cited place is given as a bear
 a distance from where you stand. It is a reading of your own record, not advice, and it
 is absent when there is nothing to recall."""
 
-#: Added to the contract under the refusal flag (`--refuse`). The rules themselves
-#: are `EpisodeBridge.refuse` and `descent_guard` below.
-MFM_REFUSAL_NOTE = """\
-Two proposals are refused before they spend steps, from the same record. (1) An
-entry whose action has changed nothing -- no event, no inventory change; for a
-movement procedure, no movement -- in its last 5 calls ANYWHERE: the governor's
-rule, but across places and arguments, which is how a loop looks from the
-record. (2) A `dig_down` or `stair_down` while your crafting table stands placed 8
-or more blocks above you and you carry none. A refusal drops the whole plan for one
-no-op tick; its [NOTE] names the episodes it was computed from. To run the entry
-anyway, say what is different: put `"why": "<one sentence>"` on the entry, beside
-`args` (or `"leave_table": true` for the descent). The reason is recorded in that
-episode's action.json, and the same streak is refused at most twice."""
-
-#: The streak length that refuses (the recall block reports from 3); how many times
-#: one streak may be refused before the entry is let through regardless (a refusal
-#: costs a model turn, and a storm of them cost dmbr2 two calls a tick); how far
-#: above the agent a placed table has to be before a descent without it is refused.
-REFUSE_AT = 5
-REFUSE_CAP = 2
-LEFT_BEHIND_DY = 8
-_DESCENTS = frozenset({"dig_down", "stair_down"})
-#: Entries that break a block: a descent AFTER one of these in the same plan is read
-#: as "collect the table, then go down" and is not refused -- lad4 (2026-09-05) was
-#: refused twice for exactly that plan ("craft the iron pickaxe, recover the table,
-#: then begin the descent") because the table was not yet carried at plan time.
-_BREAKERS = frozenset({"mine_ahead", "mine_until", "chop", "chop_tree", "attack",
-                       "collect_drops", "harvest_tree"})
-
 #: Entry kinds whose normal outcome is "nothing changed": a streak of them is not a
 #: loop. Everything else (harvest_tree, dig_down, craft, collect_drops, a held raw
 #: key...) is meant to change the world or the inventory when it works.
@@ -164,71 +130,6 @@ RECALL_IGNORE_KINDS = frozenset({
 #: open at their end (the `gui` tag). Not bookkeeping: five `use_until_gui` that
 #: opened nothing is the loop lad4 sat in.
 _OPENERS = frozenset({"use_until_gui", "open_inventory", "place_and_open"})
-
-
-def entry_kind(entry: dict[str, Any]) -> str:
-    """The label an entry is tracked under: the procedure name, or the held keys."""
-    if "procedure" in entry:
-        return str(entry["procedure"])
-    act = entry.get("action") or {}
-    keys = [k for k, v in act.items() if v not in (0, [0, 0], [0.0, 0.0])]
-    return "+".join(keys) or "noop"
-
-
-def descent_guard(placements: list[dict[str, Any]], pos: dict | None,
-                  inventory: dict[str, int], entries: list[dict[str, Any]],
-                  placed_cells: dict[str, tuple] | None = None) -> str | None:
-    """The left-behind rule as a pure function: the refusal text, or None.
-
-    Refuses a descent while the most recent placed crafting table stands
-    LEFT_BEHIND_DY or more blocks above the agent and none is carried, unless the
-    entry says `leave_table`. Position and inventory are the present; the placement
-    is the episode that lost the table (`left_behind`), which knows where the agent
-    STOOD. The block's cell is the chassis's estimate (`placed_cells`, what
-    `use_until_gui(item=...)` aims at); the note quotes that, as "about", and never
-    the standing position as if it were the block -- lad4 (2026-09-05) was handed
-    the standing position, took it for the exact cell, and pressed use at it for
-    1,200 steps."""
-    tables = [p for p in placements if p["item"] == "crafting_table" and p.get("y") is not None]
-    if not tables or not pos or pos.get("y") is None:
-        return None
-    if int(inventory.get("crafting_table", 0) or 0) > 0:
-        return None
-    t = tables[-1]
-    cell = (placed_cells or {}).get("crafting_table")
-    if cell is not None and len(cell) == 3:
-        t = {**t, "x": cell[0], "y": cell[1], "z": cell[2]}
-        where_placed = (f"at about ({float(t['x']):.0f}, {float(t['y']):.0f}, "
-                        f"{float(t['z']):.0f}) -- `use_until_gui(item=\"crafting_table\")` "
-                        f"aims there for you")
-    else:
-        where_placed = (f"one block from where you stood, ({float(t['x']):.0f}, "
-                        f"{float(t['y']):.0f}, {float(t['z']):.0f})")
-    dy = float(t["y"]) - float(pos["y"])
-    for i, e in enumerate(entries):
-        k = entry_kind(e)
-        if k not in _DESCENTS or e.get("leave_table"):
-            continue
-        if any(entry_kind(x) in _BREAKERS or "attack" in entry_kind(x).split("+")
-               for x in entries[:i]):
-            continue                      # the plan breaks something first: the pickup
-        # The first `dig_down(until_y=12)` is proposed standing beside the table
-        # (dy = 0): judge it by where it ends, not where it starts.
-        target = (e.get("args") or {}).get("until_y")
-        try:
-            reach = max(dy, float(t["y"]) - float(target)) if target is not None else dy
-        except (TypeError, ValueError):
-            reach = dy
-        if reach < LEFT_BEHIND_DY:
-            continue
-        where = (f"{dy:.0f} blocks ABOVE you" if dy >= LEFT_BEHIND_DY
-                 else f"{reach:.0f} blocks above where this descent ends")
-        return (f"refused `{k}`: your crafting_table stands placed at step {t['step']} "
-                f"({t['id']}) {where_placed}, {where}, and you carry none. "
-                f"Everything you will craft down there (a furnace, the iron pickaxe) "
-                f"needs a table. Mine it (one hit, it drops) and carry it, or put "
-                f"`\"leave_table\": true` on the entry (beside `args`) to descend without it.")
-    return None
 
 
 def _num(v: Any) -> float | None:
@@ -264,25 +165,17 @@ class EpisodeBridge:
     #: Never auto-close on a tick count: the chassis says when an entry finished.
     _OPEN_ENDED = 10 ** 9
 
-    def __init__(self, memory, codex, ledger, *, retrieval: bool = False,
-                 refusal: bool = False) -> None:
+    def __init__(self, memory, codex, ledger, *, retrieval: bool = False) -> None:
         self.memory = memory
         self.codex = codex                      # the store reads `agent.codex.calls`
         self.ledger = ledger
         self.store = EpisodeStore(memory.root)
         self.mfm_memory_note = MFM_MEMORY_NOTE
-        # The retrieval flag: the turn prompt carries `recall()` when it is non-empty.
-        # Off, the arm is exactly the lad1/lad2 mfm arm.
+        # `retrieval`: the turn prompt carries `recall()` when it is non-empty.
         self.retrieval = bool(retrieval)
         self.recalls = 0
-        # The refusal flag: `refuse()` vetoes a plan from the record (see
-        # MFM_REFUSAL_NOTE). Independent of `retrieval`; both off = the lad2 arm.
-        self.refusal = bool(refusal)
-        self.refusal_by_rule: Counter[str] = Counter()
-        self.overrides = 0
-        self._refused: Counter[tuple] = Counter()
-        # Earlier lives' records under previous/ and the [KNOWN SITES] block (previous.py);
-        # None until `seed_previous` is given seed dirs.
+        # Earlier lives' records under previous/ (previous.py); None until
+        # `seed_previous` is given seed dirs.
         self.previous: PreviousLives | None = None
         self._obs: Observation | None = None
         self._tick_prev_pos: dict | None = None
@@ -320,8 +213,6 @@ class EpisodeBridge:
 
     def open(self, entry: dict[str, Any], index: int, total: int, info: dict,
              step: int, png: bytes | None) -> None:
-        if entry.get("why") or entry.get("leave_table"):
-            self.overrides += 1
         self._obs = self._observation(info, step, png)
         item = {"tick": 1, "ticks": self._OPEN_ENDED, "entry": entry,
                 "entry_index": index + 1, "entries_total": total}
@@ -345,67 +236,16 @@ class EpisodeBridge:
     def finish(self) -> None:
         self.store.close(self)
 
-    def refuse(self, entries: list[dict[str, Any]], pos: dict | None,
-               inventory: dict[str, int],
-               placed_cells: dict[str, tuple] | None = None) -> str | None:
-        """The refusal text for this plan, or None to let it run (see MFM_REFUSAL_NOTE).
-
-        Whole-plan, like the governor's veto: dropping one entry out of a composite
-        corrupts the plan instead of saving its steps. Each streak and each placement
-        is refused at most REFUSE_CAP times, so a model that will not say `why` is
-        slowed, not stopped."""
-        if not self.refusal or not entries:
-            return None
-        rows = self.store.closed
-        root = self.memory.root
-        note = descent_guard(left_behind(rows, root), pos, inventory, entries, placed_cells)
-        if note:
-            key = ("descent", note.split("(")[1].split(")")[0])     # the placement id
-            if self._refused[key] < REFUSE_CAP:
-                self._refused[key] += 1
-                self.refusal_by_rule["left_behind"] += 1
-                return "harness: " + note
-        current = {s["kind"]: s for s in
-                   streaks(rows, min_len=REFUSE_AT, ignore=RECALL_IGNORE_KINDS,
-                           movers=_MOVERS, openers=_OPENERS)}
-        for key in [k for k in self._refused if k[0] == "streak"
-                    and (k[1] not in current or current[k[1]]["since_step"] != k[2])]:
-            del self._refused[key]                       # that streak broke or moved on
-        for e in entries:
-            kind = entry_kind(e)
-            s = current.get(kind)
-            if s is None or e.get("why"):
-                continue
-            key = ("streak", kind, s["since_step"])
-            if self._refused[key] >= REFUSE_CAP:
-                continue
-            self._refused[key] += 1
-            self.refusal_by_rule["streak"] += 1
-            return (f"harness: refused `{kind}` -- {streak_line(s, root)} Propose "
-                    f"something else, or give the entry `\"why\": \"<what is different "
-                    f"this time>\"` to run it anyway.")
-        return None
-
-    def seed_previous(self, seeds: list, sites: bool = False) -> None:
-        """Carry the earlier lives' records in (the MFM carry); with `sites`, read the
-        places they verified for the [KNOWN SITES] block as well."""
+    def seed_previous(self, seeds: list) -> None:
+        """Carry the earlier lives' records in (the MFM carry)."""
         self.previous = PreviousLives(self.memory.root)
-        self.previous.seed([Path(s) for s in seeds], sites=sites)
-
-    def known_sites(self, info: dict, frames: bool = False, corridors: bool = False) -> str:
-        """The [KNOWN SITES] block for this turn ("" without carried lives, and ""
-        unless the lives were seeded with `sites`)."""
-        if self.previous is None or not self.previous.pushed_sites:
-            return ""
-        unmet = {r["identity"] for r in self.ledger.cfg if r["identity"] not in self.ledger.achieved}
-        return self.previous.block(location(info), inventory_counts(info), unmet,
-                                   frames=frames, corridors=corridors)
+        self.previous.seed([Path(s) for s in seeds])
 
     def recall(self, info: dict) -> str:
         """The retrieval block for the turn about to run, from the rows the store
         already holds; "" when there is nothing to recall or the flag is off."""
-        if not self.retrieval or getattr(self, "visual_only", False):
-            return ""                       # visual.py: the model queries the frames itself
+        if not self.retrieval:
+            return ""
         pos = _xz(location(info))
         block = recall_block(self.store.closed, self.memory.root, pos=pos,
                              ignore_kinds=RECALL_IGNORE_KINDS, movers=_MOVERS,
@@ -423,9 +263,6 @@ class EpisodeBridge:
         out["frames_written"] = self.frames_written
         out["retrieval"] = self.retrieval
         out["recalls"] = self.recalls
-        out["refusal"] = self.refusal
-        out["refusals"] = dict(self.refusal_by_rule)
-        out["overrides"] = self.overrides
         if self.previous is not None:
             out["previous"] = self.previous.audit()
         return out
@@ -456,11 +293,6 @@ class EpisodeBridge:
         done = [r["identity"] for r in self.ledger.cfg if r["identity"] in self.ledger.achieved]
         todo = [r["identity"] for r in self.ledger.cfg if r["identity"] not in self.ledger.achieved]
         gui = info.get("isGuiOpen")
-        if getattr(self, "visual_only", False):
-            # visual.py: no position, inventory or vitals on disk for the model to read
-            return {"step": obs.step, "gui_open": bool(gui) if gui is not None else None,
-                    "goals": {"done": done, "next": todo[0] if todo else None},
-                    "verified": f"{len(done)}/{len(self.ledger.cfg)}"}
         return {
             "step": obs.step, "pos": pos, "moved": round(moved, 3),
             "inventory": inventory_counts(info), "hotbar": _hotbar(info),
@@ -513,8 +345,7 @@ class EpisodeBridge:
         h1 = (last.get("vitals") or {}).get("health")
         if h0 is not None and h1 is not None and h1 < h0:
             tags.append("damage")
-        summary = ((describe_entry(entry) if getattr(self, "visual_only", False)
-                    else f"{describe_entry(entry)}: moved {moved:.1f}") if entry else "no entry")
+        summary = f"{describe_entry(entry)}: moved {moved:.1f}" if entry else "no entry"
         if abs(descended) >= 0.5:
             summary += f", descended {descended:.1f}"
         if delta:

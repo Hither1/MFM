@@ -153,7 +153,7 @@ def _pov(step: int) -> np.ndarray:
 def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None = None, **options):
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     cfg = [{"event": "mine_block", "identity": "mine_log", "objects": ["oak_log"],
             "reward": 1.0, "max_reward_times": 1},
@@ -164,7 +164,7 @@ def drive_vista_chassis(root: Path, fake, steps: int = 120, drop_at: int | None 
     opts = {"thread_bytes": 12_000, "frame_every": 3, "close_timeout": 3, "idle_timeout": 60,
             **options}
     agent = WorldModelAgent(workspace=root / "ws", task_text="get a log, a table, an iron pickaxe",
-                            ledger=MilestoneLedger(cfg, "t"), induction_every=10,
+                            ledger=MilestoneLedger(cfg, "t"),
                             step_cap=50, memory_mode="vista", platform_prompt="HOST REFERENCE",
                             codex_home=root / "home", codex_timeout=1, vista_options=opts)
     # Turn 1: a walk, a dig, an invalid play, a procedure refused against the state, the
@@ -350,8 +350,7 @@ def test_vista_prompt_hash_and_other_modes_untouched():
     import hashlib
     from mcu_worldmodel import prompts
     from conftest import pin_path
-    kw = dict(task_text="get a log", progress_block="0/2", graph_summary="",
-              plan_summary="", discipline_summary="", entry_cap=20, step_cap=400,
+    kw = dict(task_text="get a log", progress_block="0/2", entry_cap=20, step_cap=400,
               platform_prompt="HOST REFERENCE")
     pinned = json.loads(pin_path("chassis_prompt_hashes.json").read_text())
     for mode, sha in pinned.items():

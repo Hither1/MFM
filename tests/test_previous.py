@@ -1,6 +1,5 @@
 """The mfm arm's carried lives (mcu_worldmodel/previous.py): what a seed brings under
-previous/, the sites read from its log, the order the [KNOWN SITES] block puts them in,
-and that the chassis keeps and announces them."""
+previous/, and that the chassis keeps and announces them."""
 from __future__ import annotations
 
 import json
@@ -62,73 +61,6 @@ def make_life(root: Path, name: str = "life", log: str = LOG) -> Path:
     return d
 
 
-def test_sites_from_log_reads_what_the_run_verified():
-    from mcu_worldmodel.previous import merge_sites, sites_from_log
-
-    sites = merge_sites(sites_from_log(LOG, life=1))
-    kinds = {s.kind: s for s in sites}
-    assert set(kinds) == {"water", "ore", "lava", "death"}
-    assert (kinds["water"].x, kinds["water"].y, kinds["water"].z) == (-3013, 70, -5580)
-    # The bucket filled at y 11 beside the lava was the run's own pour, not a source.
-    assert all(not (s.kind == "water" and s.y == 11) for s in sites)
-    assert kinds["ore"].item == "iron_ore" and kinds["ore"].y == 54.0
-    assert kinds["lava"].pool == (-2991, 10, -5557) and kinds["lava"].rim == (-2991, 10, -5558)
-    assert "yaw 0" in kinds["lava"].detail          # 720 normalised
-    assert kinds["death"].x == -2990
-
-
-def test_block_orders_by_what_the_chain_needs(tmp_path: Path):
-    from mcu_worldmodel.previous import PreviousLives
-
-    life = make_life(tmp_path, "parent")
-    pl = PreviousLives(tmp_path / "ws")
-    pl.seed([life])
-    pos = {"x": -3009.5, "y": 71.0, "z": -5572.5, "pitch": 0.0, "yaw": 0.0}
-    unmet = {"mine_obsidian", "flint_and_steel"}
-    dry = pl.block(pos, {"bucket": 1}, unmet).splitlines()
-    wet = pl.block(pos, {"water_bucket": 1}, unmet).splitlines()
-    assert dry[0].startswith("[KNOWN SITES] from 1 previous life")
-    assert dry[1].startswith("- STILL WATER") and "8 blocks from you" in dry[1]
-    assert wet[1].startswith("- LAVA LAKE") and "make_obsidian(-2991, 10, -5558)" in wet[1]
-    assert dry[-1].startswith("- DEATH") and wet[-1].startswith("- DEATH")
-    # Obsidian banked: the lava drops behind the ore.
-    done = pl.block(pos, {"water_bucket": 1}, {"kill_blaze"}).splitlines()
-    assert done[1].startswith("- ORE")
-    assert pl.block(None, {}, set()) != ""
-    # A 3% sighting is a sliver, ranked after lakes; a pour rim with no lake beside it
-    # says so (ob1/ob1b tunnelled to one and poured on stone).
-    sliver_log = LOG.replace("33% of the lower view", "3% of the lower view") + f"""{SEP}
-Action 95 | Step 6000 | Plan Step 1/1 | 13/24 verified
-
-[ACTION] make_obsidian(x=-2991,y=10,z=-5558) -> 270 ticks
-[STATE] pos=(-2991.40, 11.00, -5561.20) pitch=8 yaw=0 moved=0.00
-[NOTE] make_obsidian: done at the rim (-2991, 10, -5558) -- every lava SOURCE the water touched is obsidian now.
-"""
-    make_life(tmp_path, "sliver", sliver_log)
-    pl2 = PreviousLives(tmp_path / "ws2")
-    pl2.seed([tmp_path / "sliver"])
-    wet2 = pl2.block(pos, {"water_bucket": 1}, unmet).splitlines()
-    assert wet2[1].startswith("- LAVA SLIVER (not a lake: 3%")
-    assert any(l.startswith("- POUR RIM, UNVERIFIED") for l in wet2)
-    lake = pl.block(pos, {"water_bucket": 1}, unmet).splitlines()
-    assert lake[1].startswith("- LAVA LAKE")
-    assert pl.audit()["kinds"] == {"death": 1, "lava": 1, "ore": 1, "water": 1}
-    # A sighting made while the avatar was being hurt is the fire overlay, not a lake
-    # (ob1_mfm's "32%" at its own feet); a life that died beside a lake is a warning.
-    hurt_log = LOG.replace("[NOTE] LAVA AHEAD: 33%", "[NOTE] still taking damage -- health 12/20 "
-                           "at (-2991, 11, -5561).\n[NOTE] LAVA AHEAD: 33%")
-    make_life(tmp_path, "hurt", hurt_log)
-    pl3 = PreviousLives(tmp_path / "ws3")
-    pl3.seed([tmp_path / "hurt"])
-    assert "lava" not in pl3.audit()["kinds"]
-    near = LOG.replace("YOU DIED at (-2990, 11, -5560)", "YOU DIED at (-2993, 10, -5563)")
-    make_life(tmp_path, "near", near)
-    pl4 = PreviousLives(tmp_path / "ws4")
-    pl4.seed([tmp_path / "near"])
-    lake4 = pl4.block(pos, {"water_bucket": 1}, unmet).splitlines()[1]
-    assert lake4.startswith("- LAVA LAKE") and "WARNING: 1 previous life DIED within" in lake4
-
-
 def test_seed_links_the_record_and_chains_lives(tmp_path: Path):
     from mcu_worldmodel.previous import PreviousLives, lives_of
 
@@ -142,20 +74,19 @@ def test_seed_links_the_record_and_chains_lives(tmp_path: Path):
     assert not (ws2 / "previous" / "life_1" / "AGENTS.md").exists()
     rows = [json.loads(l) for l in (ws2 / "previous" / "index.jsonl").read_text().splitlines()]
     assert rows[0]["path"] == "previous/life_1/episodes/ep_000001" and rows[0]["life"] == 1
-    assert json.loads((ws2 / "previous" / "sites.json").read_text())["lives"] == [str(gen1)]
+    assert pl2.sources == [str(gen1)]
     # gen2 becomes a seed itself: its carried life comes first, then its own record.
     (ws2 / "logs.txt").write_text(LOG.replace("-3013, 70, -5580", "-2993, 69, -5572"))
     assert [p.name for p in lives_of(ws2)] == ["life_1", "gen2"]
     pl3 = PreviousLives(tmp_path / "gen3")
     pl3.seed([ws2])
     assert [p.name for p in pl3.lives] == ["life_1", "life_2"]
-    assert sum(1 for s in pl3.sites if s.kind == "water") == 2
 
 
 def test_mfm_sweep_keeps_previous(tmp_path: Path):
     from mcu_worldmodel.memory import MultimodalMemory
 
-    mem = MultimodalMemory(tmp_path / "memory", structured=False, episodes=True)
+    mem = MultimodalMemory(tmp_path / "memory", episodes=True)
     (mem.root / "previous").mkdir()
     (mem.root / "previous" / "x").write_text("kept")
     (mem.root / "scratch.md").write_text("swept")
@@ -163,8 +94,8 @@ def test_mfm_sweep_keeps_previous(tmp_path: Path):
     assert "scratch.md" in removed and (mem.root / "previous" / "x").exists()
 
 
-def test_chassis_mfm_carry_without_sites(tmp_path: Path):
-    """The MFM carry alone (no --sites): the lives' records -- the log, the episodes,
+def test_chassis_mfm_carry(tmp_path: Path):
+    """The MFM carry: the lives' records -- the log, the episodes,
     the index and whatever the model wrote -- are linked under previous/ and named in
     AGENTS.md; nothing of them is pushed into a turn, and no site digest is written."""
     from test_pins_chassis import drive_chassis
@@ -188,23 +119,5 @@ def test_chassis_mfm_carry_without_sites(tmp_path: Path):
     turns = [p for p in agent.codex.prompts if "Your memory is" in p]
     assert turns and not any("[KNOWN SITES]" in p for p in turns)
     rep = agent.report()
-    assert rep["mfm"]["previous"]["lives"] == 1 and rep["mfm"]["previous"]["pushes"] == 0
-    assert rep["mfm_options"]["sites"] is False
+    assert rep["mfm"]["previous"]["lives"] == 1
 
-
-def test_chassis_mfm_with_previous_lives(tmp_path: Path):
-    """--sites: the arm announces the carried lives in AGENTS.md and pushes the sites
-    every turn; the store rows the run writes itself are unchanged."""
-    from test_pins_chassis import drive_chassis
-
-    life = make_life(tmp_path, "parent")
-    agent, actions = drive_chassis(tmp_path, "mfm", previous_lives=[life], sites=True)
-    ws = agent.memory.root
-    assert "`previous/life_<i>/`" in (ws / "AGENTS.md").read_text()
-    assert (ws / "previous" / "life_1" / "logs.txt").exists()
-    turns = [p for p in agent.codex.prompts if "Your memory is" in p]   # not the retry nudges
-    assert turns and all("[KNOWN SITES] from 1 previous life" in p for p in turns)
-    rep = agent.report()
-    assert rep["mfm"]["previous"]["lives"] == 1 and rep["mfm"]["previous"]["pushes"] >= 1
-    # The sweep at the end of a turn left the carried record in place.
-    assert (ws / "previous" / "index.jsonl").exists()

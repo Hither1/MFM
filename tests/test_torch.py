@@ -38,7 +38,7 @@ def test_torch_phase_plants_behind_and_restores_the_tool():
     from mcu_worldmodel import gui
     from mcu_worldmodel import macros_world as MW
     from mcu_worldmodel.agent import WorldModelAgent as A
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"torch": 8, "diamond_pickaxe": 1})
     info["equipped_items"] = {"mainhand": {"type": "diamond_pickaxe", "damage": np.array(0)}}
@@ -92,7 +92,7 @@ def test_torch_phase_plants_behind_and_restores_the_tool():
 
 def test_no_torch_no_phase():
     from mcu_worldmodel.agent import WorldModelAgent as A
-    from mcu_worldmodel.selftest import fake_info
+    from mcu_worldmodel.testing import fake_info
 
     info = fake_info(inventory={"diamond_pickaxe": 1})
     pos = {"x": 0.5, "y": 12.0, "z": 0.5, "pitch": 0.0, "yaw": 0.0}

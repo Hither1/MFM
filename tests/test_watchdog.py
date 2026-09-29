@@ -1,5 +1,5 @@
 """Slice 2: the plan-level stall watchdog (harness, every arm) and the mfm arm's
-options --expect, --frames, --corridors. The watchdog exists because every loop the
+options expect and frames. The watchdog exists because every loop the
 2026-09-06 chain lost steps to was made of labels the per-label governor never vetoes
 (equip_hotbar, close_inventory, craft, use_until_gui, gui clicks, raw holds)."""
 from __future__ import annotations
@@ -76,12 +76,12 @@ def test_agent_drops_a_stalled_plan_with_the_maps_hint(tmp_path: Path):
     refused after four, with the map's hint; a plan that moves runs."""
     from mcu_worldmodel.agent import WorldModelAgent
     from mcu_worldmodel.milestones import MilestoneLedger
-    from mcu_worldmodel.selftest import FakeCodex, fake_info
+    from mcu_worldmodel.testing import FakeCodex, fake_info
     from test_pins_chassis import _pov
     cfg = [{"event": "craft_item", "identity": "iron_pickaxe", "objects": ["iron_pickaxe"],
             "reward": 1.0, "max_reward_times": 1}]
     agent = WorldModelAgent(workspace=tmp_path / "ws", task_text="pickaxe",
-                            ledger=MilestoneLedger(cfg, "t"), induction_every=10,
+                            ledger=MilestoneLedger(cfg, "t"),
                             step_cap=50, memory_mode="logbook", platform_prompt="HOST")
     loop = [{"procedure": "equip_hotbar", "args": {"slot": 9}},
             {"procedure": "close_inventory", "args": {}},
@@ -137,8 +137,7 @@ def test_expect_option_echoes_the_line_against_the_record(tmp_path: Path):
     assert third, "the missing EXPECT line was not flagged"
     agents_md = (agent.memory.root / "AGENTS.md").read_text()
     assert "Expect, then compare" in agents_md
-    assert agent.report()["mfm_options"] == {"expect": True, "frames": False, "corridors": False,
-                                              "sites": False, "event_sheet": True}
+    assert agent.report()["mfm_options"] == {"expect": True, "frames": False, "event_sheet": True}
     assert agent.cursor_stats["expect_lines"] >= 2
 
 
@@ -153,66 +152,6 @@ def test_frames_option_writes_zoom_and_says_so(tmp_path: Path):
     agent2, _ = drive_chassis(tmp_path / "base", "mfm", steps=40)
     assert not (agent2.memory.root / "tools" / "zoom.py").exists()
     assert "zoom" not in (agent2.memory.root / "AGENTS.md").read_text()
-
-
-def _life_log(y_low: float = 11.0) -> str:
-    """A logs.txt with a dry corridor at y 11 (steps 500-560), a lava sighting after
-    it, and a pond fill at the surface."""
-    secs = ["=" * 80 + "\nAction 0 | Step 0 | INITIAL STATE\n\nTask: x\n"
-            "[STATE] pos=(0.50, 71.00, 0.50) pitch=0 yaw=0 moved=0.00\n"]
-    n = 1
-    secs.append("=" * 80 + f"\nAction {n} | Step 100 | Plan Step 1/2\n\n[ACTION] fill_bucket() -> 40 ticks\n"
-                "[STATE] pos=(3.50, 70.00, 2.50) pitch=25 yaw=0 moved=3.00\n[INV] bucket -1, water_bucket +1\n"
-                "[NOTE] fill_bucket: the bucket filled -- water_bucket +1 (aim 3 of 25, pitch 25 yaw 0, 18 ticks).\n")
-    x = 10.0
-    for i in range(8):
-        n += 1
-        secs.append("=" * 80 + f"\nAction {n} | Step {500 + 8 * i} | Plan Step 1/1\n\n"
-                    f"[ACTION] mine_forward(n=60) -> 60 ticks\n"
-                    f"[STATE] pos=({x + 4 * i:.2f}, {y_low:.2f}, 5.50) pitch=0 yaw=-90 moved=4.00\n")
-    n += 1
-    secs.append("=" * 80 + f"\nAction {n} | Step 600 | Plan Step 1/1\n\n[ACTION] mine_forward(n=60) -> 60 ticks\n"
-                f"[STATE] pos=(44.50, {y_low:.2f}, 5.50) pitch=0 yaw=-90 moved=2.00\n"
-                "[NOTE] LAVA AHEAD: 40% of the lower view is lava at (44, 11, 5) facing yaw -90. x\n")
-    return "\n".join(secs)
-
-
-def test_corridors_are_extracted_merged_and_rendered(tmp_path: Path):
-    from mcu_worldmodel.previous import (PreviousLives, corridors_from_log, merge_corridors,
-                                         MFM_CORRIDOR_NOTE)
-    cs = corridors_from_log(_life_log(), 1)
-    assert len(cs) == 1
-    c = cs[0]
-    assert c.a == (10, 11, 6) and c.b == (38, 11, 6) and c.step0 == 500 and c.step1 == 556
-    assert c.length == 28.0 and c.sections == 8
-    # a shallow run is not a corridor; a duplicate line merges away
-    assert corridors_from_log(_life_log(y_low=40.0), 1) == []
-    assert len(merge_corridors(cs + corridors_from_log(_life_log(), 2))) == 1
-    # a seeded workspace renders it when a deep milestone is open
-    seed = tmp_path / "seed"
-    seed.mkdir()
-    (seed / "logs.txt").write_text(_life_log())
-    (seed / "index.jsonl").write_text(json.dumps({
-        "id": "ep_000009", "first_step": 596, "last_step": 660, "kind": "episode",
-        "image": "episodes/ep_000009/observation/image.png", "path": "episodes/ep_000009"}) + "\n")
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    pl = PreviousLives(ws)
-    pl.seed([seed])
-    assert len(pl.corridors) == 1 and pl.sites
-    pos = {"x": 12.0, "y": 11.0, "z": 5.0}
-    plain = pl.block(pos, {"water_bucket": 1}, {"mine_obsidian"})
-    assert "DRY CORRIDOR" not in plain and "frame=" not in plain
-    rich = pl.block(pos, {"water_bucket": 1}, {"mine_obsidian"}, frames=True, corridors=True)
-    assert "DRY CORRIDOR: life 1 tunnelled from (10, 11, 6) to (38, 11, 6)" in rich
-    assert "steps 500-556, 28 blocks over 8 entries" in rich
-    assert "frame=previous/life_1/episodes/ep_000009/observation/image.png" in rich
-    assert "re-digging that line is safe" in rich
-    # nothing deep open: sites only
-    assert "DRY CORRIDOR" not in pl.block(pos, {}, {"kill_ender_dragon"}, corridors=True)
-    assert "DRY CORRIDORS" in MFM_CORRIDOR_NOTE
-    audit = json.loads((ws / "previous" / "sites.json").read_text())
-    assert audit["corridors"][0]["length"] == 28.0
 
 
 def test_frame_size_flag_reaches_the_agent():

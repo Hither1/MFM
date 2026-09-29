@@ -139,14 +139,14 @@ def test_parse_actions_expands_own_procedures(tmp_path: Path):
 def test_sweep_keeps_mine_only_with_own(tmp_path: Path):
     from mcu_worldmodel.memory import MultimodalMemory
 
-    mem = MultimodalMemory(tmp_path / "a", structured=False, episodes=True, own=True)
+    mem = MultimodalMemory(tmp_path / "a", episodes=True, own=True)
     (mem.root / "mine" / "procedures").mkdir(parents=True)
     (mem.root / "mine" / "notes.md").write_text("kept")
     (mem.root / "scratch.md").write_text("swept")
     removed = mem.sweep_foreign()
     assert "scratch.md" in removed and "mine" not in removed
     assert (mem.root / "mine" / "notes.md").exists()
-    mem2 = MultimodalMemory(tmp_path / "b", structured=False, episodes=True)
+    mem2 = MultimodalMemory(tmp_path / "b", episodes=True)
     (mem2.root / "mine").mkdir()
     (mem2.root / "mine" / "x").write_text("x")
     assert "mine" in mem2.sweep_foreign()
@@ -161,7 +161,7 @@ def test_carry_links_mine(tmp_path: Path):
     (life / "mine" / "procedures" / "chop.py").write_text(CHOP)
     (life / "mine" / "notes.md").write_text("n")
     pl = PreviousLives(tmp_path / "gen2")
-    pl.seed([life], sites=False)
+    pl.seed([life])
     assert (tmp_path / "gen2" / "previous" / "life_1" / "mine" / "procedures" / "chop.py").read_text() == CHOP
     assert (tmp_path / "gen2" / "previous" / "life_1" / "mine" / "notes.md").read_text() == "n"
 
@@ -206,4 +206,4 @@ def test_own_needs_mfm(tmp_path: Path):
 
     with pytest.raises(ValueError):
         WorldModelAgent(workspace=tmp_path / "ws", task_text="t", ledger=MilestoneLedger([], "t"),
-                        induction_every=10, step_cap=50, memory_mode="logbook", own=True)
+                        step_cap=50, memory_mode="logbook", own=True)

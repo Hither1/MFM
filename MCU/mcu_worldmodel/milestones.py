@@ -184,14 +184,12 @@ class MilestoneLedger:
         every endgame chasing iron while a +1 sat one craft away. The two 6/10 runs are
         exactly the ones that banked the furnace "out of order".
         """
-        from mcu_worldmodel.prompts import strategy_enabled
         if not self.cfg:
             return ("No milestone list is configured for this task: progress is what you "
                     "actually accomplish, verified on the game's statistics.")
         nxt = self.next_target()
         advice = (" -- bank whichever are already within reach (a furnace needs only "
-                  "8 cobblestone) before chasing the next in list order."
-                  if strategy_enabled() else ".")
+                  "8 cobblestone) before chasing the next in list order.")
         head = (f"Environment-verified progress: {len(self.achieved)}/{len(self.cfg)} "
                 f"milestones. Score = COUNT achieved, in ANY order{advice}")
         if nxt is None:
