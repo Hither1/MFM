@@ -5,8 +5,8 @@ and everything it shows the model or writes beside it is pinned: the contract, e
 turn prompt, the log, the episode index, the actions returned to the driver, and a
 sha256 manifest of the whole workspace (references/, skills/, tools/, episodes/).
 
-    mfm      the paper's flag set (MFM_FLAGS), from scratch, with a carried life, and
-             on the Claude Code channel
+    mfm      as `mcu_worldmodel.arms` defines it: from scratch, with a carried life,
+             and on the Claude Code channel
     logbook  PRO-LONG's protocol on the same chassis
     direct   no persistent memory
 
@@ -25,11 +25,9 @@ from test_pins_chassis import _norm, drive_chassis
 
 PINS = "../pins_release/"
 FRAME_SIZE = (320, 180)
-#: `--expect --frames --retrieval --no-event-sheet --thin --minimal --atoms --own
-#: --own-reflexes --no-harness-reflexes --skills` as the agent's keyword arguments.
-MFM_FLAGS = dict(expect=True, frames=True, retrieval=True, event_sheet=False, thin=True,
-                 minimal=True, atoms=True, own=True, own_reflexes=True,
-                 harness_reflexes=False, skills=True)
+def _arm(name: str) -> dict:
+    from mcu_worldmodel.arms import ARMS
+    return dict(ARMS[name], frame_size=FRAME_SIZE)
 
 
 def _manifest(ws: Path, tmp: Path) -> str:
@@ -65,26 +63,25 @@ def _pin_arm(name: str, agent, actions, tmp: Path) -> None:
 
 
 def test_mfm_from_scratch(tmp_path: Path):
-    agent, actions = drive_chassis(tmp_path, "mfm", frame_size=FRAME_SIZE, **MFM_FLAGS)
+    agent, actions = drive_chassis(tmp_path, "mfm", **_arm("mfm"))
     _pin_arm("mfm", agent, actions, tmp_path)
 
 
 def test_mfm_with_a_carried_life(tmp_path: Path):
-    first, _ = drive_chassis(tmp_path / "life_1", "mfm", frame_size=FRAME_SIZE, **MFM_FLAGS)
-    agent, actions = drive_chassis(tmp_path / "life_2", "mfm", frame_size=FRAME_SIZE,
-                                   previous_lives=[str(first.memory.root)], **MFM_FLAGS)
+    first, _ = drive_chassis(tmp_path / "life_1", "mfm", **_arm("mfm"))
+    agent, actions = drive_chassis(tmp_path / "life_2", "mfm",
+                                   previous_lives=[str(first.memory.root)], **_arm("mfm"))
     _pin_arm("mfm_carried", agent, actions, tmp_path)
 
 
 def test_mfm_on_claude_code(tmp_path: Path):
-    agent, actions = drive_chassis(tmp_path, "mfm", frame_size=FRAME_SIZE, cli="claude",
-                                   **MFM_FLAGS)
+    agent, actions = drive_chassis(tmp_path, "mfm", cli="claude", **_arm("mfm"))
     _pin_arm("mfm_claude", agent, actions, tmp_path)
 
 
 @pytest.mark.parametrize("mode", ["logbook", "direct"])
 def test_baseline_arm(tmp_path: Path, mode: str):
-    agent, actions = drive_chassis(tmp_path, mode, frame_size=FRAME_SIZE)
+    agent, actions = drive_chassis(tmp_path, mode, **_arm(mode))
     _pin_arm(mode, agent, actions, tmp_path)
 
 
