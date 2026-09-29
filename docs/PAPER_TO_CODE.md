@@ -13,7 +13,7 @@ directory the model works in.
 | Associative index `z_i = (id, k_i, rho_i)` | `index.jsonl`, one row per closed episode: step interval, position, action kind, tags, a one-line action and outcome summary, the paths of the evidence | harness | `mfm/memory/store.py` (`_close`) |
 | The log | `logs.txt`, append-only sections of `[STATE]`, `[INV]`, `[EVENT]`, `[NOTE]`, `[PLAN]` | harness | `mfm/memory/log.py` (KiCad), `MCU/mcu_worldmodel/memory.py` (Minecraft) |
 | Spatial memory | `grid.jsonl` (traversed cells); the position in every index row; the model's landmarks in `mine/notes.md` | harness / model | `MCU/mcu_worldmodel/grid.py`; `--near X Z` in `mfm/memory/tools/episodes.py` |
-| Semantic memory (`notes.md`, `GUIDE.md`) | `mine/notes.md`, `mine/GUIDE.md` or `mine/digest.md` (Minecraft); `notes/` (KiCad) | model | contract text in `MCU/mcu_worldmodel/own.py`, `skills.py`; `mfm/memory/carry.py` |
+| Semantic memory (`notes.md`, `GUIDE.md`) | `mine/notes.md`, `mine/GUIDE.md` (Minecraft); `notes/` (KiCad) | model | contract text in `MCU/mcu_worldmodel/own.py`, `skills.py`; `mfm/memory/carry.py` |
 | Procedural memory (`procedures/`) | `mine/procedures/*.py`: executable, run by the harness on the live state and expanded to primitive actions. `mine/reflexes/*.py`: run every 4 ticks, may stop or replace the plan | model | `MCU/mcu_worldmodel/own.py` |
 | Working memory (`working.md`) | `mine/working.md`, put in front of the model every turn as `[WORKING]` (first 1,500 characters) | model | `MCU/mcu_worldmodel/agent.py` (`WORKING_CAP`) |
 
@@ -45,7 +45,7 @@ cites episode ids so that a note can be checked against its frame later. The har
 never edits those files and never rewrites the episodic record.
 
 - Minecraft: the first turn of a life that carries earlier lives is a workshop turn: the
-  model reads `previous/life_<i>/` and writes its digest before it plays
+  model reads `previous/life_<i>/` and writes its guide before it plays
   (`skills/memory/SKILL.md`, from `MCU/mcu_worldmodel/skills.py`; the carry is
   `MCU/mcu_worldmodel/previous.py`).
 - KiCad (`mfm-carry`): the finished tasks' records are linked under `previous/<task>/`,
@@ -91,8 +91,8 @@ never edits those files and never rewrites the episodic record.
    and `intent.json`, and their system prompt carries a paragraph of schematic
    conventions. The baselines have neither.
 4. **Names.** The agent-written files of the paper (`notes.md`, `GUIDE.md`,
-   `working.md`, `procedures/`) live under `mine/` on Minecraft, and the guide may be
-   named `digest.md`; on KiCad the model's directory is `notes/`.
+   `working.md`, `procedures/`) live under `mine/` on Minecraft; on KiCad the model's
+   directory is `notes/`.
 5. **Examples shipped with the harness.** `skills/procedures/scripts/` and
    `skills/reflexes/scripts/` hold working examples written by the authors, which the
    model may copy into `mine/` (`MCU/mcu_worldmodel/skills.py`). A procedure found

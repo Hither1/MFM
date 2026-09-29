@@ -148,13 +148,13 @@ class PreviousLives:
         return {"lives": len(self.lives), "sources": self.sources, "files_linked": self.linked}
 
 
-#: `own` with previous lives: the digest is the model's own act (no harness digest of
+#: `own` with previous lives: the guide is the model's own act (no harness digest of
 #: earlier lives -- the model reads them and writes what it takes from them, and that
 #: file is carried on with the rest of mine/).
 MFM_DIGEST_NOTE = """\
 Your first act in a life that has `previous/` is to DIGEST it yourself: read the lives'
 `mine/notes.md` and scripts, their YOU DIED / LAVA AHEAD / obsidian / portal lines and
-the places they verified, and write `mine/digest.md` -- the verified places with
+the places they verified, and write `mine/GUIDE.md` -- the verified places with
 coordinates, what each life died of and where, what its scripts assumed and whether
 they worked, what you will do differently -- then keep it current as you learn. It is
 carried to your next life with the rest of `mine/`; no summary of them is made for you.

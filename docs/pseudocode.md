@@ -7,7 +7,7 @@ The KiCad arm (`CUA-KiCad/gym_codex/prolong_agent.py`) keeps the same record and
 retrieval on `mfm/memory`; what it carries between tasks is in `mfm/memory/carry.py`.
 
 The idea in one line: the agent's memory is a directory. The harness writes an immutable
-record into it (log, episodes, frames), the model writes its own files into it (digest,
+record into it (log, episodes, frames), the model writes its own files into it (guide,
 working note, procedures, reflexes), and every model call is one turn of a single long
 conversation whose working directory is that record.
 
@@ -32,7 +32,7 @@ W : workspace directory of this life = the model's cwd = its whole memory
                            example reflex scripts (lava_ahead, fell, hit, starving)
     references/            long reference docs read on demand (skills.md, survival.md, own.md)
     mine/                  THE MODEL'S OWN FILES, carried to the next life unchanged:
-                             digest.md     what is true of this world across lives (or GUIDE.md)
+                             GUIDE.md      what is true of this world across lives
                              working.md    the continuation note, served back every turn
                              notes.md      what worked, what each script assumes
                              procedures/*.py   scripts that expand to atom lists
@@ -192,9 +192,9 @@ procedure OWN_REFLEX_TICK(o, s)                       # every 4 ticks, outside a
 what the MODEL does with it (the contract, not code)
 ────────────────────────────────────────────────────────────────────────────
 turn 1 of a life with previous/  =  the WORKSHOP turn
-    read previous/life_*/mine/{digest,notes}.md and each life's death lines
+    read previous/life_*/mine/{GUIDE,notes}.md and each life's death lines
     query ./tools/episodes.py --previous ... ; view the frames that matter
-    write mine/digest.md   (verified places with coordinates, life/step, episode id;
+    write mine/GUIDE.md    (verified places with coordinates, life/step, episode id;
                             what each life died of and where; which scripts and reflexes
                             earned their keep; which assumptions broke)
     copy the scripts worth keeping into mine/procedures/ and mine/reflexes/

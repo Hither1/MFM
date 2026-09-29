@@ -364,5 +364,5 @@ as `[WORKING]`: the plan you are on and why, its next visible prediction, the
 contradictions you have not resolved, and the entries or frames you would re-open
 (paths). It survives a context reset, so the turn after one starts from it instead of
 from the log. Rewrite it when the plan changes, not every turn; keep it under 40
-lines. Your digest or `GUIDE.md` under `mine/` is what is true of this world across
+lines. `mine/GUIDE.md` is what is true of this world across
 lives; `working.md` is what you are doing now."""

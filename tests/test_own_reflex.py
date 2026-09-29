@@ -84,14 +84,14 @@ def test_contract_carries_the_reflex_and_digest_notes():
     assert "mine/reflexes/<name>.py" in own.MFM_REFLEX_NOTE
     c = prompts._mfm_contract(own=True, own_reflexes=True, previous=True)
     assert "**Your own reflexes.**" in c and "**Your own files and procedures.**" in c
-    assert MFM_DIGEST_NOTE.strip() in c and "mine/digest.md" in c
+    assert MFM_DIGEST_NOTE.strip() in c and "mine/GUIDE.md" in c
     assert c.index("**Your own files and procedures.**") < c.index("**Your own reflexes.**")
     c2 = prompts._mfm_contract(own=True, own_reflexes=False, previous=False)
-    # (the working-memory note names mine/digest.md for every own arm; the carried-lives
+    # (the working-memory note names mine/GUIDE.md for every own arm; the carried-lives
     # digest paragraph itself still appears only with previous lives)
     assert "**Your own reflexes.**" not in c2 and MFM_DIGEST_NOTE.strip() not in c2
     c3 = prompts._mfm_contract(own=False, own_reflexes=True, previous=True)
-    assert "**Your own reflexes.**" not in c3 and "mine/digest.md" not in c3
+    assert "**Your own reflexes.**" not in c3 and "mine/GUIDE.md" not in c3
 
 
 def test_chassis_reflex_fires_and_a_broken_one_is_switched_off(tmp_path: Path):

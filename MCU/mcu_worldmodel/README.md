@@ -41,7 +41,7 @@ memory/
   references/          the rules the short contract points to
   skills/              harness-written: how to use the memory, and example procedures
                        and reflexes to copy into mine/
-  mine/                the model's own: notes.md, working.md, GUIDE.md or digest.md,
+  mine/                the model's own: notes.md, working.md, GUIDE.md,
                        procedures/*.py and reflexes/*.py
   previous/life_<i>/   the record of an earlier life in the same world (--seed-memory)
 ```

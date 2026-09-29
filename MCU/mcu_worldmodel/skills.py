@@ -11,7 +11,7 @@ everything here is about how to play, how to remember, what to protect against.
 What is written into the workspace, once per life, harness-owned and immutable:
 
     skills/memory/SKILL.md          using the multimodal memory: log, episodes, frames,
-                                    previous lives, the digest, the workshop turn
+                                    previous lives, the guide, the workshop turn
     skills/procedures/SKILL.md      the skill layer: the phase ladder, the right grain,
                                     guards, reuse; scripts/stair_step.py, torch_wall.py, shaft_down.py, strip_segment.py, aim_speckles.py
     skills/reflexes/SKILL.md        the reflex layer: write before the event, the six
@@ -358,7 +358,7 @@ EXAMPLE_MEMORY: dict[str, str] = {
 # Finds the last "YOU DIED" in logs.txt, prints the [NOTE]/[EVENT] lines of the 60 steps
 # before it (the cause is usually in them: "took 4 damage", "LAVA AHEAD", "DOUSED"), and
 # tiles the episode frames of that span into one image for view_image. Then write the
-# one-line verdict into mine/digest.md yourself.
+# one-line verdict into mine/GUIDE.md yourself.
 import json, re, subprocess, sys
 out = sys.argv[1] if len(sys.argv) > 1 else "death.png"
 HDR = re.compile(r"^Action (\\d+) \\| Step (\\d+)")
@@ -379,7 +379,7 @@ for s, ln in notes:
 cmd = ["./tools/episodes.py", "--steps", str(max(0, death - 60)), str(death), "--sheet", out,
        "--q", "what killed me"]
 print(" ".join(cmd)); subprocess.run(cmd)
-print(f"view_image {out}, then one line in mine/digest.md: step, place, cause, what you refuse next time")
+print(f"view_image {out}, then one line in mine/GUIDE.md: step, place, cause, what you refuse next time")
 ''',
     "where_was.py": '''"""where_was: every place a keyword was seen in this life and the earlier ones, with the frames to open."""
 # Example: one script answers one question over the whole memory. Usage:
@@ -409,9 +409,9 @@ for log in logs:
 # -- example reflex (skills/reflexes/scripts/) ----------------------------------------------
 
 EXAMPLE_REFLEXES: dict[str, str] = {
-    "known_hazards.py": '''"""known_hazards: moving to within 6 blocks of a place your digest marks as lava or a death -- stop, say which."""
+    "known_hazards.py": '''"""known_hazards: moving to within 6 blocks of a place your guide marks as lava or a death -- stop, say which."""
 # Example reflex (harness-written; copy to mine/reflexes/ to arm it). The hazard list is
-# YOURS: every line of mine/digest.md or mine/GUIDE.md that names lava, a pour or a death
+# YOURS: every line of mine/GUIDE.md that names lava, a pour or a death
 # and carries a coordinate "(x, y, z)" or "(x, z)" counts. Same-life deaths are in
 # logs.txt too ("YOU DIED at (x, y, z)"), so the list grows as you play. Fires only while
 # you MOVE toward one (pos changed since the last sample), never while you stand and work
@@ -426,7 +426,7 @@ if abs(pos["x"] - prev["x"]) + abs(pos["z"] - prev["z"]) < 0.3:
 KEY = re.compile(r"lava|died|death|pour|obsidian", re.I)
 XYZ = re.compile(r"\\((-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?)(?:,\\s*(-?\\d+(?:\\.\\d+)?))?\\)")
 spots = []
-for fn in ("mine/digest.md", "mine/GUIDE.md", "logs.txt"):
+for fn in ("mine/GUIDE.md", "logs.txt"):
     try:
         for ln in open(fn, encoding="utf-8", errors="ignore"):
             if fn == "logs.txt" and "YOU DIED" not in ln:
@@ -480,20 +480,20 @@ grep-able) and keeps what you write under `mine/` (yours, carried to your next l
   question over all of them (where the orange was; which frames show a screen).
 - `previous/life_<i>/`: the complete records of earlier lives in this same world
   (same seed, same spawn), oldest first, each with its logs.txt, episodes, index and
-  `mine/` (its notes, digest and scripts). `./tools/episodes.py --previous ...` queries
+  `mine/` (its notes, guide and scripts). `./tools/episodes.py --previous ...` queries
   them all; `grep -n 'LAVA AHEAD\\|YOU DIED\\|obsidian' previous/life_*/logs.txt` is the
   fastest map of what they found and what killed them. The world resets between lives:
   terrain, water, lava and ore are where they were; nothing built or dropped survives;
   their step numbers are theirs.
 - `mine/`: yours. `mine/notes.md` (what worked, what each script assumes),
-  `mine/digest.md` (what you took from the earlier lives), `mine/procedures/`,
+  `mine/GUIDE.md` (what you took from the earlier lives), `mine/procedures/`,
   `mine/reflexes/`, any data or images you save. Carried whole to your next life.
 
 ## The workshop turn
 
 The first turn of a life with `previous/` is a WORKSHOP, not a play turn: read the
-lives' digests, notes and death lines, run the query tool over them, write or update
-`mine/digest.md` (verified places with coordinates, the life/step they come from and
+lives' guides, notes and death lines, run the query tool over them, write or update
+`mine/GUIDE.md` (verified places with coordinates, the life/step they come from and
 the episode id whose frame shows the place, what each life died of and where, which scripts and reflexes earned their keep and
 which assumptions broke), copy the scripts worth keeping into `mine/procedures/` and
 `mine/reflexes/`, and only then plan. One no-op plan is a fine end to a workshop turn:
@@ -518,14 +518,14 @@ times; every one of those looks was after a stall, none before a walk.
 `mine/working.md` is put in front of you every turn as `[WORKING]` and survives a
 context reset: the plan you are on and why, its next visible prediction, the
 contradictions you have not resolved, the entries and frames you would re-open (paths).
-Rewrite it when the plan changes, under 40 lines. `mine/digest.md` / `mine/GUIDE.md`
+Rewrite it when the plan changes, under 40 lines. `mine/GUIDE.md`
 is what is true of this world across lives; `working.md` is what you are doing now.
 
 ## Death forensics
 
 After `YOU DIED`, before you rebuild anything: `./tools/episodes.py --steps <death-60>
 <death> --sheet death.png --q "what killed me"`, view it, and write one line into
-`mine/digest.md` (or `GUIDE.md`): step, place, cause, what you will refuse next time.
+`mine/GUIDE.md`: step, place, cause, what you will refuse next time.
 The frame tells a burn from a mob: flames over the lower view, orange at the feet. Of
 the 20 deaths in the earlier runs, 11 were lava or fire, 5 a mob, and 3 happened within
 5 blocks of a place the same life had already written down as lava or a death --
@@ -694,9 +694,9 @@ contract).
 7. A walk toward a place where you, or an earlier life, died or saw lava. Three of the
    twenty earlier deaths were within 5 blocks of a spot the same life had already written
    down; the log knew, nothing refused. The cheapest reflex there is: read the hazard
-   lines from `mine/digest.md`/`mine/GUIDE.md`, stop the plan when you come within 6
+   lines from `mine/GUIDE.md`, stop the plan when you come within 6
    blocks of one while moving. `skills/reflexes/scripts/known_hazards.py` is the example
-   -- copy it into `mine/reflexes/` once your digest has coordinates in it.
+   -- copy it into `mine/reflexes/` once your guide has coordinates in it.
 
 ## The examples
 
