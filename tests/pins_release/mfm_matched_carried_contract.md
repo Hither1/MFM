@@ -31,6 +31,8 @@ Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY or
   before extending holds or mining more; `watch(until=..., n)` is the observe step
   between acting and deciding.
 
+**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a hit, no refusal. Natural healing needs the food bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat when the bar is below 18.
+
 **Your memory is one append-only log.** `./logs.txt` persists for the whole episode and
 across turns, and it is the ONLY thing that does. You are expected to read it
 programmatically -- it is far too large to read by eye, and reading it by eye is exactly

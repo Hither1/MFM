@@ -43,6 +43,8 @@ Tools: use `play` to execute one plan entry; use `inspect` to revisit archived v
   before extending holds or mining more; `watch(until=..., n)` is the observe step
   between acting and deciding.
 
+**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a hit, no refusal. Natural healing needs the food bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat when the bar is below 18.
+
 **What you can rely on**:
 - The `state` line of a play result is ground truth: coordinates, pitch and yaw, and
   `moved`, the distance the entry covered. Your read of a frame is not proof an action

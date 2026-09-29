@@ -77,22 +77,23 @@ never edits those files and never rewrites the episodic record.
    the code runs the full method and the baselines only.
 2. **What the arms share on Minecraft, and what they do not.** Shared by every arm, as
    in Table 5: a short contract, the 28 atoms as the whole procedure set (no
-   task-shaped macro), the executor, the perception, the plan caps, the frame size
+   task-shaped macro), the runner's own guards switched off (the lava stop, the pillar
+   on a hit, the refusals), the executor, the perception, the plan caps, the frame size
    (320x180), the model and its reasoning effort, the milestone ledger. Not shared:
    - The contracts are short but not one text, and not 12 KB each: `mfm` 11,947 bytes,
-     `logbook` 12,954, `direct` 14,942, `vista` 15,772 (`tests/pins_release/*_contract.md`).
+     `logbook` 13,235, `direct` 15,228, `vista` 16,058 (`tests/pins_release/*_contract.md`).
      `logbook` and `mfm` read the longer rules under `references/`; `direct` and `vista`
      have no file access, so their contract carries the full descriptions of the
      procedures, and the GUI, skills and survival references are left out for them.
-   - `mfm` alone has the skill package, its own procedures and reflexes, and runs with
-     the runner's own guards (the lava stop, the pillar on a hit, the refusals)
-     switched off; the baselines run with them on.
+   - `mfm` alone has the skill package and its own procedures and reflexes; the
+     reflexes it copies or writes act on every fourth tick, and no other arm has a
+     tick layer.
    - The baseline results of the paper were recorded with an earlier configuration of
-     the baselines (the full contract of 76 to 77 KB and the macro procedure library);
-     this release runs them as the paper describes them.
+     the baselines (the full contract of 76 to 77 KB, the macro procedure library, the
+     runner's guards on); this release runs them as the paper describes them.
 
-   `--memory mfm-matched` is the memory of `mfm` on the contract and guards of
-   `logbook`, without procedures of its own. No result of the paper was recorded with it.
+   `--memory mfm-matched` is the memory of `mfm` on the contract of `logbook`, without
+   procedures of its own. No result of the paper was recorded with it.
 3. **The MFM arms on KiCad have a design call.** Before the first action the `mfm` and
    `mfm-carry` arms make one call at reasoning effort `high` that writes `design.md`
    and `intent.json`, and their system prompt carries a paragraph of schematic

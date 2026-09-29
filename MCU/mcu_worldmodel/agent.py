@@ -507,7 +507,8 @@ class WorldModelAgent:
             # direct and vista have no file tools: what the short contract moves out is
             # dropped for them, and the procedures keep their descriptions in place
             contract, refs = prompts.thin_split(
-                contract, tools=self.memory_mode not in ("direct", "vista"))
+                contract, tools=self.memory_mode not in ("direct", "vista"),
+                safety="" if (self.reflexes or self.minimal) else prompts.THIN_SAFETY)
             if self.minimal:
                 tail = (contract[contract.index("**References.**"):]
                         if "**References.**" in contract else "")

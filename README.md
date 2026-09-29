@@ -87,15 +87,17 @@ Every arm reads a short contract (12 to 18 KB) and acts through raw actions and 
 28 primitive procedures (`procedures.ATOMS`); no arm is given a task-shaped macro (a
 tree, a strip mine, a shaft, the portal). The arms that can read files (`logbook`, `mfm`,
 `mfm-matched`) have the longer rules under `references/`; `direct` and `vista` cannot,
-and have the procedures' full descriptions in the contract instead.
+and have the procedures' full descriptions in the contract instead. The runner's own
+guards (the lava stop, the pillar on a hit, the refusal of a repeated plan) are off for
+every arm, and each contract says so.
 
 The two MFM arms have the same memory (the log, the episodes with their frames, the
 index and its query tool, the carried lives) and differ in the harness around it:
 
 - `mfm` is the arm of the paper's tables. The model writes its own procedures and
-  reflexes under `mine/`, has the skill package, and the runner's own guards are off.
-- `mfm-matched` has the contract and the runner guards of `logbook`, so that what it
-  adds to `logbook` is the memory alone (the `MFM_MEMORY` settings of
+  reflexes under `mine/` and has the skill package.
+- `mfm-matched` has the contract of `logbook`, so that what it adds to `logbook` is
+  the memory alone (the `MFM_MEMORY` settings of
   `mcu_worldmodel/arms.py`). It writes no procedures and has no `mine/`. No result of
   the paper was recorded with it.
 

@@ -8,15 +8,18 @@ c6a17a463adb1ae2299eef947a2ebb1d7b87ff37072cf81e4582a8e70386668b
 4d5627fb9f9e095b5673e3b6c8098dc3c21f160706b6dbf474a5c4d1ef1f24f9
 ff4b7c3946a4c7b81cce73531899bfa96d368cee0d2f650b4038a593bbe3863f
 4fcfe620b8adf43b2e324b1eca0e81eb2bef691fb344838211b4badcd1673444
-11404d61580e8f905ab675ff4dff84a2741d0ca92717d00c77f1ae4f67cd8f29
-ba0967a8054eea5020946f1f1f427b0b9501507ec21a9ff6df4cc13e26d3a734
-efd881a180bfa3872b0f2805a63b52e19ed5077604354cdce46601075172e918
-c0b9a4fe066c020e4bfb95184f0173569c72a3fdcf071c6e2a1f34217d84a912
-ec9fdb3624130810dadbd7822728494c5d67d2609f4403a539123b59b6b2ed5b
-91395e9159a49b2cff95b23e5ec7c38d08a3892f4840655d0c2aa8d425e03080
-b593232d07e860a77a90855f965afea44ee8ad33baa113beae38c29c7897b12f
-25eed139e0cca12cd3f07d537a9ac467827ca383f398e4c15764d8746ed39d42
-e13e42539e082dda914efa48883505b7ab90c5cd9d3a3f49584a14fb699f09f3
+af30442ee040bf46272dce15e00bfa98917be2b21b27d7ba415c0d4b5b0eb7e4
+f26c08614321e8e5ec205bcd3ccae93abe9726310b7a1d6f0e50020011108a83
+856bcdbe7bcf8db2d5edc1ff7f71f6f9dbc6eeed426dd57e87635c593677269f
+19959f6a7f429f19796dbc1fc6acebede89817eb86787b6606b643acd3909d68
+7a6fb8e2c3f1988a369829f811fd7da99a763f06a1450c1e839a717b14dda538
+9b24b5e4e6e9db0f020f586eb8ef77dffea0221e1cd0c5033edfdb1c949277bd
+b7846b935f0d5eb4e1693e0c5b029c26ab2097822d428523c6fda19c1ba9ad07
+74708f55837e1aadef70e8244175e8faaa6177a4006f7ab0af4af882864e27ee
+1728863961f222274d3bf4c642b2bde0fdfbeb3b7090e7dce738988a416f27bd
+ef5dc9ffa01ccd271bce7e9b399f0c33f45090796e217e6cc181d021821b90d9
+91de619f028690cd28272e1c93ce5165b68adbd3cc2ed517f54468af377ae27c
+0f20222969fa568015a56bc6e2d46b0447cae40b8c9450b0833ee5488b84c3ba
 =====
 Step 0/6000 -- 6000 steps remain. Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `mine_log` (mine_block of oak_log).
 Act turns since anything verifiably changed (milestone or inventory): 0.
@@ -39,15 +42,15 @@ Your memory is `./logs.txt` -- grep it for anything before this call: earlier pl
 The current view is attached.
 Write ./actions.json.
 =====
-Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
-Act turns since anything verifiably changed (milestone or inventory): 11.
+Step 117/6000 -- 5883 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
+Act turns since anything verifiably changed (milestone or inventory): 14.
 
 Milestones:
   [x] mine_log (step 8)
   [x] crafting_table (step 30)
   [ ] iron_pickaxe <- craft_item: iron_pickaxe
 
-[STATE] pos=(35.5, 59.0, 2.0) pitch=0 yaw=0
+[STATE] pos=(36.1, 59.0, 2.0) pitch=0 yaw=0
 Vitals: health=16/20 food=20/20
 Inventory (35 slots free): oak_logx2
 Hotbar: hotbar.1=oak_logx2
@@ -57,15 +60,15 @@ GUI open: False
 [CURSOR] no screen open
 
 [RECENT] the last entries that finished, from the harness's record:
-- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
-- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
-- step 97 {"attack":1} x6: moved 1.8
-- step 103 {"attack":1} x6: moved 1.8, descended 1.0
-- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
-- step 115 {"attack":1} x6: moved 1.8
+- step 87 {"attack":1} x6: moved 1.8
+- step 93 {"attack":1} x6: moved 1.8
+- step 99 {"attack":1} x6: moved 1.8
+- step 105 {"attack":1} x6: moved 1.8, descended 1.0
+- step 111 {"attack":1} x6: moved 1.8
+- step 117 {"attack":1} x6: moved 1.8
 
 [MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
-- You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
+- You stand in cell (36, 59, 2); 36 cells walked this life (a route over them is walkable again).
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.
 The current view is attached.

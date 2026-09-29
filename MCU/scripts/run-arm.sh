@@ -20,7 +20,7 @@
 #                         vista        VISTA: one thread calling `play`, the frame
 #                                      archive behind `inspect` (codex only)
 #                         mfm-matched  Multimodal Filesystem Memory on the baselines'
-#                                      contract and guards, no procedures of its own
+#                                      contract, no procedures of its own
 #                         mfm          the same memory; the agent writes its own
 #                                      procedures and reflexes
 #                       The settings of each arm: mcu_worldmodel/arms.py

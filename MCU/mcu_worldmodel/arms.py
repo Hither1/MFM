@@ -4,20 +4,21 @@ One chassis (executor, perception, caps, milestone ledger) runs every arm; an ar
 memory it is given and the contract that goes with it. `ARMS[name]` is what
 `WorldModelAgent` is built with beside `memory_mode=MEMORY_MODE[name]`. Every arm reads
 the short contract and acts through the same 28 closed-loop primitives
-(`procedures.ATOMS`); no arm is given a task-shaped macro.
+(`procedures.ATOMS`); no arm is given a task-shaped macro, and the runner's own guards
+are off for all of them.
 
     direct       no persistent memory: every turn is the present alone
     logbook      PRO-LONG: one append-only `logs.txt` the model greps
     vista        VISTA: one thread calling `play`, the frame archive behind `inspect`,
                  GUIDE.md / WORKING.md, a checkpoint handoff when the context fills
-    mfm-matched  Multimodal Filesystem Memory on the baselines' footing (their
-                 contract and the runner's guards), plus the log, one episode per plan
-                 entry (frame, state, action, outcome), the index and its query tool,
+    mfm-matched  Multimodal Filesystem Memory on the baselines' contract: the log, one
+                 episode per plan entry (frame, state, action, outcome), the index
+                 and its query tool,
                  the frame tools, the [RECALL] block and the carried lives under
                  `previous/`
     mfm          the same memory, and the agent builds its own harness: its own `mine/`
                  (notes, working memory, procedures, reflexes), the skill package, the
-                 contract rewritten around them; the runner's guards are off
+                 contract rewritten around them
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ from typing import Any
 SHARED: dict[str, Any] = dict(
     thin=True,                # the short contract; the rules under references/
     atoms=True,               # the procedure set is the closed-loop primitives
+    harness_reflexes=False,   # the runner's guards and escapes are off
 )
 
 #: The memory itself, common to both MFM arms.
@@ -42,7 +44,6 @@ MFM_OWN: dict[str, Any] = dict(
     minimal=True,             # the contract written for an arm with files of its own
     own=True,                 # mine/ persists; mine/procedures/*.py are procedures
     own_reflexes=True,        # mine/reflexes/*.py run on the live state
-    harness_reflexes=False,   # the runner's guards and escapes are off
     skills=True,              # the skill package under skills/
 )
 

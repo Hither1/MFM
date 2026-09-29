@@ -124,8 +124,13 @@ def test_survival_text_without_harness_reflexes():
     from mcu_worldmodel import prompts
 
     ref = prompts.action_reference(entry_cap=40, step_cap=400, memory_mode="mfm",
-                                   task_family="from_scratch", atoms=True, harness_reflexes=False)
+                                   task_family="from_scratch", atoms=True, harness_reflexes=False,
+                                   own_reflexes=True)
     assert "does not act for you" in ref and "mine/reflexes/" in ref
+    bare = prompts.action_reference(entry_cap=40, step_cap=400, memory_mode="logbook",
+                                    task_family="from_scratch", atoms=True,
+                                    harness_reflexes=False)
+    assert "does not act for you" in bare and "mine/reflexes/" not in bare
     assert "BUNKERS you" not in ref and "The Nether lock" not in ref
     ref2 = prompts.action_reference(entry_cap=40, step_cap=400, memory_mode="mfm",
                                     task_family="from_scratch", atoms=True)

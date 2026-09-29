@@ -7,13 +7,14 @@ sha256 manifest of the whole workspace (references/, skills/, tools/, episodes/)
 
     mfm          the self-writing arm: from scratch, with a carried life, and on the
                  Claude Code channel
-    mfm-matched  the same memory on the baselines' contract and guards: from scratch
-                 and with a carried life
+    mfm-matched  the same memory on the baselines' contract: from scratch and with a
+                 carried life
     logbook      PRO-LONG's protocol on the same chassis
     direct       no persistent memory
     vista        the contract alone; the app-server thread is pinned in `test_vista.py`
 
-Every arm reads a short contract and has the 28 atoms as its procedure set.
+Every arm reads a short contract, has the 28 atoms as its procedure set and runs
+without the runner's guards.
 """
 from __future__ import annotations
 
@@ -149,6 +150,12 @@ def test_every_arm_has_the_atoms_and_a_short_contract(tmp_path: Path, name: str,
     assert ("your own procedure" in contract) == (name == "mfm")
     assert (ws / "references").is_dir() == (mode not in ("direct", "vista"))
     assert ("references/" in contract) == (mode not in ("direct", "vista"))
+    # the runner guards no arm, and says so; the reflexes are the self-writing arm's
+    assert agent.reflexes is False
+    assert "The runner does not guard you in this run" in contract
+    told = contract + "".join(p.read_text() for p in sorted(ws.glob("references/*.md")))
+    assert ("mine/reflexes" in told) == (name == "mfm")
+    assert "the runner interrupts your plan" not in told
 
 
 def test_release_pins_are_under_the_repo():

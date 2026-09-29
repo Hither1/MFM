@@ -10,13 +10,14 @@ model is given and the contract that describes it.
 | `logbook` | PRO-LONG | one append-only `logs.txt` it greps |
 | `vista` | VISTA | one long thread calling `play`; the frame archive behind `inspect`; `GUIDE.md` / `WORKING.md`; a checkpoint handoff when the thread fills |
 | `mfm` | MFM | the log, one episode per plan entry with its frame, the index and its query tool, the carried lives, its own procedures and reflexes |
-| `mfm-matched` | (not in the paper) | the memory of `mfm` on the harness of the baselines: their contract and runner guards; no procedures of its own, no `mine/` |
+| `mfm-matched` | (not in the paper) | the memory of `mfm` on the contract of the baselines; no procedures of its own, no `mine/` |
 
 Every arm reads a short contract and has the same procedure set, the 28 closed-loop
 primitives of `procedures.ATOMS`; a call of any other procedure is refused with a note.
 `logbook` and the MFM arms read the longer rules under `references/`; `direct` and
 `vista` have no file access, so their contract carries the procedures' full
-descriptions and the other references are left out.
+descriptions and the other references are left out. The runner's own guards are off
+for every arm; the reflexes under `mine/reflexes/` are the `mfm` arm's.
 
 The settings of the arms are in `arms.py` and nowhere else.
 

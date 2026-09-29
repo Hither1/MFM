@@ -8,15 +8,18 @@ bfae310e2e4060133b830e387feff1a8fe158d5336d9be8679226ec9d3ade21c
 f23e26607364820aef54bc8fcd577bcda7ef2d0ed6b7ec2622fdfeccda500bfe
 bd1e767b6a5c23175796e50ebf094fed34f9a91b2e3059ac5cb846104c5f191f
 99598af90039cb571442353b656d84686fba2e05b07f5786c7f4c7378f9f576c
-ba9a1f34d978c5f8d8d68e5b978ce070741aecd323de25a6beff7b5fa6c3e96f
-d75d9e68566b234aa8004a7f48ac22b38e897f4926e6d916e98c33be0c636920
-a80a36ae53b3a3432fdd954b4153315d824265e836debcac8ff19d9f3876e28f
-552ef4380984d308f9334532782ed3109c8be8ed0fee4e4a9aa2440c409571f3
-278941b135684ad6f86f88c196505dfe1e0e485e1961ed06c53a70daf2ce2c96
-7e20b1627ccebb400dfd383242ca5777026ae77999a0f817eb0017bc414e81df
-5a1fe1978b4f9a43e65e6c0d24d02c95ebce377ce614ea3118be70e4a77f8fbc
-24b14bb2f5e476999fccd1d54b46a01b5098dde63275575e997a32a12fdbc2a7
-5909e6bcbbf67af52c65fdd8d3a111dc04bc5a88732943a89aed900e23523cb2
+056bb7a7054262daf657c5634ec032fc215de2f4d8fbb123c4cada0acf90b827
+765e44fbb79e23e97a90215b07b69f40eafbbe9514eb3cb04042c7c288bea539
+03f8a1d0efad8bda1dd220f0b0d05e2feaa6dca62f96241ef5f6d63fda095c56
+ad1655c835a5af32c73dc8592846f2b90e89c7f854e25b2f35a310d316a21315
+5884cf3b31cb7abca5b5bdaea68225cc30d5115618f1d3792dd7dc5539f60fdb
+e77f80e2d8a8814253a0da81735cc8f5b7cad622c58e1cab2d5abd3d82ecd7c8
+2f8c1db4040d50caf179477610f0015ef8ac5fd6ab959a76fae4fd404df480c3
+eb3cf249fede9d24356f332e27091468f0f8baa50f5fde533307a761894b5639
+7aed38e1ad4a8b9b3d895b7d7099ecdc9fed583007f22de69211b7491b0ec2e9
+a9a37ab4a7a164457c4f9d53fcf3836fbb34271433aad993effec98030eda3db
+45875fbc1e2721c385e999ab83623e204137759a9cd8fb7e003f238ede155495
+5c4282aa8f2daee0de94ef1514906eb414f15663f45b8b7670ea35f5b68fbf9e
 =====
 Step 0/6000 -- 6000 steps remain. Environment-verified progress: 0/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `mine_log` (mine_block of oak_log).
 Act turns since anything verifiably changed (milestone or inventory): 0.
@@ -40,15 +43,15 @@ Your memory is `./logs.txt` -- grep it for anything before this call: earlier pl
 The current view is attached.
 Write ./actions.json.
 =====
-Step 115/6000 -- 5885 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
-Act turns since anything verifiably changed (milestone or inventory): 11.
+Step 117/6000 -- 5883 steps remain. Environment-verified progress: 2/3 milestones. Score = COUNT achieved, in ANY order -- bank whichever are already within reach (a furnace needs only 8 cobblestone) before chasing the next in list order. First unmet in list order: `iron_pickaxe` (craft_item of iron_pickaxe).
+Act turns since anything verifiably changed (milestone or inventory): 14.
 
 Milestones:
   [x] mine_log (step 8)
   [x] crafting_table (step 30)
   [ ] iron_pickaxe <- craft_item: iron_pickaxe
 
-[STATE] pos=(35.5, 59.0, 2.0) pitch=0 yaw=0
+[STATE] pos=(36.1, 59.0, 2.0) pitch=0 yaw=0
 Vitals: health=16/20 food=20/20
 Inventory (35 slots free): oak_logx2
 Hotbar: hotbar.1=oak_logx2
@@ -58,23 +61,23 @@ GUI open: False
 [CURSOR] no screen open
 
 [RECENT] the last entries that finished, from the harness's record:
-- step 72 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A 
-- step 75 {"attack":1} x6: moved 0.9, note: lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? d
-- step 97 {"attack":1} x6: moved 1.8
-- step 103 {"attack":1} x6: moved 1.8, descended 1.0
-- step 109 {"attack":1} x6: moved 1.8, note: governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A 
-- step 115 {"attack":1} x6: moved 1.8
+- step 87 {"attack":1} x6: moved 1.8
+- step 93 {"attack":1} x6: moved 1.8
+- step 99 {"attack":1} x6: moved 1.8
+- step 105 {"attack":1} x6: moved 1.8, descended 1.0
+- step 111 {"attack":1} x6: moved 1.8
+- step 117 {"attack":1} x6: moved 1.8
 
 [MAP] what the runner knows for certain from this life's own positions and events (exact unless marked a sighting):
-- You stand in cell (35, 59, 2); 35 cells walked this life (a route over them is walkable again).
+- You stand in cell (36, 59, 2); 36 cells walked this life (a route over them is walkable again).
 
 [EXPECTED] (your last briefing had no `EXPECT:` line)
 [OBSERVED] by the harness for that plan (each entry with the frame it started from):
-  {"attack":1} x6: moved 1.8, frame: episodes/ep_000017/observation/image.png
+  {"attack":1} x6: moved 1.8, frame: episodes/ep_000020/observation/image.png
 Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they match, what differs, and what the VIEW shows that differs (the attached frame against the entry's frame: one visible change, or that nothing visible changed); end it with `EXPECT: ...` for this plan, including what the view should show.
 
 [RECALL] computed from episodes/ by the harness -- what you did, not advice:
-- `attack` changed nothing in its last 11 calls (since step 36, 11 spots; latest ep_000017, steps 109-115). It last changed something at step 30 (ep_000006: {"attack":1} x6) at (10, 63, 2), 26 blocks from here (26 west). Frame: episodes/ep_000017/observation/image.png
+- `attack` changed nothing in its last 14 calls (since step 36, 14 spots; latest ep_000020, steps 111-117). It last changed something at step 30 (ep_000006: {"attack":1} x6) at (10, 63, 2), 26 blocks from here (26 west). Frame: episodes/ep_000020/observation/image.png
   (one line not enough? `view_image` the cited frame: what that entry saw is what you will see there.)
 
 Your memory is `./logs.txt` -- grep it for anything before this call: earlier plans, [STATE] history, [EVENT] lines, your own notes.

@@ -75,7 +75,6 @@ Action 9 | Step 54 | Plan Step 1/1 | 2/3 verified
 [ACTION] {"attack":1} x6
 [STATE] pos=(17.20, 62.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False
-[NOTE] governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 42). A third identical proposal will be refused before it spends steps. Change the approach, the target, or the place.
 ================================================================================
 Action 10 | Step 60 | Plan Step 1/1 | 2/3 verified
 
@@ -97,7 +96,6 @@ Action 12 | Step 72 | Plan Step 1/1 | 2/3 verified
 [ACTION] {"attack":1} x6
 [STATE] pos=(22.60, 61.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False
-[NOTE] governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 60). A third identical proposal will be refused before it spends steps. Change the approach, the target, or the place.
 ================================================================================
 Action 13 | Step 75 | Plan Step 1/1 | 2/3 verified
 
@@ -105,33 +103,53 @@ Action 13 | Step 75 | Plan Step 1/1 | 2/3 verified
 [ACTION] {"attack":1} x6
 [STATE] pos=(23.50, 61.00, 2.00) pitch=0 yaw=0 moved=0.90
 [GUI] open=False
-[NOTE] lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? drowning or burning if the loss was gradual) before continuing. The runner is turning you 180 degrees to face where the hit came from; your next turn sees the view after the turn.
+[NOTE] lost 3 health over the last 100 ticks -- health 17/20 at (24, 61, 2). The plan was interrupted; find the danger (a monster behind you? a fall? lava? drowning or burning if the loss was gradual) before continuing. The runner does not act in this run: the plan stopped, the next move is yours.
 ================================================================================
-Action 14 | Step 97 | Plan Step 1/1 | 2/3 verified
+Action 14 | Step 81 | Plan Step 1/1 | 2/3 verified
 
 [PLAN] chop 10
 [ACTION] {"attack":1} x6
-[STATE] pos=(30.10, 60.00, 2.00) pitch=0 yaw=0 moved=1.80
+[STATE] pos=(25.30, 60.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False
 ================================================================================
-Action 15 | Step 103 | Plan Step 1/1 | 2/3 verified
+Action 15 | Step 87 | Plan Step 1/1 | 2/3 verified
 
 [PLAN] chop 11
 [ACTION] {"attack":1} x6
-[STATE] pos=(31.90, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
+[STATE] pos=(27.10, 60.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False
 ================================================================================
-Action 16 | Step 109 | Plan Step 1/1 | 2/3 verified
+Action 16 | Step 93 | Plan Step 1/1 | 2/3 verified
 
 [PLAN] chop 12
 [ACTION] {"attack":1} x6
-[STATE] pos=(33.70, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
+[STATE] pos=(28.90, 60.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False
-[NOTE] governor: `raw` at this spot has now finished 2 times in a row changing nothing -- no event, no inventory change, no real movement (since step 97). A third identical proposal will be refused before it spends steps. Change the approach, the target, or the place.
 ================================================================================
-Action 17 | Step 115 | Plan Step 1/1 | 2/3 verified
+Action 17 | Step 99 | Plan Step 1/1 | 2/3 verified
 
 [PLAN] chop 13
 [ACTION] {"attack":1} x6
-[STATE] pos=(35.50, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
+[STATE] pos=(30.70, 60.00, 2.00) pitch=0 yaw=0 moved=1.80
+[GUI] open=False
+================================================================================
+Action 18 | Step 105 | Plan Step 1/1 | 2/3 verified
+
+[PLAN] chop 14
+[ACTION] {"attack":1} x6
+[STATE] pos=(32.50, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
+[GUI] open=False
+================================================================================
+Action 19 | Step 111 | Plan Step 1/1 | 2/3 verified
+
+[PLAN] chop 15
+[ACTION] {"attack":1} x6
+[STATE] pos=(34.30, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
+[GUI] open=False
+================================================================================
+Action 20 | Step 117 | Plan Step 1/1 | 2/3 verified
+
+[PLAN] chop 16
+[ACTION] {"attack":1} x6
+[STATE] pos=(36.10, 59.00, 2.00) pitch=0 yaw=0 moved=1.80
 [GUI] open=False

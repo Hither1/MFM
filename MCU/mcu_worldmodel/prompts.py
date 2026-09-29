@@ -593,14 +593,20 @@ _SURVIVAL_GENERIC = """
 
 #: `--no-harness-reflexes` (skills.py): the hazards without the runner's reflexes -- in
 #: that run nothing acts on a hit, a fall or lava but the model's own reflexes.
+#: `_SURVIVAL_OWN`, by whether the arm has reflexes of its own.
+_SURVIVAL_TICK = {
+    True: ("Your reflexes under `mine/reflexes/` are the tick layer\n"
+           "  (`skills/reflexes/SKILL.md`), and your"),
+    False: "Your",
+}
+
 _SURVIVAL_OWN = """
 - **What kills runs: monsters in unlit tunnels, drops into caves and ravines, lava met
   while moving, and in the Nether every ledge into the lava sea.** Monsters are reported
   on no channel; the health drop is the only warning, and a plan standing still under
   hits (digging, sweeping, clicking) is how most deaths began. In THIS run the runner
   does not act for you: no stop at lava, no pillar or bunker on a hit, no swim-up, no
-  refusal of a repeated plan. Your reflexes under `mine/reflexes/` are the tick layer
-  (`skills/reflexes/SKILL.md`), and your plans carry the doctrine: torches and a 1x2
+  refusal of a repeated plan. {tick} plans carry the doctrine: torches and a 1x2
   tunnel with its ceiling intact; a sword in the hotbar before going deep and food in
   the inventory (no natural healing below 18 food); descend by stairs, never by jumping
   into a hole; back away from orange and seal it with a block; break a skeleton's line
@@ -864,7 +870,8 @@ _THIN_LOOP = """\
 """
 
 
-def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
+def thin_split(contract: str, tools: bool = True,
+               safety: str = "") -> tuple[str, dict[str, str]]:
     """(short contract, {reference file: text}). Sections are cut at their headings;
     from the first moved heading on, every section goes to a reference file (unknown
     headings to more.md). Without `tools` (the direct and vista arms) the moved text is
@@ -889,6 +896,8 @@ def thin_split(contract: str, tools: bool = True) -> tuple[str, dict[str, str]]:
                 if kept and kept[-1].strip():
                     kept.append("")
                 kept.append(_THIN_LOOP)
+                if safety:
+                    kept.extend([safety, ""])
                 continue
             if head.startswith(_THIN_PROCEDURES) and tools:
                 # The procedure index stays; the full reference (docs, preconditions,
@@ -1006,6 +1015,12 @@ the notes on each: `references/procedures.md`):
 {references_tail}
 """
 
+#: The same statement in the short contract of an arm without reflexes of its own.
+THIN_SAFETY = ("**Safety.** The runner does not guard you in this run: no lava stop, no "
+               "pillar on a hit, no refusal. Natural healing needs the food bar at 18+; here "
+               "it falls about a point per 4000 steps, so a life's whole deficit is one animal "
+               "(raw meat is fine) -- eat when the bar is below 18.")
+
 _MINIMAL_SAFETY = {
     True: ("**Safety.** The runner has reflexes of its own -- lava coming into view, a "
            "fall, water under a dig, a hit, the Nether -- and when one stops your plan its "
@@ -1098,7 +1113,8 @@ what it changed and the view afterwards.
 def action_reference(*, entry_cap: int, step_cap: int,
                      memory_mode: str = "mfm",
                      task_family: str = "from_scratch",
-                     atoms: bool = False, harness_reflexes: bool = True) -> str:
+                     atoms: bool = False, harness_reflexes: bool = True,
+                     own_reflexes: bool = False) -> str:
     """The shared action/perception reference, rendered for one memory mode.
 
     One function for all arms on purpose: everything except the explicitly per-mode
@@ -1114,7 +1130,8 @@ def action_reference(*, entry_cap: int, step_cap: int,
         skills_section=SKILLS_SECTION,
         chain_section=(_CHAIN_SECTION.format(strategy_bullets=_STRATEGY_BULLETS)
                        if task_family == "from_scratch" else ""),
-        survival_rule=(_SURVIVAL_OWN if not harness_reflexes else
+        survival_rule=(_SURVIVAL_OWN.replace("{tick}", _SURVIVAL_TICK[bool(own_reflexes)])
+                       if not harness_reflexes else
                        _SURVIVAL_RULE if task_family == "from_scratch"
                        else _SURVIVAL_GENERIC),
     )
@@ -1168,7 +1185,7 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
             ground_truth_bullet=_GROUND_TRUTH_BULLET["vista"],
             action_reference=(action_reference(entry_cap=1, step_cap=step_cap,
                                                memory_mode="vista", task_family=task_family,
-                                               atoms=atoms)
+                                               atoms=atoms, harness_reflexes=harness_reflexes)
                               + platform_block(platform_prompt, "your `play` call")),
         )
     contract = {"logbook": (_logbook_contract_with_previous() if previous
@@ -1194,7 +1211,8 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
         action_reference=(action_reference(entry_cap=entry_cap, step_cap=step_cap,
                                            memory_mode=memory_mode,
                                            task_family=task_family, atoms=atoms,
-                                           harness_reflexes=harness_reflexes)
+                                           harness_reflexes=harness_reflexes,
+                                           own_reflexes=own_reflexes)
                           + platform_block(
                               platform_prompt,
                               "your actions JSON" if memory_mode == "direct"
