@@ -28,7 +28,8 @@
 #   --steps N           the step budget. Default by task: 12000 (diamond), 36000
 #                       (dragon), 6000 (portal) -- the paper's budgets.
 #   --world-seed N      the Minecraft world seed (MCU_WORLD_SEED). Default: the task
-#                       config's `world_seed`, else the simulator's own.
+#                       config's `world_seed` (0 for the diamond and the dragon, 42
+#                       for the portal), else the simulator's own.
 #   --green-port N      A2A port of the green agent. Required.
 #   --purple-port N     A2A port of the purple agent. Required.
 #   --cli NAME          codex (default) | claude: the CLI that carries the model.

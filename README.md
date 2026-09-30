@@ -78,7 +78,7 @@ bash scripts/run-arm.sh --arm mfm_diamond_s0 --memory mfm \
 |---|---|
 | method | `--memory direct` \| `logbook` \| `vista` \| `mfm` \| `mfm-matched` |
 | task | `--task mine_diamond_from_scratch` (12,000 steps) \| `ender_dragon` (36,000) \| `nether_portal` (6,000); `--steps` overrides |
-| seed | `--world-seed N` |
+| seed | `--world-seed N`; without it the task's own world (0 for the diamond and the dragon, 42 for the portal) |
 | model | `--model gpt-6-astra` (default) \| `gpt-5.6-sol`; `--cli claude --model claude-opus-5` |
 | reasoning effort | `--effort high` (default) |
 | an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm and mfm-matched, repeatable), `--seed-log <logs.txt>` (logbook) |

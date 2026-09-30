@@ -70,3 +70,6 @@ milestone_reward_cfg:
     objects: [diamond]
     reward: 1.0
     max_reward_times: 1
+
+# The default world; --world-seed N of scripts/run-arm.sh selects another.
+world_seed: 0
