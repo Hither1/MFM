@@ -460,7 +460,7 @@ def test_the_privileged_channel_does_not_reach_the_agent():
 def test_the_green_runner_installs_the_probe_for_this_task_only():
     """Gated on the config key, like the scheduled-command callback beside it."""
     source = (ROOT / "MCU" / "src" / "agent.py").read_text(encoding="utf-8")
-    assert "probe = load_portal_probe(task)" in source
+    assert "probe = load_portal_probe(category)" in source
     assert "if probe:" in source, "no config key, no callback, no change anywhere else"
 
 

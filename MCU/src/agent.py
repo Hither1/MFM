@@ -191,6 +191,7 @@ class Agent:
                         max_steps,
                         record_path=record_path,
                         step_timeout=step_timeout,
+                        task_category=task_category,
                     )
                     metrics[task]["sim_score"] = sim_score
                     
@@ -423,10 +424,15 @@ class Agent:
         max_steps: int | None,
         record_path: str,
         step_timeout: float = DEFAULT_STEP_TIMEOUT,
+        task_category: str | None = None,
     ) -> float:
         """ 
         Run a single MCU task and return the reward.
         """
+        # The world seed and the portal probe are read from the task category's config
+        # directory, which is not always named like the task (ender_dragon holds
+        # kill_ender_dragon.yaml).
+        category = task_category or task
         
         # Determine max_steps based on task and input
         if max_steps is None:
@@ -434,7 +440,7 @@ class Agent:
         elif max_steps > self.DEFAULT_MAX_STEPS and task not in self.LONG_TASKS:
             max_steps = self.DEFAULT_MAX_STEPS
          
-        world_spec = load_world_spec(task)
+        world_spec = load_world_spec(category)
         if world_spec:
             print(f"[green] {task}: world pinned {world_spec}", flush=True)
 
@@ -475,7 +481,7 @@ class Agent:
         # blocks around the player and writes portal_report.json; nothing it learns is
         # published into `info`, and `voxels` is not in INFO_PASSTHROUGH, so the
         # privileged view stops at the green process.
-        probe = load_portal_probe(task)
+        probe = load_portal_probe(category)
         if probe:
             from mcu_worldmodel.portal_probe import PortalProbeCallback
             callbacks.append(PortalProbeCallback(output_dir=record_path, **probe))
