@@ -290,3 +290,26 @@ def test_lost_credential_stops_the_run(tmp_path, fake_claude, monkeypatch, error
     with pytest.raises(SystemExit):
         turn.run("go", images=())
     assert exits == [claude_backend.AUTH_EXIT_STATUS]
+
+
+def test_the_surface_audit_ignores_the_clis_builtin_plugins():
+    """Claude Code 2.1.284 lists `agents-md@builtin` in its init event; a plugin from
+    the account or the workspace is still a violation."""
+    import json
+    from mcu_worldmodel.claude_backend import ClaudeTurn
+    audit = ClaudeTurn._parse_events
+    def events(plugins):
+        return json.dumps({"type": "system", "subtype": "init", "session_id": "s",
+                           "model": "m", "tools": [], "mcp_servers": [],
+                           "plugins": plugins}) + "\n"
+    class T:
+        expected_tools = frozenset()
+        compactions = 0
+        session_id = None
+        session_turns = 0
+        transcript_dir = None
+        calls = 1
+    builtin = [{"name": "agents-md", "path": "builtin", "source": "agents-md@builtin"}]
+    assert "plugins" not in audit(T(), events(builtin))["violations"]
+    planted = builtin + [{"name": "x", "path": "/home/u/.claude/plugins/x", "source": "x"}]
+    assert audit(T(), events(planted))["violations"]["plugins"] == planted[1:]

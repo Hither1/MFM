@@ -724,8 +724,14 @@ class ClaudeTurn:
                     # and the arm is not the one its results would claim.
                     for surface in ("mcp_servers", "skills", "slash_commands",
                                     "plugins"):
-                        if event.get(surface):
-                            violations[surface] = event[surface]
+                        found = event.get(surface) or []
+                        if surface == "plugins":
+                            # The CLI's own built-in plugins (2.1.284 lists
+                            # `agents-md@builtin`) are the CLI, not a config layer.
+                            found = [pl for pl in found
+                                     if not (isinstance(pl, dict) and pl.get("path") == "builtin")]
+                        if found:
+                            violations[surface] = found
                 elif sub == "compact_boundary":
                     self.compactions += 1
                     if not AUTOCOMPACT_TOKENS:
