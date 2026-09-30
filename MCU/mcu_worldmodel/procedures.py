@@ -939,10 +939,10 @@ for _p in [
                             "aim_at_ore), use mine_ahead instead.",
               params={"n": "ticks", "ore_watch": "false to ignore ore sightings"}),
     Procedure("mine_ahead", "Hold attack on exactly what the crosshair is on -- no "
-              "re-aiming, no walking. THE follow-up to aim_at_ore: it digs out the "
-              "aimed block without touching the camera.",
+              "re-aiming, no walking. It digs out the aimed block without touching "
+              "the camera.",
               lambda n=120, ore_watch=False: mine_ahead(n, ore_watch),
-              preconditions="Aim first (aim_at_ore / look_at / look_abs).",
+              preconditions="Aim first (look_at / look_abs).",
               params={"n": "max ticks", "ore_watch": "true to re-enable sightings"}),
     Procedure("dig_down", "Aim straight down and mine the column under your feet, "
               "stopping at a target depth. The descent that has actually reached ore "
@@ -1019,7 +1019,7 @@ for _p in [
     Procedure("cursor_to_slot",
               "Land the cursor ON a player inventory slot, by its [INV] slot id. "
               "Closed loop: steered against the pointer measured in each frame until it "
-              "arrives. Prefer this over cursor_to.",
+              "arrives.",
               cursor_to_slot, needs_cursor=True,
               preconditions="A screen must be open. 0-8 is the hotbar, 9-35 the three "
                             "main rows.",

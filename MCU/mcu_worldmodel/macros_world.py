@@ -401,10 +401,13 @@ def _is_nonplaceable(item: str) -> bool:
 
 @macros.tick("_useat", shrink=None)
 def _useat_tick(agent, st: dict[str, Any], mk_act):
-    if agent._gui_open:
+    opened = bool(agent._gui_open) and st.get("gui0") is False   # by this call's click
+    if agent._gui_open and not opened:
         agent._flush_tail(f"{st['label']}: a screen is open; the world click would do "
                           f"nothing. close_inventory first.", "useat_gui_flush")
         return None
+    if opened:
+        st["phase"] = "verify"
     status, action = use_step(agent, st, mk_act)
     if status == "run":
         return action
@@ -416,7 +419,7 @@ def _useat_tick(agent, st: dict[str, Any], mk_act):
             f"{st['label']}: {'placed' if st['mode'] == 'place' else 'used'} at "
             f"{tuple(st['target'])} ({st['face']} face) -- use_item +{st.get('gained', 0):g}, "
             f"{dtxt}" + (" (the tool took wear: it acted on the block)" if st.get("worn")
-                         else "") + ".")
+                         else "") + ("; its screen is open" if opened else "") + ".")
         return None
     agent._note_failure(st["label"].split("(")[0])
     agent._flush_tail(st.get("note", f"{st['label']} failed"), "useat_failed_flush")
@@ -1610,8 +1613,9 @@ def register_all(register, Procedure) -> None:
         "Right-click a face of the block at (x, y, z) with `item` selected: pour a water "
         "bucket (item=water_bucket, the ground block), light with flint_and_steel, till "
         "with a hoe, plant seeds on farmland, shear a pumpkin, open a door / bed, or "
-        "`item` omitted = use the block with what you hold (a chest, a door). Verified on "
-        "use_item / the inventory / a screen opening.",
+        "`item` omitted = use the block with what you hold (a chest, a door). A crafting "
+        "table or furnace placed earlier opens this way. Verified on use_item / the "
+        "inventory / a screen opening.",
         use_at, needs_cursor=True, needs_info=True,
         preconditions="Within 4 blocks, no screen open. `face` = which side of the "
                       "block to click (below = its top surface as seen from above).",
@@ -1624,7 +1628,7 @@ def register_all(register, Procedure) -> None:
         "drink a potion (32), look through a spyglass, raise a shield (hold as long as "
         "you want to block). Verified on use_item / the inventory.",
         use_held, needs_cursor=True, needs_info=True,
-        preconditions="Aim first (look_at / face_entity) for a bow. No screen open.",
+        preconditions="Aim first (look_at) for a bow. No screen open.",
         params={"item": "item to select (optional: keep what is held)",
                 "hold": "ticks to hold (default 32)"}))
     register(Procedure(

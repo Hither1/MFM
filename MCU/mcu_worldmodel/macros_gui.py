@@ -189,8 +189,8 @@ def craft(cur, info: dict, item: str = "crafting_table", count: int = 1,
     need: dict[str, int] = {ing: n1 * count for ing, n1 in per.items()}
     if not _screen_is_open(cur, info):
         where = ("open_inventory first (a 2x2 recipe)" if grid == "2x2" else
-                 'place_and_open(item="crafting_table") first, or look_at your placed '
-                 'table + use_until_gui (a 3x3 recipe)')
+                 'place_and_open(item="crafting_table") first, or use_at your placed '
+                 'table (a 3x3 recipe)')
         return [], f"craft {item}: no screen is open -- {where}."
     target, why = deposit_slot(info, product, count * out_n, slot)
     if target is None:
@@ -378,7 +378,7 @@ def furnace_load(cur, info: dict, item: str = "iron_ore", n: int = 0,
         return [], f"furnace_load: bad n {n!r}"
     if not _screen_is_open(cur, info):
         return [], ('furnace_load: no screen is open -- place_and_open(item="furnace") '
-                    'first, or look_at your placed furnace + use_until_gui.')
+                    'first, or use_at your placed furnace.')
     stacks = gui.find_slots(info, item)
     if not stacks:
         return [], f"furnace_load: you carry no {item}."
@@ -433,8 +433,7 @@ def furnace_take(cur, info: dict, item: str = "", slot: Any = None
 
     item = str(item or "")
     if not _screen_is_open(cur, info):
-        return [], ("furnace_take: no screen is open -- look_at your furnace + "
-                    "use_until_gui first.")
+        return [], ("furnace_take: no screen is open -- use_at your furnace first.")
     target, why = deposit_slot(info, item or "smelted", 64 if not item else 8, slot)
     if target is None:
         return [], f"furnace_take: nowhere to bank the output -- {why}"
@@ -625,7 +624,7 @@ def _screen_need_tick(agent, sn: dict[str, Any], mk_act):
                "crosshair is on it (look_at) and that the selected item is not a "
                "placeable block." if sn.get("opened") else
                ". Open the screen first (open_inventory for a 2x2 recipe; place_and_open "
-               "or look_at + use_until_gui for a table / furnace)."),
+               "or use_at for a table / furnace)."),
             "screen_need_flush")
         return None
     kind, have = sn.get("kind", "any"), agent._screen
@@ -634,10 +633,10 @@ def _screen_need_tick(agent, sn: dict[str, Any], mk_act):
         agent._flush_tail(
             f"{label} needs the {kind} screen, but the open screen is the {have}. "
             f"close_inventory, then open the right one"
-            + (" (place_and_open(item=\"crafting_table\") or look_at your table + "
-               "use_until_gui)." if kind == "table" else
-               " (place_and_open(item=\"furnace\") or look_at your furnace + "
-               "use_until_gui)." if kind == "furnace" else " (open_inventory)."),
+            + (" (place_and_open(item=\"crafting_table\") or use_at your table)."
+               if kind == "table" else
+               " (place_and_open(item=\"furnace\") or use_at your furnace)."
+               if kind == "furnace" else " (open_inventory)."),
             "screen_kind_flush")
         return None
     cells = sn.get("cells_clear") or []
@@ -764,8 +763,8 @@ def _placecheck_tick(agent, pc: dict[str, Any], mk_act):
             if grid is not None:
                 grid.mark_placed(agent.step, pc["item"], at, agent._cur_pos)
             agent.memory.add_note(
-                f"placed the {pc['item']} at about {at} -- use_until_gui(item="
-                f"\"{pc['item']}\") aims there for you when you come back to it.")
+                f"placed the {pc['item']} at about {at} -- use_at(x={at[0]}, y={at[1]}, "
+                f"z={at[2]}) opens it when you come back to it.")
         return None
     if pc["t"] < 4:
         pc["t"] += 1
@@ -898,7 +897,7 @@ def register_all(register, Procedure) -> None:
         "use_item and the screen kind). Follow with craft / furnace_load.",
         place_and_open, needs_cursor=True, needs_info=True,
         preconditions="Carry the block; face flat ground with no screen open. To reopen a "
-                      "block already placed, use look_at(its coordinates) + use_until_gui.",
+                      "block already placed, use_at(its coordinates).",
         params={"item": "crafting_table or furnace"}))
     register(Procedure(
         "furnace_load",
@@ -907,7 +906,7 @@ def register_all(register, Procedure) -> None:
         "sticks). Does not wait: ~200 ticks per item; close the screen and come back.",
         furnace_load, needs_cursor=True, needs_info=True,
         preconditions="The furnace screen must be open (place_and_open(item=\"furnace\") "
-                      "or look_at + use_until_gui on a placed one).",
+                      "or use_at on a placed one).",
         params={"item": "what to smelt (iron_ore, gold_ore, a log for charcoal...)",
                 "n": "items to load, 0 = all (default)",
                 "fuel": "auto (default) or a fuel item name"}))

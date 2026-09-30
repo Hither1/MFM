@@ -415,7 +415,7 @@ class Grid:
             via = (f"; walked route: {len(rt)} cells" if rt else
                    "; no walked route on record" if rt is None else "; you are beside it")
             lines.append(f"- {item}: cell {tuple(cell) if cell else '?'}, {d:.0f} blocks away, "
-                         f"{how}{via}. `use_until_gui(item=\"{item}\")` replays that pose.")
+                         f"{how}{via}. `use_at` on its cell opens it.")
         if self.water:
             near = sorted(self.water, key=lambda c: xz_dist(here, c))[:1]
             d = xz_dist(here, near[0])

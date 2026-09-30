@@ -135,10 +135,7 @@ def test_every_arm_has_the_atoms_and_a_short_contract(tmp_path: Path, name: str,
     ws = agent.memory.root
     contract = (ws / "AGENTS.md").read_text()
     assert len(contract.encode()) < 20_000
-    # `fight` is a word of the text; the other four are named inside the descriptions
-    # of the atoms, which direct and vista read in the contract itself
-    in_passing = {"fight", "aim_at_ore", "cursor_to", "use_until_gui", "face_entity"}
-    macros = set(P.REGISTRY) - set(P.ATOMS) - in_passing
+    macros = set(P.REGISTRY) - set(P.ATOMS) - {"fight"}       # a word of the text
     named = set(re.findall(r"[a-z_]+", contract)) & macros
     assert not named, named
     table = contract[contract.index("**Procedures**"):].split("procedure set is the ATOMS")[0]
@@ -150,6 +147,12 @@ def test_every_arm_has_the_atoms_and_a_short_contract(tmp_path: Path, name: str,
     assert ("your own procedure" in contract) == (name == "mfm")
     assert (ws / "references").is_dir() == (mode not in ("direct", "vista"))
     assert ("references/" in contract) == (mode not in ("direct", "vista"))
+    # what describes the atoms and the screens names no procedure outside the atoms
+    for ref in ("procedures.md", "gui.md"):
+        if (ws / "references" / ref).exists():
+            text = (ws / "references" / ref).read_text()
+            for gone in ("aim_at_ore", "cursor_to", "use_until_gui", "face_entity"):
+                assert not re.search(rf"\b{gone}\b(?!_)", text), (ref, gone)
     # the runner guards no arm, and says so; the reflexes are the self-writing arm's
     assert agent.reflexes is False
     assert "The runner does not guard you in this run" in contract

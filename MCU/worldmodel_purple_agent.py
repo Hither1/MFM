@@ -445,7 +445,7 @@ def main() -> None:
                              "an append-only logs.txt the model greps), vista (VISTA: one "
                              "thread calling `play`, the frame archive behind `inspect`, "
                              "GUIDE.md/WORKING.md), mfm-matched (Multimodal Filesystem "
-                             "Memory on the baselines' contract, procedures and guards) or "
+                             "Memory on the baselines' contract) or "
                              "mfm (the same memory; the agent writes its own procedures "
                              "and reflexes). Settings: mcu_worldmodel/arms.py")
     parser.add_argument("--task", type=str, default="mine_diamond_from_scratch",

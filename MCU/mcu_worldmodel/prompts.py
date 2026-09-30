@@ -60,9 +60,8 @@ way a human does it -- a screen, a cursor, clicks -- and the harness does that f
 - `place_and_open(item="crafting_table")` (or `"furnace"`) puts the carried block on the
   ground one block ahead and opens its screen, moving it into the hotbar first when
   needed. Face flat ground with no screen open. To reopen a block placed earlier:
-  `look_at(its coordinates)` then `use_until_gui` (or `use_until_gui(item="crafting_table")`,
-  which aims at where place_and_open put it), with a NON-placeable item selected
-  (your pickaxe) -- right-clicking with a block in hand places the block instead.
+  `use_at(its coordinates)` with a NON-placeable item selected (your pickaxe) --
+  right-clicking with a block in hand places the block instead.
 - `furnace_load(item="iron_ore", n=0, fuel="auto")` fills the open furnace (n=0 = the
   whole stack; auto fuel = coal > charcoal > planks > logs > sticks) and does NOT wait;
   `furnace_take()` collects the output once ~200 ticks per item have passed, and refuses
@@ -178,7 +177,7 @@ SKILLS_SECTION = """\
   To FILL an empty bucket, call `fill_bucket()` at the shore: it holds the bucket and sweeps the crosshair over the ground ahead, tapping use until the inventory shows a water_bucket -- no cell or face to guess (use_at(bucket) needs the exact source block).
   When the water is across a clearing or behind trees, `fetch_water()` does the whole trip: it finds the blue in view (or looks around 12 headings), walks to the shore breaking the leaves in the way, and runs the sweep there -- go_to stops at the first obstacle and fill_bucket only reaches 4 blocks.
 - **Containers**: a chest, barrel, furnace, brewing stand, enchanting table, stonecutter or
-  crafting table opens with `look_at(its block centre)` + `use_until_gui`, holding a NON-
+  crafting table opens with `use_at(its coordinates)`, holding a NON-
   placeable item; [GRID] then reads what its cells hold, and the one-call macros in the list
   above do the clicking: `craft`, `furnace_load` / `furnace_take`, `container_take` /
   `container_put` (chests, barrels), `brew` / `brew_take` (a brewing stand: water bottles +
@@ -230,7 +229,7 @@ _CHAIN_SECTION = """\
 - **3x3 recipes** (pickaxes, swords, furnace, bucket) need a crafting table's screen:
   `place_and_open(item="crafting_table")`, then `craft(...)`. Write the table's
   coordinates into your spatial model (it stands one block ahead of where you placed
-  it, at your feet level) so it can be reopened later with `look_at` + `use_until_gui`
+  it, at your feet level) so it can be reopened later with `use_at`
   with the pickaxe selected -- a previous run spent 1,500 steps in front of its own
   table right-clicking with the table still in hand.
 - **`mine_cobblestone` counts breaking a COBBLESTONE block, not natural stone.** Natural
@@ -295,7 +294,7 @@ _CHAIN_SECTION = """\
   blocker for the descent, the same way "no pickaxe" blocks mining.{strategy_bullets}
 - **Smelting**: `place_and_open(item="furnace")` at the mine face, `furnace_load(
   item="iron_ore")` (the whole stack, auto fuel), `close_inventory`, keep mining, and on
-  the next pass `look_at` the furnace + `use_until_gui` + `furnace_take(item=
+  the next pass `use_at` the furnace + `furnace_take(item=
   "iron_ingot")`. Smelting runs with the screen open or closed, ~200 ticks per item.
   The `pickup` event for the ingot is what the milestone counts -- take the output.
 - **After the iron pickaxe** the chain is diamond -> obsidian -> a lit portal -> the
@@ -397,7 +396,7 @@ _PROC_NOTE_EXAMPLE = """\
     Preconditions: 3+ iron_ore, 8 cobblestone, 4 planks, 2 sticks; stone pickaxe held.
     1. place_and_open(item="furnace"), furnace_load(item="iron_ore") -> [NOTE] "3 in
        the smelt cell, 2 planks in the fuel cell"; close_inventory; strip_mine 600 ticks
-    2. look_at(furnace x+0.5, y+0.5, z+0.5), use_until_gui, furnace_take(item="iron_ingot")
+    2. use_at(furnace x, y, z), furnace_take(item="iron_ingot")
     3. place_and_open(item="crafting_table"), craft(item="iron_pickaxe"), close_inventory
     Failure seen: place_and_open on a slope put the table out of reach -- flat ground first."""
 

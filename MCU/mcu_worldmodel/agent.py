@@ -1542,7 +1542,7 @@ class WorldModelAgent:
                 f"cursor move to {sv['label']}: the screen closed mid-move; stopped. "
                 f"If you did not close it, the game did: container screens auto-close "
                 f"when you drift out of reach (~5 blocks). Stand ADJACENT to the block, "
-                f"then look_at + use_until_gui again. If the cursor was carrying an "
+                f"then use_at it again. If the cursor was carrying an "
                 f"item, it dropped at your feet -- a follow-up [NOTE] will name "
                 f"anything that went missing.", "gui_closed_flush")
             return None
@@ -1588,8 +1588,8 @@ class WorldModelAgent:
                     f"gui_{'right_' if ck['btn'] == 'use' else ''}click: the screen is "
                     f"closed; not clicking. If you did not close it, the game did: "
                     f"container screens auto-close when you drift out of reach "
-                    f"(~5 blocks). Stand ADJACENT to the block, then look_at + "
-                    f"use_until_gui again.", "gui_closed_flush")
+                    f"(~5 blocks). Stand ADJACENT to the block, then use_at it "
+                    f"again.", "gui_closed_flush")
                 return None
             if self._servo_landed is not None and self.cursor.pos is not None:
                 px, py = self.cursor.pos
@@ -4192,7 +4192,7 @@ class WorldModelAgent:
                 if rt:
                     return (f"The map: your {item} is {xz_dist(hc, tuple(cell)):.0f} blocks "
                             f"away with a walked route of {len(rt)} cells -- "
-                            f"`use_until_gui(item=\"{item}\")` replays the pose that opened it.")
+                            f"`use_at` on its cell opens it.")
         far = None
         for c in self.grid.walked:
             d = xz_dist(hc, c)
