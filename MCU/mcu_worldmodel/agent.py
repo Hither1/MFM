@@ -1764,9 +1764,19 @@ class WorldModelAgent:
         probe needed two), and a plan that believed the screen shut then
         walked away with a stack still on the cursor. `force` arms the guard for every
         press of this close, so a swallowed first press does not turn the second into
-        a refusal."""
+        a refusal.
+
+        One observation without a screen is not a close either: an E sent the tick
+        after `place_and_open` brought the table up read closed for one observation
+        and the table was on screen again in the next. The close is done when two
+        observations running show no screen; a screen that is back is pressed again."""
         if not self._gui_open:
-            return None
+            if not cg.get("tries") or cg.get("shut"):
+                return None
+            cg["shut"] = True
+            return mk_act()
+        if cg.pop("shut", False):
+            cg["t"] = 0
         t = cg["t"]
         cg["t"] += 1
         if t % 3 == 0:

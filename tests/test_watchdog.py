@@ -181,3 +181,22 @@ def test_the_executor_builds_a_life_that_carries_an_earlier_one(tmp_path, arm):
     assert (root / "previous" / "index.jsonl").read_text().strip()
     ex._agent.start(info)
     assert (root / "AGENTS.md").exists()
+
+
+def test_a_close_is_two_observations_without_a_screen(tmp_path: Path):
+    """The screen that reads closed for one observation and is back in the next is
+    pressed again; the close ends on the second observation without a screen."""
+    from mcu_worldmodel.procedures import close_inventory
+    from test_pins_chassis import drive_chassis
+    agent, _ = drive_chassis(tmp_path, "logbook", steps=1)
+    agent.reflexes = False
+    mk_act = lambda **keys: dict(keys)
+    cg = close_inventory()[0]["_closegui"]
+    agent._gui_open = False
+    assert agent._closegui_tick(dict(cg), mk_act) is None          # nothing to close
+    seen = []
+    for gui_open in (True, False, True, False, False):
+        agent._gui_open = gui_open
+        seen.append(agent._closegui_tick(cg, mk_act))
+    assert seen == [{"inventory": 1}, {}, {"inventory": 1}, {}, None]
+    assert cg["tries"] == 2

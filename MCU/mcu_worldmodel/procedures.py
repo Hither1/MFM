@@ -445,10 +445,11 @@ def collect_drops(ticks: int = 48) -> list[dict[str, Any]]:
 
 
 def close_inventory(force: bool = False) -> list[dict[str, Any]]:
-    """Press E until no screen is open (closed loop on isGuiOpen; see
-    agent._closegui_tick), every press through the drop guard. `force` arms the
-    guard for the whole close, so a swallowed first press is retried, not refused."""
-    return [{"_closegui": {"attempts": 3, "t": 0, "force": bool(force)}, "_cost": 9}]
+    """Press E until no screen is open on two observations running (closed loop on
+    isGuiOpen; see agent._closegui_tick), every press through the drop guard. `force`
+    arms the guard for the whole close, so a swallowed first press is retried, not
+    refused."""
+    return [{"_closegui": {"attempts": 3, "t": 0, "force": bool(force)}, "_cost": 12}]
 
 
 def _grid_craft(recipe: list[tuple[int, str]], grid: str, take_out: bool
