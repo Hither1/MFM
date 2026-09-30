@@ -79,8 +79,8 @@ bash scripts/run-arm.sh --arm mfm_diamond_s0 --memory mfm \
 | method | `--memory direct` \| `logbook` \| `vista` \| `mfm` \| `mfm-matched` |
 | task | `--task mine_diamond_from_scratch` (12,000 steps) \| `ender_dragon` (36,000) \| `nether_portal` (6,000); `--steps` overrides |
 | seed | `--world-seed N`; without it the task's own world (0 for the diamond and the dragon, 42 for the portal) |
-| model | `--model gpt-6-astra` (default) \| `gpt-5.6-sol`; `--cli claude --model claude-opus-5` |
-| reasoning effort | `--effort high` (default) |
+| model | `--model gpt-6-astra` (default) \| `gpt-5.6-sol` \| `gpt-6.1-sol`; `--cli claude --model claude-opus-5` (the paper) \| `claude-opus-5-5` |
+| reasoning effort | `--effort high` (default) \| `xhigh` |
 | an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm and mfm-matched, repeatable), `--seed-log <logs.txt>` (logbook) |
 
 Every arm reads a short contract (12 to 18 KB) and acts through raw actions and the same
@@ -105,8 +105,21 @@ The result is `logs/<arm>_result.json`; the workspace, with the whole memory of 
 life, is `output/<arm>/episode_001/memory/`. The header of `scripts/run-arm.sh`
 documents every option and environment variable.
 
-<!-- TODO(authors): the three world seeds of Tables 2 and 4, and the lives carried into
-     the Ender Dragon runs. -->
+**Lives.** A life is one run of one budget. The Ender Dragon result of the paper
+(16/24) was reached by the second and third lives of one chain: each life started with
+the records of the lives before it (`--seed-memory`), on a 100,000-step budget under a
+13 to 14 hour wall clock; the first life of that chain, from nothing, reached 10/24. To
+run a chain, give each life the memory directory of the one before it:
+
+```bash
+bash scripts/run-arm.sh --arm dragon_l1 --memory mfm --task ender_dragon ...
+bash scripts/run-arm.sh --arm dragon_l2 --memory mfm --task ender_dragon \
+    --seed-memory output/dragon_l1/episode_001/memory ...
+bash scripts/run-arm.sh --arm dragon_l3 --memory mfm --task ender_dragon \
+    --seed-memory output/dragon_l2/episode_001/memory ...   # carries l1 and l2
+```
+
+<!-- TODO(authors): the three world seeds of Tables 2 and 4. -->
 
 ### KiCad
 
@@ -136,7 +149,30 @@ text a model is shown fails there.
 ## What the code does and does not reproduce
 
 `docs/PAPER_TO_CODE.md` maps each section of the paper to the code and lists the
-differences between the two. No experiment of the paper was re-run for this release.
+differences between the two.
+
+### Runs made on this release
+
+The `mfm` arm was run on this code (commit d186ac7) on the tasks' default worlds, one
+chain of lives per model and task, life 2 carrying life 1 and so on. Closed lives, as
+`total_score` (milestones), on 2026-10-01:
+
+| task, budget per life | model, effort | life 1 | life 2 | life 3 |
+|---|---|---|---|---|
+| Nether portal, 6,000 | gpt-6-astra high | 100 (2/2) | 100 | |
+| | claude-opus-5-5 high | 100 | 100 | |
+| | gpt-6.1-sol xhigh | 100 | 100 | |
+| Diamond, 12,000 | gpt-6-astra high | 90 (9/10) | 90 | 90 |
+| | claude-opus-5-5 high | 60 (6/10) | 80 (8/10) | |
+| Ender Dragon, 36,000 | gpt-6-astra high | 37.5 (9/24) | | |
+| | claude-opus-5-5 high | 54.17 (13/24) | 50 (12/24) | |
+
+The three gpt-6 diamond lives all banked the iron pickaxe by step 6,000 and none the
+diamond: two died in lava at the diamond level (the runner's lava stop is off for every
+arm), the third ran out of steps. The dragon chains, on 40,000-step lives from life 3
+on, and further Opus and gpt-6.1-sol chains were still running when this was written;
+the lives of the paper's own runs are on the dataset (`Ced-Collab/MCUData`,
+`carry-only-era/`).
 
 ## License
 

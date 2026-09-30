@@ -64,7 +64,7 @@ never edits those files and never rewrites the episodic record.
 | MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py` (`--memory mfm-matched` is the same memory without procedures of its own, see difference 2); `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
 | MFM (no cross-task memory), Table 3 | `--agent mfm` |
 | Table 5: the standing brief, the procedure set | every arm has the short contract and the 28 atoms (`SHARED` in `MCU/mcu_worldmodel/arms.py`, `procedures.ATOMS`); sizes in difference 2 |
-| Step budgets: Diamond 12,000, Ender Dragon 36,000 | defaults of `MCU/scripts/run-arm.sh` by task |
+| Step budgets: Diamond 12,000, Ender Dragon 36,000 | defaults of `MCU/scripts/run-arm.sh` by task. The recorded 16/24 dragon lives ran on 100,000-step budgets under a 13 to 14 h wall clock, as lives 2 and 3 of a chain (see difference 8) |
 | Seeds: the Minecraft world, the KiCad task order | `--world-seed` (`MCU/src/util.py` `load_world_spec`), `--task-order-seed` (`CUA-KiCad/gym_codex/run_eval.py`) |
 | Milestone scoring | the benchmark's own `MilestoneTrackerCallback`; the chassis keeps the same count in `MCU/mcu_worldmodel/milestones.py` |
 | Section 4.4, the Nether portal case study | task `nether_portal` (`MCU/MCU_benchmark/task_configs/tasks/nether_portal/`), host-side geometry ground truth in `MCU/mcu_worldmodel/portal.py`, `portal_probe.py`; read-out `MCU/scripts/portal_stats.py` |
@@ -113,3 +113,9 @@ never edits those files and never rewrites the episodic record.
    from lives recorded before the final contract; the mechanisms they show (frame
    lookup, then-now comparison, zoom) are the ones in this release, the contract text
    those lives read is not.
+8. **The dragon result is a chain of lives.** The paper's 16/24 is `of3r_mfm` (life 2)
+   and `of3m_mfm` (life 3) of one chain in one world, each seeded with the lives before
+   it, on 100,000-step budgets under a 13 to 14 hour wall clock (16/24 at 43,400 and
+   49,400 steps; 15 and 16 of the 24 by step 36,000). Life 1 of that chain reached
+   10/24. A single life on the 36,000-step default is a different protocol; the README
+   lists what such lives scored on this release.
