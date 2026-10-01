@@ -153,7 +153,7 @@ differences between the two.
 
 ### Runs made on this release
 
-The `mfm` arm was run on this code (commit d186ac7) on the tasks' default worlds, one
+The `mfm` arm was run on this code (commits d186ac7 to d9cf1a5) on the tasks' default worlds, one
 chain of lives per model and task, life 2 carrying life 1 and so on. Closed lives, as
 `total_score` (milestones), on 2026-10-01:
 
@@ -173,6 +173,13 @@ arm), the third ran out of steps. The dragon chains, on 40,000-step lives from l
 on, and further Opus and gpt-6.1-sol chains were still running when this was written;
 the lives of the paper's own runs are on the dataset (`Ced-Collab/MCUData`,
 `carry-only-era/`).
+
+Those lives ran with the earlier shipped examples: a `strip_segment` that never looked
+at the next column's floor, and a starter `lava_ahead` keyed on the plan entry, which
+inside any procedure of the model's own is the script's name, so it could not fire
+there. Commit 1d96da8 changed both (the strip looks at the floor before every step; a
+reflex sees the atom running, `atom`) and a scripted in-game check stopped the strip at
+a lava floor; chains started after it are named `pub3_*` in the task notes.
 
 ## License
 
