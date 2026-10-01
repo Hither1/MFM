@@ -145,3 +145,39 @@ def test_chassis_reflex_fires_and_a_broken_one_is_switched_off(tmp_path: Path):
     os.utime(d / "boom.py", None)
     agent._scan_own_reflexes()
     assert "boom" not in agent._own_reflex_off
+
+
+def test_reflex_state_names_the_atom_running_inside_an_own_procedure(tmp_path: Path):
+    """Inside one of the model's own procedures `entry` is the script's name; `atom` is
+    the built-in or raw step running now, found from the items still queued."""
+    from test_pins_chassis import drive_chassis
+
+    ws = tmp_path / "ws"
+    (ws / "mine" / "procedures").mkdir(parents=True)
+    (ws / "mine" / "reflexes").mkdir(parents=True)
+    (ws / "mine" / "procedures" / "lookwalk.py").write_text(
+        '"""lookwalk: look down, wait, walk."""\n'
+        'import json\n'
+        'print(json.dumps({"actions": [{"procedure": "look_abs", "args": {"pitch": 65, "ticks": 4}},'
+        ' {"procedure": "watch", "args": {"n": 4}}, {"action": {"forward": 1}, "repeat": 12}]}))\n')
+    (ws / "mine" / "reflexes" / "trace.py").write_text(
+        '"""trace: record entry and atom."""\n'
+        'import json, sys\ns = json.load(sys.stdin)\n'
+        'open("' + str(tmp_path / "trace.txt") + '", "a").write("%s %s %s\\n" % (s["step"], s["entry"], s["atom"]))\n')
+    script = [{"actions": {"actions": [{"procedure": "lookwalk", "args": {}}]},
+               "message": "[PLAN]\nlookwalk"}] + [
+        {"actions": {"actions": [{"action": {"attack": 1}, "repeat": 6}]},
+         "message": f"[PLAN]\nchop {i}"} for i in range(20)]
+    agent, _ = drive_chassis(tmp_path, "mfm", thin=True, own=True, atoms=True, own_reflexes=True,
+                             script=script, steps=48)
+    rows = [l.split() for l in (tmp_path / "trace.txt").read_text().splitlines()]
+    assert rows[0] == ["4", "lookwalk", "look_abs"], rows          # ticks 1-4: the look
+    assert any(e == "raw" and a == "raw" for _, e, a in rows), rows  # a plain plan: atom == entry
+    # the pairing parse_actions records: one item per marker, one per raw tick
+    from mcu_worldmodel.actions import parse_actions
+    text = ('{"actions": [{"procedure": "look_abs", "args": {"pitch": 65, "ticks": 4}}, '
+            '{"procedure": "watch", "args": {"n": 4}}, {"action": {"forward": 1}, "repeat": 12}]}')
+    plan = parse_actions('{"actions": [{"procedure": "lookwalk", "args": {}}]}',
+                         own_names={"lookwalk"}, own_expand=lambda n, a: (text, None))
+    assert plan.entries[0]["own"] is True and plan.entries[0]["atoms"] == [["look_abs", 1], ["watch", 1], ["raw", 12]]
+    assert plan.entries[0]["items"] == 14

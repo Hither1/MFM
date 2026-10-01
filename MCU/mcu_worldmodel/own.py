@@ -344,7 +344,8 @@ runs it every 4 ticks WHILE YOUR PLAN EXECUTES (never inside a screen, never whi
 runner's own escape is running), with the same STDIN state as a procedure plus
 `lava_frac` (the share of the lower view that is lava, 0-1), `health_prev` and
 `pos_prev` (4 ticks ago), `entry` (the plan entry running: a procedure name or "raw"),
-`queue_len` and `runner_reflex`. It prints NOTHING (or `{}`) to stay quiet, and to
+`atom` (inside one of your own procedures, the built-in or raw step it is running now;
+otherwise the same as `entry`), `queue_len` and `runner_reflex`. It prints NOTHING (or `{}`) to stay quiet, and to
 fire, ONE JSON object `{"stop": true, "note": "<why, one line>", "actions": [...]}`:
 `stop` drops the rest of your plan, `note` reaches your next turn as `[REFLEX <name>]
 ...`, `actions` (optional: built-in procedures and raw actions, at most 6 entries and

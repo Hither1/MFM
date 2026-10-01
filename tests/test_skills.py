@@ -165,3 +165,63 @@ def test_chassis_skills_and_no_harness_reflexes(tmp_path: Path):
     assert not any("`fell` -- fell:" in p for p in agent.codex.prompts)   # nothing installed: no reflex listed
     r = agent.report()
     assert r["skills"] is True and r["harness_reflexes"] is False and r["own"]["reflexes"] == 0   # nothing installed
+
+
+def test_strip_segment_looks_at_the_next_floor_before_every_step(tmp_path: Path):
+    """Two lives died in pools the camera had never looked at: the example strips look at the
+    opened column's floor (pitch 65) and hold a watch there, so a reflex samples that view,
+    before each forward step; shaft_down stops at y 13 by default."""
+    from mcu_worldmodel import skills
+
+    skills.write_skills(tmp_path)
+    sp = tmp_path / "skills" / "procedures" / "scripts"
+    rc, res, err = _run(sp / "strip_segment.py", dict(BASE, pos=dict(BASE["pos"], x=1.5, z=1.5)), ["--args", "{}"])
+    assert rc == 0, err
+    acts = res["actions"]
+    steps = [i for i, a in enumerate(acts) if a.get("action") == {"forward": 1}]
+    assert len(steps) == 4
+    for i in steps:
+        assert acts[i - 1] == {"procedure": "watch", "args": {"n": 4}}
+        assert acts[i - 2]["procedure"] == "look_abs" and acts[i - 2]["args"]["pitch"] == 65
+    rc, res, err = _run(sp / "shaft_down.py", dict(BASE, pos=dict(BASE["pos"], x=1.5, z=1.5)), ["--args", "{}"])
+    assert rc == 0, err
+    mine = next(a for a in res["actions"] if a.get("procedure") == "mine_ahead")
+    assert mine["args"]["n"] == min(370, (60 - 13) * 15, (60 - 12) * 12)          # diamond pickaxe: 15 planned, 12 soft
+    rc, _, err = _run(sp / "shaft_down.py", dict(BASE, pos=dict(BASE["pos"], x=1.5, z=1.5, y=13.0)), ["--args", "{}"])
+    assert rc != 0 and "at or below the target y 13" in err
+
+
+def test_lava_reflex_stops_at_a_look_and_climbs_out_of_lava(tmp_path: Path):
+    from mcu_worldmodel import skills
+
+    skills.write_skills(tmp_path)
+    rx = tmp_path / "skills" / "reflexes" / "scripts"
+    deep = dict(BASE, pos=dict(BASE["pos"], y=13.0), pos_prev=dict(BASE["pos_prev"], y=13.0))
+    # a look or a watch that shows lava: stop, no step back (nothing moved)
+    rc, res, _ = _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="watch", pos_prev=dict(deep["pos"])))
+    assert res["stop"] is True and "actions" not in res and "at a watch" in res["note"]
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="look_abs", pos_prev=dict(deep["pos"])))[1] is not None
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.01, entry="watch", pos_prev=dict(deep["pos"])))[1] is None
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="place_at", pos_prev=dict(deep["pos"])))[1] is None
+    # a watch with nothing queued after it (the model looking at the pool on purpose): quiet
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="watch", queue_len=1, pos_prev=dict(deep["pos"])))[1] is None
+    # inside an own procedure the atom decides, not the script's name
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="strip_segment", atom="look_abs", pos_prev=dict(deep["pos"])))[1] is not None
+    assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.05, entry="strip_segment", pos_prev=dict(deep["pos"])))[1] is None
+    # in the lava (burning, between block levels): climb, placing the carried cobblestone
+    inlava = dict(deep, lava_frac=0.4, health=12.0, health_prev=16.0, entry="raw",
+                  pos=dict(deep["pos"], y=9.6), hotbar=BASE["hotbar"] + [{"slot": 4, "item": "cobblestone", "n": 20}])
+    rc, res, _ = _run(rx / "lava_ahead.py", inlava)
+    assert res["stop"] is True and res["note"].startswith("IN LAVA at (1, 9.6, 1)")
+    # a flow at feet level over stone: y is integral and the climb is the same
+    rc, res2, _ = _run(rx / "lava_ahead.py", dict(inlava, pos=dict(inlava["pos"], y=12.0)))
+    assert res2["stop"] is True and res2["actions"] == res["actions"], res2
+    assert res["actions"] == [{"procedure": "equip_hotbar", "args": {"slot": 5}},
+                              {"action": {"back": 1, "jump": 1, "use": 1}, "repeat": 10}]
+    rc, res, _ = _run(rx / "lava_ahead.py", dict(inlava, hotbar=BASE["hotbar"]))
+    assert res["actions"] == [{"action": {"back": 1, "jump": 1}, "repeat": 10}]
+    # hit with a block carried: pillar up; without one, the note alone
+    rc, res, _ = _run(rx / "hit.py", dict(BASE, health=11.0, hotbar=BASE["hotbar"] + [{"slot": 4, "item": "dirt", "n": 3}]))
+    assert res["stop"] is True and res["actions"] == [{"procedure": "pillar_up", "args": {"n": 2}}] and "pillared up" in res["note"]
+    rc, res, _ = _run(rx / "hit.py", dict(BASE, health=11.0))
+    assert res["stop"] is True and "actions" not in res

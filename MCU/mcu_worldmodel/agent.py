@@ -4306,6 +4306,19 @@ class WorldModelAgent:
         entry = (self._plan_entries[idx]
                  if idx is not None and 0 <= idx < len(self._plan_entries) else None)
         st["entry"] = (entry.get("procedure", "raw") if isinstance(entry, dict) else None)
+        # Inside one of the model's own procedures the entry is the script's name; the
+        # atom it is running now is found from how many of its items are still queued
+        # (the scripted strip of one check walked into a lava floor with its lava
+        # reflex keyed on `entry`, which never read "watch" or "look_abs" there).
+        st["atom"] = st["entry"]
+        if isinstance(entry, dict) and entry.get("atoms"):
+            left = sum(1 for _, j in self.queue if j == idx)
+            done = max(0, int(entry.get("items", 0)) - left)
+            for atom, items in entry["atoms"]:
+                if done < int(items):
+                    st["atom"] = atom
+                    break
+                done -= int(items)
         st["queue_len"] = len(self.queue)
         st["runner_reflex"] = self._reflex.get("kind", "turn") if self._reflex else None
         return st

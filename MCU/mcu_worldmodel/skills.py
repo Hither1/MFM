@@ -24,9 +24,9 @@ and, as EXAMPLES under `skills/reflexes/scripts/` (nothing is installed under
 `mine/reflexes/`: the model copies what it wants, edits it, and a leading
 underscore in the file name keeps a copied script off):
 
-    lava_ahead.py   lava in the lower view while a walk or a dig moves you: stop, step back
+    lava_ahead.py   lava in the lower view while a walk or a dig moves you, or at a look: stop; in it, climb out
     fell.py         2+ blocks down within four ticks (a free fall): stop, look before moving
-    hit.py          3+ health lost with no lava in view: a mob -- stop, the plan is yours
+    hit.py          3+ health lost with no lava in view: a mob -- stop, pillar up 2 with a block carried
     starving.py     the food bar below 18 (no natural healing): eats what you carry, else a note
 
 With `--no-harness-reflexes` the runner's own guards, escapes, governor and nudges are off
@@ -41,28 +41,52 @@ SKILLS_DIR = Path("skills")
 # -- the reflex examples (skills/reflexes/scripts/; the model copies them into mine/reflexes/) --
 
 STARTER_REFLEXES: dict[str, str] = {
-    "lava_ahead.py": '''"""lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you -- stop, step back."""
+    "lava_ahead.py": '''"""lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you, or at a look -- stop; in it, climb out."""
 # Example reflex (harness-written, yours to edit or retire): the runs that died in lava
 # were all MOVING toward it -- a go_to, a mine_ahead, a raw walk -- with the orange already
-# in the frame. Standing at a pool on purpose (fill_bucket, use_held, place_at, watch) is
-# not a walk, so those entries are exempt. A walk covers ~0.9 blocks between two samples,
-# so the threshold is low where lava is close (underground, the Nether): a pool three
-# blocks ahead reads 2-3% of the lower view; the surface threshold is higher so a distant
-# lake does not stop every walk. Fire (flames on the screen after a burn) reads as lava
-# too: leave the lava first, then this quiets.
+# in the frame, or stepped into a pool the camera had never looked at (a tunnel whose
+# floor was missing). Three cases:
+#   moving with lava in view        -> stop, step back 6 ticks
+#   a look_abs/watch shows lava     -> stop, no step: the plan was about to walk there
+#                                      (strip_segment looks at the next floor before each
+#                                      step); a look with nothing queued after it is quiet
+#   in the lava (losing health with -> stop and climb: back and jump; place a block under
+#   the screen orange)                 you if you carry one
+# Standing at a pool on purpose (fill_bucket, use_held, place_at) is exempt. A walk covers
+# ~0.9 blocks between two samples, so the threshold is low where lava is close (underground,
+# the Nether): a pool three blocks ahead reads 2-3% of the lower view; the surface threshold
+# is higher so a distant lake does not stop every walk. Fire (flames on the screen after a
+# burn) reads as lava too: leave the lava first, then this quiets.
 import json, math, sys
 s = json.load(sys.stdin)
 MOVING = {"go_to", "mine_ahead", "collect_drops", "raw"}
+LOOKING = {"look_abs", "look", "look_at", "watch"}
 p, q = s.get("pos"), s.get("pos_prev")
 moved = math.hypot(p["x"] - q["x"], p["z"] - q["z"]) if p and q else 0.0
 deep = bool(p) and (p["y"] < 40.0 or s.get("dimension") == "the Nether")
 thr = 0.015 if deep else 0.04
-if s["lava_frac"] >= thr and s.get("entry") in MOVING and (moved >= 0.1 or s.get("entry") == "mine_ahead"):
+frac, entry = s["lava_frac"], s.get("atom") or s.get("entry")      # the atom inside an own procedure
+burning = s.get("health", 20) < s.get("health_prev", 20) and frac >= 0.2
+if burning and p and not s.get("gui_open"):
+    block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
+    acts = ([{"procedure": "equip_hotbar", "args": {"slot": int(block["slot"]) + 1}}] if block else []) + \
+           [{"action": {"back": 1, "jump": 1, **({"use": 1} if block else {})}, "repeat": 10}]
+    print(json.dumps({"stop": True,
+                      "note": "IN LAVA at (%.0f, %.1f, %.0f), health %.0f: climbing out -- back and jump%s. "
+                              "Then seal the pool with blocks before any step toward it"
+                              % (p["x"], p["y"], p["z"], s.get("health", 0), " placing %s under you" % block["item"] if block else ""),
+                      "actions": acts}))
+elif frac >= thr and entry in MOVING and (moved >= 0.1 or entry == "mine_ahead"):
     print(json.dumps({"stop": True,
                       "note": "lava fills %d%% of the lower view during %s -- stepped back 6 ticks; "
                               "seal the flow with a block or go around, never through"
-                              % (round(100 * s["lava_frac"]), s["entry"]),
+                              % (round(100 * frac), entry),
                       "actions": [{"action": {"back": 1}, "repeat": 6}]}))
+elif frac >= thr and entry in LOOKING and s.get("queue_len", 0) > 1:      # something queued after the look
+    print(json.dumps({"stop": True,
+                      "note": "lava fills %d%% of the lower view at a %s -- the plan was about to step there; "
+                              "stopped before the step. Seal it (place_at cobblestone on the lava) or turn"
+                              % (round(100 * frac), entry)}))
 ''',
     "fell.py": '''"""fell: 2+ blocks down within four ticks (a free fall of 3+) -- a drop the plan did not see; stop and look."""
 # Example reflex: a hole under a walk, a ledge, a shaft. The plan that fell is wrong
@@ -84,14 +108,20 @@ if p and q and q["y"] - p["y"] >= 2.0:
 # A plan standing still under hits (a dig, a sweep, a click) is how most deaths began.
 # The stop hands you the turn at zero game-clock cost: wall the tunnel (place_at), pillar
 # up two blocks (pillar_up), or fight with the sword selected -- your call, made now.
+# With a block in the hotbar it pillars up two blocks at once (pillar_up, an atom): most
+# mobs cannot reach you there, and the turn is yours to wall off or fight.
 import json, sys
 s = json.load(sys.stdin)
 lost = s.get("health_prev", s["health"]) - s["health"]
 if lost >= 3.0 and s["lava_frac"] < 0.01:
+    block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
+    pillar = bool(block) and not s.get("gui_open") and (s.get("atom") or s.get("entry")) != "pillar_up"
     print(json.dumps({"stop": True,
                       "note": "took %.0f damage (health %.0f/20) with no lava in view: a mob is at you. "
-                              "Do not keep digging or clicking -- wall off, pillar up, or fight now"
-                              % (lost, s["health"])}))
+                              "Do not keep digging or clicking -- %s"
+                              % (lost, s["health"], "pillared up 2 blocks; wall off or fight from there" if pillar
+                                 else "wall off, pillar up, or fight now"),
+                      **({"actions": [{"procedure": "pillar_up", "args": {"n": 2}}]} if pillar else {})}))
 ''',
     "starving.py": '''"""starving: the food bar below 18 -- no natural healing from here; eats what you carry, else a note."""
 # Example reflex: health regenerates only with the food bar at 18+, and this engine drains
@@ -109,11 +139,11 @@ FOODS = ("cooked_beef", "cooked_porkchop", "cooked_mutton", "cooked_chicken", "s
          "potato", "beetroot", "sweet_berries")
 inv = s.get("inventory") or {}
 food = next((k for k in FOODS if inv.get(k, 0) > 0), None)
-if f < 18 and f < fp and food and not s.get("gui_open") and s.get("entry") != "eat":
+if f < 18 and f < fp and food and not s.get("gui_open") and (s.get("atom") or s.get("entry")) != "eat":
     print(json.dumps({"actions": [{"procedure": "eat", "args": {"item": food}}],
                       "note": "food %.0f/20 with %s carried: eating (no natural healing below 18)"
                               % (f, food)}))
-elif f < 18 and fp >= 18 and s.get("entry") != "eat":
+elif f < 18 and fp >= 18 and (s.get("atom") or s.get("entry")) != "eat":
     print(json.dumps({"note": ("food %.0f/20: no natural healing from here; eat the %s once the GUI is closed"
                                % (f, food)) if food else
                               ("food %.0f/20 and nothing to eat: no natural healing from here. "
@@ -191,7 +221,7 @@ plan = [{"procedure": "equip_hotbar", "args": {"slot": int(slot)}},
         {"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 8}}]
 print(json.dumps({"actions": plan}))
 ''',
-    "shaft_down.py": '''"""shaft_down: dig straight down toward a target y (default 12), one call of up to ~370 ticks -- the dig_down recipe, from atoms."""
+    "shaft_down.py": '''"""shaft_down: dig straight down toward a target y (default 13), one call of up to ~370 ticks -- the dig_down recipe, from atoms."""
 # Example procedure (harness-written; copy it to mine/procedures/ and make it yours).
 # Why it exists: a hand-built staircase costs ~80 ticks per level of depth -- two lives on
 # this chassis spent 3,500-4,000 steps going from y 66 to y 23 that way and
@@ -202,13 +232,14 @@ print(json.dumps({"actions": plan}))
 # mine_ahead does not stop on y, so the tick count is computed here from the depth still to
 # go and the pickaxe. Ores and granite take longer (you stop short: call again); dirt and
 # gravel are a little quicker (you run slightly ahead) -- so the count is also capped so that
-# even all-soft blocks cannot take you below y 11. Lava lakes sit at y <= 10.
+# even all-soft blocks cannot take you below y 12. Lava lakes sit at y <= 10: standing at
+# y 13 keeps two blocks of stone between your floor and a lake, y 12 keeps one.
 # ore_watch=True: the wall watcher samples the view (here, the shaft walls and floor) and
 # stops the dig on speckles, exactly as it samples a raw attack hold. Your lava_ahead and fell reflexes, if installed, stop it on lava in the
 # lower view or a real drop. The way back up is pillar_up(n) with the cobblestone the shaft
 # gave you; the shaft itself cannot be walked up.
 import json, math, sys
-PARAMS = {"target_y": "depth to stop at (default 12; never below 12)",
+PARAMS = {"target_y": "depth to stop at (default 13; never below 12)",
           "pick": "hotbar slot 1-9 holding the pickaxe (default: the best pickaxe in the hotbar)"}
 # ticks per level with each pickaxe: (planned on stone, fastest on soft blocks)
 SPEED = {"diamond_pickaxe": (15, 12), "iron_pickaxe": (18, 15),
@@ -227,7 +258,7 @@ if not (0.29 <= fx <= 0.71 and 0.29 <= fz <= 0.71):
                      "your centre would break and leave you standing on its neighbour. Get inside one "
                      "block first -- walk into a wall for 4 ticks (it stops you 0.3 from its face), then "
                      "strafe into the side wall the same way" % (fx, fz))
-target = max(12, int(args.get("target_y", 12)))
+target = max(12, int(args.get("target_y", 13)))
 y = int(round(p["y"]))
 if y <= target:
     raise SystemExit("already at y %d, at or below the target y %d -- mine level from here" % (y, target))
@@ -238,7 +269,7 @@ if not picks:
     raise SystemExit("no pickaxe in the hotbar" + (" at slot %s" % args["pick"] if args.get("pick") else ""))
 best = min(picks, key=lambda h: SPEED[h["item"]][0])
 plan_tpb, soft_tpb = SPEED[best["item"]]
-ticks = min(MINE_CAP, (y - target) * plan_tpb, (y - 11) * soft_tpb)
+ticks = min(MINE_CAP, (y - target) * plan_tpb, (y - 12) * soft_tpb)
 plan = [{"procedure": "equip_hotbar", "args": {"slot": int(best["slot"]) + 1}},
         {"procedure": "look_abs", "args": {"pitch": 88, "yaw": None, "ticks": 8}},
         {"procedure": "mine_ahead", "args": {"n": int(ticks), "ore_watch": True}},
@@ -250,11 +281,15 @@ print(json.dumps({"actions": plan}))
 # Why it exists: the tunnels the last lives wrote cost ~85 ticks per block of advance and
 # spent all of a 45-tick mine_ahead on blocks that break in 15. This one costs ~45 ticks a
 # block with an iron pickaxe, ~52 with stone: per block, aim at the head block and hold
-# attack 30 (cut at the break), aim at the foot block and hold attack 30, walk 6 ticks into
-# the new column (the next face stops you 0.3 from itself, which is the stance the aims
-# assume). Every hold is watched for ore speckles; a sighting drops the rest of the plan
-# with a [NOTE] -- convert it, then call again.
-# Mine at y 11 or 12: lava lakes sit at y <= 10, and this never touches the floor. light=true
+# attack 30 (cut at the break), aim at the foot block and hold attack 30, look at the floor
+# of the opened column for 4 ticks (pitch 65: the one look that shows a missing floor, a
+# pool below it, or lava in the cell -- your lava_ahead and fell reflexes stop the plan
+# there, BEFORE the step; two lives walked into pools the camera had never looked at),
+# then walk 6 ticks into the new column (the next face stops you 0.3 from itself, which is
+# the stance the aims assume). Every hold is watched for ore speckles; a sighting drops the
+# rest of the plan with a [NOTE] -- convert it, then call again.
+# Mine at y 12 or 13: lava lakes sit at y <= 10, this never touches the floor, and at y 13
+# two blocks of stone separate your floor from a lake. light=true
 # puts a torch on the LEFT wall first (torch_wall's geometry); every other call keeps a
 # tunnel lit. Two 40-block strips with no sighting = a cold site: 3 blocks sideways, strip
 # back parallel -- the area of NEW wall is what finds ore.
@@ -300,6 +335,8 @@ for _ in range(blocks):
              {"action": {"attack": 1}, "repeat": 30},
              {"procedure": "look_abs", "args": {"pitch": 48, "yaw": yaw, "ticks": 6}},
              {"action": {"attack": 1}, "repeat": 30},
+             {"procedure": "look_abs", "args": {"pitch": 65, "yaw": yaw, "ticks": 4}},
+             {"procedure": "watch", "args": {"n": 4}},
              {"action": {"forward": 1}, "repeat": 6}]
 plan.append({"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 6}})
 print(json.dumps({"actions": plan}))
@@ -641,9 +678,9 @@ this action set:
   the furnace, 4 logs -> 4 charcoal (~800 ticks: mine stone while it cooks) -> 16
   torches. One life went down with 2 torches and spent 1,400 steps walking back to
   move its last one forward. Break and carry the table and the furnace.
-- **by 3,500**: at y 12 by shaft (shaft_down, three calls). Not a staircase: 80 ticks
+- **by 3,500**: at y 13 by shaft (shaft_down, three calls). Not a staircase: 80 ticks
   a level, 3,500-4,000 steps a life.
-- **3,500 to the end**: lit strips at y 11-12 (strip_segment, light=true every other
+- **3,500 to the end**: lit strips at y 12-13 (strip_segment, light=true every other
   call). Iron ore is in the same walls: 3 ore -> a furnace placed in the tunnel, smelt
   while you keep mining -> the iron pickaxe (the diamond needs it). Two 40-block strips
   with no sighting: move 3 blocks sideways and strip back parallel. The life that found

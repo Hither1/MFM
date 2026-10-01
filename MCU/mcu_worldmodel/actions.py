@@ -228,8 +228,15 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                     notes.append(f"{name}: its plan had nothing to run")
                     continue
                 cost = sum(max(0, int(x.get("_cost", 1))) for x in sub.steps)
+                # `atoms`: the built-ins the script's plan ran, in order, with their
+                # queue items -- what lets a reflex see the atom running INSIDE the
+                # call (agent._own_reflex_state), not just the script's name.
+                atoms = [[e.get("procedure", "raw"),
+                          e.get("items", e["steps"]) if "procedure" in e else e["repeat"]]
+                         for e in sub.entries]
                 kept.append({"procedure": name, "args": args, "steps": cost,
-                             "items": len(sub.steps), "own": True, **overrides})
+                             "items": len(sub.steps), "own": True, "atoms": atoms,
+                             **overrides})
                 steps.extend(sub.steps)
                 used += cost
                 continue
