@@ -47,7 +47,10 @@ never edits those files and never rewrites the episodic record.
 - Minecraft: the first turn of a life that carries earlier lives is a workshop turn: the
   model reads `previous/life_<i>/` and writes its guide before it plays
   (`skills/memory/SKILL.md`, from `MCU/mcu_worldmodel/skills.py`; the carry is
-  `MCU/mcu_worldmodel/previous.py`).
+  `MCU/mcu_worldmodel/previous.py`). The earlier lives' procedures are not installed:
+  the model copies the ones it keeps. The carry writes one table beside them,
+  `previous/scripts.md` (each earlier script's calls, guard refusals and last outcome,
+  counted from the carried index and log), so that choice is made on the record.
 - KiCad (`mfm-carry`): the finished tasks' records are linked under `previous/<task>/`,
   the model's `notes/` persists across tasks, the evaluator's score of each finished
   task is given in `previous/outcomes.md`, and the harness folds the carried index into

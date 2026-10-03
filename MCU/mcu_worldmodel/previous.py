@@ -15,6 +15,11 @@ What this does, and nothing more:
                                first, so a chain of relays keeps every generation.
     previous/index.jsonl       the earlier runs' episode indexes merged, paths rewritten
                                to previous/life_<i>/..., for ./tools/episodes.py --previous
+    previous/scripts.md        one table of the earlier runs' own scripts (mine/procedures,
+                               mine/reflexes): how often each was called or fired, how
+                               often its guard refused it, and its last outcome -- counted
+                               from the carried index and log, so the workshop turn copies
+                               what worked and not what has a name
 
 The contract says where the records are and what they hold, and reading them is the
 model's own act (`grep`, `./tools/episodes.py --previous`).
@@ -24,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -141,11 +147,87 @@ class PreviousLives:
             (self.dir / "index.jsonl").write_text(
                 "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
         self.rows = rows
+        table = scripts_table(self.lives)
+        if table:
+            (self.dir / "scripts.md").write_text(table, encoding="utf-8")
         logger.info(f"[previous] {len(self.lives)} live(s) carried ({self.linked} files "
                     f"linked, {len(rows)} indexed episodes)")
 
     def audit(self) -> dict[str, Any]:
         return {"lives": len(self.lives), "sources": self.sources, "files_linked": self.linked}
+
+
+_FAILED = re.compile(r"^\[NOTE\] (\w+) \(mine/(procedures|reflexes)/\w+\.py\) FAILED, nothing ran: (.*)$")
+_FIRED = re.compile(r"^\[NOTE\] \[REFLEX (\w+)\] (.*)$")
+
+
+def scripts_table(lives: list[Path]) -> str:
+    """The earlier lives' own scripts with their record: for a procedure, the calls
+    (index rows whose action kind is the script's name), the guard refusals (the
+    `FAILED, nothing ran` notes) and the last call's outcome; for a reflex, the firings
+    and the last note. Nothing is judged: the counts are the carried record, read once
+    so the workshop turn does not have to grep for them. Empty when no life wrote a
+    script."""
+    out: list[str] = []
+    for life in lives:
+        procs = sorted((life / "mine" / "procedures").glob("*.py"))
+        reflexes = sorted((life / "mine" / "reflexes").glob("*.py"))
+        if not procs and not reflexes:
+            continue
+        calls: dict[str, list[dict[str, Any]]] = {}
+        idx = life / "index.jsonl"
+        if idx.exists():
+            for line in idx.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if r.get("kind", "episode") == "episode" and r.get("action_kind"):
+                    calls.setdefault(str(r["action_kind"]), []).append(r)
+        failed: dict[str, list[str]] = {}
+        fired: dict[str, list[str]] = {}
+        log = life / "logs.txt"
+        if log.exists():
+            for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = _FAILED.match(line)
+                if m:
+                    failed.setdefault(m.group(1), []).append(m.group(3))
+                    continue
+                m = _FIRED.match(line)
+                if m:
+                    fired.setdefault(m.group(1), []).append(m.group(2))
+        out.append(f"## {life.name}\n")
+        if procs:
+            out.append("| procedure | calls | refused by its guard | last call |")
+            out.append("|---|---|---|---|")
+            for p in procs:
+                name = p.stem
+                rows = calls.get(name, [])
+                refusals = failed.get(name, [])
+                last = "never called"
+                if rows:
+                    r = rows[-1]
+                    summary = str(r.get("summary", "")).split(" -> ", 1)[-1]
+                    last = f"step {r.get('first_step', '?')}: {summary[:90]}"
+                if refusals:
+                    last += f"; last refusal: {refusals[-1][:70]}"
+                out.append(f"| `{name}` | {len(rows)} | {len(refusals)} | {last} |")
+            out.append("")
+        if reflexes:
+            out.append("| reflex | fired | last note |")
+            out.append("|---|---|---|")
+            for p in reflexes:
+                name = p.stem
+                notes = fired.get(name, [])
+                out.append(f"| `{name}` | {len(notes)} | {notes[-1][:100] if notes else '-'} |")
+            out.append("")
+    if not out:
+        return ""
+    head = ("# The earlier lives' scripts\n\nCounted from each life's index.jsonl and logs.txt: "
+            "calls are the episodes the script ran, a refusal is its own guard stopping it "
+            "(`FAILED, nothing ran`), a firing is the reflex's note. The scripts themselves are "
+            "under `previous/life_<i>/mine/`; copy the ones that worked under their own names.\n\n")
+    return head + "\n".join(out)
 
 
 #: `own` with previous lives: the guide is the model's own act (no harness digest of

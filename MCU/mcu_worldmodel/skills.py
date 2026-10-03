@@ -613,7 +613,9 @@ This file says what a good one looks like.
 kit (table, tools) -> iron (ore, furnace, ingots) -> a bucket and water -> lava ->
 obsidian -> the portal frame and the lighter -> the Nether -> blaze rods -> ender pearls
 -> eyes of ender -> the stronghold -> the End. Each arrow is a phase; a skill is ONE
-phase step, not one block and not the whole phase.
+phase step, not one block and not the whole phase. The first three diamonds are the
+PICKAXE, never the sword: the lake opens only to the pickaxe, and every life that made
+the sword first mined exactly two diamonds and never saw obsidian.
 
 ## The right grain
 
@@ -649,7 +651,9 @@ before you polish a staircase; those are the turns the budget rewards.
 Your earlier lives' scripts are under `previous/life_<i>/mine/procedures/`. Read their
 docstrings and notes in the workshop turn; copy the ones whose assumptions still hold
 into `mine/procedures/` UNDER THEIR OWN NAMES (they are not copied for you; every one of
-the last five lives rewrote its staircase step from scratch under a new name). A script that failed in an
+the last five lives rewrote its staircase step from scratch under a new name). `previous/scripts.md`
+counts, for every earlier script, its calls, its guard's refusals and its last outcome:
+copy by that record, not by the name. A script that failed in an
 earlier life has the failure in that life's notes -- fix the assumption, do not rerun it.
 
 ## Examples

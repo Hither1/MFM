@@ -153,30 +153,52 @@ differences between the two.
 
 ### Runs made on this release
 
-The `mfm` arm was run on this code (commits d186ac7 to d9cf1a5) on the tasks' default worlds, one
-chain of lives per model and task, life 2 carrying life 1 and so on. Closed lives, as
-`total_score` (milestones), on 2026-10-01:
+The `mfm` arm was run on this code on the tasks' default worlds, one chain of lives per
+model and task, life 2 carrying life 1 and so on. Closed lives, as `total_score`
+(milestones), 2026-09-30 to 2026-10-03; a life stopped before its budget is in
+parentheses with its last step. The "examples" column says which shipped examples the
+chain read: the ones before commit 1d96da8, 1d96da8's, or b98270f's (both described
+below).
 
-| task, budget per life | model, effort | life 1 | life 2 | life 3 |
-|---|---|---|---|---|
-| Nether portal, 6,000 | gpt-6-astra high | 100 (2/2) | 100 | |
-| | claude-opus-5-5 high | 100 | 100 | |
-| | gpt-6.1-sol xhigh | 100 | 100 | |
-| Diamond, 12,000 | gpt-6-astra high | 90 (9/10) | 90 | 90 |
-| | claude-opus-5-5 high | 60 (6/10) | 80 (8/10) | |
-| Ender Dragon, 36,000 | gpt-6-astra high | 37.5 (9/24) | | |
-| | claude-opus-5-5 high | 54.17 (13/24) | 50 (12/24) | |
+| task, budget per life | model, effort | examples | life 1 | life 2 | life 3 | life 4 | life 5 |
+|---|---|---|---|---|---|---|---|
+| Nether portal, 6,000 | gpt-6-astra high | before 1d96da8 | 100 (2/2) | 100 | | | |
+| | claude-opus-5-5 high | before 1d96da8 | 100 | 100 | | | |
+| | gpt-6.1-sol xhigh | before 1d96da8 | 100 | 100 | | | |
+| Diamond, 12,000 | gpt-6-astra high | before 1d96da8 | 90 (9/10) | 90 | 90 | | |
+| | claude-opus-5-5 high | before 1d96da8 | 60 (6/10) | 80 (8/10) | | | |
+| Diamond, 40,000 | claude-opus-5-5 high | 1d96da8 | 100 (10/10) | | | | |
+| | gpt-6.1-sol xhigh | 1d96da8 | (9/10 at 30,400) | | | | |
+| Ender Dragon, 36,000-40,000, then 40,000 | gpt-6-astra high | before 1d96da8 | 37.5 (9/24) | 37.5 (9/24) | 41.67 (10/24) | (10/24 at 32,800) | |
+| | claude-opus-5-5 high | before 1d96da8 | 54.17 (13/24) | 50 (12/24) | 54.17 (13/24) | 37.5 (9/24) | |
+| | claude-opus-5-5 xhigh | before 1d96da8 | 37.5 (9/24) | | | | |
+| | gpt-6.1-sol xhigh | before 1d96da8 | 50 (12/24) | (10/24 at 31,300) | | | |
+| Ender Dragon, 40,000, then 80,000 | gpt-6-astra high | 1d96da8 | 54.17 (13/24) | (14/24 at 42,900) | | | |
+| | claude-opus-5-5 high | 1d96da8; life 5 b98270f | (12/24 at 11,700) | (15/24 at 61,200) | 62.5 (15/24) | 58.33 (14/24) | 58.33 (14/24) |
+| | gpt-6.1-sol xhigh | 1d96da8 | 41.67 (10/24) | (13/24 at 30,100) | | | |
 
-The three gpt-6 diamond lives all banked the iron pickaxe by step 6,000 and none the
-diamond: two died in lava at the diamond level (the runner's lava stop is off for every
-arm), the third ran out of steps. The dragon chains, on 40,000-step lives from life 3
-on, and further Opus and gpt-6.1-sol chains were still running when this was written;
-the lives of the paper's own runs are on the dataset (`Ced-Collab/MCUData`,
-`carry-only-era/`).
+Two Opus lives ran on 1d96da8 and the paper's chain budget (80,000 steps) and closed at
+62.5 and 58.33; a fifth life on the same chain and b98270f's examples closed at 58.33.
+The 14/24 of the astra life stopped at 42,900 includes `netherrack`, which that life
+mined from a ruined portal at the surface of the default world: the milestone counts
+the item, not the Nether.
 
-Those lives ran with the earlier shipped examples: a `strip_segment` that never looked
-at the next column's floor, and a starter `lava_ahead` keyed on the plan entry, which
-inside any procedure of the model's own is the script's name, so it could not fire
+The three gpt-6 diamond lives on the 12,000-step budget all banked the iron pickaxe by
+step 6,000 and none the diamond: two died in lava at the diamond level (the runner's
+lava stop is off for every arm), the third ran out of steps. The lives of the paper's
+own runs are on the dataset (`Ced-Collab/MCUData`, `carry-only-era/`).
+
+What the dragon lives died of, and where their steps went, is in the task notes
+(`tasks/.../analysis/final_analysis.md`): Opus reaches the diamond pickaxe in 5,600 to
+7,100 steps and the obsidian at 18,700 to 35,100, then dies at the lake or, at night,
+at the surface (33 deaths in four lives, 22 to mobs, 7 of them dropping the diamond
+pickaxe); gpt-6-astra spent its first two diamonds on the sword in every life and never
+held a pickaxe at the lake; of the five lives that held obsidian, one tried to build a
+portal. No life of this series entered the Nether.
+
+The first lives ran with the earlier shipped examples: a `strip_segment` that never
+looked at the next column's floor, and a starter `lava_ahead` keyed on the plan entry,
+which inside any procedure of the model's own is the script's name, so it could not fire
 there. Commit 1d96da8 changed both (the strip looks at the floor before every step; a
 reflex sees the atom running, `atom`) and a scripted in-game check stopped the strip at
 a lava floor; chains started after it are named `pub3_*` in the task notes.
@@ -191,7 +213,12 @@ the escape runs on lava's damage rate), gave reflexes `fire_frac` and `mainhand`
 straight overhead, and added the portal recipe and the lake rule to the shared text. The
 old and new reflex were replayed on the recorded episodes (16 -> 2 stops at the portal
 fire, 5 -> 5 at a lava lake) and the portal task still completes; chains started after
-it are `pub4_*`.
+it are `pub4_*`. The commit after it, from the deaths in the table above, added three
+sentences to the shared text (the first three diamonds are the pickaxe; after a death
+at night dig in before a step, and make the bed; never work from an open screen at the
+lake, where reflexes are quiet) and `previous/scripts.md`, the carried lives' scripts
+with their calls, refusals and last outcome, so a life copies what worked rather than
+what has a name. No chain has run on it.
 
 ## License
 

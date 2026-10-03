@@ -628,10 +628,20 @@ _SURVIVAL_OWN = """
   Before the lake, leave the spare diamonds, the flint and steel and any second pickaxe in
   a chest at the base: what you carry burns when you die there, and without a diamond
   pickaxe the chain is back at the diamonds. Where a sheet cannot be mined safely, water
-  poured onto a lava SOURCE casts obsidian in place. A bed (3 wool from sheep + 3 planks;
+  poured onto a lava SOURCE casts obsidian in place. Your reflexes are quiet while a
+  screen is open: at the lake never pour, craft or sort from the inventory screen -- a
+  life at 8 health did, took the lava's 4 with the screen up, and died pillaring at 4.
+  A bed (3 wool from sheep + 3 planks;
   `use_at` it at night) skips the night and moves your respawn to it -- set one by the
   work site before the lake and the portal, so a death costs a walk of ten blocks, not
-  two hundred, and the drops are still there."""
+  two hundred, and the drops are still there.
+- **A death at night is followed by another.** You respawn at the world spawn, at the
+  surface, with nothing, and what killed you is still out there: of 33 deaths in four
+  lives, 18 were at the surface and 22 were mobs, seven in a row in one night. After a
+  respawn in the dark, dig two blocks down where you stand (or wall yourself in with
+  anything) BEFORE a single step, and walk only in daylight; the drops wait ~6,000
+  ticks, the night is 12,000. The bed is the first thing to make once you have seen a
+  sheep -- no life of the record ever made one."""
 
 
 # The direct arm's contract: no memory of any kind -- no filesystem, no tools, no
