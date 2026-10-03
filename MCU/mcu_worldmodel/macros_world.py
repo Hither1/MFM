@@ -199,9 +199,9 @@ def new_use_state(target: tuple[int, int, int], item: str | None, face: str,
                   mode: str, hold: int, label: str, tol: float = AIM_TOL,
                   faces: list[str] | None = None) -> dict[str, Any]:
     return {"target": [int(v) for v in target], "item": item, "faces": faces,
-            "face": face, "mode": mode, "hold": max(1, int(hold)), "label": label,
-            "phase": "aim", "t": 0, "base_use": None, "base_inv": None, "tries": 0,
-            "gui0": None, "pos0": None, "tol": float(tol)}
+            "face": face, "asked": face, "mode": mode, "hold": max(1, int(hold)),
+            "label": label, "phase": "aim", "t": 0, "base_use": None, "base_inv": None,
+            "tries": 0, "gui0": None, "pos0": None, "tol": float(tol), "aim_off": None}
 
 
 def _use_gain(agent, st: dict[str, Any]) -> float:
@@ -268,6 +268,10 @@ def use_step(agent, st: dict[str, Any], mk_act) -> tuple[str, dict[str, Any] | N
         st["t"] += 1
         tol = float(st.get("tol", AIM_TOL))
         if (abs(dp) <= tol and abs(dy) <= tol) or st["t"] > AIM_TICKS + 6:
+            # A click before the aim settled lands on whatever the crosshair crossed;
+            # the note says so, with how far off it was.
+            st["aim_off"] = (None if abs(dp) <= tol and abs(dy) <= tol
+                             else round(max(abs(dp), abs(dy)), 1))
             st["phase"], st["t"] = "click", 0
             if st["base_use"] is None:
                 st["base_use"] = (agent.stat_now("use_item", st["item"]) if st["item"]
@@ -415,11 +419,21 @@ def _useat_tick(agent, st: dict[str, Any], mk_act):
         d = st.get("inv_delta") or {}
         dtxt = ", ".join(f"{k} {v:+d}" for k, v in sorted(d.items())) or "no inventory change"
         agent.cursor_stats["useat_ok"] = agent.cursor_stats.get("useat_ok", 0) + 1
+        # The verification is the use_item count: it proves a block went down, not
+        # that it went into the target. A fallback face or an unsettled aim is where
+        # the stray blocks of the recorded portal frames came from, so both are named.
+        doubt = ""
+        if st.get("asked") and st["face"] != st["asked"]:
+            doubt += (f"; NOT the {st['asked']} face you named -- the block may sit in a "
+                      f"neighbouring cell, look at {tuple(st['target'])} before building on it")
+        if st.get("aim_off"):
+            doubt += (f"; clicked {st['aim_off']:g} degrees off the aim -- "
+                      f"check which block took it")
         agent.memory.add_note(
             f"{st['label']}: {'placed' if st['mode'] == 'place' else 'used'} at "
             f"{tuple(st['target'])} ({st['face']} face) -- use_item +{st.get('gained', 0):g}, "
             f"{dtxt}" + (" (the tool took wear: it acted on the block)" if st.get("worn")
-                         else "") + ("; its screen is open" if opened else "") + ".")
+                         else "") + ("; its screen is open" if opened else "") + doubt + ".")
         return None
     agent._note_failure(st["label"].split("(")[0])
     agent._flush_tail(st.get("note", f"{st['label']} failed"), "useat_failed_flush")

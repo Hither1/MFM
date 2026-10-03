@@ -162,9 +162,18 @@ SKILLS_SECTION = """\
   Carpets, slabs, pressure plates, snow, flowers, saplings and seeds sit on a top face
   (the default). A door or a bed needs two free cells. A snow golem is two snow blocks
   stacked (`build_column(item="snow_block", height=2)`) with a carved pumpkin `place_at`
-  on top. A nether portal is an obsidian frame 4 wide x 5 high standing on the ground (10
-  obsidian without the corners: two columns of 3 above two floor blocks, two blocks across
-  the top) lit with `use_at(..., item="flint_and_steel")` on a floor block inside the frame.
+  on top. A nether portal is an obsidian frame 4 wide x 5 high standing on the ground: 10
+  obsidian without the corners (two floor blocks, a column of 3 on each side, two across
+  the top) around a 2 wide x 3 high inside that must stay AIR. Build it where you can step
+  back from it -- clear a room at least 4 wide, 6 high and 3 deep with a flat floor -- with
+  the 10 obsidian, a stack of cobblestone and the flint_and_steel in the hotbar; place the
+  two floor blocks, then each column, then the top two standing on a cobblestone step beside
+  a column, ONE `place_at` per cell, and after each read `[INV] obsidian -1` and look at the
+  cell: a block that went elsewhere is mined back (diamond pickaxe) before the next. Light
+  it from OUTSIDE with `use_at(<one of the two floor blocks>, item="flint_and_steel")`:
+  the fire lands on its top face, inside the frame, and turns purple when the frame is
+  right; orange flames that stay mean a wrong or missing cell (check all ten) or a block
+  inside. Walk into the purple and stand still about 100 ticks; a [NOTE] confirms the Nether.
 - **Using items on blocks**: `use_at(x, y, z, item)` -- a water_bucket / lava_bucket pours
   onto the clicked face, an empty bucket scoops a source block, flint_and_steel lights the
   top face, a hoe tills grass or dirt into farmland and seeds go onto the farmland, shears
@@ -611,7 +620,18 @@ _SURVIVAL_OWN = """
   into a hole; back away from orange and seal it with a block; break a skeleton's line
   of sight instead of charging it; in the Nether sneak, never sprint or jump while
   moving, dig the way down, bridge over lava. Verify ARRIVAL at a remembered place
-  against the live position readout before drawing conclusions about the site."""
+  against the live position readout before drawing conclusions about the site.
+- **Obsidian is lake work, and a death there costs the chain its tools.** Obsidian breaks
+  only under a DIAMOND pickaxe (any other tool breaks it with no drop) and lies where
+  water met lava, so the pool is beside every cell: a mined cell is a HOLE over it --
+  never step on or across one, fill it with cobblestone, and take the drop from the edge.
+  Before the lake, leave the spare diamonds, the flint and steel and any second pickaxe in
+  a chest at the base: what you carry burns when you die there, and without a diamond
+  pickaxe the chain is back at the diamonds. Where a sheet cannot be mined safely, water
+  poured onto a lava SOURCE casts obsidian in place. A bed (3 wool from sheep + 3 planks;
+  `use_at` it at night) skips the night and moves your respawn to it -- set one by the
+  work site before the lake and the portal, so a death costs a walk of ten blocks, not
+  two hundred, and the drops are still there."""
 
 
 # The direct arm's contract: no memory of any kind -- no filesystem, no tools, no

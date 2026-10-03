@@ -163,7 +163,8 @@ def test_reflex_state_names_the_atom_running_inside_an_own_procedure(tmp_path: P
     (ws / "mine" / "reflexes" / "trace.py").write_text(
         '"""trace: record entry and atom."""\n'
         'import json, sys\ns = json.load(sys.stdin)\n'
-        'open("' + str(tmp_path / "trace.txt") + '", "a").write("%s %s %s\\n" % (s["step"], s["entry"], s["atom"]))\n')
+        'open("' + str(tmp_path / "trace.txt") + '", "a").write("%s %s %s %s %s\\n" % '
+        '(s["step"], s["entry"], s["atom"], s["fire_frac"], "mainhand" in s))\n')
     script = [{"actions": {"actions": [{"procedure": "lookwalk", "args": {}}]},
                "message": "[PLAN]\nlookwalk"}] + [
         {"actions": {"actions": [{"action": {"attack": 1}, "repeat": 6}]},
@@ -171,8 +172,9 @@ def test_reflex_state_names_the_atom_running_inside_an_own_procedure(tmp_path: P
     agent, _ = drive_chassis(tmp_path, "mfm", thin=True, own=True, atoms=True, own_reflexes=True,
                              script=script, steps=48)
     rows = [l.split() for l in (tmp_path / "trace.txt").read_text().splitlines()]
-    assert rows[0] == ["4", "lookwalk", "look_abs"], rows          # ticks 1-4: the look
-    assert any(e == "raw" and a == "raw" for _, e, a in rows), rows  # a plain plan: atom == entry
+    assert rows[0][:3] == ["4", "lookwalk", "look_abs"], rows       # ticks 1-4: the look
+    assert float(rows[0][3]) >= 0.0 and rows[0][4] == "True", rows   # fire_frac and mainhand are in the state
+    assert any(r[1] == "raw" and r[2] == "raw" for r in rows), rows  # a plain plan: atom == entry
     # the pairing parse_actions records: one item per marker, one per raw tick
     from mcu_worldmodel.actions import parse_actions
     text = ('{"actions": [{"procedure": "look_abs", "args": {"pitch": 65, "ticks": 4}}, '

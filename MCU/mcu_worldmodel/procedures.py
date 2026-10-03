@@ -564,7 +564,10 @@ def look_at(info: dict[str, Any], x: float = 0.0, y: float = 0.0, z: float = 0.0
     horiz = math.hypot(dx, dz)
     if horiz < 1e-6 and abs(dy) < 1e-6:
         return [noop()], ""
-    yaw_target = math.degrees(math.atan2(-dx, dz))
+    # A cell straight overhead or underfoot has no heading of its own: the yaw from a
+    # few centimetres of offset is noise, and turning to it swings the crosshair off a
+    # block the pitch alone reaches. Keep the heading, move the pitch.
+    yaw_target = math.degrees(math.atan2(-dx, dz)) if horiz >= 0.3 else pos["yaw"]
     pitch_target = math.degrees(-math.atan2(dy, horiz)) if horiz > 1e-6 else (
         90.0 if dy < 0 else -90.0)
     dyaw = ((yaw_target - pos["yaw"] + 180.0) % 360.0) - 180.0

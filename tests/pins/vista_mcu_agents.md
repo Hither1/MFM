@@ -227,9 +227,18 @@ nothing drops the rest of the plan with a [NOTE] saying so.
   Carpets, slabs, pressure plates, snow, flowers, saplings and seeds sit on a top face
   (the default). A door or a bed needs two free cells. A snow golem is two snow blocks
   stacked (`build_column(item="snow_block", height=2)`) with a carved pumpkin `place_at`
-  on top. A nether portal is an obsidian frame 4 wide x 5 high standing on the ground (10
-  obsidian without the corners: two columns of 3 above two floor blocks, two blocks across
-  the top) lit with `use_at(..., item="flint_and_steel")` on a floor block inside the frame.
+  on top. A nether portal is an obsidian frame 4 wide x 5 high standing on the ground: 10
+  obsidian without the corners (two floor blocks, a column of 3 on each side, two across
+  the top) around a 2 wide x 3 high inside that must stay AIR. Build it where you can step
+  back from it -- clear a room at least 4 wide, 6 high and 3 deep with a flat floor -- with
+  the 10 obsidian, a stack of cobblestone and the flint_and_steel in the hotbar; place the
+  two floor blocks, then each column, then the top two standing on a cobblestone step beside
+  a column, ONE `place_at` per cell, and after each read `[INV] obsidian -1` and look at the
+  cell: a block that went elsewhere is mined back (diamond pickaxe) before the next. Light
+  it from OUTSIDE with `use_at(<one of the two floor blocks>, item="flint_and_steel")`:
+  the fire lands on its top face, inside the frame, and turns purple when the frame is
+  right; orange flames that stay mean a wrong or missing cell (check all ten) or a block
+  inside. Walk into the purple and stand still about 100 ticks; a [NOTE] confirms the Nether.
 - **Using items on blocks**: `use_at(x, y, z, item)` -- a water_bucket / lava_bucket pours
   onto the clicked face, an empty bucket scoops a source block, flint_and_steel lights the
   top face, a hoe tills grass or dirt into farmland and seeds go onto the farmland, shears

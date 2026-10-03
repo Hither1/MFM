@@ -41,7 +41,7 @@ SKILLS_DIR = Path("skills")
 # -- the reflex examples (skills/reflexes/scripts/; the model copies them into mine/reflexes/) --
 
 STARTER_REFLEXES: dict[str, str] = {
-    "lava_ahead.py": '''"""lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you, or at a look -- stop; in it, climb out."""
+    "lava_ahead.py": '''"""lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you, or at a look -- stop; in it, climb out. Flames are not lava."""
 # Example reflex (harness-written, yours to edit or retire): the runs that died in lava
 # were all MOVING toward it -- a go_to, a mine_ahead, a raw walk -- with the orange already
 # in the frame, or stepped into a pool the camera had never looked at (a tunnel whose
@@ -50,24 +50,38 @@ STARTER_REFLEXES: dict[str, str] = {
 #   a look_abs/watch shows lava     -> stop, no step: the plan was about to walk there
 #                                      (strip_segment looks at the next floor before each
 #                                      step); a look with nothing queued after it is quiet
-#   in the lava (losing health with -> stop and climb: back and jump; place a block under
+#   in the lava (lava damage with   -> stop and climb: back and jump; place a block under
 #   the screen orange)                 you if you carry one
-# Standing at a pool on purpose (fill_bucket, use_held, place_at) is exempt. A walk covers
-# ~0.9 blocks between two samples, so the threshold is low where lava is close (underground,
-# the Nether): a pool three blocks ahead reads 2-3% of the lower view; the surface threshold
-# is higher so a distant lake does not stop every walk. Fire (flames on the screen after a
-# burn) reads as lava too: leave the lava first, then this quiets.
+# Standing at a pool or a fire on purpose (fill_bucket, use_at, use_held, place_at) is
+# exempt: the plan is there by design. A walk covers ~0.9 blocks between two samples, so
+# the threshold is low where lava is close (underground, the Nether): a pool three blocks
+# ahead reads 2-3% of the lower view; the surface threshold is higher so a distant lake
+# does not stop every walk.
+# FLAMES ARE NOT LAVA. A fire block (a portal just lit, a burning tree) and the flames
+# drawn over the view while you burn share lava's orange, but they are brighter and
+# yellower: `fire_frac` runs 5-15x `lava_frac` on flames and 0.3-0.5x on a lake. One life
+# lit its portal from inside and this reflex's old in-lava escape pulled it back into the
+# fire, where it died with the frame half built; another, burning on a bank, had every
+# walk stopped. So flames are left to the plan (walk out, pour water), and the escape
+# runs on lava's DAMAGE: lava takes 4 health every 10 ticks, fire 1 every 20, so between
+# two samples (4 ticks) only lava takes 3 or more.
 import json, math, sys
 s = json.load(sys.stdin)
 MOVING = {"go_to", "mine_ahead", "collect_drops", "raw"}
 LOOKING = {"look_abs", "look", "look_at", "watch"}
+ON_PURPOSE = {"fill_bucket", "use_at", "use_held", "place_at"}
 p, q = s.get("pos"), s.get("pos_prev")
 moved = math.hypot(p["x"] - q["x"], p["z"] - q["z"]) if p and q else 0.0
 deep = bool(p) and (p["y"] < 40.0 or s.get("dimension") == "the Nether")
 thr = 0.015 if deep else 0.04
-frac, entry = s["lava_frac"], s.get("atom") or s.get("entry")      # the atom inside an own procedure
-burning = s.get("health", 20) < s.get("health_prev", 20) and frac >= 0.2
-if burning and p and not s.get("gui_open"):
+frac, fire = s["lava_frac"], s.get("fire_frac", 0.0)
+entry = s.get("atom") or s.get("entry")      # the atom inside an own procedure
+lost = s.get("health_prev", 20) - s.get("health", 20)
+flames = fire >= 0.12 and fire > 2.0 * frac      # the overlay flickers down to ~0.14 between flames
+in_lava = lost >= 3.0 and frac >= 0.2
+if entry in ON_PURPOSE:
+    pass
+elif in_lava and p and not s.get("gui_open"):
     block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
     acts = ([{"procedure": "equip_hotbar", "args": {"slot": int(block["slot"]) + 1}}] if block else []) + \
            [{"action": {"back": 1, "jump": 1, **({"use": 1} if block else {})}, "repeat": 10}]
@@ -76,6 +90,8 @@ if burning and p and not s.get("gui_open"):
                               "Then seal the pool with blocks before any step toward it"
                               % (p["x"], p["y"], p["z"], s.get("health", 0), " placing %s under you" % block["item"] if block else ""),
                       "actions": acts}))
+elif flames:
+    pass          # a fire block or the burning overlay: the plan walks out of it or pours water
 elif frac >= thr and entry in MOVING and (moved >= 0.1 or entry == "mine_ahead"):
     print(json.dumps({"stop": True,
                       "note": "lava fills %d%% of the lower view during %s -- stepped back 6 ticks; "
@@ -103,19 +119,21 @@ if p and q and q["y"] - p["y"] >= 2.0:
                               "(pillar_up, a stair), never onward"
                               % (q["y"] - p["y"], p["x"], p["y"], p["z"])}))
 ''',
-    "hit.py": '''"""hit: 3+ health lost in four ticks with no lava in view -- a mob; stop, decide, act."""
+    "hit.py": '''"""hit: 3+ health lost in four ticks with no lava or flames in view -- a mob; stop, decide, act."""
 # Example reflex: monsters are reported on no channel; the health drop is the only sign.
 # A plan standing still under hits (a dig, a sweep, a click) is how most deaths began.
 # The stop hands you the turn at zero game-clock cost: wall the tunnel (place_at), pillar
 # up two blocks (pillar_up), or fight with the sword selected -- your call, made now.
 # With a block in the hotbar it pillars up two blocks at once (pillar_up, an atom): most
-# mobs cannot reach you there, and the turn is yours to wall off or fight.
+# mobs cannot reach you there, and the turn is yours to wall off or fight. Not during a
+# place_at or a use_at: the pillar swaps the hand to the block and leaves a column in
+# the middle of what you were building (a portal frame, a wall).
 import json, sys
 s = json.load(sys.stdin)
 lost = s.get("health_prev", s["health"]) - s["health"]
-if lost >= 3.0 and s["lava_frac"] < 0.01:
+if lost >= 3.0 and s["lava_frac"] < 0.01 and s.get("fire_frac", 0.0) < 0.2:
     block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
-    pillar = bool(block) and not s.get("gui_open") and (s.get("atom") or s.get("entry")) != "pillar_up"
+    pillar = bool(block) and not s.get("gui_open") and (s.get("atom") or s.get("entry")) not in ("pillar_up", "place_at", "use_at")
     print(json.dumps({"stop": True,
                       "note": "took %.0f damage (health %.0f/20) with no lava in view: a mob is at you. "
                               "Do not keep digging or clicking -- %s"

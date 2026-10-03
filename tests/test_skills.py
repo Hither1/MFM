@@ -225,3 +225,35 @@ def test_lava_reflex_stops_at_a_look_and_climbs_out_of_lava(tmp_path: Path):
     assert res["stop"] is True and res["actions"] == [{"procedure": "pillar_up", "args": {"n": 2}}] and "pillared up" in res["note"]
     rc, res, _ = _run(rx / "hit.py", dict(BASE, health=11.0))
     assert res["stop"] is True and "actions" not in res
+
+
+def test_lava_reflex_leaves_flames_to_the_plan_and_escapes_on_lava_damage(tmp_path: Path):
+    """The recorded case: a life lit its portal from inside -- on those frames fire_frac
+    read 0.45-0.56 against lava_frac 0.03-0.24 and one health point went per fire tick --
+    and the old in-lava escape (any health drop with orange >= 20%) pulled it back into
+    the fire. Lava takes 4 health every 10 ticks, fire 1 every 20, so the escape keys on
+    a loss of 3+ between samples; flames (fire_frac >= 0.2 and > 2x lava_frac) are left
+    to the plan; a lake ahead reads fire_frac BELOW lava_frac and still stops a walk."""
+    from mcu_worldmodel import skills
+
+    skills.write_skills(tmp_path)
+    rx = tmp_path / "skills" / "reflexes" / "scripts"
+    deep = dict(BASE, pos=dict(BASE["pos"], y=10.0), pos_prev=dict(BASE["pos_prev"], y=10.0))
+    fire = dict(deep, lava_frac=0.055, fire_frac=0.524, entry="raw")              # the portal just lit
+    assert _run(rx / "lava_ahead.py", fire)[1] is None
+    burning = dict(deep, lava_frac=0.205, fire_frac=0.561, health=13.0, health_prev=14.0, entry="raw")
+    assert _run(rx / "lava_ahead.py", burning)[1] is None                        # the old "IN LAVA at health 13"
+    rc, res, _ = _run(rx / "lava_ahead.py", dict(burning, health=10.0, health_prev=14.0, lava_frac=0.3))
+    assert res["stop"] is True and res["note"].startswith("IN LAVA")             # lava's 4-point bite: the escape
+    rc, res, _ = _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.086, fire_frac=0.036, entry="go_to"))
+    assert res["stop"] is True and "stepped back" in res["note"]                 # a lake ahead (life 3's frames)
+    for e in ("use_at", "place_at", "fill_bucket", "use_held"):                  # at the pool or the fire by design
+        assert _run(rx / "lava_ahead.py", dict(deep, lava_frac=0.3, fire_frac=0.5, health=10.0, health_prev=14.0, entry=e))[1] is None
+    # hit: flames are not a mob, and no pillar in the middle of a placement
+    assert _run(rx / "hit.py", dict(BASE, health=11.0, fire_frac=0.4))[1] is None
+    rc, res, _ = _run(rx / "hit.py", dict(BASE, health=11.0, entry="place_at",
+                                          hotbar=BASE["hotbar"] + [{"slot": 4, "item": "dirt", "n": 3}]))
+    assert res["stop"] is True and "actions" not in res
+    rc, res, _ = _run(rx / "hit.py", dict(BASE, health=11.0, entry="go_to",
+                                          hotbar=BASE["hotbar"] + [{"slot": 4, "item": "dirt", "n": 3}]))
+    assert res["actions"] == [{"procedure": "pillar_up", "args": {"n": 2}}]

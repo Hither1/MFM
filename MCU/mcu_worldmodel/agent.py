@@ -4255,6 +4255,7 @@ class WorldModelAgent:
                     if pos else None),
             "health": _f(info.get("health")), "food": _f(info.get("food_level")),
             "inventory": inventory_counts(info), "hotbar": _hotbar(info),
+            "mainhand": ((info.get("equipped_items") or {}).get("mainhand") or {}).get("type"),
             "gui_open": bool(info.get("isGuiOpen", False)),
             "dimension": getattr(self, "_dimension", None),
         }
@@ -4297,6 +4298,10 @@ class WorldModelAgent:
         st = self._own_state(info)
         frame = self._last_pov
         st["lava_frac"] = (round(float(vision.lava_fraction(np.asarray(frame))), 4)
+                           if frame is not None else 0.0)
+        # Flames (a fire block, the burning overlay) share lava's orange; their own,
+        # brighter band lets a reflex tell a lit portal or a burn from a pool.
+        st["fire_frac"] = (round(float(vision.fire_fraction(np.asarray(frame))), 4)
                            if frame is not None else 0.0)
         prev = self._own_reflex_prev
         st["health_prev"] = prev["health"] if prev else st["health"]
