@@ -181,6 +181,18 @@ there. Commit 1d96da8 changed both (the strip looks at the floor before every st
 reflex sees the atom running, `atom`) and a scripted in-game check stopped the strip at
 a lava floor; chains started after it are named `pub3_*` in the task notes.
 
+Of the lives that mined obsidian, the ones that died next died of the portal itself:
+`lava_ahead` read a lit portal and the burning overlay as lava and pulled the avatar back
+into the fire, a frame cell went to a fallback face unannounced, and nothing told the
+model that the inside must stay air or that a death at the lake burns the diamond
+pickaxe. Commit b98270f changed the two reflex examples (flames are left to the plan,
+the escape runs on lava's damage rate), gave reflexes `fire_frac` and `mainhand`, made
+`place_at` name a fallback face and an unsettled aim, kept `look_at`'s heading for a cell
+straight overhead, and added the portal recipe and the lake rule to the shared text. The
+old and new reflex were replayed on the recorded episodes (16 -> 2 stops at the portal
+fire, 5 -> 5 at a lava lake) and the portal task still completes; chains started after
+it are `pub4_*`.
+
 ## License
 
 MIT, see `LICENSE`. `MCU/` is MCU-AgentBeats and MineStudio, `CUA-KiCad/` builds on

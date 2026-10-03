@@ -105,7 +105,10 @@ never edits those files and never rewrites the episodic record.
    `skills/reflexes/scripts/` hold working examples written by the authors, which the
    model may copy into `mine/` (`MCU/mcu_worldmodel/skills.py`). A procedure found
    under `mine/` of a run is therefore the model's own only if it differs from the
-   shipped example of the same name.
+   shipped example of the same name. The examples, and two passages of the shared
+   reference text (the portal recipe, the lake rule), were revised after the recorded
+   runs from what those runs' lives died of; the README's results section names the
+   commits.
 6. **Lives carried into a run.** An `mfm` or `mfm-matched` life may be started with the
    records of earlier lives in the same world (`--seed-memory`), and a `logbook` life with an
    earlier log (`--seed-log`). `vista` and `direct` take none.
