@@ -154,42 +154,56 @@ differences between the two.
 ### Runs made on this release
 
 The `mfm` arm was run on this code on the tasks' default worlds, one chain of lives per
-model and task, life 2 carrying life 1 and so on. Closed lives, as `total_score`
-(milestones), 2026-09-30 to 2026-10-03; a life stopped before its budget is in
-parentheses with its last step. The "examples" column says which shipped examples the
-chain read: the ones before commit 1d96da8, 1d96da8's, or b98270f's (both described
-below).
+model and task, life 2 carrying life 1 and so on: every life of 2026-09-30 to 2026-10-04
+is below. A closed life is its `total_score` (milestones); a life stopped by hand before
+its budget (an account's limit, the API key's credits, a stalled turn loop, or our call)
+is in parentheses with its distinct milestones and last step. The "examples" column says
+which shipped examples and shared text the chain read: the ones before commit 1d96da8,
+1d96da8's, b98270f's or 18cf214's (described below).
 
 | task, budget per life | model, effort | examples | life 1 | life 2 | life 3 | life 4 | life 5 |
 |---|---|---|---|---|---|---|---|
 | Nether portal, 6,000 | gpt-6-astra high | before 1d96da8 | 100 (2/2) | 100 | | | |
 | | claude-opus-5-5 high | before 1d96da8 | 100 | 100 | | | |
+| | claude-opus-5-5 xhigh | before 1d96da8 | (1/2 at 994) | | | | |
 | | gpt-6.1-sol xhigh | before 1d96da8 | 100 | 100 | | | |
-| Diamond, 12,000 | gpt-6-astra high | before 1d96da8 | 90 (9/10) | 90 | 90 | | |
-| | claude-opus-5-5 high | before 1d96da8 | 60 (6/10) | 80 (8/10) | | | |
-| Diamond, 40,000 | claude-opus-5-5 high | 1d96da8 | 100 (10/10) | | | | |
-| | gpt-6.1-sol xhigh | 1d96da8 | (9/10 at 30,400) | | | | |
-| Ender Dragon, 36,000-40,000, then 40,000 | gpt-6-astra high | before 1d96da8 | 37.5 (9/24) | 37.5 (9/24) | 41.67 (10/24) | (10/24 at 32,800) | |
+| Diamond, 12,000 (the last life 40,000) | gpt-6-astra high | before 1d96da8 | 90 (9/10) | 90 | 90 | (6/10 at 2,270) | |
+| | claude-opus-5-5 high | before 1d96da8 | 60 (6/10) | 80 (8/10) | (9/10 at 22,950) | | |
+| Diamond, 40,000 | claude-opus-5-5 xhigh | before 1d96da8 | (6/10 at 2,709) | | | | |
+| | claude-fable-5-1 high | before 1d96da8 | (9/10 at 9,708) | | | | |
+| | gpt-6.1-sol xhigh | before 1d96da8 | (9/10 at 15,343) | | | | |
+| | claude-opus-5-5 high | 1d96da8 | 100 (10/10) | | | | |
+| | gpt-6.1-sol xhigh | 1d96da8 | (9/10 at 31,009) | | | | |
+| Ender Dragon, 36,000 (lives 3-4 40,000) | gpt-6-astra high | before 1d96da8 | 37.5 (9/24) | 37.5 (9/24) | 41.67 (10/24) | (10/24 at 32,758) | |
 | | claude-opus-5-5 high | before 1d96da8 | 54.17 (13/24) | 50 (12/24) | 54.17 (13/24) | 37.5 (9/24) | |
-| | claude-opus-5-5 xhigh | before 1d96da8 | 37.5 (9/24) | | | | |
-| | gpt-6.1-sol xhigh | before 1d96da8 | 50 (12/24) | (10/24 at 31,300) | | | |
-| Ender Dragon, 40,000, then 80,000 | gpt-6-astra high | 1d96da8 | 54.17 (13/24) | (14/24 at 42,900) | | | |
-| | claude-opus-5-5 high | 1d96da8; life 5 b98270f | (12/24 at 11,700) | (15/24 at 61,200) | 62.5 (15/24) | 58.33 (14/24) | 58.33 (14/24) |
-| | gpt-6.1-sol xhigh | 1d96da8 | 41.67 (10/24) | (13/24 at 30,100) | | | |
+| Ender Dragon, 40,000 (sol life 2 80,000) | claude-opus-5-5 xhigh | before 1d96da8 | 37.5 (9/24) | (6/24 at 3,696) | | | |
+| | claude-fable-5-1 high | before 1d96da8 | (6/24 at 11,294) | | | | |
+| | gpt-6.1-sol xhigh | before 1d96da8 | 50 (12/24) | (10/24 at 31,265) | | | |
+| Ender Dragon, 40,000, then 80,000 | gpt-6-astra high | 1d96da8 | 54.17 (13/24) | (14/24 at 42,934) | | | |
+| | gpt-6-astra high | life 2 b98270f | (the life 1 above) | (12/24 at 21,834) | | | |
+| | claude-opus-5-5 high | 1d96da8 | (12/24 at 11,697) | (15/24 at 61,229) | 62.5 (15/24) | 58.33 (14/24) | 62.5 (15/24) |
+| | claude-opus-5-5 high | life 5 b98270f | (lives 1-4 above) | | | | 58.33 (14/24) |
+| | gpt-6.1-sol xhigh | 1d96da8 | 41.67 (10/24) | (13/24 at 30,125) | | | |
+| Ender Dragon, 80,000 | gpt-6.1-sol high | 18cf214 | (6/24 at 11,805) | | | | |
 
-Two Opus lives ran on 1d96da8 and the paper's chain budget (80,000 steps) and closed at
-62.5 and 58.33; a fifth life on the same chain and b98270f's examples closed at 58.33.
-The 14/24 of the astra life stopped at 42,900 includes `netherrack`, which that life
-mined from a ruined portal at the surface of the default world: the milestone counts
-the item, not the Nether.
+The two rows marked "life 2 b98270f" and "life 5 b98270f" are second branches of the
+chains above them: each carried the same earlier lives and read b98270f's examples. The
+14/24 of the astra life stopped at 42,934 includes `netherrack`, which that life mined
+from a ruined portal at the surface of the default world: the milestone counts the
+item, not the Nether.
+
+Everything the agent wrote in each of these lives (its `mine/`: notes, guide, working
+note, procedures, reflexes), and the full trajectories of the Opus and gpt-6-astra
+dragon chains on 1d96da8 (with the Opus fifth life on b98270f), are on the dataset
+(`Ced-Collab/MCUData`, `release-runs/`).
 
 The three gpt-6 diamond lives on the 12,000-step budget all banked the iron pickaxe by
 step 6,000 and none the diamond: two died in lava at the diamond level (the runner's
 lava stop is off for every arm), the third ran out of steps. The lives of the paper's
 own runs are on the dataset (`Ced-Collab/MCUData`, `carry-only-era/`).
 
-What the dragon lives died of, and where their steps went, is in the task notes
-(`tasks/.../analysis/final_analysis.md`): Opus reaches the diamond pickaxe in 5,600 to
+What the dragon lives died of, and where their steps went (read from those
+trajectories and the logs): Opus reaches the diamond pickaxe in 5,600 to
 7,100 steps and the obsidian at 18,700 to 35,100, then dies at the lake or, at night,
 at the surface (33 deaths in four lives, 22 to mobs, 7 of them dropping the diamond
 pickaxe); gpt-6-astra spent its first two diamonds on the sword in every life and never
@@ -218,7 +232,8 @@ sentences to the shared text (the first three diamonds are the pickaxe; after a 
 at night dig in before a step, and make the bed; never work from an open screen at the
 lake, where reflexes are quiet) and `previous/scripts.md`, the carried lives' scripts
 with their calls, refusals and last outcome, so a life copies what worked rather than
-what has a name. No chain has run on it.
+what has a name. One gpt-6.1-sol high life ran on it and was stopped at 11,805 steps
+(6/24): too slow to finish (about 1,300 steps an hour on one-block plans).
 
 ## License
 
