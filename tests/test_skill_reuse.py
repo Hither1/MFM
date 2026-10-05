@@ -593,3 +593,71 @@ def test_a_sword_use_beside_a_block_break_is_not_a_hit():
         "[EVENT] mine_block fern +1",                 # the sword cut a fern
     ])
     assert entity_hits(log) == 2
+
+
+def test_the_cluster_probes_place_what_their_text_names():
+    import math
+    import yaml
+    from task_milestones import load_milestone_cfg
+    tasks = MCU / "MCU_benchmark" / "task_configs" / "tasks"
+    spawn = (-5853.5, 68.0, -3781.5)
+    flint = yaml.safe_load((tasks / "flint_steel" / "flint_steel.yaml").read_text())
+    assert [c["identity"] for c in load_milestone_cfg("flint_steel")] == ["flint", "flint_and_steel"]
+    assert any("iron_shovel" in c for c in flint["custom_init_commands"])
+    assert any("iron_ingot" in c for c in flint["custom_init_commands"])
+    assert re.search(r"fill ~2 ~ ~2 ~4 ~ ~4 minecraft:gravel", flint["custom_init_commands"][-1])
+    marker = yaml.safe_load((tasks / "reach_marker" / "reach_marker.yaml").read_text())
+    assert [c["identity"] for c in load_milestone_cfg("reach_marker")] == ["mine_gold_ore"]
+    m = re.search(r"fill ~(-?\d+) ~(-?\d+) ~(-?\d+) ~(-?\d+) ~(-?\d+) ~(-?\d+) minecraft:gold_ore",
+                  marker["custom_init_commands"][-1])
+    dx0, dy0, dz0, dx1, dy1, dz1 = (int(v) for v in m.groups())
+    assert dx0 == dx1 and dz0 == dz1                         # one column
+    x, z = math.floor(spawn[0] + dx0), math.floor(spawn[2] + dz0)
+    y0, y1 = int(spawn[1]) + dy0, int(spawn[1]) + dy1
+    assert f"x {x}, z {z}" in marker["text"] and f"y {y0} up to y {y1}" in marker["text"]
+    assert f"{dx0} blocks east and {dz0} blocks south" in marker["text"]
+    assert all(flint["world_seed"] == marker["world_seed"] == 1 for _ in [0])
+    agent_src = (MCU / "src" / "agent.py").read_text()
+    assert all(agent_src.count(f'"{t}"') == 2 for t in ("flint_steel", "reach_marker"))
+
+
+def test_hf_skill_seed_takes_only_what_the_dataset_says_the_model_wrote(tmp_path: Path):
+    import csv
+    import hf_skill_seed
+    root = tmp_path / "release-runs" / "agent-written"
+    life = root / "lifeA" / "mine"
+    for rel, text in {"procedures/shaft_down.py": "shipped\n", "procedures/mine_x.py": "x\n",
+                      "procedures/old_y.py": "y\n", "reflexes/hit.py": "edited hit\n",
+                      "reflexes/fell.py": "shipped\n", "tools/scan.py": "t\n",
+                      "notes.md": "diary\n", "GUIDE.md": "guide\n", "a.png": "img"}.items():
+        (life / rel).parent.mkdir(parents=True, exist_ok=True)
+        (life / rel).write_text(text)
+    with open(root.parent / "files.csv", "w", newline="") as fh:
+        w = csv.writer(fh); w.writerow(["life", "path", "kind", "origin", "bytes"])
+        for p, o in [("mine/procedures/shaft_down.py", "shipped example, unchanged"),
+                     ("mine/procedures/mine_x.py", "new"),
+                     ("mine/procedures/old_y.py", "earlier life's, unchanged"),
+                     ("mine/reflexes/hit.py", "shipped example, edited"),
+                     ("mine/reflexes/fell.py", "shipped example, unchanged"),
+                     ("mine/tools/scan.py", "new"), ("mine/notes.md", "new")]:
+            w.writerow(["lifeA", p, "x", o, 1])
+    out = tmp_path / "seed"
+    info = hf_skill_seed.build(root, "lifeA", out, exclude={"old_y"})
+    assert sorted(t["path"] for t in info["taken"]) == ["mine/procedures/mine_x.py",
+                                                         "mine/reflexes/hit.py", "mine/tools/scan.py"]
+    assert {l["path"]: l["why"] for l in info["left"]} == {
+        "mine/procedures/shaft_down.py": "a shipped example, unchanged",
+        "mine/procedures/old_y.py": "excluded",
+        "mine/reflexes/fell.py": "a shipped example, unchanged"}
+    files = sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+    assert files == [".seed.json", "logs.txt", "mine/procedures/mine_x.py", "mine/reflexes/hit.py",
+                     "mine/tools/scan.py"]                       # no notes, no guide, no image, no skills/
+    # a seed `--install-scripts` takes whole: one life, everything in it installed
+    assert memory_at.lives_of(out) == [out]
+    from mcu_worldmodel.previous import install_scripts
+    rows = install_scripts(tmp_path / "probe", memory_at.lives_of(out))
+    assert sorted(r["path"] for r in rows) == ["mine/procedures/mine_x.py", "mine/reflexes/hit.py",
+                                               "mine/tools/scan.py"]
+    assert all(r["kind"] == "written" for r in rows)       # no skills/ in the seed: all count as its own
+    with pytest.raises(SystemExit):
+        hf_skill_seed.build(root, "lifeA", out, set())

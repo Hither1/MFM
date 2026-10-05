@@ -65,6 +65,9 @@ class Agent:
         # iron_shield_tail with the ore placed and named: the finding taken away, the
         # digging kept
         "iron_shield_vein", "coal_torches_vein",
+        # probes for the gravel and surface-travel skill clusters of the published lives
+        # (reach_marker is retired: go_to makes it trivial)
+        "flint_steel", "reach_marker",
         # The endgame skill probes (third design): the dragon chain's last eight
         # milestones with the search handed over -- mobs summoned at the spawn, drops
         # given, or a start on the End's arrival platform (their task configs).
@@ -82,7 +85,7 @@ class Agent:
                             "cook_meat", "coal_torches", "iron_shield",
                             "iron_shield_tail", "shears_tail", "bucket_tail",
                             "coal_torches_tail", "cook_meat_tail", "iron_shield_vein",
-                            "coal_torches_vein",
+                            "coal_torches_vein", "flint_steel", "reach_marker",
                             "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail",
                             "dragon_tail"}
 

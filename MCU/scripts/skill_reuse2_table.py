@@ -33,7 +33,7 @@ LABEL = {"none": "no memory", "skills": "scripts of lives 1+2 only (no notes, no
 SEED_OF = {"skills": "life2"}
 #: The probe tasks, named so a smoke life (<tag>_smoke_<task>_<row>) is not a probe.
 TASKS = ("iron_shield_tail", "shears_tail", "bucket_tail", "coal_torches_tail", "cook_meat_tail",
-         "iron_shield_vein")
+         "iron_shield_vein", "coal_torches_vein", "flint_steel", "reach_marker")
 ARM = re.compile(r"^(?P<tag>.+?)(?:_r(?P<rep>\d+))?_(?P<task>" + "|".join(TASKS)
                  + r")_(?P<row>" + "|".join(ROWS) + r")$")
 #: The example procedures every life finds under skills/procedures/scripts: a call of

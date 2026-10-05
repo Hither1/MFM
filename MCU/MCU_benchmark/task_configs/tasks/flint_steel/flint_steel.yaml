@@ -1,0 +1,30 @@
+# Skill-reuse probe for the gravel cluster: flint comes out of gravel one break in ten,
+# so the task is the place / break / pick-up cycle that ten of the published Dragon
+# lives wrote procedures for (recycle_gravel, gravel_cycle, *_gravel_reroll) and that no
+# Diamond life ever did. A 3x3 patch of gravel is placed two blocks from the spawn; the
+# kit holds the shovel that drops it fast, the ingot the final craft needs and a table.
+custom_init_commands:
+- /give @s minecraft:iron_shovel 1
+- /give @s minecraft:iron_ingot 1
+- /give @s minecraft:crafting_table 1
+- /execute as @p at @s run fill ~2 ~ ~2 ~4 ~ ~4 minecraft:gravel replace
+defaults:
+- base
+- _self_
+text: Craft flint and steel. You start with an iron shovel, an iron ingot and a crafting table in your inventory, and a 3x3 patch of gravel lies two blocks away from you; break gravel until it drops flint (place a broken block again and break it again as often as you need), pick the flint up and craft flint and steel.
+
+milestone_reward_cfg:
+  - event: pickup
+    identity: flint
+    objects: [flint]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: flint_and_steel
+    objects: [flint_and_steel]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

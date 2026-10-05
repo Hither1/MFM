@@ -40,7 +40,9 @@
 #   ROWS         default "none life1 life2 life2_nosk"
 #   TASKS        default "iron_shield_tail shears_tail bucket_tail"; the other tails
 #                are coal_torches_tail and cook_meat_tail (three cows summoned at the spawn);
-#                iron_shield_vein is iron_shield_tail with an ore vein placed and named
+#                iron_shield_vein and coal_torches_vein are the iron and coal tails with
+#                an ore vein placed underground and named in the task text; flint_steel
+#                and reach_marker probe the gravel and surface-travel skill clusters
 #   REP          replicate label: probes become <TAG>_r<REP>_<task>_<row>
 #   SOURCE_STEPS / PROBE_STEPS  budgets (default 12000 / 4000)
 #   STOP_AFTER   steps a probe plays on after its last milestone (default 400)

@@ -1,0 +1,24 @@
+# Skill-reuse probe for the surface-travel cluster (climb_grass_step, dirt_step,
+# natural_step_down, terrace_survey, walk_shelf, surface_swim): a column of gold ore is
+# placed 28 blocks east and 28 south of the spawn (40 blocks away), from 10 below the
+# spawn's feet to 25 above so it stands over the trees, and the task says where. There
+# is nothing to dig; the route is the terrain between here and there. The kit is an IRON
+# pickaxe: a stone one breaks gold ore without a drop and the mine_block statistic does
+# not fire (the first two no-memory lives, since set aside, found that out the hard way).
+custom_init_commands:
+- /give @s minecraft:iron_pickaxe 1
+- /execute as @p at @s run fill ~28 ~-10 ~28 ~28 ~25 ~28 minecraft:gold_ore replace
+defaults:
+- base
+- _self_
+text: Mine one block of gold ore. You start with an iron pickaxe (gold ore needs iron or better; a stone pickaxe breaks it without a drop and scores nothing). A column of gold ore stands at x -5826, z -3754 (28 blocks east and 28 blocks south of where you start, toward +x and +z), reaching from y 58 up to y 93, well above the trees; walk to it and mine one block of it.
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_gold_ore
+    objects: [gold_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1
