@@ -1,0 +1,36 @@
+# Skill-reuse probe, second design: coal_torches_tail made slightly simpler, as
+# iron_shield_vein is to iron_shield_tail. In coal_torches_tail none of 4 lives mined coal
+# ore in 4,000 steps (two banked `torch` with charcoal instead), so the rows could not
+# differ. Here the finding is taken away and the digging is kept: a 2x2x2 vein of coal ore
+# is placed 13 blocks below the spawn and 18 blocks south of it, and the task says where.
+# It lies on the same line as the iron vein of iron_shield_vein, six blocks further, so the
+# dig is a shaft and a longer tunnel; after it the task is one craft, with no smelting.
+#
+# The torch rule also fires on a charcoal torch, which needs no coal. That gives a life
+# one milestone of two without the vein, and never the task: solved needs the ore mined.
+custom_init_commands:
+- /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:oak_log 6
+- /execute as @p at @s run fill ~-1 ~-13 ~18 ~0 ~-12 ~19 minecraft:coal_ore replace
+defaults:
+- base
+- _self_
+text: Craft a torch. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory. A vein of coal ore lies underground at x -5855 to -5854, y 55 to 56, z -3764 to -3763 (13 blocks below where you start and 18 blocks south of it, toward +z); dig to the vein, mine coal ore and craft torches from the coal and sticks.
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_coal_ore
+    objects: [coal_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: torch
+    objects: [torch]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

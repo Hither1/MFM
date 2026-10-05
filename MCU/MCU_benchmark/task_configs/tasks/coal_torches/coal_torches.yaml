@@ -1,0 +1,54 @@
+# Skill-reuse probe 2 of 3 (see cook_meat): the opening of the diamond task through the
+# stone pickaxe, then coal has to be found in the rock and made into torches. No furnace
+# and no iron: what is reused is the tree, the crafting screens and the digging.
+custom_init_commands: []
+defaults:
+- base
+- _self_
+text: Starting with nothing, craft torches by gathering wood, crafting tools, and mining coal ore.
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_log
+    objects: [log, oak_log, birch_log, spruce_log]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: crafting_table
+    objects: [crafting_table]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: wooden_pickaxe
+    objects: [wooden_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: cobblestone
+    objects: [cobblestone]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: stone_pickaxe
+    objects: [stone_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: mine_block
+    identity: mine_coal_ore
+    objects: [coal_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: torch
+    objects: [torch]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

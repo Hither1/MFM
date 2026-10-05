@@ -1,0 +1,29 @@
+# Endgame skill probe (see blaze_tail): milestones 21 and 22 of the dragon chain as pure
+# crafting -- blaze powder from a rod, an eye of ender from powder and a pearl -- with the
+# drops given. The control probe of the set: it has no mob, no search and no dimension,
+# so a row that fails here fails at the 2x2 grid, not at the skill the other probes test.
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:blaze_rod 2
+- /give @s minecraft:ender_pearl 2
+defaults:
+- base
+- _self_
+text: 'Craft blaze powder, then an eye of ender. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether, killed a blaze and an enderman. You carry a crafting table, 2 blaze rods and 2 ender pearls. Craft blaze powder from a rod (one rod gives two powder in the 2x2 grid), then craft an eye of ender from one blaze powder and one ender pearl.'
+
+milestone_reward_cfg:
+  - event: craft_item
+    identity: blaze_powder
+    objects: [blaze_powder]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: eye_of_ender
+    objects: [ender_eye]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

@@ -840,10 +840,53 @@ VISIBLE: set[str] | None = None
 OWN: bool = True
 
 
+#: `withhold`: names taken out of this run's set after `set_visible` (the endgame skill
+#: probes' rows: slurm/skill_reuse3.sbatch). A call of one answers with a note that names
+#: the row, not the atoms note.
+WITHHELD: set[str] = set()
+
+
 def set_visible(names, own: bool = True) -> None:
     global VISIBLE, OWN
     VISIBLE = None if names is None else set(names)
     OWN = bool(own)
+    WITHHELD.clear()
+
+
+def grant(names) -> list[str]:
+    """Add registered procedures to the visible set (after set_visible): the contract's
+    index shows them and `expand` runs them. A row of the endgame skill probes is the
+    shipped arm (the atoms) plus what this grants. Returns the names; an unknown name
+    raises, so a misspelt row is a launch error, not a silent atoms-only row."""
+    global VISIBLE
+    names = sorted(set(names or []))
+    unknown = [n for n in names if n not in REGISTRY]
+    if unknown:
+        raise ValueError(f"grant names no procedure: {unknown}")
+    if names and VISIBLE is not None:
+        VISIBLE = set(VISIBLE) | set(names)
+    WITHHELD.difference_update(names)
+    return names
+
+
+def visible_names() -> list[str]:
+    return [n for n in REGISTRY if VISIBLE is None or n in VISIBLE]
+
+
+def withhold(names) -> list[str]:
+    """Take `names` out of the visible set (after set_visible): the contract's index does
+    not show them and `expand` refuses them with a note. Returns the names withheld; an
+    unknown name raises, so a misspelt row is a launch error, not a silent full set."""
+    global VISIBLE
+    names = sorted(set(names or []))
+    unknown = [n for n in names if n not in REGISTRY]
+    if unknown:
+        raise ValueError(f"withhold names no procedure: {unknown}")
+    WITHHELD.clear()
+    WITHHELD.update(names)
+    if names:
+        VISIBLE = (set(REGISTRY) if VISIBLE is None else set(VISIBLE)) - WITHHELD
+    return names
 
 
 def visible():
@@ -1090,6 +1133,11 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
     procedure the model invented should not crash a 12,000-step episode.
     """
     proc = REGISTRY.get(name)
+    if proc is not None and name in WITHHELD:
+        return [], (f"{name!r} is withheld in this run: compose it from the procedures in "
+                    f"your index and raw actions"
+                    + (", or write it as your own procedure under mine/procedures/"
+                       if OWN else ""))
     if proc is not None and VISIBLE is not None and name not in VISIBLE:
         return [], (f"{name!r} is not in this run's procedure set (the atoms): compose it "
                     f"from the atoms and raw actions"

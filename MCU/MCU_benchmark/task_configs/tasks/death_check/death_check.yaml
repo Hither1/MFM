@@ -1,0 +1,25 @@
+# Instrument, not a probe (slurm/skill_reuse3.sbatch SMOKE=death): what does a death AT the
+# spawn look like, tick by tick? The harness names a death by its teleport (15+ blocks);
+# a death where the avatar respawns a few blocks away -- every death of the mob probes,
+# which fight at the spawn -- has no such jump. The avatar is given a small kit and lifted
+# 40 blocks at reset; it lands on the spawn about fifty ticks later and dies there. The
+# milestone is one it cannot reach, so the life runs its steps.
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:cooked_beef 4
+- /tp @s ~ ~40 ~
+defaults:
+- base
+- _self_
+text: 'Stand still. This is an instrument run, the avatar is dropped from a height at the start.'
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_diamond_ore
+    objects: [diamond_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 1

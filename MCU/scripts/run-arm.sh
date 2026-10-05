@@ -56,6 +56,9 @@
 #                       the caller's to export)
 #   MCU_DISPLAY_NUM     a fixed X display number instead of `xvfb-run -a`; set it when
 #                       several arms start together on one node
+#   MCU_CLAUDE_EVAL_DIR the Claude account of --cli claude on --route account: the
+#                       directory holding its .credentials.json. Default ~/.claude-eval
+#                       (scripts/claude-home.sh)
 #   CODEX_BIN           the codex binary, default `codex` on PATH
 #   CODEX_MAX_CALLS     ceiling on model calls per life, default 4000. Not a scored
 #                       knob: a run that touches it reports call_ceiling_hits > 0 and

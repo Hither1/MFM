@@ -1,0 +1,60 @@
+# Skill-reuse probe 1 of 3 (with coal_torches and iron_shield): a from-scratch goal no
+# diamond or dragon life pursued, in a world none of them played. It shares the opening
+# of the diamond task (wood, a table, a pickaxe, stone, a furnace) and then leaves it:
+# an animal has to be found and killed and its meat cooked. A life that carries the
+# memory of a diamond life in another world can reuse how to act, and nothing of where.
+#
+# The rules are statistics, as in the diamond task. Stone is banked on the pickup of
+# cobblestone, and the cooked meat on `craft_item`, which is the statistic the game
+# raises when an item is taken out of a furnace.
+custom_init_commands: []
+defaults:
+- base
+- _self_
+text: Starting with nothing, cook a piece of meat by gathering wood, crafting tools, building a furnace, hunting an animal and cooking its meat.
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_log
+    objects: [log, oak_log, birch_log, spruce_log]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: crafting_table
+    objects: [crafting_table]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: wooden_pickaxe
+    objects: [wooden_pickaxe]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: cobblestone
+    objects: [cobblestone]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: kill_entity
+    identity: kill_animal
+    objects: [cow, pig, sheep, chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: cooked_meat
+    objects: [cooked_beef, cooked_porkchop, cooked_mutton, cooked_chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

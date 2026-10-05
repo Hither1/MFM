@@ -1,0 +1,24 @@
+# Instrument, not a probe (slurm/skill_reuse3.sbatch SMOKE=raw): does the `kill_entity`
+# rule fire in this engine at all? No recorded life ever banked a kill. One cow is summoned
+# two blocks east of the spawn inside a ring of fences (a cow cannot jump a fence, so the
+# hits land on a target that cannot flee -- in cook_meat_tail the cows ran after the first
+# hit, smoke 50226471) and the fake model swings a stone pickaxe at it from outside the ring.
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:stone_pickaxe 1
+- /fill ~1 ~ ~-1 ~3 ~ ~1 minecraft:oak_fence hollow
+- /summon minecraft:cow ~2 ~1 ~
+defaults:
+- base
+- _self_
+text: Kill the cow in the fence ring two blocks east of you with the stone pickaxe you hold.
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_animal
+    objects: [cow, pig, sheep, chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 1

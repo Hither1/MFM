@@ -1,0 +1,39 @@
+# Endgame skill probe (see blaze_tail, end_stone_tail): milestone 24 alone, the dragon,
+# from the arrival platform of the End with the gear the fight asks for -- a bow and 64
+# arrows for the end crystals on the obsidian towers (the dragon heals from them), a
+# diamond sword for the perch, two stacks of cobblestone to bridge and pillar, food, iron
+# armour and a shield. The ceiling probe of the set: no run has ever been in the End, so
+# the expected result is 0 and the trace says which part fails (the crossing, the
+# crystals, the perch, survival). The platform is built the way end_stone_tail builds it.
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:bow 1
+- /give @s minecraft:arrow 64
+- /give @s minecraft:cobblestone 128
+- /give @s minecraft:cooked_beef 32
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /execute in minecraft:the_end run forceload add 98 -2 102 2
+- /execute in minecraft:the_end run fill 98 48 -2 102 48 2 minecraft:obsidian
+- /execute in minecraft:the_end run fill 98 49 -2 102 51 2 minecraft:air
+- /execute in minecraft:the_end run tp @s 100 49 0
+- /execute in minecraft:the_end run forceload remove 98 -2 102 2
+defaults:
+- base
+- _self_
+text: 'Defeat the Ender Dragon. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether, made eyes of ender, found the stronghold and jumped into the End portal. You stand on the obsidian arrival platform in the End (x 100, z 0); the main island lies toward x 0 across a gap of void you must bridge. You wear iron armour and hold a shield in your off hand, and carry a diamond pickaxe, a diamond sword, a bow with 64 arrows, 128 cobblestone and 32 cooked beef. The dragon heals from the end crystals on top of the obsidian towers: destroy them (the bow from a distance), then strike the dragon when it perches on the bedrock fountain at the island centre.'
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_ender_dragon
+    objects: [ender_dragon]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

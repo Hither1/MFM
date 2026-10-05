@@ -1,0 +1,58 @@
+# Endgame skill probe (see blaze_tail): milestones 19, 20 and 22 of the dragon chain --
+# kill an enderman, pick up its pearl, craft an eye of ender -- with the search handed
+# over. Three endermen are summoned near the spawn (no NBT, see blaze_tail; neutral until looked in the eye;
+# in daylight they stay, /weather clear keeps rain from teleporting them away) and two
+# blaze powder are given so the eye can be crafted from the pearl. A diamond pickaxe is
+# carried for the pit the enderman recipe digs (enderman_pit: 2 blocks down, the mob
+# cannot reach you, your sword reaches its legs). An enderman drops 0-1 pearls, so three
+# give ~87% odds of one; the kill scores without a drop.
+# NIGHT (2026-10-04). The first two lives of this probe ran at /time set 1000, and in
+# daylight an enderman under open sky drops its target and teleports away at random: the
+# scene itself scattered the mobs the lives were hunting ("teleports constantly in
+# daylight", life 2's notes). A real run meets endermen at night or in the Nether. Midnight
+# is 18000 and the night lasts to 23000, so a 2,000-3,000 step life stays inside it with
+# the day cycle left running. What night brings with it (other hostile mobs, a dark view)
+# is what a real run meets too.
+custom_init_commands:
+- /time set 18000
+- /weather clear
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 32
+- /give @s minecraft:cooked_beef 16
+- /give @s minecraft:blaze_powder 2
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /fill ~-8 ~ ~-8 ~8 ~6 ~8 minecraft:air
+- /summon minecraft:enderman ~6 ~1 ~
+- /summon minecraft:enderman ~-5 ~1 ~5
+- /summon minecraft:enderman ~ ~1 ~-7
+defaults:
+- base
+- _self_
+text: 'Kill an enderman, pick up its ender pearl and craft an eye of ender. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether and brought back blaze powder. You stand in the Overworld at night, on ground cleared for this fight. You wear iron armour and hold a shield in your off hand, and carry a diamond sword, a diamond pickaxe, a crafting table, 32 cobblestone, 16 cooked beef and 2 blaze powder. Three endermen stand within a few blocks of you; they attack whoever looks them in the eye. Kill one, pick up the pearl it drops, and craft an eye of ender from the pearl and a blaze powder.'
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_enderman
+    objects: [enderman]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: ender_pearl
+    objects: [ender_pearl]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: eye_of_ender
+    objects: [ender_eye]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

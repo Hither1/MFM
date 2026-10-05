@@ -1,0 +1,43 @@
+# Endgame skill probe (see blaze_tail): milestone 23 of the dragon chain, an end_stone in
+# the inventory, with the stronghold handed over. The agent starts IN THE END on the
+# vanilla arrival platform: /execute in (1.16) teleports across dimensions, and because a
+# command teleport does not build the obsidian platform a portal arrival does, the five
+# commands before it force-load the chunk, lay the 5x5 obsidian at y 48 and clear the
+# air above it exactly where the game would (centred on x 100, z 0). The island lies
+# toward x 0 across a gap of open void; the dragon is alive and circling, as it is for
+# every player who arrives. Kit: diamond pickaxe and sword, two stacks of cobblestone to
+# bridge the gap, food, iron armour and a shield worn.
+#
+# The engine reports biome_id 0 in every dimension, so the harness cannot tell the End
+# from the start frame: the purple side is told with --start-dimension end (the launcher
+# sets it per task).
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:cobblestone 128
+- /give @s minecraft:cooked_beef 16
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /execute in minecraft:the_end run forceload add 98 -2 102 2
+- /execute in minecraft:the_end run fill 98 48 -2 102 48 2 minecraft:obsidian
+- /execute in minecraft:the_end run fill 98 49 -2 102 51 2 minecraft:air
+- /execute in minecraft:the_end run tp @s 100 49 0
+- /execute in minecraft:the_end run forceload remove 98 -2 102 2
+defaults:
+- base
+- _self_
+text: 'Pick up an end stone. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether, made eyes of ender, found the stronghold and jumped into the End portal. You stand on the obsidian arrival platform in the End (x 100, z 0); the main island with its pale end stone lies toward x 0, across a gap of void you must bridge with the cobblestone you carry. The Ender Dragon is alive. You wear iron armour and hold a shield in your off hand, and carry a diamond pickaxe, a diamond sword, 128 cobblestone and 16 cooked beef. Reach the island and mine one end stone into your inventory.'
+
+milestone_reward_cfg:
+  - event: pickup
+    identity: end_stone
+    objects: [end_stone]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

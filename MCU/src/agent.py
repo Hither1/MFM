@@ -53,6 +53,24 @@ class Agent:
         # cut out of the chain with the blocks already in hand and nothing scarce, so
         # the only thing measured is whether the shape comes out right.
         "nether_portal",
+        # The skill-reuse probes: three from-scratch goals no diamond or dragon life
+        # pursued, in a world none of them played (their task configs).
+        "cook_meat", "coal_torches", "iron_shield",
+        # Their second design: the iron chain's tail only, the opening handed over at
+        # reset, three crafts needing one, two and three ingots.
+        "iron_shield_tail", "shears_tail", "bucket_tail",
+        # and the tails of the other two first-design probes, same kit (cook_meat_tail
+        # also gets its animals, which this world does not have near the spawn)
+        "coal_torches_tail", "cook_meat_tail",
+        # iron_shield_tail with the ore placed and named: the finding taken away, the
+        # digging kept
+        "iron_shield_vein", "coal_torches_vein",
+        # The endgame skill probes (third design): the dragon chain's last eight
+        # milestones with the search handed over -- mobs summoned at the spawn, drops
+        # given, or a start on the End's arrival platform (their task configs).
+        "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail", "dragon_tail",
+        # their instrument: one fenced cow, the kill rule alone (not a probe)
+        "kill_check", "death_check",
     }
     
     # Task step limits
@@ -60,7 +78,13 @@ class Agent:
     LONG_TASK_MAX_STEPS: int = 12000
     #: Tasks allowed past DEFAULT_MAX_STEPS. A task missing from here has its
     #: --max-steps silently clamped to 1200 (see _run).
-    LONG_TASKS: set[str] = {"kill_ender_dragon", "mine_diamond_from_scratch", "nether_portal"}
+    LONG_TASKS: set[str] = {"kill_ender_dragon", "mine_diamond_from_scratch", "nether_portal",
+                            "cook_meat", "coal_torches", "iron_shield",
+                            "iron_shield_tail", "shears_tail", "bucket_tail",
+                            "coal_torches_tail", "cook_meat_tail", "iron_shield_vein",
+                            "coal_torches_vein",
+                            "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail",
+                            "dragon_tail"}
 
     # How long a purple agent may take to answer one observation before the step is
     # filled with a noop. Reactive policies answer in milliseconds, but a planning
@@ -532,6 +556,14 @@ class Agent:
             assert ack_payload.success, f"Agent initialization failed: {ack_payload.message}"
             
             obs, info = env.reset()
+            # MCU_STOP_AFTER_COMPLETE=N ends a milestone task N steps after its last
+            # milestone was banked, instead of playing out the budget. Unset (every
+            # recorded run), the loop is what it was. N > 0 leaves the purple agent
+            # its periodic report after the last milestone.
+            stop_after = os.environ.get("MCU_STOP_AFTER_COMPLETE")
+            stop_after = int(stop_after) if stop_after else None
+            tracker = next((c for c in callbacks if isinstance(c, MilestoneTrackerCallback)), None)
+            complete_at = None
             for step in range(max_steps):
                 # Send observation payload to purple agent
                 obs_img = obs['image']
@@ -575,6 +607,13 @@ class Agent:
                 
                 if terminated:
                     break
+                if stop_after is not None and tracker is not None:
+                    if complete_at is None and len(tracker.milestone_log) >= len(milestone_reward_cfg):
+                        complete_at = step
+                        print(f"[green] {task}: every milestone banked at step {step}; "
+                              f"stopping {stop_after} steps on", flush=True)
+                    if complete_at is not None and step >= complete_at + stop_after:
+                        break
                 
         except Exception as e:
             print(f"Error during task '{task}': {type(e).__name__} - {e}")

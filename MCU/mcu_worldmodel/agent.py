@@ -137,6 +137,24 @@ def _is_attack_hold(a: dict) -> bool:
     return not any(a.get(f"hotbar.{n}") for n in range(1, 10))
 
 
+#: `start_dimension` (the endgame skill probes): what the harness calls each dimension.
+_DIMENSION = {"overworld": "the Overworld", "nether": "the Nether", "end": "the End"}
+
+
+def _granted_note(names: list[str]) -> str:
+    """Appended to the atoms head of references/skills.md: the macros a row grants."""
+    return (" Built in for this run all the same, as the procedure index describes them: "
+            + ", ".join(names) + ".") if names else ""
+
+
+def _num(v) -> bool:
+    try:
+        float(v)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
 def _cut_short_hint(atoms: bool) -> str:
     """The tail of the attack-hold cut-short note: names tools that exist in this run.
     Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
@@ -194,6 +212,18 @@ class WorldModelAgent:
         # dirs whose records go under previous/, for the model to read. Only the mfm
         # mode has the store to carry them with.
         previous_lives: list | None = None,
+        # Where those lives were played, as the contract and the memory skill state it:
+        # "same" (this world, the carry of the recorded runs) or "other" (another world
+        # and another task: what carries over is how to act, not where).
+        carried_world: str = "same",
+        # `--install-carried`: the scripts those lives wrote are installed into this
+        # life's mine/ (previous.PreviousLives.install_own) instead of being left in
+        # previous/ for the model to copy. Off: the shipped behaviour, byte for byte.
+        install_carried: bool = False,
+        # `--install-scripts`: memory dirs of earlier lives whose own scripts are installed
+        # into mine/ with NOTHING else of those lives carried (no previous/): the
+        # skills-only arm of the skill-reuse probes.
+        install_scripts: list | None = None,
         expect: bool = False,
         frames: bool = False,
         thin: bool = False,
@@ -204,6 +234,22 @@ class WorldModelAgent:
         skills: bool = False,
         minimal: bool = False,
         event_sheet: bool = True,
+        # The endgame skill probes (slurm/skill_reuse3.sbatch): `grant` adds registered
+        # procedures to the arm's set (the atoms) and `withhold` takes some out, so a row
+        # is "the shipped arm plus these macros"; `endgame_recipes` writes the chain's
+        # late doctrine as references/endgame.md; `start_dimension` says where the task
+        # config put the avatar at reset (the engine's biome id reads 0 everywhere).
+        grant: list | None = None,
+        withhold: list | None = None,
+        endgame_recipes: bool = False,
+        start_dimension: str | None = None,
+        # `--own-live` (mcu_worldmodel/own.py, the closed-loop section): a procedure
+        # script that declares `LOOP = True` is run DURING the plan on the live state
+        # and the live frame, and the reflexes get the frame too. Off: the shipped arm.
+        own_live: bool = False,
+        # `--near-deaths`: name a death whose respawn is close to where it happened
+        # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
+        near_deaths: bool = False,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -211,6 +257,19 @@ class WorldModelAgent:
             raise ValueError("retrieval needs memory_mode='mfm'")
         if previous_lives and memory_mode != "mfm":
             raise ValueError("previous_lives needs memory_mode='mfm'")
+        if carried_world not in ("same", "other"):
+            raise ValueError(f"unknown carried_world: {carried_world!r} (same|other)")
+        if carried_world == "other" and not (previous_lives and minimal and skills):
+            raise ValueError("carried_world='other' needs carried lives on the mfm arm")
+        self.carried_world = carried_world
+        if install_carried and not (previous_lives and own and skills):
+            raise ValueError("install_carried needs carried lives on the mfm arm (own, skills)")
+        self.install_carried = bool(install_carried)
+        if install_scripts and (previous_lives or not (memory_mode == "mfm" and own and skills)):
+            raise ValueError("install_scripts installs scripts WITHOUT carrying lives: it needs "
+                             "the mfm arm (own, skills) and no previous_lives")
+        self.install_scripts = [str(p) for p in (install_scripts or [])]
+        self.installed: list[dict] = []
         if (expect or frames) and memory_mode != "mfm":
             raise ValueError("expect/frames need memory_mode='mfm'")
         # The MFM-layer options (parts of the mfm arm; the chassis is unchanged):
@@ -239,12 +298,26 @@ class WorldModelAgent:
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
         _P.set_visible(_P.ATOMS if self.atoms else None, own=self.own)
+        self.granted = _P.grant(grant or [])
+        self.withheld = _P.withhold(withhold or [])
+        self.endgame_recipes = bool(endgame_recipes)
+        if start_dimension is not None and start_dimension not in _DIMENSION:
+            raise ValueError(f"unknown start_dimension: {start_dimension!r} "
+                             f"({'|'.join(_DIMENSION)})")
+        self.start_dimension = _DIMENSION.get(start_dimension)
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
         #: `--own-reflexes` (mcu_worldmodel/own.py): mine/reflexes/<name>.py scripts run
         #: every REFLEX_EVERY ticks on the live numbers and may stop the plan, note, and
         #: queue a short plan of their own -- the model's tick layer, beside the runner's.
         self.own_reflexes = bool(own_reflexes) and self.own
+        if own_live and not (self.own and minimal):
+            raise ValueError("own_live gives the model's own scripts the live view: it "
+                             "needs the mfm arm (own, minimal)")
+        self.own_live = bool(own_live)
+        self.near_deaths = bool(near_deaths)
+        #: closed loops run this life: name -> {"entries", "calls", "ticks"}
+        self._own_loops: dict[str, dict[str, int]] = {}
         self._own_reflexes: dict[str, Any] = {}
         self._own_reflex_fires: dict[str, int] = {}
         self._own_reflex_last: dict[str, int] = {}
@@ -277,6 +350,8 @@ class WorldModelAgent:
         self.extended_actions = extended_actions
         self.analyzer_retries = analyzer_retries
         self.frame_size = frame_size
+        #: Size of the last live frame written for an own script (`_live_frame`).
+        self._live_size: tuple[int, int] = tuple(frame_size)
         # The host benchmark's control reference, as the green agent sent it.
         self.platform_prompt = platform_prompt
         # The episode's hard step budget. Surfaced in every turn header: an agent that
@@ -350,6 +425,13 @@ class WorldModelAgent:
             if memory_mode == "mfm" else None)
         if self.episodes is not None and previous_lives:
             self.episodes.seed_previous(list(previous_lives))
+            if self.install_carried:
+                self.installed = self.episodes.previous.install_own()
+        if self.install_scripts:
+            from mcu_worldmodel import previous as _previous
+            self.installed = _previous.install_scripts(
+                self.memory.root,
+                [life for seed in self.install_scripts for life in _previous.lives_of(Path(seed))])
         if memory_mode == "direct" and self.codex.session_max_turns != 1:
             # A resumed thread is memory the harness would be serving for free; the
             # window above is the direct arm's ONLY sanctioned past. Forced here so a
@@ -462,7 +544,11 @@ class WorldModelAgent:
         #: death puts it back (respawn is in the Overworld). The End has no ground to run
         #: on -- the island's edge is the void (a staged scene on the merged tree:
         #: the flee reflex sprinted the avatar off the platform to y -272).
-        self._dimension = "the Overworld"
+        self._dimension = self.start_dimension or "the Overworld"
+        #: `start_dimension`: the task config's teleport lands AFTER the first observation
+        #: (the end_stone_tail smoke: step 0 at the Overworld spawn, step 1 on the
+        #: platform), so the first jump of the life is the arrival, not a death.
+        self._arrived = not self.start_dimension
         #: The Nether lock: every
         #: Nether visit on record (four visits, three lives) died within 400 steps of arriving,
         #: all by walking, sprinting or jumping off a ledge into the lava sea (y ~31): one run
@@ -516,27 +602,43 @@ class WorldModelAgent:
                     from mcu_worldmodel import own as _own
                     refs["own.md"] = (_own.MFM_OWN_NOTE + "\n\n" + _own.MFM_WORKING_NOTE
                                       + (("\n\n" + _own.reflex_note(self.reflexes)) if self.own_reflexes else "")
+                                      + (("\n\n" + _own.loop_note(self.frame_size)) if self.own_live else "")
                                       + "\n")
                     tail = tail.rstrip("\n") + ("\n- `references/own.md`: the contract for your own "
                                                 "procedures, reflexes and working memory (stdin "
                                                 "state, output shapes, caps)\n")
+                if self.endgame_recipes:
+                    tail = tail.rstrip("\n") + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n"
                 contract = prompts.minimal_contract(
                     task_text=self.task_text, progress_block=self.ledger.progress_block(),
                     entry_cap=self.entry_cap, step_cap=self.step_cap, atoms=self.atoms,
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
-                    references_tail=tail)
+                    references_tail=tail, carried_world=self.carried_world)
             if self.atoms and refs.get("skills.md"):
                 # the situations reference names the task-shaped macros: say they are recipes here
                 from mcu_worldmodel import own as _own
-                refs["skills.md"] = _own.atoms_ref_line() + "\n\n" + refs["skills.md"]
+                refs["skills.md"] = (_own.atoms_ref_line() + _granted_note(self.granted)
+                                     + "\n\n" + refs["skills.md"])
+            if self.endgame_recipes:
+                refs["endgame.md"] = prompts.endgame_recipes_ref(_P.visible_names())
+                if not self.minimal and "**References.**" in contract:
+                    contract = (contract.rstrip("\n")
+                                + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n")
             if refs:
                 self.memory.write_references(refs)
         if self.skills:
             from mcu_worldmodel import skills as _skills
-            written = _skills.write_skills(self.memory.root)
+            written = _skills.write_skills(self.memory.root, self.carried_world,
+                                           installed=self.install_carried or bool(self.install_scripts))
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
+            if self.install_carried or self.install_scripts:
+                from mcu_worldmodel.previous import installed_note
+                contract = contract.rstrip() + "\n\n" + installed_note(
+                    self.installed, record=self.install_carried)
+        if self.own_live:
+            contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
         self.codex.write_system_prompt(contract)
         if self.cli == "claude":
             # The skills and references were written naming codex's image tool; on this
@@ -607,8 +709,9 @@ class WorldModelAgent:
         self._last_frame = rel
         return rel
 
-    def _encode_pov(self, pov, step: int) -> bytes | None:
-        """PNG-encode a pov array at the render resolution, or None on any failure."""
+    def _encode_pov(self, pov, step: int, native: bool = False) -> bytes | None:
+        """PNG-encode a pov array at the run's frame size (`native`: as it came), or
+        None on any failure."""
         if pov is None:
             return None
         try:
@@ -616,7 +719,7 @@ class WorldModelAgent:
             if arr.dtype != np.uint8:
                 arr = arr.astype(np.uint8)
             img = Image.fromarray(arr)
-            if img.size != self.frame_size:
+            if not native and img.size != self.frame_size:
                 img = img.resize(self.frame_size, Image.BILINEAR)
             import io
             buf = io.BytesIO()
@@ -701,7 +804,15 @@ class WorldModelAgent:
             # The End portal's `_endcheck` (macros_end.enter_end) is the same wait.
             portal_wait = bool(self.queue) and any(
                 k in self.queue[0][0] for k in ("_dimcheck", "_endcheck"))
-            if jump > 15 and (hp is None or hp >= 19.0) and not portal_wait:
+            if jump > 15 and not self._arrived and step <= 5:
+                self._arrived = True
+                self._dimension = self.start_dimension
+                self._hp_hist.clear()
+                self.memory.add_note(
+                    f"You are in {self.start_dimension} at ({pos['x']:.0f}, {pos['y']:.0f}, "
+                    f"{pos['z']:.0f}): the task put you here at the start (the first frame "
+                    f"was the Overworld spawn for a tick). Nothing was lost.")
+            elif jump > 15 and (hp is None or hp >= 19.0) and not portal_wait:
                 self.cursor_stats["deaths"] = self.cursor_stats.get("deaths", 0) + 1
                 self.grid.mark_hazard(step, prev, 20.0, "death")
                 self.memory.add_note(
@@ -713,6 +824,27 @@ class WorldModelAgent:
                     f"that is how the second death happened) or rebuild from scratch.")
                 self.queue.clear()
                 # The world moved out from under the reflex and the damage window.
+                self._reflex = None
+                self._last_bunker = None
+                self._hp_hist.clear()
+                self._dimension = "the Overworld"
+            elif (self.near_deaths and (hp is None or hp >= 19.0) and not portal_wait
+                  and self._respawned_here(prev, pos, info)):
+                # The same death, without the teleport that names it above: the avatar
+                # died where it respawns (a fight at the spawn, a fall onto it). The
+                # consequences are the same ones.
+                self.cursor_stats["deaths"] = self.cursor_stats.get("deaths", 0) + 1
+                self.cursor_stats["near_deaths"] = self.cursor_stats.get("near_deaths", 0) + 1
+                self.grid.mark_hazard(step, prev, 20.0, "death")
+                self.memory.add_note(
+                    f"YOU DIED at ({prev['x']:.0f}, {prev['y']:.0f}, {prev['z']:.0f}) "
+                    f"and respawned at ({pos['x']:.0f}, {pos['y']:.0f}, {pos['z']:.0f}), "
+                    f"{jump:.0f} block(s) from there. Everything you carried and wore "
+                    f"dropped at the death point and despawns after ~6000 ticks; health "
+                    f"and food are full again and the camera is back at pitch 0, yaw 0. "
+                    f"What killed you is still where it was: look before you go back "
+                    f"for the pile.")
+                self.queue.clear()
                 self._reflex = None
                 self._last_bunker = None
                 self._hp_hist.clear()
@@ -736,6 +868,13 @@ class WorldModelAgent:
         # below still wins, unchanged.
         combat_head = (macros.kind_of(self.queue[0][0]) in macros.COMBAT
                        if self.queue else False)
+        # Under --own-live a closed loop of the model's own at the head is its combat
+        # macro: it reads its health and the frame at every call, and its reflexes are
+        # its retreat rule. Treated as "a plan standing still", every fight entry of
+        # three probe lives ended on the first hit it took (6.4 a hit on hard), and the
+        # model replanned after each exchange. Below CRITICAL_HP the stop still wins.
+        if self.own_live and self.queue and self._entry_is_loop(self.queue[0][1]):
+            combat_head = True
         combat_hit = (combat_head and hp is not None
                       and (tick_drop >= 3.0 or slow_drop >= 3.0))
         if (repeat_hit or combat_hit) and (
@@ -1330,6 +1469,18 @@ class WorldModelAgent:
                 if "_allow_close" in head:
                     self._close_armed = True
                     self.queue.popleft()
+                    continue
+                if "_ownloop" in head:
+                    # A closed-loop own procedure (own.py, `--own-live`): the script is
+                    # run on THIS tick's state and frame, and what it returns goes in
+                    # front of the marker under the same entry; the marker is back at
+                    # the head when those have run. False: the loop is over.
+                    if not self._own_loop_step(head["_ownloop"], idx, info):
+                        self.queue.popleft()
+                        nxt = self.queue[0][1] if self.queue else None
+                        if nxt != idx:
+                            self._log_entry_done(idx)
+                            self._entry_index = None
                     continue
                 _MARKERS = {"_servo": self._servo_tick, "_chop": self._chop_tick,
                             "_dig": self._dig_tick, "_use_gui": self._use_gui_tick,
@@ -3928,6 +4079,33 @@ class WorldModelAgent:
                     self.cursor_stats["dig_recentred"] = self.cursor_stats.get("dig_recentred", 0) + 1
         return mk_act(attack=1, **keys)
 
+    def _respawned_here(self, prev: dict, pos: dict, info: dict) -> bool:
+        """A respawn seen without a teleport (`--near-deaths`). Measured on this engine
+        (a staged fall onto the spawn, every tick written down): the health never reads
+        the death -- it is 20 the tick before and 20 the tick after -- and the position
+        may not move at all. What does change, in the one tick of the respawn: every
+        carried stack is gone, the camera is back at exactly pitch 0, yaw 0, and the
+        death screen that was up the tick before is closed. Any TWO of the three is a
+        death; one alone is not (the last block placed empties an inventory, a look can
+        end on 0/0, a screen closes when you close it)."""
+        try:
+            zero = abs(float(pos["pitch"])) < 1e-6 and abs(float(pos["yaw"])) < 1e-6
+            turned = (abs(float(prev["pitch"]) - float(pos["pitch"])) > 0.5
+                      or abs(float(prev["yaw"]) - float(pos["yaw"])) > 0.5)
+        except (KeyError, TypeError, ValueError):
+            zero = turned = False
+        pose_reset = zero and turned
+        wiped = (sum(self._cur_inv.values()) > 0
+                 and sum(inventory_counts(info).values()) == 0)
+        screen_gone = bool(self._gui_open) and not bool(info.get("isGuiOpen", False))
+        return int(pose_reset) + int(wiped) + int(screen_gone) >= 2
+
+    def _kills(self) -> dict[str, float]:
+        """The kill_entity bucket of the last observe: mob -> count, kills only."""
+        return {str(k): float(v) for k, v in
+                ((self.ledger._prev or {}).get("kill_entity") or {}).items()
+                if _num(v) and float(v) > 0}
+
     def stat_now(self, event: str, obj: str) -> float:
         """The cumulative statistic as of the last observe (the ledger's copy of the
         last info). Macro ticks compare it against a baseline to verify a craft, a
@@ -4037,6 +4215,11 @@ class WorldModelAgent:
         from mcu_worldmodel.procedures import noop
 
         self._plan_entries = list(plan.entries)
+        # A reflex's "REFLEX_EVERY ticks ago" starts with this plan: the sample of the
+        # previous plan's last check is damage the model has already read and answered
+        # (one life's burst rule fired on it at the first tick of a new plan, and threw
+        # the plan away before it had moved).
+        self._own_reflex_prev = None
         here = cell_of(self._cur_pos)
         verdicts = ([self.governor.check(entry.get("procedure", "raw"), here, self.step)
                      for entry in plan.entries] if self.reflexes
@@ -4237,7 +4420,9 @@ class WorldModelAgent:
 
     def _scan_own(self) -> None:
         if self.own:
-            self._own_procs = _own.scan(self.memory.root, set(_P.REGISTRY))
+            self._own_procs = (_own.scan(self.memory.root, set(_P.REGISTRY), loops=True)
+                               if self.own_live else
+                               _own.scan(self.memory.root, set(_P.REGISTRY)))
 
     def _own_state(self, info: dict) -> dict[str, Any]:
         """What an own script gets on stdin: the same numbers the turn message shows."""
@@ -4279,7 +4464,136 @@ class WorldModelAgent:
             if err is None:
                 self._own_calls[name] = self._own_calls.get(name, 0) + 1
             return out, err
-        return {"own_expand": _run, "own_names": set(self._own_procs)}
+        loops = {n for n, p in self._own_procs.items() if p.loop and not p.error}
+        return {"own_expand": _run, "own_names": set(self._own_procs),
+                **({"own_loops": loops} if loops else {})}
+
+    # -- closed-loop own procedures and the live view (`--own-live`, own.py) ----------
+
+    def _entry_is_loop(self, idx) -> bool:
+        """True when plan entry `idx` is one of the model's closed loops."""
+        return (isinstance(idx, int) and 0 <= idx < len(self._plan_entries)
+                and bool(self._plan_entries[idx].get("loop")))
+
+    def _live_frame(self, info: dict) -> str | None:
+        """Write the current view where an own script can read it; its path, or None.
+        The PNG is at the engine's render size (an episode keeps the smaller copy: at
+        320x180 an enderman's eyes were a 5-pixel pair and every rangefinder three lives
+        wrote failed on it); `_live_size` says what was written. In the attach dir
+        beside the workspace: overwritten at every call, never listed, never carried."""
+        pov = self._last_pov if self._last_pov is not None else info.get("pov")
+        data = self._encode_pov(pov, self.step, native=True)
+        if data is None:
+            return None
+        try:
+            h, w = np.asarray(pov).shape[:2]
+            self._live_size = (int(w), int(h))
+        except Exception:
+            pass
+        path = self.memory.attach_dir / _own.LIVE_FRAME
+        try:
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_bytes(data)
+            tmp.replace(path)
+        except OSError as e:
+            logger.warning(f"[agent] could not write the live frame at step {self.step}: {e}")
+            return None
+        return str(path)
+
+    def _loop_note(self, st: dict[str, Any], name: str, text: str) -> None:
+        """One `[LOOP <name>]` line, at most LOOP_NOTES per entry, never twice in a row."""
+        text = str(text).strip()
+        if not text or text == st.get("last_note"):
+            return
+        st["last_note"] = text
+        st["notes"] = int(st.get("notes", 0)) + 1
+        if st["notes"] <= _own.LOOP_NOTES:
+            self.memory.add_note(f"[LOOP {name}] {text}"
+                                 + (" (further notes of this entry are dropped)"
+                                    if st["notes"] == _own.LOOP_NOTES else ""))
+
+    def _own_loop_step(self, st: dict[str, Any], idx: int, info: dict) -> bool:
+        """The loop marker is at the head of the queue: run the script on this tick's
+        state and put what it returns in front of the marker, under the same entry.
+        True: there is something to run and the marker stays behind it. False: the loop
+        is over (the caller pops the marker); one `[LOOP <name>] ended` line says why."""
+        name = str(st.get("name"))
+        if "start" not in st:
+            self._scan_own()
+            try:
+                hp0 = float(info.get("health"))
+            except (TypeError, ValueError):
+                hp0 = 0.0
+            st.update(start=self.step, calls=0, memo={}, notes=0, health_start=hp0)
+            self._own_calls[name] = self._own_calls.get(name, 0) + 1
+            self.cursor_stats["own_calls"] = self.cursor_stats.get("own_calls", 0) + 1
+            self._own_loops.setdefault(name, {"entries": 0, "calls": 0, "ticks": 0})["entries"] += 1
+        rec = self._own_loops.setdefault(name, {"entries": 0, "calls": 0, "ticks": 0})
+        used = self.step - int(st["start"])
+        left = int(st["budget"]) - used
+        # counted at every arrival, so a loop a milestone or a reflex drops mid-way has
+        # its ticks on the record up to its last call
+        rec["ticks"] += used - int(st.get("counted", 0))
+        st["counted"] = used
+
+        def end(why: str) -> bool:
+            self.memory.add_note(f"[LOOP {name}] ended: {why} ({st['calls']} call(s), "
+                                 f"{used} of {st['budget']} ticks).")
+            return False
+
+        if st.get("end"):
+            return end(st["end"])
+        if left <= 0:
+            return end("its budget is spent")
+        proc = self._own_procs.get(name)
+        if proc is None or proc.error or not proc.loop:
+            return end(f"mine/procedures/{name}.py is gone or no longer a loop")
+        state = self._own_state(info)
+        frame = self._last_pov
+        live = self._live_frame(info)
+        state.update(
+            frame=live, frame_size=list(self._live_size),
+            lava_frac=(round(float(vision.lava_fraction(np.asarray(frame))), 4)
+                       if frame is not None else 0.0),
+            fire_frac=(round(float(vision.fire_fraction(np.asarray(frame))), 4)
+                       if frame is not None else 0.0),
+            call=int(st["calls"]), ticks=used, budget=left,
+            health_start=st["health_start"], memo=st["memo"])
+        # The first call of an entry pays a cold Python start (two lives lost a turn
+        # each to one that took over 10 s on a loaded node); the world waits meanwhile,
+        # so the longer limit costs no tick.
+        out, err = _own.run(proc, self.memory.root, state, dict(st.get("args") or {}),
+                            timeout=(_own.LOOP_COLD_TIMEOUT_S if int(st["calls"]) == 0
+                                     else _own.LOOP_TIMEOUT_S))
+        k = int(st["calls"])
+        st["calls"] = k + 1
+        rec["calls"] += 1
+        self.cursor_stats["own_loop_calls"] = self.cursor_stats.get("own_loop_calls", 0) + 1
+        res = None
+        if err is None:
+            res, err = _own.parse_loop(out or "")
+        if err is not None:
+            self.cursor_stats["own_failures"] = self.cursor_stats.get("own_failures", 0) + 1
+            return end(f"call {k} FAILED, nothing ran: {err}")
+        if res["memo"] is not None:
+            st["memo"] = res["memo"]
+        if res["note"]:
+            self._loop_note(st, name, res["note"])
+        plan = parse_actions(json.dumps({"actions": res["actions"]}),
+                             entry_cap=_own.LOOP_ENTRY_CAP, repeat_cap=self.repeat_cap,
+                             step_cap=min(_own.LOOP_CALL_TICKS, left),
+                             allow_optional=self.extended_actions, info=info,
+                             cursor=self.cursor.copy(), own_names=set(self._own_procs),
+                             _depth=1)
+        for n in plan.notes:
+            self._loop_note(st, name, n)
+        if not plan.steps:
+            return end("it was done" if not res["again"]
+                       else f"call {k} returned nothing to run")
+        if not res["again"]:
+            st["end"] = "it was done"
+        self.queue.extendleft(reversed([(s, idx) for s in plan.steps]))
+        return True
 
     # -- the model's own reflexes (`--own-reflexes`, mcu_worldmodel/own.py) ----------
 
@@ -4326,6 +4640,9 @@ class WorldModelAgent:
                 done -= int(items)
         st["queue_len"] = len(self.queue)
         st["runner_reflex"] = self._reflex.get("kind", "turn") if self._reflex else None
+        if self.own_live:
+            st["frame"] = self._live_frame(info)
+            st["frame_size"] = list(self._live_size)
         return st
 
     def _own_reflex_tick(self, step: int, info: dict) -> None:
@@ -5000,11 +5317,26 @@ class WorldModelAgent:
             "foreign_files_swept": self.memory.swept,
             "grid": self.grid.audit(),
             "watchdog": {"plan_stalls": self.governor.plan_stalls},
+            # the game's kill counters as of the last observe, when there is one (the
+            # endgame skill probes read them; nothing of this reaches the model, and a
+            # life without a kill reports exactly what it did before)
+            **({"combat": {"kills": self._kills()}} if self._kills() else {}),
             "thin": self.thin,
             **({"atoms": True} if self.atoms else {}),
+            **({"granted": list(self.granted)} if self.granted else {}),
+            **({"withheld": list(self.withheld)} if self.withheld else {}),
+            **({"endgame_recipes": True} if self.endgame_recipes else {}),
+            **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
+            **({"own_live": True, "own_loops": {k: dict(v) for k, v in self._own_loops.items()}}
+               if self.own_live else {}),
+            **({"near_deaths": True} if self.near_deaths else {}),
             **({"skills": True} if self.skills else {}),
             **({"harness_reflexes": False} if not self.reflexes else {}),
             **({"minimal": True} if self.minimal else {}),
+            **({"carried_world": "other"} if self.carried_world == "other" else {}),
+            **({"installed": list(self.installed)}
+               if self.install_carried or self.install_scripts else {}),
+            **({"install_scripts": list(self.install_scripts)} if self.install_scripts else {}),
             **({"own": {"procedures": len(self._own_procs),
                         "calls": dict(self._own_calls),
                         **({"reflexes": len(self._own_reflexes),

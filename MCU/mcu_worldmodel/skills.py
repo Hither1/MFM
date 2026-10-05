@@ -835,13 +835,92 @@ four in your first turn; `scripts/` beside them are working examples to copy int
 from `skills/reflexes/scripts/` -- do that in your first turn."""
 
 
-def write_skills(root: Path) -> list[str]:
+#: The memory skill's two paragraphs about `previous/`, as shipped and as they read when
+#: the carried lives were played in another world on another task (`--carried-world
+#: other`): their places are not here, so the workshop turn takes how to act from them.
+_PREVIOUS_SAME = """\
+- `previous/life_<i>/`: the complete records of earlier lives in this same world
+  (same seed, same spawn), oldest first, each with its logs.txt, episodes, index and
+  `mine/` (its notes, guide and scripts). `./tools/episodes.py --previous ...` queries
+  them all; `grep -n 'LAVA AHEAD\\|YOU DIED\\|obsidian' previous/life_*/logs.txt` is the
+  fastest map of what they found and what killed them. The world resets between lives:
+  terrain, water, lava and ore are where they were; nothing built or dropped survives;
+  their step numbers are theirs.
+"""
+_PREVIOUS_OTHER = """\
+- `previous/life_<i>/`: the complete records of earlier lives of yours in ANOTHER world
+  (a different seed and spawn) and on another task, oldest first, each with its
+  logs.txt, episodes, index and `mine/` (its notes, guide and scripts).
+  `./tools/episodes.py --previous ...` queries them all. No place in them exists in
+  this world. Read them for how that life acted: which scripts and reflexes worked,
+  how it got through each screen and recipe, what cost it steps and what killed it;
+  their step numbers are theirs.
+"""
+_WORKSHOP_SAME = """\
+`mine/GUIDE.md` (verified places with coordinates, the life/step they come from and
+the episode id whose frame shows the place, what each life died of and where, which scripts and reflexes earned their keep and
+which assumptions broke), copy the scripts worth keeping into `mine/procedures/` and
+"""
+_WORKSHOP_OTHER = """\
+`mine/GUIDE.md` (what each life learned to do, the life/step it comes from and the
+episode id whose frame shows it, what each life died of and why, which scripts and reflexes earned their keep and
+which assumptions broke, what of it serves THIS task; none of their coordinates: this
+is another world), copy the scripts worth keeping into `mine/procedures/` and
+"""
+assert MEMORY_SKILL.count(_PREVIOUS_SAME) == 1 and MEMORY_SKILL.count(_WORKSHOP_SAME) == 1, \
+    "memory skill text drifted from the carried-world paragraphs"
+
+
+def memory_skill(carried_world: str = "same") -> str:
+    if carried_world == "same":
+        return MEMORY_SKILL
+    if carried_world != "other":
+        raise ValueError(f"unknown carried_world: {carried_world!r} (same|other)")
+    return (MEMORY_SKILL.replace(_PREVIOUS_SAME, _PREVIOUS_OTHER)
+            .replace(_WORKSHOP_SAME, _WORKSHOP_OTHER))
+
+
+#: `--install-carried` (previous.PreviousLives.install_own): the carried lives' own
+#: scripts are already in mine/, so the two places that tell the model to copy them say
+#: so instead. (old, new) pairs, each old text occurring exactly once.
+_COPY_MEMORY = ("copy the scripts worth keeping into `mine/procedures/` and\n"
+                "`mine/reflexes/`, and only then plan.",
+                "read the scripts installed for you in `mine/` ([INSTALLED] in the contract),\n"
+                "keep, fix or retire each, and only then plan.")
+_COPY_PROCEDURES = ("copy the ones whose assumptions still hold\n"
+                    "into `mine/procedures/` UNDER THEIR OWN NAMES (they are not copied for you; every one of\n"
+                    "the last five lives rewrote its staircase step from scratch under a new name).",
+                    "the ones they wrote are\n"
+                    "already installed in `mine/procedures/` UNDER THEIR OWN NAMES ([INSTALLED] in the\n"
+                    "contract): keep the ones whose assumptions still hold, fix the rest, and retire one\n"
+                    "with a leading underscore rather than writing a twin under a new name.")
+assert PROCEDURES_SKILL.count(_COPY_PROCEDURES[0]) == 1, \
+    "procedures skill text drifted from the install-carried paragraph"
+
+
+def _installed(text: str, old_new: tuple[str, str]) -> str:
+    old, new = old_new
+    if text.count(old) != 1:
+        raise ValueError("skill text drifted from the install-carried paragraph")
+    return text.replace(old, new)
+
+
+def write_skills(root: Path, carried_world: str = "same", installed: bool = False) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts, the reflex examples included. Nothing is installed under mine/: the model
-    copies the reflexes it wants into mine/reflexes/ itself. Returns the paths written."""
+    copies the reflexes it wants into mine/reflexes/ itself. With `installed` the
+    carried lives' own scripts were put in mine/ before this, and the memory and
+    procedures skills say so instead of telling the model to copy them. Returns the
+    paths written."""
     root = Path(root)
     written: list[str] = []
     for name, (text, scripts) in SKILLS.items():
+        if name == "memory":
+            text = memory_skill(carried_world)
+            if installed:
+                text = _installed(text, _COPY_MEMORY)
+        elif name == "procedures" and installed:
+            text = _installed(text, _COPY_PROCEDURES)
         d = root / SKILLS_DIR / name
         d.mkdir(parents=True, exist_ok=True)
         p = d / "SKILL.md"

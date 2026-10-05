@@ -43,6 +43,19 @@ class OwnProcedure:
     doc: str = ""
     params: dict[str, str] = field(default_factory=dict)
     error: str | None = None       # a file the loader could not accept (why)
+    loop: bool = False             # `--own-live`: a closed loop (a top-level `LOOP = True`)
+
+
+def _is_loop(src: str) -> bool:
+    """True when the module has a top-level `LOOP = True` (see the closed-loop section)."""
+    for node in ast.parse(src).body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "LOOP" for t in node.targets):
+            try:
+                return bool(ast.literal_eval(node.value))
+            except (ValueError, SyntaxError):
+                return False
+    return False
 
 
 def _first_doc_line(src: str) -> tuple[str, dict[str, str]]:
@@ -65,10 +78,12 @@ def _first_doc_line(src: str) -> tuple[str, dict[str, str]]:
     return doc, params
 
 
-def scan(root: Path, builtins: set[str] | None = None) -> dict[str, OwnProcedure]:
+def scan(root: Path, builtins: set[str] | None = None,
+         loops: bool = False) -> dict[str, OwnProcedure]:
     """The scripts under `<root>/mine/procedures/*.py`, by name. A file whose name is a
     built-in procedure, or that does not parse, is listed with its `error` (the [OWN]
-    block shows it) and is not callable."""
+    block shows it) and is not callable. `loops` (`--own-live`): a script that declares
+    `LOOP = True` is a closed loop; without it the line means nothing."""
     d = Path(root) / OWN_DIR
     out: dict[str, OwnProcedure] = {}
     if not d.is_dir():
@@ -84,8 +99,9 @@ def scan(root: Path, builtins: set[str] | None = None) -> dict[str, OwnProcedure
             proc.error = f"`{name}` is a built-in procedure; pick another name"
         else:
             try:
-                proc.doc, proc.params = _first_doc_line(p.read_text(encoding="utf-8",
-                                                                     errors="replace"))
+                src = p.read_text(encoding="utf-8", errors="replace")
+                proc.doc, proc.params = _first_doc_line(src)
+                proc.loop = bool(loops) and _is_loop(src)
             except SyntaxError as e:
                 proc.error = f"does not parse: line {e.lineno}: {e.msg}"
             except OSError as e:
@@ -144,8 +160,113 @@ def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int]) -> str:
         args = ", ".join(f"{k}=<{v}>" for k, v in p.params.items())
         n = calls.get(name, 0)
         lines.append(f"- `{name}({args})` -- {p.doc or '(no docstring)'}"
-                     f" [called {n}x]")
+                     f" [{'closed loop; ' if p.loop else ''}called {n}x]")
     return "\n".join(lines)
+
+
+# -- closed-loop procedures and the live view (`--own-live`) ---------------------------
+#
+# Why. An own procedure is expanded ONCE, at plan time, from the numbers of the turn; a
+# reflex runs every 4 ticks on numbers and never sees a frame, and what it fires ends
+# the plan. So nothing the model writes can look at the view while its plan runs, and
+# nothing it writes can follow a thing that moves. The blaze probe showed it (pilot
+# 50240421: three lives, 16 sword hits, 7 deaths, no kill): every aim was chosen at turn
+# time and swung at where the mob had been, and the third life wrote a procedure whose
+# only job was to find out whether a script can see mid-plan ("There is NO closed visual
+# loop inside a plan"). The runner's own macros have that loop (`macros.tick`); this
+# hands the same grain to the model's scripts. It is a capability, not a skill: no
+# detector, no aim rule and no fight is written here.
+LOOP_BUDGET = 200           # ticks a loop entry runs when its args give no `ticks`
+LOOP_CALL_TICKS = 20        # ticks of actions ONE call may return
+LOOP_ENTRY_CAP = 6          # entries ONE call may return
+LOOP_TIMEOUT_S = 10.0       # seconds one call may take (a cold numpy import off NFS took 5+ on the first call of three lives)
+LOOP_COLD_TIMEOUT_S = 30.0  # the FIRST call of an entry: a Python start on a loaded node took over 10 s twice in one life, and each cost a model turn; the world waits, so the limit costs no tick
+LOOP_MEMO_CAP = 4096        # bytes of `memo` kept between calls
+LOOP_NOTES = 6              # notes one loop entry may leave in the log
+#: The live view, in the attach dir beside the workspace (never listed, never carried).
+LIVE_FRAME = "live.png"
+
+
+def parse_loop(out: str) -> tuple[dict[str, Any] | None, str | None]:
+    """One call's stdout: `{"actions": [...], "again": bool, "memo": {...}, "note": str}`.
+    (result, None), or (None, why). A missing `memo` keeps the previous one."""
+    try:
+        res = json.loads(out)
+    except ValueError:
+        return None, f"stdout is not JSON: {out.strip()[:120]!r}"
+    if not isinstance(res, dict):
+        return None, "stdout must be a JSON object"
+    acts = res.get("actions", [])
+    if not isinstance(acts, list):
+        return None, "`actions` must be a list"
+    memo = res.get("memo")
+    if memo is not None:
+        if not isinstance(memo, dict):
+            return None, "`memo` must be a JSON object"
+        if len(json.dumps(memo)) > LOOP_MEMO_CAP:
+            return None, f"`memo` is over {LOOP_MEMO_CAP} bytes"
+    note = str(res.get("note") or "").strip().splitlines()
+    return {"actions": acts, "again": bool(res.get("again")), "memo": memo,
+            "note": note[0][:400] if note else ""}, None
+
+
+#: The contract's paragraph (appended when `--own-live` is on).
+LIVE_NOTE = """\
+**Closed-loop procedures and the live view (this run).** Your scripts can SEE while your
+plan runs. A procedure script with a top-level line `LOOP = True` is not expanded at
+plan time: when its entry starts, and again each time the actions it returned have run,
+the harness calls it with the state of THAT tick and `frame`, the path of a PNG of the
+view at that tick, and runs what it returns -- a few ticks per call, for the entry's
+budget. Your reflexes get the same `frame`. It is the one way to act on something that
+moves or on what the view shows now; the contract is in `references/own.md`."""
+
+#: references/own.md, after the reflex contract (`{w}`/`{h}`: the frame size of the run).
+_LOOP_NOTE = """\
+**Closed-loop procedures.** A script at `mine/procedures/<name>.py` with a top-level line
+`LOOP = True` is a CLOSED LOOP. You call it like any procedure (`{"procedure": "<name>",
+"args": {"ticks": 200, ...}}`), but the harness does not run it at plan time. When its
+entry starts, and again each time the actions it last returned have finished, it is run
+on the state of THAT tick:
+- STDIN is the procedure state plus `frame` (the absolute path of a PNG of the current
+  view at the engine's render size, larger than the {w}x{h} frames under `episodes/`;
+  `frame_size` is its [width, height], so a detector you tune on the saved frames must
+  scale its pixel numbers; it is overwritten at every call -- copy it if you want to
+  keep one), `lava_frac`, `fire_frac`, `call` (0 on the first
+  call), `ticks` (ticks this entry has used), `budget` (ticks it has left),
+  `health_start` (your health when the entry started) and `memo` (the object you
+  returned under `memo` on the previous call, `{}` on the first): your memory between
+  calls;
+- it prints ONE JSON object `{"actions": [...], "again": true, "memo": {...}, "note":
+  "..."}`. `actions` (built-in procedures and raw actions, never an own procedure; at
+  most 6 entries and 20 ticks per call, the rest is dropped) run at once. `again: true`
+  asks to be called when they are done; `again: false`, or a call that returns nothing
+  to run, ends the entry. `note` (optional, one line) reaches your next turn as `[LOOP
+  <name>] ...`, at most 6 per entry: say what you saw when it changes, not at every call;
+- the entry ends when `again` is false, when its budget is spent (`ticks` in the args,
+  default 200, never more than the ticks your plan has left), when a call fails
+  (non-zero exit, a timeout -- {cold} s on the first call of an entry, which pays the
+  Python start, {warm} s after -- or bad JSON: one [NOTE] with the last error line), or
+  when a reflex or a verified milestone drops the plan. The harness then writes one
+  `[LOOP <name>] ended: ...` line with the calls and ticks it used. A hit you take does
+  NOT drop a loop entry the way it drops an ordinary one: the loop sees `health` fall at
+  its next call and decides for itself (below 6 health everything still stops);
+- a call costs wall-clock (a Python start), not game ticks: the world waits while your
+  script runs. Returning 2-6 ticks per call follows a thing that moves; returning 20
+  walks a straight line. A raw camera turn is `{"action": {"camera": [dpitch, dyaw]},
+  "repeat": 1}` in degrees, + pitch is down and + yaw is right.
+What a loop is for: anything whose next action depends on what the view shows NOW -- a
+target that moves, a walk that must stop at what it sees. Write the part that reads the
+frame as a function you can also run on the saved frames under `episodes/` (the same
+picture at {w}x{h}) and check it there before you put it in a loop.
+**Your reflexes see the view too**: their STDIN gains `frame` and `frame_size`, the same
+PNG, written at every reflex check (every 4 ticks)."""
+
+
+def loop_note(frame_size: tuple[int, int]) -> str:
+    return (_LOOP_NOTE.replace("{w}", str(int(frame_size[0])))
+            .replace("{h}", str(int(frame_size[1])))
+            .replace("{cold}", f"{LOOP_COLD_TIMEOUT_S:.0f}")
+            .replace("{warm}", f"{LOOP_TIMEOUT_S:.0f}"))
 
 
 #: The contract section (`--own`), kept in the thin contract (it sits before the first

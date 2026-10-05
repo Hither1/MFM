@@ -47,6 +47,11 @@ chmod 700 "$ROOT" "$HOME_DIR"
 # helper reads. claude_backend turns the list into sandbox denyRead + Read-tool deny
 # rules (measured unreadable on 2.1.257).
 DENY="$HOME_DIR"
+# The eval identity is a directory, ~/.claude-eval by default (the twin of
+# ~/.codex-eval): the account the arms burn is deliberately separated from whatever
+# account the developer's own shell is logged into. MCU_CLAUDE_EVAL_DIR names another
+# account's directory; its .credentials.json is the credential the arms share.
+EVAL_DIR="${MCU_CLAUDE_EVAL_DIR:-$HOME/.claude-eval}"
 if [ "${MCU_CLAUDE_ACCOUNT:-}" = "openrouter" ]; then
     # OpenRouter's Anthropic-compatible endpoint, keyed from a 600 file the CLI reads
     # through settings `apiKeyHelper` -- the twin of codex's auth.command: the key is
@@ -64,21 +69,19 @@ elif [ -n "${MCU_CLAUDE_OAUTH_TOKEN:-}" ]; then
     echo "export CLAUDE_CODE_OAUTH_TOKEN=$MCU_CLAUDE_OAUTH_TOKEN"
 else
     # The credential every arm shares, read through a symlink so refreshes stay in
-    # one place. ~/.claude-eval is the dedicated eval identity, the twin of
-    # ~/.codex-eval: the account the arms burn is deliberately separated from
-    # whatever account the developer's own shell is logged into. Point
-    # MCU_CLAUDE_AUTH at another file to run a different account. The symlink is
-    # resolved here, not stored: a chain of links breaks the CLI's
+    # one place. Point MCU_CLAUDE_AUTH at another file to run a different account.
+    # The symlink is resolved here, not stored: a chain of links breaks the CLI's
     # rewrite-on-refresh in ways a single link does not.
-    AUTH="${MCU_CLAUDE_AUTH:-$HOME/.claude-eval/.credentials.json}"
+    AUTH="${MCU_CLAUDE_AUTH:-$EVAL_DIR/.credentials.json}"
     if [ ! -e "$AUTH" ]; then
         echo "claude-home.sh: no live credential at $AUTH --" >&2
-        echo "  log the eval account in once:  CLAUDE_CONFIG_DIR=\$HOME/.claude-eval claude login" >&2
+        echo "  log the account in once:  CLAUDE_CONFIG_DIR=$EVAL_DIR claude login," >&2
         echo "  or set MCU_CLAUDE_AUTH to the .credentials.json the arms share," >&2
         echo "  or set MCU_CLAUDE_OAUTH_TOKEN to a 'claude setup-token' token." >&2
         exit 1
     fi
     ln -s "$(readlink -f "$AUTH")" "$HOME_DIR/.credentials.json"
+    DENY="$DENY:$(dirname "$(readlink -f "$AUTH")")"
 fi
 
 # The real binary, not the PATH shim: the nvm symlink on this cluster points at a

@@ -1,0 +1,44 @@
+# Skill-reuse probe, second design (see iron_shield_tail): the tail of cook_meat, from the
+# same handed-over kit, with the animals handed over too. In the first design no life
+# killed an animal: across 37 lives in this world not one `kill_entity` fired, and one
+# log names a sighted animal. The herd is not there to find, so finding it measured
+# nothing; three cows are summoned beside the spawn (as collect_wool summons its sheep)
+# and what is left is the hunt, the furnace and the cooking. What a diamond life carries
+# that bears on it is the furnace: fuel, loading, taking the item out.
+#
+# `kill_animal` is the `kill_entity` statistic; it was never seen to fire in a recorded
+# life, so a smoke life checks it before the rows are run.
+custom_init_commands:
+- /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:oak_log 6
+- /summon minecraft:cow ~2 ~1 ~
+- /summon minecraft:cow ~3 ~1 ~1
+- /summon minecraft:cow ~2 ~1 ~-2
+defaults:
+- base
+- _self_
+text: Cook a piece of meat. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory, and three cows stand near you; build a furnace, kill an animal and cook its meat.
+
+milestone_reward_cfg:
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: kill_entity
+    identity: kill_animal
+    objects: [cow, pig, sheep, chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: cooked_meat
+    objects: [cooked_beef, cooked_porkchop, cooked_mutton, cooked_chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

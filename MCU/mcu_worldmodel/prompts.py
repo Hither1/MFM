@@ -1064,18 +1064,19 @@ _MINIMAL_SAFETY = {
 }
 
 
-def _previous_note() -> str:
+def _previous_note(carried_world: str = "same") -> str:
     """The carried-lives paragraph every other mfm contract appends (mcu_worldmodel/previous.py):
     a pointer to previous/, not a digest -- the minimal contract went to one run
     without it and the model never opened previous/ in 24 turns."""
-    from mcu_worldmodel.previous import MFM_PREVIOUS_NOTE
-    return MFM_PREVIOUS_NOTE
+    from mcu_worldmodel.previous import previous_note
+    return previous_note(carried_world)
 
 
 def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, step_cap: int,
                      scored_by_milestones: bool = True, atoms: bool = False,
                      frames: bool = False, harness_reflexes: bool = True,
-                     previous: bool = False, references_tail: str = "") -> str:
+                     previous: bool = False, references_tail: str = "",
+                     carried_world: str = "same") -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
     if atoms:
@@ -1085,9 +1086,11 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")
     return MINIMAL_CONTRACT.format(
         task_text=task_text,
-        previous_clause=(" `previous/life_<i>/` the earlier lives in this same world;"
+        previous_clause=((" `previous/life_<i>/` your earlier lives, in another world and on "
+                          "another task;" if carried_world == "other" else
+                          " `previous/life_<i>/` the earlier lives in this same world;")
                          if previous else ""),
-        previous_note=(("\n**Previous lives.** " + _previous_note() + "\nYour first turn is the "
+        previous_note=(("\n**Previous lives.** " + _previous_note(carried_world) + "\nYour first turn is the "
                         "workshop turn (`skills/memory/SKILL.md`): read them before you play.\n")
                        if previous else ""),
         scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
@@ -1247,3 +1250,43 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                               "your actions JSON" if memory_mode == "direct"
                               else "your `actions.json`")),
     )
+
+
+# -- the endgame skill probes (slurm/skill_reuse3.sbatch): the chain's late doctrine as prose --
+
+#: The chain section's doctrine past the iron pickaxe -- diamonds, obsidian, the portal,
+#: the Nether, blazes and endermen, the eye, the stronghold, the End, the dragon -- as
+#: the from-scratch dragon arm reads it. A probe whose milestones are only the late ones
+#: is a "general" task (task_family) and never sees it; the `--endgame-recipes` row of
+#: the probes gets it as `references/endgame.md`, headed by which of the macros it names
+#: are built in for that row and which are recipes to compose.
+ENDGAME_RECIPES = _CHAIN_SECTION[_CHAIN_SECTION.index("- **After the iron pickaxe**"):]
+#: The contract's one-line entry for that file.
+ENDGAME_REF_LINE = ("the chain past the iron pickaxe -- diamonds, obsidian, the portal, the "
+                    "Nether, blazes and endermen, the eye of ender, the stronghold, the End, "
+                    "the dragon -- as recipes: the situation, the order of steps, what to verify")
+
+
+def endgame_recipes_ref(visible) -> str:
+    """`references/endgame.md` for one row: the recipes, headed by which of the macros
+    they name are built in (`visible`, the row's procedure names) and which are not."""
+    import re as _re
+    named = []
+    for n in _re.findall(r"`([a-z_]+)\(", ENDGAME_RECIPES):
+        if n in P.REGISTRY and n not in named:
+            named.append(n)
+    built = [n for n in named if n in set(visible)]
+    recipes = [n for n in named if n not in set(visible)]
+    parts = []
+    if recipes:
+        parts.append("The macros this file names that are NOT built in this run -- "
+                     + ", ".join(recipes) + " -- are recipes: read each for the situation, "
+                     "the order of steps and what to verify, and compose it from the "
+                     "procedures in your index and raw actions, or write it as your own "
+                     "procedure under mine/procedures/.")
+    if built:
+        parts.append("Built in for this run, as your index describes them: "
+                     + ", ".join(built) + ".")
+    if not parts:
+        parts.append("Every macro this file names is in your procedure index.")
+    return " ".join(parts) + "\n\n**The chain past the iron pickaxe**\n" + ENDGAME_RECIPES.strip("\n") + "\n"

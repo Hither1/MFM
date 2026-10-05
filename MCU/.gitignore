@@ -18,3 +18,4 @@ minestudio/simulator/minerl/tmp/
 /logs/
 *.log
 /artifacts/
+/slurm/logs/

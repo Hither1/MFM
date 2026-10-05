@@ -1,0 +1,51 @@
+# Skill-reuse probe, second design: iron_shield_tail made slightly simpler. In
+# iron_shield_tail every life built the furnace and then stalled FINDING iron ore: 0 of 6
+# no-memory lives and 0 of 2 skills-only lives mined any in 4,000 steps, so the rows
+# could not differ. Here the finding is taken away and the digging is kept: a 2x2x2 vein
+# of iron ore is placed 13 blocks below the spawn and 12 blocks south of it, and the task
+# says where. What is left is what a diamond life's scripts are for -- a shaft down, a
+# tunnel along one heading, the furnace, one craft.
+#
+# The vein is placed relative to the player at reset (the spawn is the same in every
+# life of this world: (-5853.5, 68, -3781.5)), in the form collect_grass uses, and the
+# text gives the same blocks in world coordinates; tests/test_skill_reuse.py checks the
+# two agree. Straight down from the spawn column to y 55 and then south (yaw 0), the
+# 12th block of a 1x2 tunnel is ore.
+custom_init_commands:
+- /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:oak_log 6
+- /execute as @p at @s run fill ~-1 ~-13 ~12 ~0 ~-12 ~13 minecraft:iron_ore replace
+defaults:
+- base
+- _self_
+text: Craft a shield. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory. A vein of iron ore lies underground at x -5855 to -5854, y 55 to 56, z -3770 to -3769 (13 blocks below where you start and 12 blocks south of it, toward +z); build a furnace, dig to the vein, mine iron ore, smelt an iron ingot and craft the shield.
+
+milestone_reward_cfg:
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: mine_block
+    identity: mine_iron_ore
+    objects: [iron_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: iron_ingot
+    objects: [iron_ingot]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: shield
+    objects: [shield]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

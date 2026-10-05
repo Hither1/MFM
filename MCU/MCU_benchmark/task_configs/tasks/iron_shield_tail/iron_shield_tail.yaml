@@ -1,0 +1,48 @@
+# Skill-reuse probe, second design (with shears_tail and bucket_tail): the TAIL of the
+# iron chain only. The opening every from-scratch task shares (find a tree, a table, a
+# pickaxe, stone) is handed over at reset, because in the first design it took 1,500 to
+# 4,500 of each probe's 6,000 steps and was decided by where the trees stood, not by
+# anything a carried memory could teach. What is left is what a diamond life learns:
+# getting underground, finding and mining iron, smelting it, and one craft no diamond
+# life made. The three tail tasks differ only in that craft and in how many ingots it
+# needs (shield 1, shears 2, bucket 3).
+#
+# The rules are statistics, as in the diamond task; the ingot and the item are
+# `craft_item`, the statistic the game raises when an item leaves a furnace or a grid.
+custom_init_commands:
+- /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:oak_log 6
+defaults:
+- base
+- _self_
+text: Craft a shield. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory; build a furnace, mine iron ore, smelt an iron ingot and craft the shield.
+
+milestone_reward_cfg:
+  - event: craft_item
+    identity: furnace
+    objects: [furnace]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: mine_block
+    identity: mine_iron_ore
+    objects: [iron_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: iron_ingot
+    objects: [iron_ingot]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: shield
+    objects: [shield]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

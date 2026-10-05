@@ -144,6 +144,7 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                   own_expand: Callable[[str, dict[str, Any]],
                                        tuple[str | None, str | None]] | None = None,
                   own_names: Collection[str] = (),
+                  own_loops: Collection[str] = (),
                   _depth: int = 0) -> ActionPlan:
     """Return the validated plan. An empty plan means the turn produced nothing usable.
 
@@ -213,6 +214,26 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                     continue
                 if own_expand is None:
                     notes.append(f"{name}: own procedures are not enabled this run")
+                    continue
+                if name in own_loops:
+                    # A closed loop (own.py, `--own-live`): not expanded here. One marker
+                    # the runner resolves from the tick its entry starts, charged its
+                    # whole budget like every other closed-loop marker.
+                    from mcu_worldmodel.own import LOOP_BUDGET
+                    try:
+                        want = max(1, int(args.get("ticks", LOOP_BUDGET)))
+                    except (TypeError, ValueError):
+                        want = LOOP_BUDGET
+                    budget = min(want, room)
+                    if budget < want:
+                        notes.append(f"{name}: its loop shrunk to fit the step cap: {want} -> "
+                                     f"{budget} ticks (the plan's {step_cap}-tick budget; call "
+                                     f"it again to continue)")
+                    kept.append({"procedure": name, "args": args, "steps": budget,
+                                 "items": 1, "own": True, "loop": True, **overrides})
+                    steps.append({"_ownloop": {"name": name, "args": dict(args),
+                                               "budget": budget}, "_cost": budget})
+                    used += budget
                     continue
                 text, err = own_expand(name, dict(args))
                 if err:

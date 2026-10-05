@@ -1,0 +1,63 @@
+# Endgame skill probe (third skill-reuse design, 2026-10-03): milestones 17, 18 and 21 of
+# the dragon chain -- kill a blaze, pick up its rod, craft blaze powder -- with the
+# SEARCH handed over. No life on any chassis has banked a milestone past netherrack
+# (16/24); the three 24-hour Nether continuations all died within 60 blocks of the
+# spawn-linked portal and never saw a fortress. Whether the fight itself is within reach
+# was therefore never measured: here three blazes are summoned beside the spawn, in
+# daylight on the surface (blazes are fire-immune and keep their behaviour there; nothing
+# else of the Nether is needed for these three rules), and the agent carries what a
+# diamond-stage life would -- a diamond sword, a shield in the off hand, iron armour worn,
+# food, a table for the powder craft. The kit is worn via /replaceitem (1.16) because no
+# atom dresses a player. The summons carry no NBT: with `{PersistenceRequired:1b}` the
+# three summons were dropped on the chat path (no "Summoned new Blaze", smoke 50211411)
+# while the plain /give and /replaceitem lines went through; a hostile mob within 32
+# blocks of the player does not despawn, and the probe keeps the agent there. The /fill
+# clears the jungle canopy in a 17x7x17 box around the spawn first: with the three summoned
+# 6-9 blocks out among the leaves (smoke 50216101), none ever had a line of sight to the
+# avatar in 400 steps -- no shot, no damage, one 11-px motion blob -- so the arena is open
+# ground and the mobs stand 4-5 blocks away.
+#
+# The rules are the dragon config's own (kill_entity / pickup / craft_item). A blaze drops
+# 0-1 rods, so three give ~87% odds of one; the kill scores even when nothing drops.
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 32
+- /give @s minecraft:cooked_beef 16
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /fill ~-8 ~ ~-8 ~8 ~6 ~8 minecraft:air
+- /summon minecraft:blaze ~5 ~1 ~
+- /summon minecraft:blaze ~-4 ~1 ~4
+- /summon minecraft:blaze ~ ~1 ~-5
+defaults:
+- base
+- _self_
+text: 'Kill a blaze, pick up its blaze rod and craft blaze powder. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear and the portal, and reached the Nether. You are NOT in the Nether now: you stand in the Overworld, on ground cleared for this fight, and the blazes have been brought to you. You wear iron armour and hold a shield in your off hand, and carry a diamond sword, a crafting table, 32 cobblestone and 16 cooked beef. Three blazes hover within a few blocks of you. Kill one, pick up the rod it drops, and craft blaze powder from the rod.'
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_blaze
+    objects: [blaze]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: blaze_rod
+    objects: [blaze_rod]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: blaze_powder
+    objects: [blaze_powder]
+    reward: 1.0
+    max_reward_times: 1
+
+# The dragon world (every gen-4 life's), at its fixed spawn.
+world_seed: 0

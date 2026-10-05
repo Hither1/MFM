@@ -86,6 +86,15 @@ class WorldModelExecutor(AgentExecutor):
         task: str = "mine_diamond_from_scratch",
         seed_memory: list[str] | None = None,
         seed_log: str | None = None,
+        carried_world: str = "same",
+        install_carried: bool = False,
+        install_scripts: list[str] | None = None,
+        grant: list[str] | None = None,
+        withhold: list[str] | None = None,
+        endgame_recipes: bool = False,
+        start_dimension: str | None = None,
+        own_live: bool = False,
+        near_deaths: bool = False,
         session_max_turns: int = 1,
         codex_timeout: int = 480,
         vista_options: dict | None = None,
@@ -104,6 +113,13 @@ class WorldModelExecutor(AgentExecutor):
         self.base_url = base_url
         self.seed_memory = seed_memory
         self.seed_log = seed_log
+        self.carried_world = carried_world
+        self.install_carried = install_carried
+        self.install_scripts = install_scripts
+        self.grant, self.withhold = list(grant or []), list(withhold or [])
+        self.endgame_recipes, self.start_dimension = bool(endgame_recipes), start_dimension
+        self.own_live = bool(own_live)
+        self.near_deaths = bool(near_deaths)
         self.session_max_turns = session_max_turns
         self.codex_timeout = codex_timeout
         self.vista_options = vista_options
@@ -200,6 +216,17 @@ class WorldModelExecutor(AgentExecutor):
             codex_timeout=self.codex_timeout,
             vista_options=self.vista_options,
             previous_lives=previous_lives,
+            carried_world=self.carried_world,
+            # only passed when on, so an arm without it calls the agent as before
+            **({"install_carried": True} if self.install_carried else {}),
+            **({"install_scripts": list(self.install_scripts)} if self.install_scripts else {}),
+            # the endgame skill probes' row options, only passed when set
+            **({"grant": list(self.grant)} if self.grant else {}),
+            **({"withhold": list(self.withhold)} if self.withhold else {}),
+            **({"endgame_recipes": True} if self.endgame_recipes else {}),
+            **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
+            **({"own_live": True} if self.own_live else {}),
+            **({"near_deaths": True} if self.near_deaths else {}),
             frame_size=self.frame_size,
             **ARMS[self.arm],
         )
@@ -500,9 +527,56 @@ def main() -> None:
                             "record (logs.txt, episodes/, index.jsonl, grid.jsonl, mine/) is "
                             "carried under previous/ for the model to read. Repeat the flag "
                             "to carry several lives, oldest first")
+    carry.add_argument("--carried-world", choices=("same", "other"), default="same",
+                       help="mfm with --seed-memory: where the carried lives were played. "
+                            "same (default): this world, so their places hold. other: "
+                            "another world and another task; the contract says so and "
+                            "tells the model to take from them how to act, not where")
+    carry.add_argument("--install-carried", action="store_true",
+                       help="mfm with --seed-memory: install the scripts the carried lives "
+                            "wrote (or edited from an example) into this life's mine/, armed "
+                            "and callable, and say so in the contract. Off (default): they "
+                            "stay in previous/ for the model to copy")
+    carry.add_argument("--install-scripts", type=str, action="append", default=None,
+                       help="mfm WITHOUT --seed-memory: the memory dir of an earlier life (and "
+                            "the lives it carried); only the scripts those lives wrote are "
+                            "installed into this life's mine/. No log, notes or episodes of "
+                            "theirs are carried: the skills-only arm")
     carry.add_argument("--seed-log", type=str, default=None,
                        help="logbook: the logs.txt of an earlier life; copied beside this "
                             "life's log as previous_expedition_log.txt")
+
+    probe = parser.add_argument_group("the endgame skill probes (slurm/skill_reuse3.sbatch)")
+    probe.add_argument("--grant", type=str, action="append", default=None,
+                       help="procedure names, comma-separated (repeatable), ADDED to the arm's "
+                            "set: a row is the shipped arm (the atoms) plus these macros")
+    probe.add_argument("--withhold", type=str, action="append", default=None,
+                       help="procedure names taken OUT of the arm's set; a call answers with "
+                            "a note")
+    probe.add_argument("--endgame-recipes", action="store_true",
+                       help="write the chain's doctrine past the iron pickaxe (blazes, "
+                            "endermen, the eye, the stronghold, the End, the dragon) as "
+                            "references/endgame.md, headed by which macros it names are "
+                            "built in for this row")
+    probe.add_argument("--start-dimension", choices=("overworld", "nether", "end"), default=None,
+                       help="where the task config puts the avatar at reset (the engine's "
+                            "biome id cannot tell); end_stone_tail and dragon_tail start "
+                            "in the End")
+
+    live = parser.add_argument_group("the model's own scripts")
+    live.add_argument("--own-live", action="store_true",
+                      help="mfm: a script under mine/procedures/ that declares LOOP = True is "
+                           "a closed loop -- run during the plan, each time the actions it "
+                           "returned have finished, on the live state and a PNG of the live "
+                           "view -- and the model's reflexes get that PNG too. Off (default): "
+                           "its scripts see the numbers of the turn only")
+
+    live.add_argument("--near-deaths", action="store_true",
+                      help="name a death whose respawn is close to where it happened: the "
+                           "YOU DIED note is otherwise written only for a respawn 15+ blocks "
+                           "away, and a death at the spawn (a fight there, a fall onto it) "
+                           "passes unnamed with the plan still running. Any memory mode. "
+                           "Off (default): the shipped rule")
 
     vista = parser.add_argument_group("vista")
     vista.add_argument("--vista-thread-bytes", type=int, default=None,
@@ -517,6 +591,18 @@ def main() -> None:
     mode = MEMORY_MODE[args.memory]
     if args.seed_memory and mode != "mfm":
         parser.error("--seed-memory carries an earlier life's record: it needs an mfm arm")
+    if args.carried_world == "other" and not (args.seed_memory and args.memory == "mfm"):
+        parser.error("--carried-world other describes carried lives: it needs --memory mfm "
+                     "and --seed-memory")
+    if args.install_carried and not (args.seed_memory and args.memory == "mfm"):
+        parser.error("--install-carried installs carried lives' scripts: it needs --memory mfm "
+                     "and --seed-memory")
+    if args.install_scripts and (args.seed_memory or args.memory != "mfm"):
+        parser.error("--install-scripts installs scripts without carrying the lives: it needs "
+                     "--memory mfm and no --seed-memory (with one, use --install-carried)")
+    if args.own_live and args.memory != "mfm":
+        parser.error("--own-live gives the model's own scripts the live view: it needs "
+                     "--memory mfm")
     if args.seed_log and mode != "logbook":
         parser.error("--seed-log carries an earlier life's log: it needs --memory logbook")
     vista_options = {k: v for k, v in (("thread_bytes", args.vista_thread_bytes),
@@ -531,6 +617,7 @@ def main() -> None:
     session_turns = (SESSION_TURNS[args.memory] if args.session_turns is None
                      else args.session_turns)
 
+    names = lambda vals: [n.strip() for v in (vals or []) for n in v.split(",") if n.strip()]  # noqa: E731
     executor = WorldModelExecutor(
         workspace_root=Path(args.workspace),
         model=args.model,
@@ -545,6 +632,12 @@ def main() -> None:
         memory_mode=args.memory,
         task=args.task,
         seed_memory=args.seed_memory, seed_log=args.seed_log,
+        carried_world=args.carried_world,
+        install_carried=args.install_carried,
+        install_scripts=args.install_scripts,
+        grant=names(args.grant) or None, withhold=names(args.withhold) or None,
+        endgame_recipes=args.endgame_recipes, start_dimension=args.start_dimension,
+        own_live=args.own_live, near_deaths=args.near_deaths,
         session_max_turns=session_turns,
         codex_timeout=args.codex_timeout,
         vista_options=vista_options or None,

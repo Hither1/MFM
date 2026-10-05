@@ -1,0 +1,31 @@
+# Skill-reuse probe, second design (see iron_shield_tail): the tail of coal_torches, from
+# the same handed-over kit. Coal is common and shallow where iron is not: in the 24
+# iron-tail lives, which were never asked for it, 7 mined coal ore (first at step 1,135
+# to 2,545) and 2 mined iron. So this probe is expected to be SOLVED by most lives, and
+# what the rows can differ in is how soon. What a diamond life carries that bears on it:
+# getting to stone quickly, and the stick that life 1 did not have when it held coal.
+custom_init_commands:
+- /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 8
+- /give @s minecraft:oak_log 6
+defaults:
+- base
+- _self_
+text: Craft a torch. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory; mine coal ore and craft torches from the coal and sticks.
+
+milestone_reward_cfg:
+  - event: mine_block
+    identity: mine_coal_ore
+    objects: [coal_ore]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: torch
+    objects: [torch]
+    reward: 1.0
+    max_reward_times: 1
+
+# A world no diamond or dragon life has played (theirs is 0).
+world_seed: 1

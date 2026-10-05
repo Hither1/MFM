@@ -1040,7 +1040,11 @@ def pillar_up(cur, info: dict, n: int = 3, item: str | None = None
                                           "phase": "look", "t": 0, "tries": 0,
                                           "y_jump": None, "budget": budget, "used": 0},
                               budget))
-    return acts, f"pillar_up: {n} {item} under the feet"
+    # The intent, not the result: the count that landed comes from `_pillar_tick` when
+    # it ends. One life read the old "4 cobblestone under the feet" after a hit had
+    # dropped the plan at one block, and died pillaring on what it took for a fact.
+    return acts, (f"pillar_up: placing {n} {item} under the feet; the verified count "
+                  f"follows in its own note when it ends")
 
 
 @macros.tick("_pillar", shrink="budget")

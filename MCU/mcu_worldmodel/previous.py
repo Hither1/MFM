@@ -156,6 +156,79 @@ class PreviousLives:
     def audit(self) -> dict[str, Any]:
         return {"lives": len(self.lives), "sources": self.sources, "files_linked": self.linked}
 
+    def install_own(self) -> list[dict[str, Any]]:
+        """`--install-carried`: put the scripts the carried lives WROTE into this life's
+        `mine/`, armed and callable, instead of leaving them for the model to copy out of
+        previous/. Without it a life reuses an earlier life's procedure only if it chooses
+        to copy it, and the skill-reuse probes measured that choice, not the skill.
+
+        A script is the model's when no shipped example (that life's skills/*/scripts)
+        has its name ("written"), or one has and the bytes differ ("edited"); an example
+        copied unchanged is not installed. Lives are taken oldest first, so the newest
+        life's version of a name wins. Returns one row per installed file."""
+        return install_scripts(self.root, self.lives)
+
+
+def install_scripts(root: Path, lives: list[Path]) -> list[dict[str, Any]]:
+    """Copy the scripts `lives` wrote (oldest first; see PreviousLives.install_own for
+    what counts) into `<root>/mine/`. The lives themselves need not be carried: with
+    `--install-scripts` they are not, and the scripts are all the new life gets."""
+    mine = Path(root) / "mine"
+    chosen: dict[str, dict[str, Any]] = {}
+    for i, life in enumerate(lives, start=1):
+        shipped = {p.name: p for p in sorted((life / "skills").glob("*/scripts/*.py"))}
+        for d in OWN_SCRIPT_DIRS:
+            for p in sorted((life / "mine" / d).glob("*.py")):
+                ex = shipped.get(p.name)
+                if ex is not None and ex.read_bytes() == p.read_bytes():
+                    continue
+                chosen[f"{d}/{p.name}"] = {"path": f"mine/{d}/{p.name}", "life": i,
+                                           "kind": "written" if ex is None else "edited",
+                                           "src": p}
+    rows = []
+    for rel, row in sorted(chosen.items()):
+        dst = mine / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(row.pop("src"), dst)        # a copy: editing it never edits the record
+        rows.append(row)
+    logger.info(f"[previous] installed {len(rows)} script(s) of earlier lives into mine/: "
+                + ", ".join(f"{r['path']} (life {r['life']}, {r['kind']})" for r in rows))
+    return rows
+
+
+#: The directories under mine/ that hold scripts the model writes and runs.
+OWN_SCRIPT_DIRS = ("procedures", "reflexes", "tools")
+
+
+def installed_note(rows: list[dict[str, Any]], record: bool = True) -> str:
+    """The contract's line for `--install-carried` (`record`: the lives are carried under
+    previous/) and for `--install-scripts` (they are not: the scripts are all there is):
+    what was installed, from which life."""
+    listed = ("\n".join(f"  - `{r['path']}` (life {r['life']}, "
+                        f"{'its own script' if r['kind'] == 'written' else 'an example it edited'})"
+                        for r in rows)
+              if rows else ("  - none: the carried record holds no script of its own" if record
+                            else "  - none: those lives wrote no script of their own"))
+    if not record:
+        return (
+            "[INSTALLED] Scripts that earlier lives of yours wrote are installed in `mine/` for\n"
+            "this life, as they left them (the newest life wins a name):\n"
+            f"{listed}\n"
+            "They are armed and callable now under those names. They are ALL that is here of\n"
+            "those lives: no log, notes or episodes of theirs were carried, and a path a script's\n"
+            "comments name under `previous/` does not exist. They were written in another world\n"
+            "for another task: read each docstring in your first turn, and keep, fix or retire it\n"
+            "(a leading underscore) as you would your own. Copying an example of the same name\n"
+            "over one replaces it.\n")
+    return (
+        "[INSTALLED] Your earlier lives' own scripts are installed in `mine/` for this life,\n"
+        "as they left them (the newest life wins a name):\n"
+        f"{listed}\n"
+        "They are armed and callable now under those names. They were written in another\n"
+        "world for another task: read each docstring in the workshop turn, and keep, fix or\n"
+        "retire it (a leading underscore) as you would your own. Copying an example of the\n"
+        "same name over one replaces it.\n")
+
 
 _FAILED = re.compile(r"^\[NOTE\] (\w+) \(mine/(procedures|reflexes)/\w+\.py\) FAILED, nothing ran: (.*)$")
 _FIRED = re.compile(r"^\[NOTE\] \[REFLEX (\w+)\] (.*)$")
@@ -255,3 +328,30 @@ The world resets between lives: terrain, water, lava and ore are exactly where t
 were; nothing a life built, dug, placed or dropped survives, and step numbers in their
 logs belong to THEIR run. Verify arrival at a remembered place against your live
 [STATE]."""
+
+#: The same paragraph for lives carried from ANOTHER world and another task
+#: (`--carried-world other`, the skill-reuse probes): nothing those lives wrote about a
+#: place is true here, and "this same world" would send the model to their coordinates.
+#: What is left to carry is how to act.
+MFM_PREVIOUS_NOTE_OTHER = """\
+`previous/life_<i>/` holds the complete records of earlier runs of yours in ANOTHER
+WORLD (a different seed and spawn) and on ANOTHER TASK, oldest first: each one's
+`logs.txt` (the same [STATE]/[NOTE]/[EVENT] vocabulary as yours), its `episodes/` with
+the frames and its `index.jsonl` where it kept them (`./tools/episodes.py --previous
+--grep <text> | --tag ... ` queries all of them at once), and whatever that run wrote
+for itself. Nothing from them is put in front of you. No place in them exists here:
+their coordinates, terrain, water, lava and ore are another world's, and their
+milestone list is not yours. What carries over is how to act: the procedures and
+reflexes that run wrote and whether they worked, the screens and recipes it got
+through, what cost it steps and what it died of. Reading that (its `mine/`, then
+`grep -n` over `previous/life_*/logs.txt`, or the query tool) is yours to do before you
+work the same thing out again; step numbers in their logs belong to THEIR run."""
+
+#: `--carried-world`: where the carried lives were played, as the contract states it.
+CARRIED_WORLDS = ("same", "other")
+
+
+def previous_note(carried_world: str = "same") -> str:
+    if carried_world not in CARRIED_WORLDS:
+        raise ValueError(f"unknown carried_world: {carried_world!r} (same|other)")
+    return MFM_PREVIOUS_NOTE_OTHER if carried_world == "other" else MFM_PREVIOUS_NOTE

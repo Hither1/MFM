@@ -1,0 +1,2 @@
+{"artifact": {"actions": [{"procedure": "watch", "args": {"n": 40}}]}, "message": "[PLAN]\nlook at where we are"}
+{"artifact": {"actions": [{"procedure": "look", "args": {"yaw": 90}}, {"procedure": "watch", "args": {"n": 40}}]}, "message": "[PLAN]\nturn and look"}
