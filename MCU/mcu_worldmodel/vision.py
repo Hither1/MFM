@@ -299,6 +299,30 @@ def lava_mask(frame: np.ndarray) -> np.ndarray:
     return m
 
 
+#: Head under lava: the view is lava's fog edge to edge, a flat deep red that is neither
+#: the lava texture (`lava_fraction` reads 0.000-0.048 there) nor, between flickers, the
+#: flames (`fire_fraction` 0.000-0.58). Measured on the upper 55% of the frame (above the
+#: flame band and the hotbar): the 22 frames of three deaths in the Nether's lava sea
+#: read 0.76-1.00; 4,957 other frames of six lives -- the Nether's netherrack, a lava
+#: lake from its bank, a lit portal, the burning overlay, a forest on fire -- at most 0.29.
+_SUBMERGED_R_MIN = 90.0
+_SUBMERGED_GR_MAX = 0.40
+_SUBMERGED_BR_MAX = 0.12
+LAVA_SUBMERGED_MIN = 0.5
+
+
+def lava_submerged(frame: np.ndarray) -> float:
+    """Share of the upper view that is the red fog seen from inside lava."""
+    if frame is None or frame.ndim != 3:
+        return 0.0
+    h = frame.shape[0]
+    f = frame[:int(h * 0.55)].astype(np.float32)
+    r, g, b = f[..., 0], f[..., 1], f[..., 2]
+    rr = np.maximum(r, 1.0)
+    m = (r >= _SUBMERGED_R_MIN) & (g / rr <= _SUBMERGED_GR_MAX) & (b / rr <= _SUBMERGED_BR_MAX)
+    return float(m.mean()) if m.size else 0.0
+
+
 def lava_fraction(frame: np.ndarray) -> float:
     """Share of the lower view that is lava-coloured (see the constants above)."""
     if frame is None or frame.ndim != 3:

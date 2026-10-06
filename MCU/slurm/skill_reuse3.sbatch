@@ -84,6 +84,10 @@
 #                 SMOKE=look: SMOKE_TASK (default enderman_tail) with the fake that only pans
 #                 the camera -- what the scene of a probe looks like and whether it holds
 #                 (the time of day, the summoned mobs still there after 300 steps).
+#                 SMOKE=stare_eyes | stare_body: the stare_check task (one enderman, the
+#                 avatar under Resistance V) with --own-live and a scripted loop that finds
+#                 the eyes and keeps the crosshair ON them (eyes), or on the body once inside
+#                 4.5 blocks (body): does a stared-at enderman teleport away at contact here?
 #                 SMOKE=llm: one real PROBE_STEPS life of SMOKE_TASK/SMOKE_ROW.
 #
 # Submit from MCU/ of the run worktree with a clean environment, as skill_reuse.sbatch:
@@ -228,11 +232,15 @@ if [ "$STAGE" = smoke ]; then
         kill) T=blaze_tail;     SCRIPT=slurm/smoke/kill.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="--grant $GRANT_FIGHT,fight_blaze";;
         end)  T=end_stone_tail; SCRIPT=slurm/smoke/end.jsonl;  STEPS="${SMOKE_STEPS:-200}"; GRANT="";;
         cow)  T=cook_meat_tail; SCRIPT=slurm/smoke/cow.jsonl;  STEPS="${SMOKE_STEPS:-400}"; GRANT="--grant $GRANT_FIGHT";;
+        edge) T=edge_check;     SCRIPT=slurm/smoke/edge.jsonl; STEPS="${SMOKE_STEPS:-320}"; GRANT="";;
         raw)  T=kill_check;     SCRIPT=slurm/smoke/raw.jsonl;  STEPS="${SMOKE_STEPS:-400}"; GRANT="";;
         loop) T=kill_check;     SCRIPT=slurm/smoke/loop.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="--own-live";;
         death) T=death_check;   SCRIPT=slurm/smoke/death.jsonl; STEPS="${SMOKE_STEPS:-200}"; GRANT="--own-live $SMOKE_EXTRA";;
+        stare_eyes|stare_body)
+              T=stare_check; SCRIPT="slurm/smoke/$SMOKE.jsonl"; STEPS="${SMOKE_STEPS:-500}"; GRANT="--own-live";;
+        scan) T="${SMOKE_TASK:-fortress_look}"; SCRIPT=slurm/smoke/scan.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="$SMOKE_EXTRA";;
         look) T="${SMOKE_TASK:-enderman_tail}"; SCRIPT=slurm/smoke/end.jsonl; STEPS="${SMOKE_STEPS:-300}"; GRANT="$(task_extra "$T") $SMOKE_EXTRA";;
-        *) echo "FATAL: SMOKE must be kill, end, cow, raw, loop, death, look or llm"; exit 1;;
+        *) echo "FATAL: SMOKE must be kill, end, cow, raw, loop, death, look, stare_eyes, stare_body or llm"; exit 1;;
     esac
     ARM="${TAG}_smoke_${SMOKE}"
     cp "$SCRIPT" "logs/${ARM}_script.jsonl"; rm -f "logs/${ARM}_script.jsonl.idx" "logs/${ARM}_fake_calls.jsonl"

@@ -540,7 +540,7 @@ _SURVIVAL_RULE = """
   of sight -- two cobblestone between you and it, or step out of the tunnel -- and
   never charge it under 10 health (a run at 4 hearts rushed one and died); **cave
   spiders** (cobwebs = an abandoned mineshaft) poison and swarm, so leave the shaft
-  the way you came and wall it off. While hits keep coming, a plan that MOVES you
+  the way you came and wall it off; an **enderman** that you look in the eye from under 4 blocks teleports away, so once one is close keep the crosshair on its body or legs, never on its head. While hits keep coming, a plan that MOVES you
   keeps running (that is your escape), but a plan standing still -- digging,
   sweeping, clicking -- is stopped by the runner, and at 6 health or less
   everything is: get out of reach first (pillar up two blocks, or wall the tunnel).
@@ -584,7 +584,7 @@ _SURVIVAL_GENERIC = """
   edge is the void, so stand and fight there; when the frame shows lava filling the
   lower view the damage is the lava itself, and it pours your water bucket at your
   feet if one is in the hotbar and steps you back instead). Then fight (the entity
-  macros) or leave;
+  macros) or leave; an **enderman** that you look in the eye from under 4 blocks teleports away, so once one is close keep the crosshair on its body or legs, never on its head;
   never stand still in the dark. A slow steady loss is drowning, burning or starvation --
   read the Vitals line; with water around you (or afloat) the runner holds jump to swim you
   up, and it refuses dig_down / stair_down within 6 blocks of water seen in the last 200
@@ -618,7 +618,7 @@ _SURVIVAL_OWN = """
   tunnel with its ceiling intact; a sword in the hotbar before going deep and food in
   the inventory (no natural healing below 18 food); descend by stairs, never by jumping
   into a hole; back away from orange and seal it with a block; break a skeleton's line
-  of sight instead of charging it; in the Nether sneak, never sprint or jump while
+  of sight instead of charging it; an **enderman** that you look in the eye from under 4 blocks teleports away, so once one is close keep the crosshair on its body or legs, never on its head; in the Nether sneak, never sprint or jump while
   moving, dig the way down, bridge over lava. Verify ARRIVAL at a remembered place
   against the live position readout before drawing conclusions about the site.
 - **Obsidian is lake work, and a death there costs the chain its tools.** Obsidian breaks

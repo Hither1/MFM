@@ -78,7 +78,7 @@ frac, fire = s["lava_frac"], s.get("fire_frac", 0.0)
 entry = s.get("atom") or s.get("entry")      # the atom inside an own procedure
 lost = s.get("health_prev", 20) - s.get("health", 20)
 flames = fire >= 0.12 and fire > 2.0 * frac      # the overlay flickers down to ~0.14 between flames
-in_lava = lost >= 3.0 and frac >= 0.2
+in_lava = bool(s.get("in_lava")) or (lost >= 3.0 and frac >= 0.2)     # head under: the view is flat red, frac ~0
 if entry in ON_PURPOSE:
     pass
 elif in_lava and p and not s.get("gui_open"):
@@ -131,7 +131,7 @@ if p and q and q["y"] - p["y"] >= 2.0:
 import json, sys
 s = json.load(sys.stdin)
 lost = s.get("health_prev", s["health"]) - s["health"]
-if lost >= 3.0 and s["lava_frac"] < 0.01 and s.get("fire_frac", 0.0) < 0.2:
+if lost >= 3.0 and s["lava_frac"] < 0.01 and s.get("fire_frac", 0.0) < 0.2 and not s.get("in_lava"):
     block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
     pillar = bool(block) and not s.get("gui_open") and (s.get("atom") or s.get("entry")) not in ("pillar_up", "place_at", "use_at")
     print(json.dumps({"stop": True,

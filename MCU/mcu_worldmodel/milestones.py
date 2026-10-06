@@ -46,7 +46,7 @@ class MilestoneLedger:
     """Tracks the ordered progression and reports it as ground truth."""
 
     def __init__(self, reward_cfg: list[dict[str, Any]], task_name: str = "",
-                 given: list[str] | tuple[str, ...] = ()) -> None:
+                 given: list[str] | tuple[str, ...] = (), settled: bool = False) -> None:
         self.cfg = list(reward_cfg or [])
         self.task_name = task_name
         self.order = [c["identity"] for c in self.cfg]
@@ -57,6 +57,12 @@ class MilestoneLedger:
         #: and rebuilt from a log scored 9/24. So they stay OPEN in the ledger and the
         #: checklist says why they are cheap. Unknown names are ignored.
         self.given = [g for g in given if g in self.order]
+        #: `given_settled` in the task config (a life CONTINUED from an earlier one, the
+        #: `ender_dragon_resume` start): the given milestones are that life's, counted with
+        #: it, and this life is run for the ones after them. The checklist then shows them
+        #: as done there and the next target skips them: the first such life spent 5,100
+        #: of its 40,000 steps mining back down for the iron and the diamonds it held.
+        self.settled = bool(settled) and bool(self.given)
         self.achieved: dict[str, int] = {}       # identity -> step first achieved
         self._prev: dict[str, Any] = {}
         self._prev_stats: dict[tuple[str, str], float] = {}
@@ -171,8 +177,11 @@ class MilestoneLedger:
         is what keeps a 12,000-step episode from wandering.
         """
         for rule in self.cfg:
-            if rule["identity"] not in self.achieved:
-                return rule
+            if rule["identity"] in self.achieved:
+                continue
+            if self.settled and rule["identity"] in self.given:
+                continue
+            return rule
         return None
 
     def progress_line(self) -> str:
@@ -190,6 +199,9 @@ class MilestoneLedger:
         nxt = self.next_target()
         advice = (" -- bank whichever are already within reach (a furnace needs only "
                   "8 cobblestone) before chasing the next in list order.")
+        if self.settled:
+            advice = (f" ({len(self.given)} more were done in the earlier life this one "
+                      f"continues and are counted there; this life is for the rest.)")
         head = (f"Environment-verified progress: {len(self.achieved)}/{len(self.cfg)} "
                 f"milestones. Score = COUNT achieved, in ANY order{advice}")
         if nxt is None:
@@ -206,6 +218,9 @@ class MilestoneLedger:
             ident = rule["identity"]
             if ident in self.achieved:
                 lines.append(f"  [x] {ident} (step {self.achieved[ident]})")
+            elif ident in self.given and self.settled:
+                lines.append(f"  [=] {ident} (done in the earlier life this one continues, "
+                             f"and counted there: nothing asks for it again)")
             elif ident in self.given:
                 lines.append(f"  [ ] {ident} <- {rule['event']}: "
                              f"{', '.join(rule['objects'][:4])} (the kit HOLDS this item, "

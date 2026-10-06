@@ -65,7 +65,7 @@ the notes on each: `references/procedures.md`):
 - `look(pitch=<degrees, + is down>, yaw=<degrees, + is right>)` -- Turn the camera by a relative (pitch, yaw) in degrees, in safe increments.
 - `look_at(x=<world x>, y=<world y>, z=<world z>)` -- Aim the crosshair at a WORLD coordinate (exact, from [STATE] ground truth).
 - `look_abs(pitch=<target pitch in degrees (+down, -up), or null to keep>, yaw=<target yaw in degrees, or null to keep>, ticks=<tick budget (default 40)>)` -- Steer the camera to an ABSOLUTE pitch/yaw, closed-loop against [STATE] every tick (works from any starting pose; `look` is relative).
-- `go_to(x=<world x>, z=<world z>, within=<stop distance in blocks (default 1.5)>, n=<max ticks>)` -- Walk to a WORLD (x, z), re-aiming against [STATE] every tick until within reach.
+- `go_to(x=<world x>, z=<world z>, within=<stop distance in blocks (default 1.5)>, n=<max ticks>, sneak=<true: walk holding sneak -- about a third of the speed, no hop, and the game does not let a sneaking avatar step off a block edge, so the walk stops at a drop instead of going over it (default false)>)` -- Walk to a WORLD (x, z), re-aiming against [STATE] every tick until within reach.
 - `mine_ahead(n=<max ticks>, ore_watch=<true to re-enable sightings>)` -- Hold attack on exactly what the crosshair is on -- no re-aiming, no walking.
 - `equip_hotbar(slot=<1-9>)` -- Select hotbar slot 1-9.
 - `open_inventory()` -- Press E to open the inventory GUI.

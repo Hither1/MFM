@@ -235,6 +235,58 @@ with their calls, refusals and last outcome, so a life copies what worked rather
 what has a name. One gpt-6.1-sol high life ran on it and was stopped at 11,805 steps
 (6/24): too slow to finish (about 1,300 steps an hour on one-block plans).
 
+### Continued lives (2026-10-05 and 10-06)
+
+The Opus 5.5 dragon chain on 1d96da8 was continued from its second life, which held 12
+obsidian, the diamond tools and a flint and steel at step 39,136 and then burned at its
+own portal. A world cannot be resumed (it is generated at every reset), so a continued
+life is a new life in the same world with the chain's memory carried, that kit given
+back and the earlier milestones settled (`given_settled` in the task config: the
+checklist shows them as done in the earlier life, and the scorer's total then counts
+only what the life itself earns). "Distinct" below is the settled milestones plus the
+new ones. All lives: claude-opus-5-5 high, `--own-live --near-deaths`,
+`--install-carried`.
+
+| life | start (task) | carried | steps | new in the life | distinct |
+|---|---|---|---|---|---|
+| `resume_opus55_l3` | the spawn, the kit (`ender_dragon_resume`) | lives 1-2 and the two lives of the blaze probe | 40,000 | `netherrack` (14,050); it re-earned the 15 as well | 16/24 |
+| `resume2_opus55_l6` | the same, with food | those and `resume_opus55_l3` | 40,000 | `netherrack` (8,665) | 16/24 |
+| `fort_opus55_l6` | a bridge of the Nether fortress (`ender_dragon_fortress`) | the same five | 30,000 | `kill_blaze` (2,293) | 17/24 |
+| `fort2_opus55_l7` | the same bridge, the respawn point set on it | those and `fort_opus55_l6` | 30,000 | `kill_blaze` (421), `blaze_rod` (431), `blaze_powder` (458) | 19/24 |
+
+The two fortress lives are STAGED: the search is handed over. The nearest fortress is
+488 blocks from where the spawn-linked portal lands, and every life that entered the
+Nether died within 70 blocks of that landing, a shelf over the lava sea. The avatar is
+put on a brick bridge 19 blocks from a blaze spawner (found with `/locate` and
+`MCU/scripts/fortress_map.py`, which reads the engine's voxel channel and is never shown
+to an agent), with the chain's kit, food, and the shield and iron armour of the blaze
+probe; the second fortress life also respawns on the bridge. What they show is that the
+fight loop an earlier life wrote in the blaze probe (`blaze_fight`, a closed loop on the
+live frame) kills blazes in the real fortress inside the full task, and that the life
+after it does so sooner: 2,293 steps and seven calls to the first kill, then 421 steps,
+with the rod and the powder inside the next 40. No life killed an enderman, so the
+pearl, the eye and the End remain open.
+
+Three changes to the shared chassis came out of these lives, for every arm (the pins
+were re-recorded; lives run before them are not on the same text):
+
+- An item named by a plan entry is brought to hand when the entry RUNS. Every entry was
+  compiled against the inventory at the start of the turn, so an earlier entry's
+  inventory trip made a later one stale: one life's `pillar_up(item=cobblestone)` built
+  its pillar from its last three obsidian, and the note said cobblestone.
+- Head under lava is read as lava (`vision.lava_submerged`, the reflex state's
+  `in_lava`, the harness note, the `hit` and `lava_ahead` examples). The view from
+  inside lava is a flat red that the lava and flame detectors both read as nothing;
+  three deaths in the lava sea were reported to the model as a mob's hits.
+- `go_to(sneak=true)` walks holding sneak, which does not step off a block edge
+  (checked in the engine: `edge_check`). The plain walk sprint-jumps and took three
+  lives over the edge of the landing shelf.
+
+None of the three kept a life out of the lava sea by itself: the first life on the fixed code
+mined the block it stood on at the landing and fell through. The shared text also gained
+the enderman sentence of the endgame probes (an enderman looked in the eye from under
+four blocks teleports away).
+
 ## License
 
 MIT, see `LICENSE`. `MCU/` is MCU-AgentBeats and MineStudio, `CUA-KiCad/` builds on

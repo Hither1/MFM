@@ -49,6 +49,11 @@ class Agent:
         # second-half start of the dragon task (harness experiment, 2026-09-04): the same
         # 24 rules as ender_dragon with a kit given at reset; see its task config
         "ender_dragon_half", "ender_dragon_portal",
+        # the published life pub3_opus_dragon_life2 continued from the point where it
+        # held its 12 obsidian (2026-10-05): its kit then, milestones 1-15 credited
+        "ender_dragon_resume",
+        # and from a bridge of the Nether fortress, milestones 1-16 settled
+        "ender_dragon_fortress",
         # The nether-portal case study: the dragon chain's one purely geometric goal,
         # cut out of the chain with the blocks already in hand and nothing scarce, so
         # the only thing measured is whether the shape comes out right.
@@ -73,7 +78,7 @@ class Agent:
         # given, or a start on the End's arrival platform (their task configs).
         "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail", "dragon_tail",
         # their instrument: one fenced cow, the kill rule alone (not a probe)
-        "kill_check", "death_check",
+        "kill_check", "death_check", "stare_check", "edge_check", "fortress_look",
     }
     
     # Task step limits

@@ -933,11 +933,15 @@ class WorldModelAgent:
             frame = info.get("pov")
             frame = self._last_pov if frame is None else frame
             lava_now = fire_now = water_now = 0.0
+            submerged = False
             if (pos and frame is not None and not info.get("isGuiOpen", False)
                     and self._dimension != "the End"):
                 lava_now = vision.lava_fraction(np.asarray(frame))
                 fire_now = vision.fire_fraction(np.asarray(frame))
                 water_now = vision.water_view(np.asarray(frame), rows_from=0.30)[0]
+                # Head under lava: neither detector above sees it (vision.lava_submerged).
+                submerged = (vision.lava_submerged(np.asarray(frame))
+                             >= vision.LAVA_SUBMERGED_MIN)
             # Lava's damage is exactly 4.0 every 10 ticks (a zombie on hard 4.5, an
             # arrow 2-5, fire 1, drowning 2): a 4.0 loss with any lava in view is lava
             # contact. Two runs took their first lava hit with under 15%
@@ -952,7 +956,7 @@ class WorldModelAgent:
             if touch and lava_now < self.LAVA_TOUCH_FRAC:
                 home_cell = self._lava_home_cell(pos)
                 sunk = home_cell is not None and home_cell[1] - float(pos["y"]) >= 0.4
-            lava_hit = (lava_now >= self.LAVA_ESCAPE_FRAC
+            lava_hit = (submerged or lava_now >= self.LAVA_ESCAPE_FRAC
                         or fire_now >= vision.FIRE_FRAC_MIN
                         or (touch and (lava_now >= self.LAVA_TOUCH_FRAC or sunk)))
             # Drowning evidence is water: in the frame now, or seen by the guard lately
@@ -1257,10 +1261,22 @@ class WorldModelAgent:
                 # not act -- and must not say it does
                 reflex = (" The runner does not act in this run: the plan stopped, the "
                           "next move is yours.")
-            self.memory.add_note(
-                f"{kind} -- health {hp:.0f}/20 at {where}. The plan was interrupted; "
-                f"find the danger (a monster behind you? a fall? lava? drowning or "
-                f"burning if the loss was gradual) before continuing.{reflex}")
+            if submerged:
+                # Three lives of one chain swam in the Nether's lava sea while this note
+                # said "STILL under attack ... pillar up two blocks": the frame from
+                # inside lava shows no lava texture, so the loss was read as a mob's.
+                self.cursor_stats["submerged_notes"] = (
+                    self.cursor_stats.get("submerged_notes", 0) + 1)
+                self.memory.add_note(
+                    f"YOU ARE IN LAVA -- took {tick_drop:.0f} damage, health {hp:.0f}/20 at "
+                    f"{where}: the view is lava's red from edge to edge, and lava takes 4 "
+                    f"health every 10 ticks. No mob is here. The plan was interrupted."
+                    f"{reflex}")
+            else:
+                self.memory.add_note(
+                    f"{kind} -- health {hp:.0f}/20 at {where}. The plan was interrupted; "
+                    f"find the danger (a monster behind you? a fall? lava? drowning or "
+                    f"burning if the loss was gradual) before continuing.{reflex}")
             self.queue.clear()
         if not getattr(self, "reflexes", True):
             self._reflex = None             # human-play: the note stands, the runner does not act
@@ -3168,6 +3184,10 @@ class WorldModelAgent:
                 return self._goto_stalled(gt, pos, mk_act)
         else:
             gt["stuck"] = 0
+        if gt.get("sneak"):
+            # Sneaking, the game does not let the avatar step off a block edge: no jump
+            # and no sprint, which would carry it over.
+            return mk_act(forward=1, sneak=1, camera=[0.0, max(-8.0, min(8.0, dyaw))])
         return mk_act(forward=1, jump=1, sprint=1,
                       camera=[0.0, max(-8.0, min(8.0, dyaw))])
 
@@ -3178,8 +3198,19 @@ class WorldModelAgent:
         nearer the target; otherwise stop with the note. Measured before this:
         30-50% of blocked targets were never reached, and the ground between was
         usually the avatar's own trail."""
-        self.grid.mark_blocked(self.step, pos)
         short = math.hypot(gt["x"] - pos["x"], gt["z"] - pos["z"])
+        if gt.get("sneak"):
+            # An edge or a wall: the walk does not know which, and a detour or a pit
+            # climb would leave the sneak that is holding it back from the drop.
+            self._keep_event_frame(self.step, "blocked", self._last_pov)
+            self.memory.add_note(
+                f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) with sneak stopped at "
+                f"({pos['x']:.1f}, {pos['y']:.1f}, {pos['z']:.1f}), {short:.1f} blocks "
+                f"short: a block edge with a drop of a block or more ahead (sneak does "
+                f"not step off one), or a wall or a step up (sneak does not jump). Look "
+                f"down over it before choosing.")
+            return None
+        self.grid.mark_blocked(self.step, pos)
         if not gt.get("detoured"):
             path = self.grid.detour(pos, gt["x"], gt["z"])
             if path:
@@ -4617,6 +4648,9 @@ class WorldModelAgent:
         # brighter band lets a reflex tell a lit portal or a burn from a pool.
         st["fire_frac"] = (round(float(vision.fire_fraction(np.asarray(frame))), 4)
                            if frame is not None else 0.0)
+        # Head under lava: the view is lava's fog, which reads as neither of the two.
+        st["in_lava"] = bool(frame is not None and vision.lava_submerged(np.asarray(frame))
+                             >= vision.LAVA_SUBMERGED_MIN)
         prev = self._own_reflex_prev
         st["health_prev"] = prev["health"] if prev else st["health"]
         st["food_prev"] = prev.get("food", st["food"]) if prev else st["food"]

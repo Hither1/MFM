@@ -41,6 +41,7 @@ from typing import Any
 import numpy as np
 
 from mcu_worldmodel import gui, macros, vision
+from mcu_worldmodel.milestones import slot_is_empty
 
 EYE = 1.62
 #: Survival block reach, from the eye. 4.5 in vanilla; 4.4 leaves margin for the aim
@@ -344,7 +345,15 @@ def _hotbar_of(info: dict, item: str) -> int | None:
 
 def _prep_item(cur, info: dict, item: str | None, label: str
                ) -> tuple[list[dict[str, Any]], str]:
-    """Entries that put `item` in the hotbar and select it; ("", err) when impossible."""
+    """One entry that puts `item` in the hotbar and selects it; ([], err) when impossible.
+
+    Whether it is possible is decided here, against the inventory the plan was made
+    from. HOW is decided when the entry runs (`_prep_tick`): every entry of a plan is
+    expanded before the first one runs, and an earlier entry's inventory trip moves
+    stacks. One life's `place_at(cobblestone)` swapped the cobblestone into the hotbar
+    slot of its obsidian; the `pillar_up(item=cobblestone)` behind it had been compiled
+    from the same picture, so its own trip swapped the two back, selected the slot, and
+    the pillar went up in the life's last three obsidian."""
     from mcu_worldmodel import macros_gui as MG
     from mcu_worldmodel import procedures as P
 
@@ -356,7 +365,36 @@ def _prep_item(cur, info: dict, item: str | None, label: str
     acts, hot, err = MG.ensure_hotbar(cur, info, item, label)
     if err:
         return [], err
-    return acts + P.equip_hotbar(hot + 1), ""
+    acts = acts + P.equip_hotbar(hot + 1)
+    cost = sum(max(0, int(a.get("_cost", 1))) for a in acts)
+    return [macros.marker("_prep", {"item": item, "label": label}, cost)], ""
+
+
+@macros.tick("_prep")
+def _prep_tick(agent, pp: dict[str, Any], mk_act):
+    """`_prep_item` at run time: the trip and the selection compiled against the
+    inventory of THIS tick and spliced in behind the marker, under the same plan entry
+    (as `_later` does). If the item cannot be brought to hand any more, the rest of the
+    plan is dropped with the reason: what follows would act with whatever is selected."""
+    from mcu_worldmodel import macros_gui as MG
+    from mcu_worldmodel import procedures as P
+
+    item, label = str(pp.get("item", "")), str(pp.get("label", "item"))
+    info = agent._cur_info or {}
+    if gui.find_slots(info, item):
+        acts, hot, err = MG.ensure_hotbar(agent.cursor.copy(), info, item, label)
+    else:
+        acts, hot, err = [], -1, (f"{label}: you carry no {item} any more -- an earlier "
+                                  f"entry of this plan used it up or moved it.")
+    if err:
+        agent._note_failure(label.split("(")[0])
+        agent._flush_tail(f"{err} Nothing was done with another item in its place.",
+                          "prep_item_flush")
+        return None
+    idx = agent.queue[0][1] if agent.queue else 0
+    for step in reversed(acts + P.equip_hotbar(hot + 1)):
+        agent.queue.insert(1, (step, idx))
+    return None
 
 
 def use_at(cur, info: dict, x: float = 0.0, y: float = 0.0, z: float = 0.0,
@@ -1047,6 +1085,19 @@ def pillar_up(cur, info: dict, n: int = 3, item: str | None = None
                   f"follows in its own note when it ends")
 
 
+def _block_counts(agent) -> dict[str, int]:
+    """Carried quantity by item type, from the inventory of this tick."""
+    out: dict[str, int] = {}
+    inv = (getattr(agent, "_cur_info", None) or {}).get("inventory")
+    for e in (inv.values() if isinstance(inv, dict) else ()):
+        if not isinstance(e, dict) or slot_is_empty(e):
+            continue
+        q = e.get("quantity", 0)
+        out[str(e.get("type"))] = out.get(str(e.get("type")), 0) + (
+            int(q.item()) if hasattr(q, "item") else int(q))
+    return out
+
+
 @macros.tick("_pillar", shrink="budget")
 def _pillar_tick(agent, pl: dict[str, Any], mk_act):
     pos = agent._cur_pos
@@ -1057,12 +1108,27 @@ def _pillar_tick(agent, pl: dict[str, Any], mk_act):
         return mk_act()
     pl["used"] += 1
 
+    if pl.get("inv0") is None:
+        pl["inv0"] = _block_counts(agent)
+
     def _finish(why: str) -> None:
         agent.cursor_stats["pillar_up_blocks"] = (
             agent.cursor_stats.get("pillar_up_blocks", 0) + pl["placed"])
+        # What left the inventory, not what was asked for: one life's pillar "of
+        # cobblestone" was its last three obsidian, and the note said cobblestone.
+        now = _block_counts(agent)
+        gone = {k: v - now.get(k, 0) for k, v in pl["inv0"].items() if v - now.get(k, 0) > 0}
+        other = {k: v for k, v in gone.items() if k != pl["item"]}
+        wrong = ""
+        if pl["placed"] and other and not gone.get(pl["item"]):
+            what = ", ".join(f"{v} {k}" for k, v in sorted(other.items()))
+            wrong = (f" NOT {pl['item']}: the inventory lost {what} -- that is what the "
+                     f"pillar is made of ({pl['item']} was not the selected item).")
+            agent.cursor_stats["pillar_wrong_item"] = (
+                agent.cursor_stats.get("pillar_wrong_item", 0) + 1)
         agent.memory.add_note(
             f"pillar_up: {pl['placed']} of {pl['target']} {pl['item']} placed, now at y "
-            f"{pos['y']:.1f}. {why}")
+            f"{pos['y']:.1f}. {why}{wrong}")
 
     if pl["used"] > pl["budget"]:
         _finish("Budget spent.")
