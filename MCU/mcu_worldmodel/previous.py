@@ -191,8 +191,20 @@ def install_scripts(root: Path, lives: list[Path]) -> list[dict[str, Any]]:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(row.pop("src"), dst)        # a copy: editing it never edits the record
         rows.append(row)
+    # The scripts' record travels with them (own.RECORD_FILE): every row of every life,
+    # relabelled with that life's number here, so the new life's [OWN] index says what a
+    # carried script DID -- "life 1: 167 ticks, 6 sword hits" -- not just "called 0x".
+    from mcu_worldmodel import own as _own
+    merged: dict[str, list[dict[str, Any]]] = {}
+    for i, life in enumerate(lives, start=1):
+        for name, recs in _own.load_record(life).items():
+            for r in recs:
+                merged.setdefault(name, []).append(dict(r, life=i))
+    if merged:
+        _own.save_record(root, merged)
     logger.info(f"[previous] installed {len(rows)} script(s) of earlier lives into mine/: "
-                + ", ".join(f"{r['path']} (life {r['life']}, {r['kind']})" for r in rows))
+                + ", ".join(f"{r['path']} (life {r['life']}, {r['kind']})" for r in rows)
+                + (f"; records of {len(merged)} script(s)" if merged else ""))
     return rows
 
 

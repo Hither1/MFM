@@ -307,6 +307,11 @@ class WorldModelAgent:
         self.start_dimension = _DIMENSION.get(start_dimension)
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
+        #: Running ledger counts an own entry's scorecard is cut from (own.RECORD_FILE).
+        self._tally: dict[str, float] = {"hits": 0.0, "kills": 0.0}
+        self._entry_tally0: dict[str, Any] | None = None
+        self._own_record: dict[str, list[dict[str, Any]]] | None = None
+        self._own_life_no: int = 1
         #: `--own-reflexes` (mcu_worldmodel/own.py): mine/reflexes/<name>.py scripts run
         #: every REFLEX_EVERY ticks on the live numbers and may stop the plan, note, and
         #: queue a short plan of their own -- the model's tick layer, beside the runner's.
@@ -774,6 +779,13 @@ class WorldModelAgent:
             # log because every miss ran its full duration with the answer (leaves) in
             # the stat stream the whole time.
             for s in stats:
+                # The sword's use statistic rises on a hit that lands (and on a block it
+                # breaks); kills are the kill rule's own event. Cut per own entry below.
+                if s["event"] == "use_item" and "sword" in str(s["item"]):
+                    self._tally["hits"] += float(s["delta"])
+                elif s["event"] == "kill_entity":
+                    self._tally["kills"] += float(s["delta"])
+            for s in stats:
                 if s["event"] != "mine_block":
                     continue
                 if "log" in s["item"]:
@@ -821,7 +833,8 @@ class WorldModelAgent:
                     f"{pos['z']:.0f}). Everything you carried dropped at the death "
                     f"point and despawns after ~6000 ticks. Decide now: recover it "
                     f"(stair_down beside the site -- NEVER jump into an open shaft, "
-                    f"that is how the second death happened) or rebuild from scratch.")
+                    f"that is how the second death happened) or rebuild from scratch."
+                    + self._dying_during())
                 self.queue.clear()
                 # The world moved out from under the reflex and the damage window.
                 self._reflex = None
@@ -843,7 +856,7 @@ class WorldModelAgent:
                     f"dropped at the death point and despawns after ~6000 ticks; health "
                     f"and food are full again and the camera is back at pitch 0, yaw 0. "
                     f"What killed you is still where it was: look before you go back "
-                    f"for the pile.")
+                    f"for the pile." + self._dying_during())
                 self.queue.clear()
                 self._reflex = None
                 self._last_bunker = None
@@ -1462,6 +1475,10 @@ class WorldModelAgent:
                     self._entry_index = idx
                     self._entry_start_pos = self._cur_pos
                     self._entry_start_inv = dict(self._cur_inv)
+                    self._entry_tally0 = {"step": self.step, "hits": self._tally["hits"],
+                                          "kills": self._tally["kills"],
+                                          "deaths": self.cursor_stats.get("deaths", 0),
+                                          "health": self._last_health}
                     if self.episodes and 0 <= idx < len(self._plan_entries):
                         self.episodes.open(
                             self._plan_entries[idx], idx, len(self._plan_entries), info,
@@ -4423,6 +4440,44 @@ class WorldModelAgent:
             self._own_procs = (_own.scan(self.memory.root, set(_P.REGISTRY), loops=True)
                                if self.own_live else
                                _own.scan(self.memory.root, set(_P.REGISTRY)))
+            if self._own_record is None:
+                # Once per life: the record the scripts arrived with (carried by
+                # previous.install_scripts), and this life's number in it.
+                self._own_record = _own.load_record(self.memory.root)
+                self._own_life_no = _own.record_life(self._own_record)
+
+    def _own_scorecard(self, entry: dict[str, Any]) -> None:
+        """An own procedure's entry just ended: one `[OWN <name>]` note with what it did
+        (ticks, sword hits, kills, health, deaths -- the ledger's numbers over the entry),
+        and the same row appended to mine/scripts_record.json, which travels with the
+        script to later lives and shows in the [OWN] index. Measurement, not a skill."""
+        if not (self.own and isinstance(entry, dict) and entry.get("own")):
+            return
+        t0 = self._entry_tally0
+        if not t0:
+            return
+        name = str(entry.get("procedure") or "")
+        row = {"life": self._own_life_no, "step": int(t0["step"]),
+               "ticks": max(0, int(self.step) - int(t0["step"])),
+               "hits": int(round(self._tally["hits"] - float(t0["hits"]))),
+               "kills": int(round(self._tally["kills"] - float(t0["kills"]))),
+               "deaths": int(self.cursor_stats.get("deaths", 0)) - int(t0["deaths"]),
+               "health": [t0["health"], self._last_health]}
+        if self._own_record is None:
+            self._own_record = {}
+        self._own_record.setdefault(name, []).append(row)
+        _own.save_record(self.memory.root, self._own_record)
+        self.memory.add_note(f"[OWN {name}] this entry: {_own.scorecard(row)}.")
+        self._entry_tally0 = None
+
+    def _dying_during(self) -> str:
+        """The tail of a YOU DIED note: the plan entry that was running."""
+        idx = self._entry_index
+        if idx is None or not (0 <= idx < len(self._plan_entries)):
+            return ""
+        desc = describe_entry(self._plan_entries[idx]).replace("[ACTION] ", "", 1)
+        desc = desc.split(" -> ", 1)[0].strip()
+        return f" You were running `{desc}` when it happened."
 
     def _own_state(self, info: dict) -> dict[str, Any]:
         """What an own script gets on stdin: the same numbers the turn message shows."""
@@ -4764,7 +4819,8 @@ class WorldModelAgent:
                 if map_block else "")
             if self.own:
                 self._scan_own()
-                own_block = _own.index_block(self._own_procs, self._own_calls)
+                own_block = _own.index_block(self._own_procs, self._own_calls,
+                                             self._own_record, self._own_life_no)
                 if self.own_reflexes:
                     self._scan_own_reflexes()
                     rx_block = _own.reflex_block(self._own_reflexes, self._own_reflex_fires,
@@ -4809,6 +4865,7 @@ class WorldModelAgent:
         """
         if not (0 <= index < len(self._plan_entries)):
             return
+        self._own_scorecard(self._plan_entries[index])
         self.action_num += 1
         first_note = (self.memory._pending_notes[0][:150] if self.memory._pending_notes
                       else "")

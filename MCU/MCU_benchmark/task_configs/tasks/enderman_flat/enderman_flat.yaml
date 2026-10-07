@@ -1,0 +1,66 @@
+# enderman_tail on LEVEL ground (2026-10-05). The same probe, kit, mobs, night and text;
+# the one difference is the ground. enderman_tail clears 17x17 blocks of air on a slope
+# with a pool six blocks below it: in every life the endermen were off it within a few
+# hundred steps, one stood in the water (which hurts endermen and makes them teleport),
+# and the lives fought on a slope at a range their elevation rangefinders could not
+# measure -- the life that had the stare fact swung eight times at "3.1 blocks" and the
+# game counted none. Its text says "on ground cleared for this fight"; here that is true:
+# 41x41 blocks of air cleared 11 high, and a stone floor laid at the spawn's foot level
+# (it covers the pool). No wall: the mobs are free, the fight is the open-ground fight.
+# The floor is SIX blocks thick. A one-block slab (the first version, job 50778128) left
+# the old ground as a cavity under it, and a death respawned the avatar INSIDE the cavity,
+# at (-3018, 68, -5570): that life spent 1,500 of its 2,000 steps digging at a tree trunk
+# under a stone ceiling. Six blocks was not enough either: the drop check (job 50790469)
+# respawned at y 63, in a two-block gap between the old ground and the stone above it.
+# The game puts a respawn at the old ground height and lifts it while it collides, so
+# the stone goes SIXTEEN deep (26,896 blocks, under the 32,768 a fill may change): no
+# gap is left under the floor, and the lift ends on top of it.
+# Chat off (2026-10-06): the reset's own feedback ("Successfully filled ...", "Summoned new
+# Enderman", the advancement lines) stayed on screen as white text for the first ~250
+# ticks, and one life's eye detector turned onto it for a whole 380-tick plan.
+custom_init_commands:
+- /gamerule sendCommandFeedback false
+- /gamerule announceAdvancements false
+- /time set 18000
+- /weather clear
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:crafting_table 1
+- /give @s minecraft:cobblestone 32
+- /give @s minecraft:cooked_beef 16
+- /give @s minecraft:blaze_powder 2
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /fill ~-20 ~ ~-20 ~20 ~10 ~20 minecraft:air
+- /fill ~-20 ~-16 ~-20 ~20 ~-1 ~20 minecraft:stone
+- /summon minecraft:enderman ~6 ~1 ~
+- /summon minecraft:enderman ~-5 ~1 ~5
+- /summon minecraft:enderman ~ ~1 ~-7
+defaults:
+- base
+- _self_
+text: 'Kill an enderman, pick up its ender pearl and craft an eye of ender. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether and brought back blaze powder. You stand in the Overworld at night, on ground cleared for this fight. You wear iron armour and hold a shield in your off hand, and carry a diamond sword, a diamond pickaxe, a crafting table, 32 cobblestone, 16 cooked beef and 2 blaze powder. Three endermen stand within a few blocks of you; they attack whoever looks them in the eye. Kill one, pick up the pearl it drops, and craft an eye of ender from the pearl and a blaze powder.'
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_enderman
+    objects: [enderman]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: pickup
+    identity: ender_pearl
+    objects: [ender_pearl]
+    reward: 1.0
+    max_reward_times: 1
+
+  - event: craft_item
+    identity: eye_of_ender
+    objects: [ender_eye]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

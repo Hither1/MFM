@@ -146,9 +146,82 @@ def run(proc: OwnProcedure, root: Path, state: dict[str, Any], args: dict[str, A
     return out, None
 
 
-def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int]) -> str:
+#: mine/<RECORD_FILE>: what every own procedure DID, per entry, harness-measured from the
+#: same ledger that scores milestones -- ticks, sword hits landed, kills, deaths, health
+#: at start and end -- keyed by script name, each row tagged with the life that ran it.
+#: Carried with the scripts (previous.install_scripts) so a later life reads a carried
+#: script's record instead of a bare "called 0x": one chain of three lives each RETIRED
+#: the fight loop of the life before and wrote a new one, and the retired loop of life 1
+#: had landed 6 hits in 167 ticks -- more than any script that replaced it.
+RECORD_FILE = "scripts_record.json"
+RECORD_ROWS = 40        # rows kept per script, newest last
+
+
+def load_record(root: Path) -> dict[str, list[dict[str, Any]]]:
+    path = Path(root) / "mine" / RECORD_FILE
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return {str(k): [r for r in v if isinstance(r, dict)]
+            for k, v in data.items() if isinstance(v, list)} if isinstance(data, dict) else {}
+
+
+def save_record(root: Path, record: dict[str, list[dict[str, Any]]]) -> None:
+    path = Path(root) / "mine" / RECORD_FILE
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps({k: v[-RECORD_ROWS:] for k, v in record.items()},
+                                  indent=0, sort_keys=True))
+        tmp.replace(path)
+    except OSError as e:
+        logger.warning(f"[own] could not write {path}: {e}")
+
+
+def record_life(record: dict[str, list[dict[str, Any]]]) -> int:
+    """The life number this life's rows get: one past the newest life in the record."""
+    return 1 + max((int(r.get("life", 0)) for rows in record.values() for r in rows), default=0)
+
+
+def scorecard(row: dict[str, Any]) -> str:
+    """One row of the record as the note reads: `167 ticks, 6 sword hits, 0 kills,
+    health 20->12, 0 deaths`."""
+    h = row.get("health") or [None, None]
+    hp = (f"health {h[0]:.0f}->{h[1]:.0f}" if h[0] is not None and h[1] is not None
+          else "health unknown")
+    return (f"{int(row.get('ticks', 0))} ticks, {int(row.get('hits', 0))} sword hits, "
+            f"{int(row.get('kills', 0))} kills, {hp}, {int(row.get('deaths', 0))} deaths")
+
+
+def record_line(rows: list[dict[str, Any]], this_life: int) -> str:
+    """A script's record for the [OWN] index, one clause per life, totals over its
+    entries: `record: life 1 (1 entry): 167 ticks, 6 sword hits, 0 kills, health 20->12,
+    0 deaths | this life (2 entries): ...`."""
+    by_life: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_life.setdefault(int(r.get("life", 0)), []).append(r)
+    parts = []
+    for life in sorted(by_life):
+        rs = by_life[life]
+        tot = {"ticks": sum(int(r.get("ticks", 0)) for r in rs),
+               "hits": sum(int(r.get("hits", 0)) for r in rs),
+               "kills": sum(int(r.get("kills", 0)) for r in rs),
+               "deaths": sum(int(r.get("deaths", 0)) for r in rs)}
+        hs = [r.get("health") for r in rs if r.get("health") and r["health"][0] is not None
+              and r["health"][1] is not None]
+        tot["health"] = [hs[0][0], hs[-1][1]] if hs else [None, None]
+        who = "this life" if life >= this_life else f"life {life}"
+        parts.append(f"{who} ({len(rs)} entr{'y' if len(rs) == 1 else 'ies'}): {scorecard(tot)}")
+    return "record: " + " | ".join(parts) if parts else ""
+
+
+def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int],
+                record: dict[str, list[dict[str, Any]]] | None = None,
+                this_life: int = 1) -> str:
     """The [OWN] block of the turn prompt: every script under mine/procedures/, its
-    index line and call count -- or why it cannot be called."""
+    index line, call count and record (what its entries did, by life) -- or why it
+    cannot be called."""
     if not procs:
         return ""
     lines = ["[OWN] your own procedures (mine/procedures/*.py; call as "
@@ -159,8 +232,10 @@ def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int]) -> str:
             continue
         args = ", ".join(f"{k}=<{v}>" for k, v in p.params.items())
         n = calls.get(name, 0)
+        rec = record_line((record or {}).get(name) or [], this_life)
         lines.append(f"- `{name}({args})` -- {p.doc or '(no docstring)'}"
-                     f" [{'closed loop; ' if p.loop else ''}called {n}x]")
+                     f" [{'closed loop; ' if p.loop else ''}called {n}x"
+                     + (f"; {rec}" if rec else "") + "]")
     return "\n".join(lines)
 
 
@@ -179,8 +254,11 @@ def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int]) -> str:
 LOOP_BUDGET = 200           # ticks a loop entry runs when its args give no `ticks`
 LOOP_CALL_TICKS = 20        # ticks of actions ONE call may return
 LOOP_ENTRY_CAP = 6          # entries ONE call may return
-LOOP_TIMEOUT_S = 10.0       # seconds one call may take (a cold numpy import off NFS took 5+ on the first call of three lives)
-LOOP_COLD_TIMEOUT_S = 30.0  # the FIRST call of an entry: a Python start on a loaded node took over 10 s twice in one life, and each cost a model turn; the world waits, so the limit costs no tick
+LOOP_TIMEOUT_S = 30.0       # seconds one call may take (a cold numpy import off NFS took 5+ on the first call of three lives)
+#: Every call has the same limit since 2026-10-06: a 10 s limit on the later calls ended a
+#: fight entry at call 14 on a busy node with 269 of 380 ticks unspent. The world waits
+#: during a call, so the limit costs no tick.
+LOOP_COLD_TIMEOUT_S = LOOP_TIMEOUT_S  # the FIRST call of an entry: a Python start on a loaded node took over 10 s twice in one life, and each cost a model turn; the world waits, so the limit costs no tick
 LOOP_MEMO_CAP = 4096        # bytes of `memo` kept between calls
 LOOP_NOTES = 6              # notes one loop entry may leave in the log
 #: The live view, in the attach dir beside the workspace (never listed, never carried).
@@ -244,8 +322,8 @@ on the state of THAT tick:
   <name>] ...`, at most 6 per entry: say what you saw when it changes, not at every call;
 - the entry ends when `again` is false, when its budget is spent (`ticks` in the args,
   default 200, never more than the ticks your plan has left), when a call fails
-  (non-zero exit, a timeout -- {cold} s on the first call of an entry, which pays the
-  Python start, {warm} s after -- or bad JSON: one [NOTE] with the last error line), or
+  (non-zero exit, a call that takes over {warm} s, or bad JSON: one [NOTE] with the
+  last error line), or
   when a reflex or a verified milestone drops the plan. The harness then writes one
   `[LOOP <name>] ended: ...` line with the calls and ticks it used. A hit you take does
   NOT drop a loop entry the way it drops an ordinary one: the loop sees `health` fall at

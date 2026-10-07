@@ -1,0 +1,45 @@
+# Endgame skill probe (see blaze_tail, end_stone_tail): the stretch between milestone 22
+# (an eye of ender) and milestone 23 (an end stone) that end_stone_tail hands over -- the
+# stronghold. end_stone_tail starts on the End's arrival platform and was solved 3 of 3;
+# no run has ever thrown an eye, dug to a stronghold, filled a portal frame or gone through
+# an End portal. Here the agent starts in the OVERWORLD with the eyes and must do all of it.
+#
+# The nearest stronghold of the fixed world is at x -3368, z -3816 (/locate from the spawn,
+# job 50997588), 1,793 blocks from the spawn: more walking than a 12,000-step life holds.
+# So the walk is handed over and the search is not: the avatar is put on the surface about
+# 200 blocks from the stronghold (spreadplayers lands it on the top block near
+# x -3228, z -3676: shallow water at a shore, y 63, checked in job 50998192) and is NOT told where the stronghold is. Kit: the diamond gear the
+# journey is credited with, 16 eyes of ender (a frame takes 12, fewer where the game
+# pre-filled some; the rest to throw -- a thrown eye breaks one time in five), two stacks
+# of cobblestone for the bridge on the other side, food, a shield. The respawn point is
+# left at the world spawn, as it would be: a death ends the attempt.
+# Chat off, as in enderman_flat (the reset's feedback lines fooled one life's detector).
+custom_init_commands:
+- /gamerule sendCommandFeedback false
+- /gamerule announceAdvancements false
+- /time set 1000
+- /weather clear
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:ender_eye 16
+- /give @s minecraft:cobblestone 128
+- /give @s minecraft:cooked_beef 32
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:diamond_helmet
+- /replaceitem entity @s armor.chest minecraft:diamond_chestplate
+- /replaceitem entity @s armor.legs minecraft:diamond_leggings
+- /replaceitem entity @s armor.feet minecraft:diamond_boots
+- /spreadplayers -3228 -3676 0 2 false @s
+defaults:
+- base
+- _self_
+text: 'Pick up an end stone. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether, killed blazes and endermen and made eyes of ender, then walked most of the way to a stronghold. You stand in the Overworld, in shallow water at a shore, within a few hundred blocks of that stronghold; you do not know exactly where it is. You wear diamond armour and hold a shield in your off hand, and carry a diamond pickaxe, a diamond sword, 16 eyes of ender, 128 cobblestone and 32 cooked beef. A thrown eye of ender flies toward the stronghold and can be picked up again where it falls. Find the stronghold underground, find its End portal room, put an eye of ender in every empty block of the portal frame, go through the portal, and in the End reach the island and mine one end stone into your inventory.'
+
+milestone_reward_cfg:
+  - event: pickup
+    identity: end_stone
+    objects: [end_stone]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

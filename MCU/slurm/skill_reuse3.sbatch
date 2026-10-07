@@ -144,7 +144,9 @@ fi
 # in the End, which the engine's biome id cannot say.
 task_extra() {
     case "$1" in
-        end_stone_tail|dragon_tail) echo "--start-dimension end";;
+        end_stone_tail|dragon_tail|dragon_diamond) echo "--start-dimension end";;
+        # a start teleport inside the Overworld is an arrival too, not a death (job 50998371)
+        stronghold_tail) echo "--start-dimension overworld";;
         *) ;;
     esac
 }

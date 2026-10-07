@@ -1,0 +1,42 @@
+# dragon_tail in DIAMOND armour, chat off (2026-10-06). The same platform, bow, arrows,
+# sword, shield, cobblestone and food; the four armour pieces are diamond instead of iron
+# and the text says so, as enderman_diamond does for the enderman probe: the task text
+# credits "the diamond gear" of the journey so far, and a dragon run reaches this fight
+# wearing it. The two gamerules keep the reset's own feedback lines off the screen (one
+# enderman life's detector locked onto them). Run with a long budget: 2,000 steps is 100 s
+# of game time, and the three dragon_tail lives (sr3l) spent ~1,350 of them on the bridge
+# and the walk to the island centre.
+custom_init_commands:
+- /gamerule sendCommandFeedback false
+- /gamerule announceAdvancements false
+- /time set 1000
+- /weather clear
+- /give @s minecraft:diamond_pickaxe 1
+- /give @s minecraft:diamond_sword 1
+- /give @s minecraft:bow 1
+- /give @s minecraft:arrow 64
+- /give @s minecraft:cobblestone 128
+- /give @s minecraft:cooked_beef 32
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:diamond_helmet
+- /replaceitem entity @s armor.chest minecraft:diamond_chestplate
+- /replaceitem entity @s armor.legs minecraft:diamond_leggings
+- /replaceitem entity @s armor.feet minecraft:diamond_boots
+- /execute in minecraft:the_end run forceload add 98 -2 102 2
+- /execute in minecraft:the_end run fill 98 48 -2 102 48 2 minecraft:obsidian
+- /execute in minecraft:the_end run fill 98 49 -2 102 51 2 minecraft:air
+- /execute in minecraft:the_end run tp @s 100 49 0
+- /execute in minecraft:the_end run forceload remove 98 -2 102 2
+defaults:
+- base
+- _self_
+text: 'Defeat the Ender Dragon. The journey to this point is done and credited: an earlier expedition made the tools, the diamond gear, the portal, reached the Nether, made eyes of ender, found the stronghold and jumped into the End portal. You stand on the obsidian arrival platform in the End (x 100, z 0); the main island lies toward x 0 across a gap of void you must bridge. You wear diamond armour and hold a shield in your off hand, and carry a diamond pickaxe, a diamond sword, a bow with 64 arrows, 128 cobblestone and 32 cooked beef. The dragon heals from the end crystals on top of the obsidian towers: destroy them (the bow from a distance), then strike the dragon when it perches on the bedrock fountain at the island centre.'
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_ender_dragon
+    objects: [ender_dragon]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0
