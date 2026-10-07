@@ -1,0 +1,30 @@
+# Instrument, not a probe (slurm/skill_reuse3.sbatch SMOKE=scan SMOKE_TASK=fortress_look, a
+# scripted model): the staged start of `ender_dragon_fortress`, checked without a model. The
+# avatar is put on the bridge cell, its respawn point is set there, and it is killed by
+# command: it must come back on the bridge (verified 2026-10-06: respawned one block from the
+# death, the eight cobblestone dropped there). Earlier forms of this file asked the engine
+# where the fortress is (`/execute in minecraft:the_nether positioned -374 50 -685 run locate
+# fortress` -> (-608, ~, -256), 488 blocks from the spawn-linked portal's landing; the answer
+# is a chat line, read from the frames) and tried `spreadplayers ... under 80` as the way in,
+# which put the avatar inside blocks.
+custom_init_commands:
+- /time set 1000
+- /give @s minecraft:cobblestone 8
+- /execute in minecraft:the_nether run forceload add -624 -240 -600 -212
+- /execute in minecraft:the_nether run tp @s -612.5 67 -225.5
+- /execute in minecraft:the_nether run spawnpoint @s -612 67 -226
+- /execute in minecraft:the_nether run forceload remove -624 -240 -600 -212
+- /kill @s
+defaults:
+- base
+- _self_
+text: Stand still.
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_animal
+    objects: [cow, pig, sheep, chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 0

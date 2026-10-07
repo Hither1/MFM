@@ -70,3 +70,14 @@ def load_given_milestones(task: str) -> list[str]:
         given.extend(str(g) for g in (data.get("given_milestones") or []))
     return given
 
+
+def load_given_settled(task: str) -> bool:
+    """Whether the task config marks its given milestones as settled (`given_settled:
+    true`): a life continued from an earlier one, whose milestones are counted with that
+    life and are not asked for again (milestones.MilestoneLedger)."""
+    task_dir = _TASKS_DIR / task
+    if not task_dir.is_dir():
+        return False
+    return any(bool((yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("given_settled"))
+               for p in sorted(task_dir.glob("*.yaml")))
+

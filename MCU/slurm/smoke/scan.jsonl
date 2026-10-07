@@ -1,0 +1,7 @@
+{"artifact": {"actions": [{"procedure": "look_abs", "args": {"pitch": 10, "yaw": 0}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 10, "yaw": 90}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 10, "yaw": 180}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 10, "yaw": -90}}, {"action": {}, "repeat": 3}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"procedure": "look_abs", "args": {"pitch": 45, "yaw": 0}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 45, "yaw": 90}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 45, "yaw": 180}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 45, "yaw": -90}}, {"action": {}, "repeat": 3}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"procedure": "look_abs", "args": {"pitch": -40, "yaw": 0}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": -40, "yaw": 180}}, {"action": {}, "repeat": 3}, {"procedure": "look_abs", "args": {"pitch": 85, "yaw": 0}}, {"action": {}, "repeat": 3}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nscan"}
+{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nscan"}

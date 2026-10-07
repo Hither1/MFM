@@ -43,7 +43,7 @@ from mcu_worldmodel.arms import ARMS, MEMORY_MODE, SESSION_TURNS
 from mcu_worldmodel.milestones import MilestoneLedger
 from camera_contract import with_camera_truth
 from models import AckPayload, ActionPayload
-from task_milestones import load_given_milestones, load_milestone_cfg
+from task_milestones import load_given_milestones, load_given_settled, load_milestone_cfg
 
 
 def prepare_agent_card(url: str) -> AgentCard:
@@ -192,7 +192,8 @@ class WorldModelExecutor(AgentExecutor):
             workspace=workspace / "memory",
             task_text=self._task_text,
             ledger=MilestoneLedger(cfg, task_name=self.task,
-                                   given=load_given_milestones(self.task)),
+                                   given=load_given_milestones(self.task),
+                                   settled=load_given_settled(self.task)),
             model=self.model,
             reasoning_effort=self.reasoning_effort,
             base_url=self.base_url,

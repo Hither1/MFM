@@ -1,0 +1,206 @@
+custom_init_commands:
+- /give @a minecraft:diamond_pickaxe 1
+- /give @a minecraft:diamond_sword 1
+- /give @a minecraft:iron_pickaxe 1
+- /give @a minecraft:stone_pickaxe 1
+- /give @a minecraft:flint_and_steel 1
+- /give @a minecraft:obsidian 12
+- /give @a minecraft:diamond 2
+- /give @a minecraft:bucket 1
+- /give @a minecraft:furnace 1
+- /give @a minecraft:crafting_table 1
+- /give @a minecraft:cobblestone 64
+- /give @a minecraft:cobblestone 64
+- /give @a minecraft:torch 12
+- /give @a minecraft:coal 6
+- /give @a minecraft:iron_ingot 1
+- /give @a minecraft:stick 1
+- /give @a minecraft:spruce_planks 9
+- /give @a minecraft:dirt 21
+- /give @a minecraft:gravel 39
+- /give @a minecraft:flint 3
+- /give @a minecraft:redstone 23
+- /give @a minecraft:cooked_beef 16
+defaults:
+- base
+- _self_
+text: 'Defeat the Ender Dragon. The first part of the journey is already done: an earlier life of yours
+  in this same world gathered wood, stone and iron, made the iron pickaxe, mined diamonds, made the
+  diamond pickaxe and sword and a flint and steel, and mined 12 obsidian at a lava lake; milestones
+  1-15 (through mine_obsidian and flint_and_steel) are credited to you. You stand at the spawn with
+  the kit it held at that point -- the diamond pickaxe and sword, an iron and a stone pickaxe, the
+  flint and steel, 12 obsidian, 2 diamonds, a bucket, a furnace, a crafting table, 128 cobblestone,
+  12 torches, 6 coal, an iron ingot, a stick, 9 planks, 21 dirt, 39 gravel, 3 flint, 23 redstone and
+  16 cooked beef. Those fifteen are counted with that life and nothing asks for them again: this life
+  is for the nine after them. Continue from here: build and light the portal, the Nether, blaze rods and ender pearls,
+  eyes of ender, a stronghold, and conquer The End.'
+milestone_reward_cfg:
+- event: mine_block
+  identity: mine_log
+  objects:
+  - log
+  - oak_log
+  - birch_log
+  - spruce_log
+  - jungle_log
+  - acacia_log
+  - dark_oak_log
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: crafting_table
+  objects:
+  - crafting_table
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: wooden_pickaxe
+  objects:
+  - wooden_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_cobblestone
+  objects:
+  - cobblestone
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: stone_pickaxe
+  objects:
+  - stone_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_iron_ore
+  objects:
+  - iron_ore
+  - deepslate_iron_ore
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: furnace
+  objects:
+  - furnace
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: iron_ingot
+  objects:
+  - iron_ingot
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: iron_pickaxe
+  objects:
+  - iron_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_diamond_ore
+  objects:
+  - diamond_ore
+  - deepslate_diamond_ore
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: diamond
+  objects:
+  - diamond
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: diamond_pickaxe
+  objects:
+  - diamond_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: diamond_sword
+  objects:
+  - diamond_sword
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_obsidian
+  objects:
+  - obsidian
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: flint_and_steel
+  objects:
+  - flint_and_steel
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: netherrack
+  objects:
+  - netherrack
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_blaze
+  objects:
+  - blaze
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: blaze_rod
+  objects:
+  - blaze_rod
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_enderman
+  objects:
+  - enderman
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: ender_pearl
+  objects:
+  - ender_pearl
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: blaze_powder
+  objects:
+  - blaze_powder
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: eye_of_ender
+  objects:
+  - ender_eye
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: end_stone
+  objects:
+  - end_stone
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_ender_dragon
+  objects:
+  - ender_dragon
+  reward: 1.0
+  max_reward_times: 1
+given_milestones:
+- mine_log
+- crafting_table
+- wooden_pickaxe
+- mine_cobblestone
+- stone_pickaxe
+- mine_iron_ore
+- furnace
+- iron_ingot
+- iron_pickaxe
+- mine_diamond_ore
+- diamond
+- diamond_pickaxe
+- diamond_sword
+- mine_obsidian
+- flint_and_steel
+given_settled: true

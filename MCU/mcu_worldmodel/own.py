@@ -545,7 +545,8 @@ runner's own escape is running), with the same STDIN state as a procedure plus
 that is flame-coloured: a fire block or the burning overlay reads 5-15x `lava_frac`, a
 lake 0.3-0.5x, the overlay over a pool 1.5-2.5x and a pool one block away 1.0-1.3x),
 `hurt_100` (the health lost in the last 100 ticks, healing not counted: flames on screen
-and `hurt_100` >= 1 is a burn), `mainhand` (the item held), `health_prev` and
+and `hurt_100` >= 1 is a burn), `in_lava` (true when your head is under lava: the view
+is then a flat red that reads as neither of the two), `mainhand` (the item held), `health_prev` and
 `pos_prev` (4 ticks ago), `entry` (the plan entry running: a procedure name or "raw"),
 `atom` (inside one of your own procedures, the built-in or raw step it is running now;
 otherwise the same as `entry`), `queue_len` and `runner_reflex`. It prints NOTHING (or `{}`) to stay quiet, and to
