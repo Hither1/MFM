@@ -4603,6 +4603,23 @@ class WorldModelAgent:
         proc = self._own_procs.get(name)
         if proc is None or proc.error or not proc.loop:
             return end(f"mine/procedures/{name}.py is gone or no longer a loop")
+        # What the last call returned finished without a tick (a look_abs already within
+        # its 2 degrees, a go_to already there) and the marker is back on the tick of
+        # that call. The script would get the same state and return the same thing, and
+        # the budget counts ticks, so nothing would ever end it: `next_action` never
+        # returned, the green side timed the step out and the worker thread kept the
+        # purple lock for the rest of the life. One idle tick first, so every call
+        # costs at least one and the budget ends the entry.
+        if st.get("called_at") == self.step:
+            if not st.get("idled"):
+                st["idled"] = True
+                self.memory.add_note(f"[LOOP {name}] call {int(st['calls']) - 1} returned only "
+                                     f"steps that were already done, so no tick ran; an idle "
+                                     f"tick runs before the next call each time this happens.")
+            self.cursor_stats["own_loop_idle"] = self.cursor_stats.get("own_loop_idle", 0) + 1
+            self.queue.appendleft((_P.noop(), idx))
+            return True
+        st["called_at"] = self.step
         state = self._own_state(info)
         frame = self._last_pov
         live = self._live_frame(info)

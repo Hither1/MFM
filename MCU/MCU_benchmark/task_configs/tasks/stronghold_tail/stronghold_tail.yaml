@@ -4,11 +4,13 @@
 # no run has ever thrown an eye, dug to a stronghold, filled a portal frame or gone through
 # an End portal. Here the agent starts in the OVERWORLD with the eyes and must do all of it.
 #
-# The nearest stronghold of the fixed world is at x -3368, z -3816 (/locate from the spawn,
-# job 50997588), 1,793 blocks from the spawn: more walking than a 12,000-step life holds.
-# So the walk is handed over and the search is not: the avatar is put on the surface about
-# 200 blocks from the stronghold (spreadplayers lands it on the top block near
-# x -3228, z -3676: shallow water at a shore, y 63, checked in job 50998192) and is NOT told where the stronghold is. Kit: the diamond gear the
+# The nearest stronghold of the fixed world (/locate from the spawn, job 50997588) is
+# more walking from the spawn than a 12,000-step life holds. So the walk is handed over
+# and the search is not: the avatar is put on the surface within an eye's throw of it
+# (the spreadplayers line below: shallow water at a shore, y 63, checked in job 50998192)
+# and is NOT told where the stronghold is. Where it is, and how far, is not written in
+# this file: a life can read the tree it runs in (two probe lives read their own task
+# config on their first turn), and the numbers are in that job's log. Kit: the diamond gear the
 # journey is credited with, 16 eyes of ender (a frame takes 12, fewer where the game
 # pre-filled some; the rest to throw -- a thrown eye breaks one time in five), two stacks
 # of cobblestone for the bridge on the other side, food, a shield. The respawn point is
