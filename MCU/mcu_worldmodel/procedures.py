@@ -600,8 +600,8 @@ def travel(n: int = 40, sprint: bool = True) -> list[dict[str, Any]]:
     return repeat(act(forward=1, sprint=1 if sprint else 0, jump=1), n)
 
 
-def go_to(x: float = 0.0, z: float = 0.0, within: float = 1.5, n: int = 120
-          ) -> list[dict[str, Any]]:
+def go_to(x: float = 0.0, z: float = 0.0, within: float = 1.5, n: int = 120,
+          sneak: bool = False) -> list[dict[str, Any]]:
     """Walk to a world coordinate, correcting the heading against [STATE] each tick.
 
     `travel` walks the direction you happened to be facing; terrain deflects it and the
@@ -612,9 +612,11 @@ def go_to(x: float = 0.0, z: float = 0.0, within: float = 1.5, n: int = 120
     `within` blocks (horizontal), or after `n` ticks with a [NOTE] saying where it
     actually got to -- repeated no-progress ticks mean a wall or a drop, and the runner
     says so rather than walking into it for the rest of the budget."""
-    return [{"_goto": {"x": float(x), "z": float(z), "within": max(0.5, float(within)),
-                       "remaining": max(1, int(n)), "stuck": 0, "last": None},
-             "_cost": max(1, int(n))}]
+    gt = {"x": float(x), "z": float(z), "within": max(0.5, float(within)),
+          "remaining": max(1, int(n)), "stuck": 0, "last": None}
+    if sneak in (True, 1, "true", "True", "1"):
+        gt["sneak"] = True
+    return [{"_goto": gt, "_cost": max(1, int(n))}]
 
 
 def _mine_seq(steps: list[dict[str, Any]], ore_watch: bool) -> list[dict[str, Any]]:
@@ -940,12 +942,16 @@ for _p in [
     Procedure("go_to", "Walk to a WORLD (x, z), re-aiming against [STATE] every tick "
               "until within reach. Use for any place whose coordinates you know: a "
               "tree you logged, your table, your shaft.",
-              lambda x=0.0, z=0.0, within=1.5, n=120: go_to(x, z, within, n),
+              lambda x=0.0, z=0.0, within=1.5, n=120, sneak=False: go_to(x, z, within, n, sneak),
               preconditions="Horizontal only -- it walks and hops but will not dig or "
                             "climb more than a block.",
               params={"x": "world x", "z": "world z",
                       "within": "stop distance in blocks (default 1.5)",
-                      "n": "max ticks"}),
+                      "n": "max ticks",
+                      "sneak": "true: walk holding sneak -- about a third of the speed, "
+                               "no hop, and the game does not let a sneaking avatar "
+                               "step off a block edge, so the walk stops at a drop "
+                               "instead of going over it (default false)"}),
     Procedure("travel", "Run forward in a straight line for n ticks (sprint + jump).",
               lambda n=40, sprint=True: travel(n, sprint),
               preconditions="Aim first with `look`; this does not turn. Prefer go_to "

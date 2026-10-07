@@ -1,0 +1,25 @@
+# Instrument, not a probe (slurm/skill_reuse3.sbatch SMOKE=edge): does holding sneak stop
+# the avatar at a block edge in this engine? Three lives walked off the Nether's arrival
+# plateau into the lava sea inside a go_to. A stone wall one block wide, six high and seven
+# long is built three blocks east of the spawn in cleared air, and the avatar is put on its
+# north end: the fake model walks south along the top holding sneak (expected: it stops at
+# the south end, y unchanged), then walks on without sneak (expected: it falls six blocks).
+custom_init_commands:
+- /time set 1000
+- /weather clear
+- /fill ~1 ~ ~-2 ~5 ~9 ~9 minecraft:air
+- /fill ~3 ~ ~ ~3 ~5 ~6 minecraft:stone
+- /tp @s ~3 ~6 ~
+defaults:
+- base
+- _self_
+text: Walk south along the top of the stone wall you stand on.
+
+milestone_reward_cfg:
+  - event: kill_entity
+    identity: kill_animal
+    objects: [cow, pig, sheep, chicken]
+    reward: 1.0
+    max_reward_times: 1
+
+world_seed: 1
