@@ -641,7 +641,8 @@ class WorldModelAgent:
             if self.install_carried or self.install_scripts:
                 from mcu_worldmodel.previous import installed_note
                 contract = contract.rstrip() + "\n\n" + installed_note(
-                    self.installed, record=self.install_carried)
+                    self.installed, record=self.install_carried,
+                    carried_world=self.carried_world)
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
         self.codex.write_system_prompt(contract)

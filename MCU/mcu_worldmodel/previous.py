@@ -212,10 +212,13 @@ def install_scripts(root: Path, lives: list[Path]) -> list[dict[str, Any]]:
 OWN_SCRIPT_DIRS = ("procedures", "reflexes", "tools")
 
 
-def installed_note(rows: list[dict[str, Any]], record: bool = True) -> str:
+def installed_note(rows: list[dict[str, Any]], record: bool = True,
+                   carried_world: str = "same") -> str:
     """The contract's line for `--install-carried` (`record`: the lives are carried under
     previous/) and for `--install-scripts` (they are not: the scripts are all there is):
-    what was installed, from which life."""
+    what was installed, from which life. With carried lives, where the scripts were written
+    follows `--carried-world`: a chain's lives in this same world did not write them in
+    another world for another task."""
     listed = ("\n".join(f"  - `{r['path']}` (life {r['life']}, "
                         f"{'its own script' if r['kind'] == 'written' else 'an example it edited'})"
                         for r in rows)
@@ -232,14 +235,21 @@ def installed_note(rows: list[dict[str, Any]], record: bool = True) -> str:
             "for another task: read each docstring in your first turn, and keep, fix or retire it\n"
             "(a leading underscore) as you would your own. Copying an example of the same name\n"
             "over one replaces it.\n")
+    if carried_world == "other":
+        tail = ("They are armed and callable now under those names. They were written in another\n"
+                "world for another task: read each docstring in the workshop turn, and keep, fix or\n"
+                "retire it (a leading underscore) as you would your own. Copying an example of the\n"
+                "same name over one replaces it.\n")
+    else:
+        tail = ("They are armed and callable now under those names. They were written by earlier\n"
+                "lives in this same world, for what those lives were doing: read each docstring in\n"
+                "the workshop turn, and keep, fix or retire it (a leading underscore) as you would\n"
+                "your own. Copying an example of the same name over one replaces it.\n")
     return (
         "[INSTALLED] Your earlier lives' own scripts are installed in `mine/` for this life,\n"
         "as they left them (the newest life wins a name):\n"
         f"{listed}\n"
-        "They are armed and callable now under those names. They were written in another\n"
-        "world for another task: read each docstring in the workshop turn, and keep, fix or\n"
-        "retire it (a leading underscore) as you would your own. Copying an example of the\n"
-        "same name over one replaces it.\n")
+        f"{tail}")
 
 
 _FAILED = re.compile(r"^\[NOTE\] (\w+) \(mine/(procedures|reflexes)/\w+\.py\) FAILED, nothing ran: (.*)$")
