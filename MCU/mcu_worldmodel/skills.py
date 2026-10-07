@@ -65,6 +65,13 @@ STARTER_REFLEXES: dict[str, str] = {
 # walk stopped. So flames are left to the plan (walk out, pour water), and the escape
 # runs on lava's DAMAGE: lava takes 4 health every 10 ticks, fire 1 every 20, so between
 # two samples (4 ticks) only lava takes 3 or more.
+# BURNING BESIDE LAVA is the case the colours cannot settle: the overlay over a pool reads
+# 1.5-2.5x (two lives burned to death 35 blocks from a stronghold while this reflex took
+# the overlay for lava ahead, stepped one back into the pocket and stopped the other's
+# climb out, 65 samples in all), and a pool one block away with no fire reads 1.0-1.3x.
+# What does settle it is that you are being hurt: flames on screen and health lost in the
+# last 100 ticks (`hurt_100`) is a burn, and the plan that is walking out of it is left
+# to run. Unhurt, the same picture still stops you.
 import json, math, sys
 s = json.load(sys.stdin)
 MOVING = {"go_to", "mine_ahead", "collect_drops", "raw"}
@@ -78,6 +85,7 @@ frac, fire = s["lava_frac"], s.get("fire_frac", 0.0)
 entry = s.get("atom") or s.get("entry")      # the atom inside an own procedure
 lost = s.get("health_prev", 20) - s.get("health", 20)
 flames = fire >= 0.12 and fire > 2.0 * frac      # the overlay flickers down to ~0.14 between flames
+burning = fire >= 0.05 and fire > frac and s.get("hurt_100", 0.0) >= 1.0      # 0.06-0.07 between flames
 in_lava = lost >= 3.0 and frac >= 0.2
 if entry in ON_PURPOSE:
     pass
@@ -90,7 +98,7 @@ elif in_lava and p and not s.get("gui_open"):
                               "Then seal the pool with blocks before any step toward it"
                               % (p["x"], p["y"], p["z"], s.get("health", 0), " placing %s under you" % block["item"] if block else ""),
                       "actions": acts}))
-elif flames:
+elif flames or burning:
     pass          # a fire block or the burning overlay: the plan walks out of it or pours water
 elif frac >= thr and entry in MOVING and (moved >= 0.1 or entry == "mine_ahead"):
     print(json.dumps({"stop": True,

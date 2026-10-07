@@ -4672,6 +4672,11 @@ class WorldModelAgent:
         # brighter band lets a reflex tell a lit portal or a burn from a pool.
         st["fire_frac"] = (round(float(vision.fire_fraction(np.asarray(frame))), 4)
                            if frame is not None else 0.0)
+        # The health lost over `_hp_hist`'s 100 ticks, every drop counted and no healing
+        # taken off (a fed avatar heals faster than fire burns, so the net can read 0
+        # while it burns): with flames on screen it is what tells a burn from lava ahead.
+        hist = [h for _, h in self._hp_hist]
+        st["hurt_100"] = round(sum(max(0.0, a - b) for a, b in zip(hist, hist[1:])), 2)
         prev = self._own_reflex_prev
         st["health_prev"] = prev["health"] if prev else st["health"]
         st["food_prev"] = prev.get("food", st["food"]) if prev else st["food"]
