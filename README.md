@@ -451,10 +451,6 @@ cua-lite/.venv/bin/python MFM/CUA-KiCad/gym_codex/kicad_rescore.py --run-dir run
 cua-lite/.venv/bin/python MFM/CUA-KiCad/gym_codex/kicad_task_orders.py runs/mfm_s*
 ```
 
-## Citation
-
-<!-- TODO(authors): the BibTeX entry of the paper. -->
-
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Some parts come from other projects.
