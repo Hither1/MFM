@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# docker -> podman shim for cua-lite on a host with rootless podman and no docker.
+# cua-lite drives containers exclusively through the `docker` CLI (run/exec/
+# inspect/rm/pull/tag); rootless podman is CLI-compatible for all of it.
+# Adaptations:
+#   * PODMAN_ROOT/PODMAN_RUNROOT (set by scripts/run_kicad_arm.sh) are injected as
+#     global --root/--runroot flags. CONTAINERS_STORAGE_CONF proved unreliable on
+#     hosts with $HOME on NFS: podman fell back to the NFS $HOME graphroot, and NFS
+#     detection forces force_mask=700, whose user.containers.override_stat
+#     xattrs NFS refuses -> every pull died with "lsetxattr /boot: operation
+#     not supported". Explicit global flags always win.
+#   * `docker buildx ...` has no podman equivalent -- fail fast; cua-lite's
+#     lite/gym/scripts/image_build.sh treats that as "no buildx" and falls back to
+#     pull-then-inspect.
+#   * strip `--memory-swappiness N` -- cgroup-v2 podman rejects it (docker
+#     silently ignores it there).
+if [ "${1:-}" = "buildx" ]; then
+    echo "docker-shim: buildx not available under podman" >&2
+    exit 1
+fi
+global=()
+[ -n "${PODMAN_ROOT:-}" ] && global+=(--root "$PODMAN_ROOT")
+[ -n "${PODMAN_RUNROOT:-}" ] && global+=(--runroot "$PODMAN_RUNROOT")
+args=()
+skip=0
+for a in "$@"; do
+    if [ "$skip" = 1 ]; then skip=0; continue; fi
+    if [ "$a" = "--memory-swappiness" ]; then skip=1; continue; fi
+    args+=("$a")
+    # Flags injected right after the `run` subcommand (DockerProvisioner has no
+    # knobs to pass them through):
+    #   PODMAN_SHM_SIZE — the default 64M /dev/shm starves GNOME/llvmpipe.
+    #   PODMAN_NETWORK  — /etc/containers/containers.conf may set
+    #     netns="host", so every container shares the host netns and the SECOND
+    #     concurrent Xvnc dies binding :1 ("Cannot establish any listening
+    #     sockets"). slirp4netns gives each container a private netns with
+    #     outbound connectivity; no env container publishes inbound ports.
+    if [ "$a" = "run" ] && [ ${#args[@]} = 1 ]; then
+        [ -n "${PODMAN_SHM_SIZE:-}" ] && args+=(--shm-size "$PODMAN_SHM_SIZE")
+        [ -n "${PODMAN_NETWORK:-}" ] && args+=(--network "$PODMAN_NETWORK")
+    fi
+done
+exec podman "${global[@]}" "${args[@]}"

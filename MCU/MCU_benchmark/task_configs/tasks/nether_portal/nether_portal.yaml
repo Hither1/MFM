@@ -1,0 +1,92 @@
+# Can the agent arrange blocks into a shape it cannot read off any statistic?
+#
+# WHY THIS TASK EXISTS. On the dragon chain the portal is the one goal that no text state
+# can settle. The frame is a vertical rectangle 4 wide and 5 tall whose four corners are
+# optional and whose 2x3 interior must be air. It is a purely geometric object:
+# `inventory` says how many obsidian are left, `use_item` says how many placements
+# happened, `mine_block` says how many came back, and not one of them says WHICH CELL.
+# Get a single cell wrong and the flint and steel starts a fire instead of a portal,
+# while every statistic the agent can read still says the blocks were placed.
+#
+# THE TASK IS THE SHAPE, AND ONLY THE SHAPE. The agent is handed a full stack of obsidian
+# and a full stack of cobblestone to stand on, on a cleared flat pad, with a diamond
+# pickaxe so any block can be taken back. Nothing here is scarce, nothing is timed, and
+# there is no way to be stuck: every failure is a failure to put the blocks in the right
+# cells and to notice that they are not.
+#
+# WHAT IS SCORED. The two milestones below are thin, and neither is the measurement.
+# `place_obsidian` says the build began; `enter_nether` fires only once a portal has
+# actually worked. There is deliberately no `use_item: flint_and_steel` milestone: that
+# statistic moves on a strike into a broken frame, so crediting it would tell the agent
+# its portal was fine, which is the failure being measured. The real readout is
+# `portal_report.json`, written by `mcu_worldmodel.portal_probe` from the engine's
+# privileged voxel channel: which cell every obsidian block went into and when, how many
+# of the ten required cells were right at each strike of the flint and steel, what was
+# left blocking the interior, and which blocks ended up in cells the frame does not use.
+# That channel is host-side only -- `voxels` is not in the green runner's
+# INFO_PASSTHROUGH -- so no arm can read its own score. `scripts/portal_stats.py` turns
+# the report into the table; `--cells` prints the placement history.
+#
+# THE PAD. The init commands lay a 21x21 stone floor and clear five blocks of air over
+# it, so uneven ground cannot be mistaken for a bookkeeping error; mob spawning is off
+# and the clock is stopped at day so nothing walks into the frame. Obsidian on grey stone
+# is also the most legible thing a vision check can be asked to count. Each command is
+# kept well under 256 characters: the engine truncates longer ones silently.
+
+custom_init_commands:
+- /gamerule doMobSpawning false
+- /gamerule keepInventory true
+- /gamerule doDaylightCycle false
+- /time set day
+- /weather clear
+- /kill @e[type=!minecraft:player,distance=..48]
+- /fill ~-10 ~-1 ~-10 ~10 ~-1 ~10 minecraft:stone
+- /fill ~-10 ~ ~-10 ~10 ~5 ~10 minecraft:air
+- /give @s minecraft:obsidian 64
+- /give @s minecraft:cobblestone 64
+- /give @s minecraft:flint_and_steel 1
+- /give @s minecraft:diamond_pickaxe 1
+
+defaults:
+- base
+- _self_
+
+text: 'Build a nether portal and step through it. You are standing on a cleared stone pad
+  and you already carry everything you need, with plenty to spare: 64 obsidian, 64 cobblestone,
+  a flint and steel and a diamond pickaxe. The frame is a vertical rectangle 4 wide and 5 tall
+  lying in one plane, either north-south or east-west. Its interior is 2 blocks wide and 3
+  blocks tall, and every one of those 6 interior cells must be empty air. The 10 blocks that
+  matter are 2 below the interior, 2 above it, and 3 up each side; the 4 corners of the
+  rectangle are not part of the portal and may be anything or nothing. Then strike the flint
+  and steel inside the frame, on top of one of the two bottom blocks, and the interior turns
+  purple; walk into it and wait to arrive in the Nether. The only thing this task asks of you
+  is to get the shape right. You have far more obsidian than a portal needs, the cobblestone
+  is there to stand on so you can reach the upper rows, and the diamond pickaxe will take back
+  any block you want to move.'
+
+world_seed: 42
+spawn_biome: plains
+
+# Host-side geometry observer; see mcu_worldmodel/portal_probe.py. Absent from every
+# other task config, so no other task's callback list changes.
+portal_probe:
+  # Engine convention [x0, x1, y0, y1, z0, z1], offsets from the player's block
+  # position, upper bounds EXCLUSIVE -- so this reaches 8 blocks out horizontally and
+  # from 5 below the feet to 5 above. Five below is what covers the frame's bottom row
+  # while the builder stands on the 4-block pillar the upper rows need.
+  window: [-8, 9, -5, 6, -8, 9]
+  every: 10
+  snapshots: true
+
+milestone_reward_cfg:
+- event: use_item
+  identity: place_obsidian
+  objects: [obsidian]
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: enter_nether
+  objects: [netherrack]
+  after: [place_obsidian]
+  reward: 1.0
+  max_reward_times: 1

@@ -1,0 +1,5 @@
+# Run outputs and logs, when a run writes them inside this directory. The Python
+# patterns are in the .gitignore at the top of the repository.
+*.log
+logs/
+runs/

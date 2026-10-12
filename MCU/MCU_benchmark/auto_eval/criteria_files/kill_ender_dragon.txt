@@ -1,0 +1,55 @@
+**Task Progress: the key factors/steps for completing the task** 
+ - whether the agent successfully gathers wood and crafts basic tools (crafting table, wooden pickaxe)
+ - whether the agent progresses to stone tools (mines cobblestone, crafts stone pickaxe)
+ - whether the agent mines iron ore and smelts it into iron ingots
+ - whether the agent crafts iron tools (iron pickaxe, potentially iron armor)
+ - whether the agent finds and mines diamond ore to obtain diamonds
+ - whether the agent crafts diamond equipment (diamond pickaxe, diamond sword)
+ - whether the agent mines obsidian and crafts flint and steel
+ - whether the agent successfully builds and enters a Nether portal
+ - whether the agent locates and defeats blazes to obtain blaze rods
+ - whether the agent kills endermen to collect ender pearls
+ - whether the agent crafts Eyes of Ender from blaze powder and ender pearls
+ - whether the agent uses Eyes of Ender to locate the stronghold
+ - whether the agent finds and activates the End portal
+ - whether the agent enters The End dimension
+ - whether the agent successfully defeats the Ender Dragon
+
+**Action Control: whether the agents have unrelated operations of the task, including useless actions and redundancy actions**
+ - e.g. excessive wandering without clear objective or direction
+ - e.g. repeatedly crafting unnecessary items that don't contribute to progression
+ - e.g. engaging in combat with non-essential mobs
+ - e.g. mining or collecting resources far beyond what's needed for the task
+ - e.g. building elaborate structures unrelated to defeating the Ender Dragon
+
+**Error Recognition and Correction: whether the agent can promptly identify and rectify its mistakes**
+ - e.g. whether agents recognize using wrong tools for mining specific ores
+ - e.g. whether agents identify when they're lost in the Nether and navigate back
+ - e.g. whether agents correct mistakes in portal construction or activation
+ - e.g. whether agents recognize being under-equipped for combat and gather better gear
+ - e.g. whether agents avoid or recover from dangerous situations (lava, strong mobs)
+ - whether the corrected results demonstrate improvement and successful progression
+
+**Creative Attempts: any creative attempts exhibited by the agent during doing task**
+ - e.g. efficient resource gathering strategies or automation setups
+ - e.g. creative navigation techniques in the Nether (building bridges, using ender pearls)
+ - e.g. strategic preparation before major milestones (gathering food, extra equipment)
+ - e.g. innovative combat strategies against blazes or the Ender Dragon
+ - e.g. building protective structures or safe rooms in dangerous areas
+
+**Task Completion Efficiency**
+ - whether the time taken by the agent to complete the task falls within a reasonable range
+ - whether the agent follows an optimal progression path through all stages
+ - whether the agent minimizes deaths and setbacks
+ - whether efficient strategies were employed for Nether navigation and End combat
+ - whether the agent avoids unnecessary detours or resource grinding
+ - whether the agent manages inventory and resources effectively throughout the journey
+
+**Material Selection and Usage: whether the agent correctly utilize the given materials**
+ - e.g. using correct tool tiers for mining (wooden → stone → iron → diamond pickaxes)
+ - e.g. appropriate use of obsidian specifically for Nether portal construction
+ - e.g. efficient use of blaze rods (converting to blaze powder for Eyes of Ender)
+ - e.g. proper crafting of Eyes of Ender with correct ratio of materials
+ - e.g. bringing appropriate combat gear and supplies (food, armor, weapons) for each dimension
+ - e.g. using beds strategically in The End for speedrun tactics (if attempted)
+ - e.g. managing limited inventory space effectively across different dimensions
