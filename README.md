@@ -451,6 +451,17 @@ cua-lite/.venv/bin/python MFM/CUA-KiCad/gym_codex/kicad_rescore.py --run-dir run
 cua-lite/.venv/bin/python MFM/CUA-KiCad/gym_codex/kicad_task_orders.py runs/mfm_s*
 ```
 
+## Citation
+
+```bibtex
+@article{su2026mfm,
+  title   = {Multimodal Filesystem Memory for Long-Horizon Embodied Agents},
+  author  = {Su, Chloe and Li, Jiahan and Qi, Zhenting and Cheng, Chaoran and Chen, Haoyu and Jun, Sejoon and Ye, Weirui and Du, Yilun},
+  journal = {arXiv preprint arXiv:2610.22686},
+  year    = {2026}
+}
+```
+
 ## License
 
 MIT, see [`LICENSE`](LICENSE). Some parts come from other projects.
