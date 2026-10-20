@@ -420,6 +420,25 @@ _TOOL_CALL_MARKERS = ('"command_execution"', '"function_call"', '"custom_tool_ca
                       '"local_shell_call"')
 
 
+#: The rollout records of a model's tool call (codex's ResponseItem types); their
+#: `*_output` records are the results and do not count.
+_ROLLOUT_TOOL_CALL_TYPES = frozenset({"function_call", "custom_tool_call", "local_shell_call",
+                                      "web_search_call", "tool_search_call"})
+
+
+def is_rollout_tool_call(line: str) -> bool:
+    """One rollout line is one tool call the model made (`model_steps`)."""
+    if '"response_item"' not in line:
+        return False
+    try:
+        record = json.loads(line)
+    except json.JSONDecodeError:
+        return False
+    payload = record.get("payload") if isinstance(record, dict) else None
+    return (record.get("type") == "response_item" and isinstance(payload, dict)
+            and payload.get("type") in _ROLLOUT_TOOL_CALL_TYPES)
+
+
 def is_tool_call_line(line: str) -> bool:
     return any(m in line for m in _TOOL_CALL_MARKERS)
 
@@ -633,6 +652,12 @@ class CodexTurn:
         # another arm's home partway through an episode.
         self._sessions_root: Path | None = None
         self._rollouts_scanned = 0
+        # `model_steps()` (`--model-step-budget`): turns that ended in an answer, the tool
+        # calls the event stream saw, and the rollout tool calls read so far (by offset).
+        self.turns_answered = 0
+        self.event_tool_calls = 0
+        self._step_offsets: dict[Path, int] = {}
+        self._rollout_tool_calls = 0
         self._tool_error_counts = {
             "tool_errors": 0, "patch_stale_target": 0, "patch_dup_target": 0,
             "attach_miss": 0, "turns_with_tool_error": 0, "episodes_tool_calls": 0}
@@ -859,6 +884,8 @@ class CodexTurn:
             return {"actions_json": None, "message": "", "ok": False, "error": "timeout"}
 
         stats = request_stats(proc.stdout)
+        self.turns_answered += stats["turns"]
+        self.event_tool_calls += stats["tool_calls"]
         violated = {k: stats[k] for k in ("web_searches", "mcp_tool_calls", "subthreads") if stats[k]}
         if self.transcript_dir:
             stem = self.transcript_dir / f"turn_{self.calls:04d}"
@@ -978,6 +1005,34 @@ class CodexTurn:
                 self._transcript_mtimes[path] = mtime
             total += self._transcript_counts[path]
         return total
+
+    def model_steps(self) -> int:
+        """Model steps this arm has spent: every tool call the model made and every turn
+        that ended in its answer -- the unit `--model-step-budget` counts in every arm.
+
+        The tool calls come from the rollouts, read incrementally: codex 0.153 runs tools
+        inside a code-mode cell, and the event stream never shows a call nested there
+        (`scan_rollout`). Without a rollout the event stream's count stands in, which can
+        only undercount."""
+        if self._sessions_root is None:
+            rollout = find_rollout(self.codex_home, self.workspace, self.session_id)
+            if rollout is not None:
+                self._sessions_root = rollout.parents[3]
+        if self._sessions_root is not None:
+            for path in sorted(self._sessions_root.glob("*/*/*/rollout-*.jsonl")):
+                offset = self._step_offsets.get(path, 0)
+                try:
+                    with open(path, "rb") as fh:
+                        fh.seek(offset)
+                        data = fh.read()
+                except OSError:
+                    continue
+                end = data.rfind(b"\n") + 1
+                for line in data[:end].decode("utf-8", "replace").splitlines():
+                    if is_rollout_tool_call(line):
+                        self._rollout_tool_calls += 1
+                self._step_offsets[path] = offset + end
+        return max(self._rollout_tool_calls, self.event_tool_calls) + self.turns_answered
 
     def vision_audit(self) -> dict[str, Any]:
         """What the model actually saw, read from the rollout rather than the events.

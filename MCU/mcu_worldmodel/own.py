@@ -408,6 +408,77 @@ def atoms_ref_line() -> str:
             else ATOMS_REF_LINE.replace("from the atoms and your own scripts", "from the atoms"))
 
 
+# -- `--no-primitives`: not even the atoms ---------------------------------------------
+#
+# The arm with no hand-written skill of any grain: the procedure set is empty, no example
+# script ships under skills/, and the runner's wall watcher is off. The model acts through
+# the keys and through what it writes itself (procedures, closed loops, reflexes, all
+# emitting raw actions). What it still gets is what every arm sees -- [STATE], [INV],
+# [CURSOR], [GRID], the frame -- and the knowledge text, whose macro names are recipes.
+
+#: The contract's procedure section, in place of the index.
+NO_PRIMITIVES_LINE = (
+    "This run has NO built-in procedures: no atom, no macro, no example script. Every "
+    "entry is a raw action or one of your own procedures under `mine/procedures/`, and "
+    "what your procedures, closed loops and reflexes return is raw actions too. "
+    "Everything above the keys -- an aim, a walk to a point, a dig, a craft, a fight -- "
+    "is yours to write; when a sequence has worked twice by hand, keep it as a procedure.")
+
+#: Head of every reference file that names procedures (skills.md, survival.md, more.md).
+NO_PRIMITIVES_REF_LINE = (
+    "No procedure this file names exists in this run -- not `craft`, `cursor_to_slot`, "
+    "`gui_click`, `look_abs`, `go_to`, `mine_ahead`, `place_at`, `use_at`, `eat`, "
+    "`pillar_up`, nor any macro (harvest_tree, strip_mine, dig_down, scan_around, fight, "
+    "...): this run has NO built-in procedures. Read each as a recipe -- the situation, "
+    "the order of steps, what to verify -- to build from raw actions as your own "
+    "procedures. Where it says the runner does something for you (a guard, a pillar, a "
+    "stop at ore), it does not here: nothing watches your digging for ore, and nothing "
+    "acts on a hit.")
+
+#: The (old, new) rewrites that make the own/loop/reflex contracts true without built-ins;
+#: each old text must occur in the contract it is applied to.
+_NO_BUILTINS = (
+    ("like a built-in", "beside the raw actions of your plan"),
+    ('`{"actions": [{"procedure": ..., "args": {...}}, {"action": {...}, "repeat": N}]}`,\n'
+     "  built from the built-in procedures and raw actions (never another own procedure)",
+     '`{"actions": [{"action": {...}, "repeat": N}, ...]}`,\n'
+     "  built from raw actions (this run has no built-in procedures; never another own procedure)"),
+    ("(built-in procedures and raw actions, never an own procedure;",
+     "(raw actions: this run has no built-in procedures, and never an own procedure;"),
+    ("(optional: built-in procedures and raw actions,",
+     "(optional: raw actions -- this run has no built-in procedures --"),
+    ('"gui_open", "dimension"}`;',
+     '"gui_open", "dimension", "slots": {"<slot 0-35>": [item, count]}, "cursor":\n'
+     '  {"pos": [x, y] container px, "over": "<what [CURSOR] says is under it>"} or null}`;'),
+)
+
+
+#: The same line for an arm with no procedures of its own (logbook, vista): what is above
+#: the keys is composed entry by entry.
+NO_PRIMITIVES_LINE_RAW = (
+    "This run has NO built-in procedures: no atom, no macro. Every entry is a raw action "
+    "held for N ticks. Everything above the keys -- an aim, a walk to a point, a dig, a "
+    "craft, a fight -- is yours to compose from raw actions, entry by entry.")
+
+
+def no_primitives_ref_line(own: bool = True) -> str:
+    """NO_PRIMITIVES_REF_LINE for this run's arm: an arm without procedures of its own
+    carries a recipe out with raw actions instead of keeping it as a procedure."""
+    if own:
+        return NO_PRIMITIVES_REF_LINE
+    return NO_PRIMITIVES_REF_LINE.replace(
+        "to build from raw actions as your own procedures.",
+        "to carry out with raw actions.")
+
+
+def no_builtins(text: str) -> str:
+    """`text` (references/own.md) with every mention of built-in procedures as something
+    a script may emit taken out."""
+    for old, new in _NO_BUILTINS:
+        text = text.replace(old, new)
+    return text
+
+
 # -- reflexes (`--own-reflexes`) ------------------------------------------
 #
 # The model's tick layer. A procedure runs when the model calls it, between turns; what

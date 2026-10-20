@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import threading
 import time
 from pathlib import Path
@@ -55,7 +56,7 @@ from mfm.vista.tools import build_play_tool, build_tools
 from mcu_worldmodel.actions import describe_entry, parse_actions
 from mcu_worldmodel.memory import norm_yaw, state_line
 from mcu_worldmodel.milestones import (held_line, hotbar_line, inventory_counts, location,
-                                       nearby_mobs, vitals)
+                                       main_rows_line, nearby_mobs, vitals)
 
 #: The objective sentence the initial prompt and every recovery prompt end with
 #: (upstream: "Complete the game with as few game actions as possible.").
@@ -87,6 +88,30 @@ PLAY_SCHEMA: dict[str, Any] = {
         "repeat": {"type": "integer", "minimum": 1, "maximum": 400},
     },
 }
+
+#: `--no-primitives`: the play tool with no procedure to name -- a raw action per call.
+PLAY_DESCRIPTION_RAW = (
+    PLAY_DESCRIPTION
+    .replace("An entry is either "
+             '{"procedure": "<name>", "args": {...}} -- a named procedure from the reference -- or '
+             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks.',
+             'An entry is {"action": {<raw keys>}, "repeat": N} -- a raw action held for N '
+             "ticks; this run has no named procedures.")
+    .replace("(why a procedure stopped, what a guard refused)", "(what the harness saw)")
+    .replace("hotbar, held item,", "hotbar, main rows, held item,")
+    .replace(" An entry the procedure refuses against the present state returns an error "
+             "without spending ticks.", ""))
+assert PLAY_DESCRIPTION_RAW.count("procedure") == 1, PLAY_DESCRIPTION_RAW
+PLAY_SCHEMA_RAW: dict[str, Any] = {
+    **PLAY_SCHEMA,
+    "properties": {k: v for k, v in PLAY_SCHEMA["properties"].items()
+                   if k in ("action", "repeat")},
+    "required": ["action"],
+}
+
+#: The controller's termination reasons that mean a budget ran out (`--model-step-budget`,
+#: `--turn-budget`): the life goes on idle.
+BUDGET_REASONS = frozenset({"model_step_budget", "turn_budget"})
 
 #: Ticks between archived intermediate frames while an entry runs. A macro is tens of
 #: ticks; every tenth frame keeps the archive at ~1,200 frames per 12,000-step run.
@@ -168,6 +193,11 @@ class VistaBridge:
         self.dropped_entries = 0
         self.plays_applied = 0
         self._finished = False
+        #: `--vista-aligned`: a `play` runs a plan (the other arms' 40 entries / 400 ticks);
+        #: the results of the plan's entries so far, and the plan's first step.
+        self.aligned = bool(getattr(agent, "vista_aligned", False))
+        self._plan_results: list[dict[str, Any]] = []
+        self._plan_start_step = 0
 
     # -- the chassis's calls ------------------------------------------------------------
 
@@ -187,14 +217,24 @@ class VistaBridge:
             bridge=self, archive=self.archive, private_dir=self.root.parent / "vista",
             codex_home=self.codex_home, guide_path=guide, working_path=self.root / "WORKING.md",
             max_invalid_retries=self.max_invalid_retries)
-        tools = build_tools(build_play_tool(PLAY_SCHEMA, PLAY_DESCRIPTION), width, height)
+        if self.aligned:
+            play = play_plan_tool(self.agent.primitives, self.agent.entry_cap,
+                                  self.agent.step_cap)
+        else:
+            play = ((PLAY_SCHEMA, PLAY_DESCRIPTION) if self.agent.primitives
+                    else (PLAY_SCHEMA_RAW, PLAY_DESCRIPTION_RAW))
+        tools = build_tools(build_play_tool(*play), width, height)
         self.runner = AppServerRunner(
             workspace=self.root, codex_home=self.codex_home, io_dir=self.transcript_dir,
             controller=self.controller, tools=tools, base_instructions=PLAYER_BASE_INSTRUCTIONS,
             developer_instructions=self.developer_instructions, model=self.model,
             reasoning_effort=self.effort, codex_bin=self.codex_bin, base_url=self.base_url,
             idle_timeout=self.idle_timeout, thread_bytes_budget=self.thread_bytes,
-            objective=OBJECTIVE)
+            objective=OBJECTIVE,
+            model_step_limit=getattr(self.agent, "model_step_budget", None),
+            play_limit=getattr(self.agent, "turn_budget", None),
+            **({"compact_thresholds": aligned_thresholds(self.model, self.codex_home)}
+               if self.aligned else {}))
         prompt = initial_prompt(self.controller.initial_metadata(), OBJECTIVE)
         self.session = VistaSession(runner=self.runner, controller=self.controller,
                                     initial_prompt=prompt,
@@ -236,6 +276,10 @@ class VistaBridge:
         agent = self.agent
         if self.session is None or self.controller is None:
             return
+        if self.controller.termination_reason in BUDGET_REASONS:
+            # The budget is spent: the rest of the life runs idle, with no play to wait for.
+            self.idle_ticks += 1
+            return
         if self.session_failed is not None:
             # Nothing will answer. Returning at once costs this tick a noop instead of
             # the whole turn ceiling; the adapter ends the episode on the same signal.
@@ -266,7 +310,8 @@ class VistaBridge:
             # `craft furnace` on the open table screen). Answer it here instead, with
             # the notes that say why the plan was dropped, and let the model replan.
             self.dropped_entries += 1
-            self._owed = self._dropped_outcome()
+            self._owed = (self._plan_outcome(cut_short=True)
+                          if self.aligned and self._plan_results else self._dropped_outcome())
             self._deliver(info)
         remaining = self._tick_deadline - time.monotonic()
         if remaining <= 0 or self.channel.closed:
@@ -277,7 +322,8 @@ class VistaBridge:
             self._idle_since_last += 1
             return
         self.decisions += 1
-        plan = parse_actions(json.dumps({"actions": [parsed]}), entry_cap=1,
+        plan = parse_actions(json.dumps({"actions": parsed if self.aligned else [parsed]}),
+                             entry_cap=agent.entry_cap if self.aligned else 1,
                              repeat_cap=agent.repeat_cap, step_cap=agent.step_cap,
                              allow_optional=agent.extended_actions, info=info,
                              cursor=agent.cursor.copy())
@@ -303,6 +349,7 @@ class VistaBridge:
         self._running = True
         self._entry_start_step = step
         self._last_archived = step
+        self._plan_results, self._plan_start_step = [], step
 
     def entry_done(self, index: int) -> None:
         """The entry finished (`_log_entry_done`, before the section is written): the
@@ -337,6 +384,18 @@ class VistaBridge:
                  "moved": result["moved"], "descended": result["descended"],
                  "inventory_delta": inv_delta, "events": events, "notes": notes,
                  "milestones_verified": verified}
+        if self.aligned:
+            # One plan per play: answered once its last entry is done (a plan the chassis
+            # drops part-way is answered in `act_turn`, with the entries that ran).
+            self._plan_results.append(result)
+            self._entry_start_step = agent.step
+            last = index >= len(agent._plan_entries) - 1
+            if not last and agent.queue:
+                return
+            # an entry that is not the last, with nothing queued behind it: the chassis
+            # dropped the rest of the plan (a milestone verified, a click that missed)
+            self._owed = self._plan_outcome(cut_short=not last)
+            return
         self._owed = Outcome(applied=True, result=result, event=event)
         self._running = False
         self.plays_applied += 1
@@ -368,6 +427,23 @@ class VistaBridge:
     # -- the controller's bridge (the codex driver's thread) ---------------------------------
 
     def validate(self, arguments: Any) -> Validation:
+        if not self.aligned:
+            return self._validate_entry(arguments)
+        cap = self.agent.entry_cap
+        if not isinstance(arguments, dict) or set(arguments) != {"actions"}:
+            return Validation(False, "play takes one object: {\"actions\": [entry, ...]}.")
+        entries = arguments["actions"]
+        if not isinstance(entries, list) or not 1 <= len(entries) <= cap:
+            return Validation(False, f"`actions` must be a list of 1 to {cap} entries.")
+        parsed = []
+        for i, e in enumerate(entries):
+            v = self._validate_entry(e)
+            if not v.ok:
+                return Validation(False, f"entry {i + 1}: {v.error}")
+            parsed.append(v.parsed)
+        return Validation(True, parsed=parsed, public={"actions": parsed})
+
+    def _validate_entry(self, arguments: Any) -> Validation:
         if not isinstance(arguments, dict):
             return Validation(False, "play takes one object: {procedure, args} or {action, repeat}.")
         extra = set(arguments) - {"procedure", "args", "action", "repeat"}
@@ -391,7 +467,8 @@ class VistaBridge:
             entry = {"procedure": name.strip(), "args": dict(args)}
         else:
             action, repeat = arguments.get("action"), arguments.get("repeat", 1)
-            if not isinstance(action, dict) or not action:
+            # `--vista-aligned`: an empty action is a wait, as the exec arms' plans allow
+            if not isinstance(action, dict) or (not action and not self.aligned):
                 return Validation(False, "`action` must be a non-empty object of raw keys.")
             if type(repeat) is not int or repeat < 1:
                 return Validation(False, "`repeat` must be a positive integer.")
@@ -429,14 +506,37 @@ class VistaBridge:
             self._present = present
         if outcome.applied:
             outcome.png = self.agent._encode_pov(info.get("pov"), self.agent.step)
+            # (a plan's entries carry their own notes: only what came after them is added)
+            seen = {n for e in outcome.result.get("entries", ()) for n in e.get("notes", ())}
             for n in self.agent.memory._pending_notes:
-                if n not in outcome.result["notes"]:
+                if n not in outcome.result["notes"] and n not in seen:
                     outcome.result["notes"].append(n)
         outcome.result["present"] = present
         if self._idle_since_last:
             outcome.result["noop_ticks_waiting_for_play"] = self._idle_since_last
             self._idle_since_last = 0
         self.channel.deliver(outcome)
+
+    def _plan_outcome(self, *, cut_short: bool) -> Outcome:
+        """`--vista-aligned`: one plan's outcome -- each entry that ran, as the one-entry
+        play reports it, and the plan's total ticks; `cut_short` when the chassis dropped
+        the rest of it (the notes say why)."""
+        agent = self.agent
+        entries, self._plan_results = self._plan_results, []
+        result: dict[str, Any] = {
+            "entries": entries, "ticks": agent.step - self._plan_start_step,
+            "notes": list(agent.memory._pending_notes) if cut_short else [],
+            "milestones_verified": f"{len(agent.ledger.achieved)}/{len(agent.ledger.cfg)}"}
+        if cut_short:
+            result["cut_short"] = (f"{len(entries)} of {len(agent._plan_entries)} entries ran; "
+                                   "the rest of the plan was dropped")
+        event = {"step": agent.step, "entries": [e["entry"] for e in entries],
+                 "ticks": result["ticks"], "cut_short": cut_short,
+                 "events": [ev for e in entries for ev in e["events"]],
+                 "milestones_verified": result["milestones_verified"]}
+        self._running = False
+        self.plays_applied += 1
+        return Outcome(applied=True, result=result, event=event)
 
     def _dropped_outcome(self) -> Outcome:
         """The outcome for a play whose entry was dropped mid-flight. Not `applied`:
@@ -469,11 +569,23 @@ class VistaBridge:
             "stall_turns": agent._stall_turns,
             "position": pos_line, "vitals": vitals(info),
             "inventory": ", ".join(f"{k}x{v}" for k, v in sorted(inv.items())[:24]) or "empty",
-            "free_slots": free, "hotbar": hotbar_line(info), "held": held_line(info),
+            "free_slots": free, "hotbar": hotbar_line(info),
+            # `--no-primitives`: with no `craft` to find the ingredients, a click needs
+            # the slot NUMBER
+            **({} if agent.primitives else {"main_rows": main_rows_line(info)}),
+            "held": held_line(info),
             "nearby_entities": nearby_mobs(info),
             "gui_open": bool(info.get("isGuiOpen", False)),
             "cursor": agent.cursor.line(inv),
         }
+        budget = getattr(agent, "model_step_budget", None)
+        if budget is not None:
+            used = self.runner.model_steps() if self.runner else 0
+            block["model_steps"] = f"{used} of {budget} used"
+        turns = getattr(agent, "turn_budget", None)
+        if turns is not None:
+            used = self.runner.dispatcher.calls.get("play", 0) if self.runner else 0
+            block["turns"] = f"your next play is turn {used + 1} of {turns}"
         if agent.ledger.cfg:
             block["milestones"] = agent.ledger.progress_line()
             block["milestones_block"] = agent.ledger.progress_block()
@@ -481,6 +593,47 @@ class VistaBridge:
         if grid:
             block["grid"] = grid
         return block
+
+
+#: `--vista-aligned`: the play tool takes a plan, at the other arms' caps.
+def play_plan_tool(primitives: bool, entry_cap: int, step_cap: int) -> tuple[dict[str, Any], str]:
+    entry = ('{"procedure": "<name>", "args": {...}} -- a named procedure from the reference -- or '
+             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks'
+             if primitives else
+             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks; this run '
+             'has no named procedures')
+    description = (
+        f"Execute ONE plan -- a list of at most {entry_cap} entries, totalling at most "
+        f"{step_cap} environment ticks, run in order -- and observe its result. An entry is "
+        f"{entry}. The result carries, for every entry that ran, the entry as it ran and "
+        "the ticks it spent, the [STATE] line with the distance moved, the inventory delta, "
+        "the game's own [EVENT] statistics (the ground truth for what happened) and the "
+        "harness's [NOTE]s; then the present state block and the view after the plan. "
+        "When the harness drops the rest of a plan (a milestone verified, a click that "
+        "changed nothing), `cut_short` says how many entries ran. The next call sees "
+        "this result before another plan can run.")
+    schema: dict[str, Any] = {
+        "type": "object", "additionalProperties": False, "required": ["actions"],
+        "properties": {"actions": {
+            "type": "array", "minItems": 1, "maxItems": entry_cap,
+            "items": {"type": "object", "description": (
+                "{procedure, args} or {action, repeat}" if primitives
+                else "{action, repeat}: raw keys held for `repeat` ticks")}}}}
+    return schema, description
+
+
+def aligned_thresholds(model: str, codex_home: Path | None):
+    """`--vista-aligned`: the checkpoint handoff fires where the exec arms' CLI
+    compacts (CODEX_AUTO_COMPACT_TOKEN_LIMIT, run-arm.sh's 100k for a one-session life),
+    not at the model's window less a reserve."""
+    from mfm.vista.runner import (CHECKPOINT_TURN_HEADROOM, CompactThresholds,
+                                  resolve_compact_thresholds)
+    base = resolve_compact_thresholds(model, codex_home=codex_home)
+    limit = int(os.environ.get("CODEX_AUTO_COMPACT_TOKEN_LIMIT") or 100_000)
+    return CompactThresholds(base.model_context_window, limit,
+                             min(limit + CHECKPOINT_TURN_HEADROOM,
+                                 base.checkpoint_auto_compact_limit),
+                             f"aligned with the exec arms ({limit})")
 
 
 def _empty_slot_count(info: dict) -> int | None:

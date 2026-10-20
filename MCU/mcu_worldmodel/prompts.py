@@ -1062,6 +1062,155 @@ _MINIMAL_SAFETY = {
             "per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat "
             "when the bar is below 18 (the starving example does it when you carry food)."),
 }
+#: `--no-primitives`: the same, for a run that ships no example to copy.
+_MINIMAL_SAFETY_NO_EXAMPLES = (
+    "**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a "
+    "hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is "
+    "installed or shipped as an example: `skills/reflexes/SKILL.md` names the classes, and "
+    "you write them into `mine/reflexes/` in your first turn. Natural healing needs the food "
+    "bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one "
+    "animal (raw meat is fine) -- eat when the bar is below 18 (hold `use` with the food "
+    "selected, about 32 ticks).")
+
+
+#: `--no-primitives`: the minimal contract's procedure section, and the two sentences of the
+#: action schema that name built-ins (its procedure example, discard_stack).
+_MINIMAL_PROC_SECTION = ("**Procedures** (name, arguments, one line each; full descriptions, "
+                         "preconditions and\nthe notes on each: `references/procedures.md`):\n"
+                         "{procedures}\n{atoms_line}\n")
+assert _MINIMAL_PROC_SECTION in MINIMAL_CONTRACT
+_NAMED_PROCEDURE = ("or a named procedure, which expands to many ticks:\n\n    "
+                    + _DIG_EXAMPLE)
+_OWN_PROCEDURE = ("or one of YOUR OWN procedures (a script under `mine/procedures/`; this run "
+                  "has no\nbuilt-in ones), which expands to many ticks:\n\n    "
+                  '{"procedure": "<your script>", "args": {...}}')
+_DISCARD = ("To throw a stack away use the `discard_stack`\nprocedure (below); it is the one "
+            "way to shed junk here.")
+_DISCARD_RAW = ("To throw a stack away: open the inventory,\nleft-click the stack onto the "
+                "cursor, close the screen (the stack is thrown ahead of you), then\nstep back "
+                "so you do not walk onto it -- the one way to shed junk here.")
+assert _NAMED_PROCEDURE.replace(_DIG_EXAMPLE, "") in ACTION_REFERENCE and _DISCARD in ACTION_REFERENCE
+
+#: `--no-primitives`, the head of references/gui.md: the screen numbers every GUI macro is
+#: built on, given as facts (the same ones `gui.py` computes with), since no macro clicks.
+_RAW_GUI = """\
+**The GUI by hand (this run).** No procedure clicks for you; the rest of this file
+describes macros that do not exist here. What a screen takes is the keys:
+- `inventory` toggles the survival inventory (2x2 crafting). A placed crafting table or
+  furnace opens with `use` while you face it at arm's length holding a NON-placeable item
+  (a tool) -- with a block in hand, `use` places the block.
+- While a screen is open, `camera` moves the mouse cursor instead of your view: + yaw is
+  right, + pitch is down, about {ppd} container px per degree (one 18 px slot is about
+  {slot_deg:.1f} degrees). A screen opens with the cursor at its centre, ({ox:.0f}, {oy:.0f}).
+- `attack` held 1-2 ticks, then a tick with nothing pressed, is a LEFT click: lift a whole
+  stack onto the cursor, or put the held stack down. `use` the same way is a RIGHT click:
+  put ONE item of the held stack down, or lift half a stack. A button held across ticks
+  reads as a drag and spreads the stack.
+- `[CURSOR]` is the cursor's position measured from the frame (container px, the slot
+  under it, what is off-inventory); `[GRID]` lists the crafting cells that visibly hold
+  something. A click lands a tick late: read the next frame before deciding it missed.
+- Slot centres, container px (the 176x166 screen's top-left is the origin):
+  inventory slot s ([INV] ids): hotbar 0-8 at ({hx} + 18*s, {hy}); main rows 9-35 at
+  ({mx} + 18*((s-9) % 9), {my} + 18*((s-9) // 9)).
+  2x2 grid cells 0-3 (row by row): {c2}; output {o2}.
+  3x3 grid (a table) cell i: ({tx} + 18*(i % 3), {ty} + 18*(i // 3)); output {o3}.
+  furnace: input {fi}, fuel {ff}, output {fo}.
+- A recipe: lift an ingredient stack, right-click one item into each cell of the shape,
+  left-click the rest back into its slot, left-click the output, left-click an empty
+  inventory slot to bank it. A `craft_item` [EVENT] is the proof; without one nothing
+  was crafted.
+- Nothing guards a close in this run: closing a crafting screen with items in its grid
+  or on the cursor throws them on the ground. A furnace keeps its cells across a close.
+"""
+
+
+def raw_gui_ref() -> str:
+    """`_RAW_GUI` with the geometry of `gui.py` filled in."""
+    def c(tl):
+        x, y = G.centre(tl)
+        return f"({x:.0f}, {y:.0f})"
+    hx, hy = G.centre(G.HOTBAR_ORIGIN)
+    mx, my = G.centre(G.MAIN_INV_ORIGIN)
+    tx, ty = G.centre(G.TABLE_CRAFT_IN[0])
+    return _RAW_GUI.format(
+        ppd=G.PX_PER_DEGREE, slot_deg=G.SLOT_PITCH / G.PX_PER_DEGREE,
+        ox=G.CURSOR_OPEN[0], oy=G.CURSOR_OPEN[1],
+        hx=f"{hx:.0f}", hy=f"{hy:.0f}", mx=f"{mx:.0f}", my=f"{my:.0f}",
+        c2=" ".join(c(tl) for tl in G.SURVIVAL_CRAFT_IN), o2=c(G.SURVIVAL_CRAFT_OUT),
+        tx=f"{tx:.0f}", ty=f"{ty:.0f}", o3=c(G.TABLE_CRAFT_OUT),
+        fi=c(G.FURNACE_IN), ff=c(G.FURNACE_FUEL), fo=c(G.FURNACE_OUT))
+
+
+#: `--no-primitives` on the thin contract (logbook, vista): the (old, new) rewrites of the
+#: lines that name a built-in outside the procedure section; each old text must occur.
+_NO_PRIMITIVES_THIN = (
+    ("is either a raw action held for N ticks:", "is a raw action held for N ticks:"),
+    ("\n\nor a named procedure, which expands to many ticks:\n\n    " + _ATOM_EXAMPLE, ""),
+    (_DISCARD, _DISCARD_RAW),
+    ("`watch(until=..., n)` is the observe step\n  between acting and deciding.",
+     "a wait with no keys pressed is the observe\n  step between acting and deciding."),
+)
+_NO_PRIMITIVES_YAW = {
+    "logbook": (" of your own;\n  the closed-loop skills (look_abs, look_at, go_to) already "
+                "handle it.", "."),
+    "vista": (" of your\n  own -- the closed-loop skills (look_abs, look_at, go_to) already "
+              "handle it.", "."),
+}
+_NO_PRIMITIVES_VISTA = (
+    ("a named procedure or a raw action held for N ticks", "a raw action held for N ticks"),
+    (" (a longer procedure is cut at the cap and its [NOTE] says so; call it again to "
+     "continue)", ""),
+    ("the procedure descriptions above and the milestone block are what you have.",
+     "the GUI facts and recipes above and the milestone block are what you have."),
+    ("a procedure that\n  stopped early says why there,", "an entry cut short\n  says why there,"),
+)
+#: The two vista edits whose text exists only in the one-entry contract.
+_NO_PRIMITIVES_ONE_ENTRY_ONLY = frozenset({
+    _NO_PRIMITIVES_VISTA[1][0], _NO_PRIMITIVES_VISTA[2][0]})
+#: The head of `raw_gui_ref()` where it stands in the vista contract, not in a file.
+_RAW_GUI_FILE = ("No procedure clicks for you; the rest of this file\ndescribes macros that "
+                 "do not exist here. What a screen takes is the keys:")
+assert _RAW_GUI_FILE in _RAW_GUI
+
+
+def no_primitives_thin(contract: str, memory_mode: str, vista_plan: bool = False) -> str:
+    """The thin contract (`thin_split`'s output) of the logbook or vista arm under
+    `--no-primitives`: the procedure section says there is none, the action schema loses
+    its procedure example and discard_stack, the two lines that name an atom lose it, and
+    the references tail drops procedures.md. The vista arm has no references to read, so
+    the screen facts and the recipe list (what `craft` knew) stand in the procedure
+    section's place."""
+    edits = list(_NO_PRIMITIVES_THIN) + [_NO_PRIMITIVES_YAW[memory_mode]]
+    if memory_mode == "vista":
+        # `vista_plan` (`--vista-aligned`): a plan per play, and the references inline
+        # after the contract -- no one-entry cap sentence, no "kept short" tail
+        edits += [e for e in _NO_PRIMITIVES_VISTA
+                  if not (vista_plan and e[0] in _NO_PRIMITIVES_ONE_ENTRY_ONLY)]
+    for old, new in edits:
+        if old not in contract:
+            raise ValueError(f"no-primitives: the {memory_mode} contract drifted: {old[:60]!r}")
+        contract = contract.replace(old, new)
+    start = contract.index("**Procedures** (prefer these")
+    end = min(i for i in (contract.find("\n\n**References.**", start),
+                          contract.find("\n\n**Kept short.**", start)) if i >= 0)
+    section = "**Procedures.** " + _own_mod().NO_PRIMITIVES_LINE_RAW
+    if memory_mode == "vista" and not vista_plan:
+        gui = raw_gui_ref().replace(_RAW_GUI_FILE,
+                                    "No procedure clicks for you. What a screen takes is "
+                                    "the keys:")
+        section += "\n\n" + gui + "\nRecipes available:\n" + G.reference()
+    contract = contract[:start] + section.rstrip("\n") + contract[end:]
+    if memory_mode == "logbook":
+        contract = "\n".join(ln for ln in contract.split("\n")
+                             if not ln.startswith("- `references/procedures.md`"))
+        contract = (contract.replace(_THIN_FILES["gui.md"],
+                                     "the GUI by hand (the cursor, the clicks, the slot "
+                                     "positions) and the screen rules")
+                    .replace(_THIN_FILES["skills.md"],
+                             "the skills by situation -- wood, stone, iron, diamonds, water, "
+                             "lava, the portal, the Nether, the End -- as recipes, and what "
+                             "to write down"))
+    return contract
 
 
 def _previous_note(carried_world: str = "same") -> str:
@@ -1076,15 +1225,26 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
                      scored_by_milestones: bool = True, atoms: bool = False,
                      frames: bool = False, harness_reflexes: bool = True,
                      previous: bool = False, references_tail: str = "",
-                     carried_world: str = "same") -> str:
+                     carried_world: str = "same", primitives: bool = True) -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
-    if atoms:
+    template = MINIMAL_CONTRACT
+    if not primitives:
+        # `--no-primitives`: no index to show, and the schema's two built-in names go
+        head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
+        template = template.replace(_MINIMAL_PROC_SECTION, "**Procedures.** {atoms_line}\n")
+    elif atoms:
         head = head.replace(_DIG_EXAMPLE, _ATOM_EXAMPLE)
     tools_line = _MFM_TOOLS_LINE.format(zoom=", a crop from `tools/zoom.py`" if frames else "")
     if not previous:                       # from scratch: no earlier life to look back at
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")
-    return MINIMAL_CONTRACT.format(
+    if not primitives:
+        safety = _MINIMAL_SAFETY_NO_EXAMPLES if not harness_reflexes else _MINIMAL_SAFETY[True]
+        atoms_line = _own_mod().NO_PRIMITIVES_LINE
+    else:
+        safety = _MINIMAL_SAFETY[bool(harness_reflexes)]
+        atoms_line = ("\n" + _own_mod().atoms_line()) if atoms else ""
+    return template.format(
         task_text=task_text,
         previous_clause=((" `previous/life_<i>/` your earlier lives, in another world and on "
                           "another task;" if carried_world == "other" else
@@ -1096,10 +1256,10 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
         progress_block=progress_block,
         tools_line=tools_line,
-        safety_line=_MINIMAL_SAFETY[bool(harness_reflexes)],
+        safety_line=safety,
         reference_head=head.rstrip() + "\n",
         procedures=P.index(),
-        atoms_line=("\n" + _own_mod().atoms_line()) if atoms else "",
+        atoms_line=atoms_line,
         references_tail=("\n" + references_tail.strip() + "\n") if references_tail.strip() else "",
     )
 
@@ -1142,11 +1302,52 @@ what it changed and the view afterwards.
 """
 
 
+#: `--vista-aligned`: the vista contract's first sentence, for a play that runs a plan.
+_VISTA_ONE_ENTRY = ("one `play` call\nexecutes one entry -- a named procedure or a raw action held "
+                    "for N ticks -- and returns")
+_VISTA_ONE_PLAN = ("one `play` call\nexecutes one plan -- a list of entries, each a named procedure "
+                   "or a raw action held for N ticks -- and returns")
+assert _VISTA_ONE_ENTRY in VISTA_ACT_PROMPT
+
+
+def inline_references(contract: str, refs: dict[str, str]) -> str:
+    """`--vista-aligned`: the references the exec arms read from `references/`, appended
+    to a contract whose reader has no file tools, in place of the list that points at
+    them."""
+    cut = contract.find("\n\n**References.**")
+    head = contract if cut < 0 else contract[:cut]
+    body = "\n\n".join(f"### references/{name}\n\n{text.strip()}" for name, text in refs.items())
+    return (head.rstrip() + "\n\n**References.** This contract is short on purpose; the full "
+            "rules follow, harness-written, one file each. Consult the relevant one before the "
+            "first action of that kind this run -- a GUI sequence, a descent, a fight, a pour -- "
+            "and again when a [NOTE] says something was refused. The harness's "
+            "[NOTE]/[EVENT]/[STATE] lines are facts; the references say what to do about them.\n\n"
+            + body + "\n")
+
+
+def budget_note(model_steps: int | None, turns: int | None, max_steps: int, *,
+                vista: bool = False) -> str:
+    """`--model-step-budget` / `--turn-budget`: the paragraph every arm's contract ends with."""
+    parts = []
+    if turns is not None:
+        parts.append(f"{turns} turns -- a turn is one " + ("`play` call" if vista else
+                     "time you are called for a plan") + " (" + ("one play runs one plan" if vista
+                     else "a failed turn counts too") + ")")
+    if model_steps is not None:
+        parts.append(f"{model_steps} model steps -- every tool call you make counts one (a shell "
+                     f"command, a file read or write, a look at a frame, a `play`, a notes read or "
+                     f"write), and so does every turn you end with your answer")
+    return (f"**Budget.** Besides its {max_steps} environment steps, this life has "
+            + "; and ".join(parts) + ". What is used so far is shown with every turn. When "
+            "either runs out you are not called again and the rest of the life runs idle: the "
+            "score is the milestones banked by then.")
+
+
 def action_reference(*, entry_cap: int, step_cap: int,
                      memory_mode: str = "mfm",
                      task_family: str = "from_scratch",
                      atoms: bool = False, harness_reflexes: bool = True,
-                     own_reflexes: bool = False) -> str:
+                     own_reflexes: bool = False, vista_plan: bool = False) -> str:
     """The shared action/perception reference, rendered for one memory mode.
 
     One function for all arms on purpose: everything except the explicitly per-mode
@@ -1179,6 +1380,12 @@ def action_reference(*, entry_cap: int, step_cap: int,
         ref = ref.replace(
             "the [NOTE] names the file; zoom that one if in doubt",
             "the [NOTE] says so; `inspect` that turn's frames if in doubt")
+        if vista_plan:
+            # `--vista-aligned`: the plan list, as the other arms write it
+            return ref.replace(_ACTIONS_CHANNEL["vista"], "a `play` plan").replace(
+                f"A list of at most {entry_cap} entries, totalling at most {step_cap} environment ticks.",
+                f"One `play` call runs one plan: a list of at most {entry_cap} entries, totalling "
+                f"at most {step_cap} environment ticks.")
         ref = ref.replace(
             f"A list of at most {entry_cap} entries, totalling at most {step_cap} environment ticks.",
             f"One entry per `play` call, of at most {step_cap} environment ticks (a longer "
@@ -1204,10 +1411,11 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                previous: bool = False, expect: bool = False,
                frames: bool = False, own: bool = False, atoms: bool = False,
                own_reflexes: bool = False,
-               harness_reflexes: bool = True) -> str:
+               harness_reflexes: bool = True,
+               vista_plan: bool = False) -> str:
     if memory_mode == "vista":
         from mfm.vista.prompt import method_lines
-        return VISTA_ACT_PROMPT.format(
+        text = VISTA_ACT_PROMPT.format(
             task_text=task_text,
             scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
             progress_block=progress_block,
@@ -1215,11 +1423,17 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
             method=method_lines(world="world", understanding="understanding of the world",
                                 action="plan entry"),
             ground_truth_bullet=_GROUND_TRUTH_BULLET["vista"],
-            action_reference=(action_reference(entry_cap=1, step_cap=step_cap,
+            action_reference=(action_reference(entry_cap=entry_cap if vista_plan else 1,
+                                               step_cap=step_cap,
                                                memory_mode="vista", task_family=task_family,
-                                               atoms=atoms, harness_reflexes=harness_reflexes)
+                                               atoms=atoms, harness_reflexes=harness_reflexes,
+                                               vista_plan=vista_plan)
                               + platform_block(platform_prompt, "your `play` call")),
         )
+        if vista_plan:
+            # `--vista-aligned`: a play is a plan, at the other arms' caps
+            text = text.replace(_VISTA_ONE_ENTRY, _VISTA_ONE_PLAN)
+        return text
     contract = {"logbook": (_logbook_contract_with_previous() if previous
                             else _LOGBOOK_CONTRACT),
                 "direct": _DIRECT_CONTRACT,

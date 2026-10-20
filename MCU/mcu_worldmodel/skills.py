@@ -913,13 +913,126 @@ def _installed(text: str, old_new: tuple[str, str]) -> str:
     return text.replace(old, new)
 
 
-def write_skills(root: Path, carried_world: str = "same", installed: bool = False) -> list[str]:
+#: `--no-primitives`: the run ships no procedure or reflex example (each is a hand-written
+#: skill) and has no built-in procedure, so the paragraphs that name them are rewritten.
+#: (skill, old, new); each old text occurs exactly once in its skill.
+_NO_PRIMITIVES_EDITS = (
+    ("procedures",
+     "how to compose the atoms into skills of the right grain",
+     "how to build skills of the right grain from raw actions"),
+    ("procedures",
+     """The built-in set is the ATOMS (closed-loop aims and walks, the GUI cursor, one-call
+craft, placements, the bucket, watch/pillar/eat/throw). Everything task-shaped you build
+yourself as `mine/procedures/<name>.py` (the script contract is in the main contract).
+This file says what a good one looks like.""",
+     """This run has NO built-in procedures and ships no example script: every aim, walk,
+dig, craft and fight is a script you write as `mine/procedures/<name>.py` from raw
+actions (the script contract and the closed loops are in `references/own.md`). This
+file says what a good one looks like; where it names a procedure or a script
+(shaft_down, strip_segment, a craft), read it as a recipe for one of yours."""),
+    ("procedures",
+     "- A skill is 50-400 ticks of atoms that you would otherwise write out by hand every\n  turn:",
+     "- A skill is 50-400 ticks of raw actions that you would otherwise write out by hand\n  every turn:"),
+    ("procedures",
+     """- Compute targets from the state (your position, yaw, the hotbar) instead of asking the
+  caller for coordinates; `skills/procedures/scripts/torch_wall.py` shows how.""",
+     """- Compute targets from the state (your position, yaw, the hotbar) instead of asking the
+  caller for coordinates.
+- Anything that must see while it acts -- an aim, a walk that stops at an edge, a cursor
+  landing on a slot, a fight -- is a closed loop (`LOOP = True`): it reads the frame and
+  [STATE] every few ticks. A plan-time script is blind once it starts."""),
+    ("procedures",
+     """## Examples
+
+`skills/procedures/scripts/stair_step.py` (one step of a staircase down along the
+heading: foot block, head block, step in; guards on ground and pickaxe),
+`skills/procedures/scripts/torch_wall.py` (a torch on the wall beside you, computed
+from your pose), `skills/procedures/scripts/shaft_down.py` (straight down to a
+target y in one call, ~20 ticks per level against a staircase's ~80) and
+`skills/procedures/scripts/strip_segment.py` (a lit 1x2 tunnel, 4 blocks a call at
+~45 ticks a block, every hold watched for ore) and
+`skills/procedures/scripts/aim_speckles.py` (the answer to a sighting [NOTE]: crosshair
+onto its pixel, mine the block, sweep the drop). Copy, rename, make them yours.
+
+## Mining one block
+
+A raw `{"attack": 1}` hold of 30 ticks. The runner cuts it the moment the block breaks
+and refunds the rest (the [NOTE] says so), and the wall watcher samples every hold for
+iron- and diamond-ore speckles: a sighting drops the rest of the plan with a [NOTE]
+and the flag-time frame. `mine_ahead(n)` spends all n ticks whatever breaks -- it is
+for continuous digging (a shaft), not for a block.
+
+## A sighting outranks everything
+
+`[NOTE] mining stopped: iron-ore-like (or diamond-ore-like) speckles on screen at (x, y)`
+is the one event this life is waiting for, and it is perishable: the runner dropped the
+rest of your plan so the view is still the flag-time view, and the next look or step
+loses it. Your next plan is ONE call of `aim_speckles(x=<x>, y=<y>)` from
+`skills/procedures/scripts/` (copy it into `mine/procedures/` in your first turn) --
+before any look, any craft, any step of the schedule below. The life that found the
+diamond did this within 20 steps of the [NOTE]; the lives that "finished the column
+first" or went to craft something first never mined the ore. If the hold breaks
+stone, the speckles were a block further in: hold again at the same aim.
+""",
+     """## Mining one block
+
+A raw `{"attack": 1}` hold of 30 ticks. The runner cuts it the moment the block breaks
+and refunds the rest (the [NOTE] says so). Nothing watches the walls for ore in this
+run: the view is the only sighting, so a reflex or a closed loop of yours that reads
+`frame` while you dig is the way to stop at ore you would otherwise tunnel past.
+"""),
+    ("reflexes",
+     "the classes that killed earlier runs, the starters already installed, and how to keep or retire them",
+     "the classes that killed earlier runs, and how to write, keep or retire them"),
+    ("reflexes",
+     """blocks of one while moving. `skills/reflexes/scripts/known_hazards.py` is the example
+   -- copy it into `mine/reflexes/` once your guide has coordinates in it.""",
+     """blocks of one while moving. Write it once your guide has coordinates in it."""),
+    ("reflexes",
+     """## The examples
+
+Under `skills/reflexes/scripts/`: `lava_ahead.py`, `fell.py`, `hit.py`, `starving.py`
+(classes 1, 2, 3, 5) and `known_hazards.py` (class 7). Nothing is installed for you:
+`mine/reflexes/` is empty until you copy a script into it (`cp
+skills/reflexes/scripts/lava_ahead.py mine/reflexes/`), and from then on it runs every 4
+ticks. Decide in your first turn which to copy, edit their thresholds, write the Nether
+one (class 4) before you go there.""",
+     """## Writing them
+
+No reflex ships with this run, installed or as an example: `mine/reflexes/` is empty
+until you write a script into it, and from then on it runs every 4 ticks. Write the
+first ones (classes 1, 2, 3, 5) in your first turn, the Nether one (class 4) before you
+go there. `lava_frac`, `fire_frac`, `hurt_100` and `frame` in the state are what the
+classes are read from."""),
+    ("harness",
+     "built from the atoms, your own procedures and raw actions.",
+     "built from raw actions and your own procedures (no built-in procedure exists in\nthis run)."),
+    ("harness",
+     "Does: execute plans, verify closed-loop atoms (aims, walks, GUI cursor), record",
+     "Does: execute plans, measure the GUI cursor ([CURSOR]) and the grid ([GRID]), record"),
+)
+
+#: `--no-primitives`, the contract paragraph in place of SKILLS_NOTE.
+SKILLS_NOTE_NO_PRIMITIVES = """\
+
+**Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
+of this run: how to use your memory (`skills/memory`), how to build skills of the right
+grain (`skills/procedures`), which reflexes to write and why (`skills/reflexes`), how the
+loop and its economics work and the do-not list (`skills/harness`). Read all four in your
+first turn. No procedure or reflex ships with this run, as code or as an example
+(`skills/memory/scripts/` holds memory queries only): `mine/reflexes/` is empty until you
+write one -- do that in your first turn."""
+
+
+def write_skills(root: Path, carried_world: str = "same", installed: bool = False,
+                 primitives: bool = True) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts, the reflex examples included. Nothing is installed under mine/: the model
     copies the reflexes it wants into mine/reflexes/ itself. With `installed` the
     carried lives' own scripts were put in mine/ before this, and the memory and
-    procedures skills say so instead of telling the model to copy them. Returns the
-    paths written."""
+    procedures skills say so instead of telling the model to copy them. Without
+    `primitives` (`--no-primitives`) only the memory examples are written and the
+    SKILL.md texts say so. Returns the paths written."""
     root = Path(root)
     written: list[str] = []
     for name, (text, scripts) in SKILLS.items():
@@ -929,6 +1042,14 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                 text = _installed(text, _COPY_MEMORY)
         elif name == "procedures" and installed:
             text = _installed(text, _COPY_PROCEDURES)
+        if not primitives:
+            for skill, old, new in _NO_PRIMITIVES_EDITS:
+                if skill == name:
+                    if text.count(old) != 1:
+                        raise ValueError(f"{name} skill text drifted from its no-primitives edit")
+                    text = text.replace(old, new)
+            if name != "memory":
+                scripts = {}
         d = root / SKILLS_DIR / name
         d.mkdir(parents=True, exist_ok=True)
         p = d / "SKILL.md"

@@ -353,7 +353,9 @@ class AppServerRunner:
                  task_timeout: float = 3 * 24 * 3600,
                  idle_timeout: float | None = DEFAULT_IDLE_TIMEOUT,
                  thread_bytes_budget: int | None = DEFAULT_THREAD_BYTES_BUDGET,
-                 objective: str = "Continue the task.") -> None:
+                 objective: str = "Continue the task.",
+                 model_step_limit: int | None = None,
+                 play_limit: int | None = None) -> None:
         self.workspace = Path(workspace).resolve()
         self.guide_path = self.workspace / "GUIDE.md"
         self.working_path = self.workspace / "WORKING.md"
@@ -398,6 +400,13 @@ class AppServerRunner:
         self.thread_bytes: dict[str, int] = {}
         self.peak_thread_bytes = 0
         self.wire_checkpoints = 0
+        #: `model_steps()`: turns that ended in the model's answer (an interrupted turn
+        #: ended after a tool call, which is counted already), and the cap past which a
+        #: tool call is refused and the episode goes on without the model.
+        self.turns_answered = 0
+        self.model_step_limit = model_step_limit
+        #: `--turn-budget`: plays (the vista arm's turns) past which a play is refused.
+        self.play_limit = play_limit
         self.images_sent = 0
         self.segments: list[CodexResult] = []
 
@@ -539,7 +548,12 @@ class AppServerRunner:
                 self._dispatch(connection.receive(deadline, self.idle_timeout), deadline)
             status = self._completed_turn.get("status")
             paused = self.controller.compact_checkpoint_marker.exists()
-            if status not in {"completed", "interrupted"} and not paused:
+            # A turn the API refused (rate limit, capacity) is a runtime failure even while
+            # a checkpoint is pending: counted as a checkpoint attempt, four refusals in a
+            # row ended a life ("Codex did not write the compact checkpoint", all 429s).
+            api_error = (status == "failed" and isinstance(self._completed_turn.get("error"), dict)
+                         and bool(self._completed_turn["error"].get("codexErrorInfo")))
+            if status not in {"completed", "interrupted"} and (not paused or api_error):
                 returncode = 1
                 error_text = f"Turn ended with status {status}: {self._completed_turn.get('error')}"
         except TimeoutError as exc:
@@ -659,6 +673,8 @@ class AppServerRunner:
             turn = params.get("turn")
             if isinstance(turn, dict) and turn.get("id") == self._active_turn_id:
                 self._completed_turn = turn
+                if turn.get("status") == "completed":
+                    self.turns_answered += 1
         elif method == "item/completed":
             item = params.get("item")
             if isinstance(item, dict):
@@ -685,6 +701,15 @@ class AppServerRunner:
                                                params.get("callId"), params.get("arguments"))
         if namespace != PLAYER_TOOL_NAMESPACE or not isinstance(tool, str) or not isinstance(call_id, str):
             execution = ToolExecution("Invalid tool request.", False)
+        elif self._spent_budget(tool) is not None:
+            # A budget is spent: no further tool runs, and the episode is over for the
+            # model (the chassis plays the rest of it idle).
+            name, cap = self._spent_budget(tool)
+            self.controller.force_terminal(name)
+            execution = ToolExecution(
+                f"The {name.replace('_', ' ')} ({cap}) is spent: this call was not run, and the "
+                f"rest of the life goes on without you.", False,
+                interrupt_after=True, boundary_reason=name)
         else:
             execution = self.dispatcher.execute(tool, arguments, call_id)
         if tool == "inspect" and execution.images:
@@ -712,6 +737,20 @@ class AppServerRunner:
         self._connection.send(self._tool_response(request_id, execution))
         if execution.interrupt_after:
             self._finish_turn_boundary(deadline)
+
+    def _spent_budget(self, tool: str) -> tuple[str, int] | None:
+        """The budget this call would overrun, as (name, cap), or None."""
+        if self.model_step_limit is not None and self.model_steps() >= self.model_step_limit:
+            return "model_step_budget", self.model_step_limit
+        if (self.play_limit is not None and tool == "play"
+                and self.dispatcher.calls.get("play", 0) >= self.play_limit):
+            return "turn_budget", self.play_limit
+        return None
+
+    def model_steps(self) -> int:
+        """Model steps spent: every tool call the model made and every turn it ended with
+        its answer -- the unit `--model-step-budget` counts in every arm."""
+        return sum(self.dispatcher.calls.values()) + self.turns_answered
 
     @staticmethod
     def _tool_response(request_id: Any, execution: ToolExecution) -> dict[str, Any]:
