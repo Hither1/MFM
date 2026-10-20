@@ -1013,6 +1013,92 @@ _MINIMAL_SAFETY = {
             "per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat "
             "when the bar is below 18 (the starving example does it when you carry food)."),
 }
+#: The mfm-noprim arm: the same, for a run that ships no example to copy.
+_MINIMAL_SAFETY_NO_EXAMPLES = (
+    "**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a "
+    "hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is "
+    "installed: `skills/reflexes/SKILL.md` says how they run, and `skills/reflexes/scripts/` "
+    "holds an example. Natural healing needs the food "
+    "bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one "
+    "animal (raw meat is fine) -- eat when the bar is below 18 (hold `use` with the food "
+    "selected, about 32 ticks).")
+
+
+#: The mfm-noprim arm: the minimal contract's procedure section, and the two sentences of the
+#: action schema that name built-ins (its procedure example, discard_stack).
+_MINIMAL_PROC_SECTION = ("**Procedures** (name, arguments, one line each; full descriptions, "
+                         "preconditions and\nthe notes on each: `references/procedures.md`):\n"
+                         "{procedures}\n{atoms_line}\n")
+assert _MINIMAL_PROC_SECTION in MINIMAL_CONTRACT
+_NAMED_PROCEDURE = ("or a named procedure, which expands to many ticks:\n\n    "
+                    + _DIG_EXAMPLE)
+_OWN_PROCEDURE = ("or one of YOUR OWN procedures (a script under `mine/procedures/`; this run "
+                  "has no\nbuilt-in ones), which expands to many ticks:\n\n    "
+                  '{"procedure": "<your script>", "args": {...}}')
+_DISCARD = ("To throw a stack away use the `discard_stack`\nprocedure (below); it is the one "
+            "way to shed junk here.")
+_DISCARD_RAW = ("To throw a stack away: open the inventory,\nleft-click the stack onto the "
+                "cursor, close the screen (the stack is thrown ahead of you), then\nstep back "
+                "so you do not walk onto it -- the one way to shed junk here.")
+assert _NAMED_PROCEDURE.replace(_DIG_EXAMPLE, "") in ACTION_REFERENCE and _DISCARD in ACTION_REFERENCE
+
+#: The mfm-noprim arm, the head of references/gui.md: the screen numbers every GUI macro is
+#: built on, given as facts (the same ones `gui.py` computes with), since no macro clicks.
+_RAW_GUI = """\
+**The GUI by hand (this run).** No procedure clicks for you; the rest of this file
+describes macros that do not exist here. What a screen takes is the keys:
+- `inventory` toggles the survival inventory (2x2 crafting). A placed crafting table or
+  furnace opens with `use` while you face it at arm's length holding a NON-placeable item
+  (a tool) -- with a block in hand, `use` places the block.
+- While a screen is open, `camera` moves the mouse cursor instead of your view: + yaw is
+  right, + pitch is down, about {ppd} container px per degree (one 18 px slot is about
+  {slot_deg:.1f} degrees). A screen opens with the cursor at its centre, ({ox:.0f}, {oy:.0f}).
+- `attack` held 1-2 ticks, then a tick with nothing pressed, is a LEFT click: lift a whole
+  stack onto the cursor, or put the held stack down. `use` the same way is a RIGHT click:
+  put ONE item of the held stack down, or lift half a stack. A button held across ticks
+  reads as a drag and spreads the stack.
+- `[CURSOR]` is the cursor's position measured from the frame (container px, the slot
+  under it, what is off-inventory); `[GRID]` lists the crafting cells that visibly hold
+  something. A click lands a tick late: read the next frame before deciding it missed.
+- Slot centres, container px (the 176x166 screen's top-left is the origin):
+  inventory slot s ([INV] ids): hotbar 0-8 at ({hx} + 18*s, {hy}); main rows 9-35 at
+  ({mx} + 18*((s-9) % 9), {my} + 18*((s-9) // 9)).
+  2x2 grid cells 0-3 (row by row): {c2}; output {o2}.
+  3x3 grid (a table) cell i: ({tx} + 18*(i % 3), {ty} + 18*(i // 3)); output {o3}.
+  furnace: input {fi}, fuel {ff}, output {fo}.
+- A recipe: lift an ingredient stack, right-click one item into each cell of the shape,
+  left-click the rest back into its slot, left-click the output, left-click an empty
+  inventory slot to bank it. A `craft_item` [EVENT] is the proof; without one nothing
+  was crafted.
+- Nothing guards a close in this run: closing a crafting screen with items in its grid
+  or on the cursor throws them on the ground. A furnace keeps its cells across a close.
+"""
+
+
+#: Camera degrees per container pixel of cursor travel in a screen, as measured in the
+#: mfm-noprim lives (every raw move of the first crafts landed at exactly 6.667 container
+#: px per degree, i.e. 0.15 degrees per pixel, VPT's CAMERA_SCALER). `gui.PX_PER_DEGREE`
+#: (4.17) is an older measurement that the macros never rely on (their servo closes on
+#: the measured cursor); it is left as is so the other arms move exactly as they did.
+RAW_GUI_DEG_PER_PX = 360.0 / 2400.0
+
+
+def raw_gui_ref() -> str:
+    """`_RAW_GUI` with the geometry of `gui.py` filled in."""
+    def c(tl):
+        x, y = G.centre(tl)
+        return f"({x:.0f}, {y:.0f})"
+    hx, hy = G.centre(G.HOTBAR_ORIGIN)
+    mx, my = G.centre(G.MAIN_INV_ORIGIN)
+    tx, ty = G.centre(G.TABLE_CRAFT_IN[0])
+    return _RAW_GUI.format(
+        ppd=f"{1.0 / RAW_GUI_DEG_PER_PX:.2f}",
+        slot_deg=G.SLOT_PITCH * RAW_GUI_DEG_PER_PX,
+        ox=G.CURSOR_OPEN[0], oy=G.CURSOR_OPEN[1],
+        hx=f"{hx:.0f}", hy=f"{hy:.0f}", mx=f"{mx:.0f}", my=f"{my:.0f}",
+        c2=" ".join(c(tl) for tl in G.SURVIVAL_CRAFT_IN), o2=c(G.SURVIVAL_CRAFT_OUT),
+        tx=f"{tx:.0f}", ty=f"{ty:.0f}", o3=c(G.TABLE_CRAFT_OUT),
+        fi=c(G.FURNACE_IN), ff=c(G.FURNACE_FUEL), fo=c(G.FURNACE_OUT))
 
 
 def _previous_note() -> str:
@@ -1026,15 +1112,27 @@ def _previous_note() -> str:
 def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, step_cap: int,
                      scored_by_milestones: bool = True, atoms: bool = False,
                      frames: bool = False, harness_reflexes: bool = True,
-                     previous: bool = False, references_tail: str = "") -> str:
+                     previous: bool = False, references_tail: str = "",
+                     primitives: bool = True) -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
-    if atoms:
+    template = MINIMAL_CONTRACT
+    if not primitives:
+        # no primitives: no index to show, and the schema's two built-in names go
+        head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
+        template = template.replace(_MINIMAL_PROC_SECTION, "**Procedures.** {atoms_line}\n")
+    elif atoms:
         head = head.replace(_DIG_EXAMPLE, _ATOM_EXAMPLE)
     tools_line = _MFM_TOOLS_LINE.format(zoom=", a crop from `tools/zoom.py`" if frames else "")
     if not previous:                       # from scratch: no earlier life to look back at
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")
-    return MINIMAL_CONTRACT.format(
+    if not primitives:
+        safety = _MINIMAL_SAFETY_NO_EXAMPLES if not harness_reflexes else _MINIMAL_SAFETY[True]
+        atoms_line = _own_mod().NO_PRIMITIVES_LINE
+    else:
+        safety = _MINIMAL_SAFETY[bool(harness_reflexes)]
+        atoms_line = ("\n" + _own_mod().atoms_line()) if atoms else ""
+    return template.format(
         task_text=task_text,
         previous_clause=(" `previous/life_<i>/` the earlier lives in this same world;"
                          if previous else ""),
@@ -1044,10 +1142,10 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         scoring_line=_SCORING_LINE[bool(scored_by_milestones)],
         progress_block=progress_block,
         tools_line=tools_line,
-        safety_line=_MINIMAL_SAFETY[bool(harness_reflexes)],
+        safety_line=safety,
         reference_head=head.rstrip() + "\n",
         procedures=P.index(),
-        atoms_line=("\n" + _own_mod().atoms_line()) if atoms else "",
+        atoms_line=atoms_line,
         references_tail=("\n" + references_tail.strip() + "\n") if references_tail.strip() else "",
     )
 

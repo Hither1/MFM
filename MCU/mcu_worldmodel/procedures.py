@@ -835,7 +835,8 @@ ATOMS = ("look", "look_at", "look_abs", "equip_hotbar", "open_inventory", "close
          "go_to", "watch", "mine_ahead", "collect_drops", "fill_bucket", "pillar_up", "eat",
          "throw", "drop_and_pickup", "stow_items", "discard_stack")
 #: None = every registered procedure; a set = the names the contract shows and `expand`
-#: accepts (the rest answer with a note, never silently).
+#: accepts (the rest answer with a note, never silently); the empty set = none at all
+#: (no primitives).
 VISIBLE: set[str] | None = None
 #: Whether the arm keeps procedures of its own (`own`): the notes about the atom set
 #: offer that way out only where it exists.
@@ -1096,6 +1097,11 @@ def expand(name: str, info: dict[str, Any] | None = None, cursor: Any = None,
     procedure the model invented should not crash a 12,000-step episode.
     """
     proc = REGISTRY.get(name)
+    if proc is not None and VISIBLE is not None and not VISIBLE:
+        # no primitives: the set is empty, so there is nothing to compose from but the keys
+        return [], (f"{name!r}: this run has no built-in procedures -- build it from raw "
+                    f"actions"
+                    + (", as your own procedure under mine/procedures/" if OWN else ""))
     if proc is not None and VISIBLE is not None and name not in VISIBLE:
         return [], (f"{name!r} is not in this run's procedure set (the atoms): compose it "
                     f"from the atoms and raw actions"

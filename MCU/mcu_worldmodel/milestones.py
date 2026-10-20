@@ -288,6 +288,30 @@ def hotbar_line(info: dict) -> str:
     return ", ".join(parts) or "empty"
 
 
+def slot_map(info: dict) -> dict[int, tuple[str, int]]:
+    """Every occupied player slot (0-35, the [INV] ids): slot -> (item, count)."""
+    inv = info.get("inventory")
+    out: dict[int, tuple[str, int]] = {}
+    if not isinstance(inv, dict):
+        return out
+    for slot in range(36):
+        entry = inv.get(slot) or inv.get(str(slot))
+        if not isinstance(entry, dict) or slot_is_empty(entry):
+            continue
+        qty = entry.get("quantity", 0)
+        qty = int(qty.item()) if isinstance(qty, np.ndarray) else int(qty)
+        if qty > 0:
+            out[slot] = (str(entry.get("type")), qty)
+    return out
+
+
+def main_rows_line(info: dict) -> str:
+    """What is in each main-row slot (9-35), as the mfm-noprim arm shows it beside the
+    hotbar: with no `craft` to find the ingredients, a click needs the slot NUMBER."""
+    parts = [f"{slot}={name}x{n}" for slot, (name, n) in slot_map(info).items() if slot >= 9]
+    return ", ".join(parts) or "empty"
+
+
 def held_line(info: dict) -> str:
     """The mainhand item with its remaining durability, from `equipped_items`.
 

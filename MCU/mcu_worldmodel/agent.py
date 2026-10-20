@@ -46,8 +46,8 @@ from mcu_worldmodel.grid import Grid
 from mcu_worldmodel.memory import MultimodalMemory, norm_yaw
 from mcu_worldmodel.macros_world import norm_yaw_delta
 from mcu_worldmodel.milestones import (
-    MilestoneLedger, held_line, hotbar_line, inventory_counts, location, nearby_mobs,
-    slot_is_empty, vitals,
+    MilestoneLedger, held_line, hotbar_line, inventory_counts, location, main_rows_line,
+    nearby_mobs, slot_is_empty, slot_map, vitals,
 )
 
 
@@ -141,13 +141,16 @@ def _num(v) -> bool:
         return False
 
 
-def _cut_short_hint(atoms: bool) -> str:
+def _cut_short_hint(atoms: bool, primitives: bool = True) -> str:
     """The tail of the attack-hold cut-short note: names tools that exist in this run.
     Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
     241 times in one run to a model that could not call them.
     A raw attack hold is also never watched for ore: mine_ahead(ore_watch=true) is the
     one entry point to the wall watcher there (that life: 79 turns of raw holds, zero
     sightings, 9/10). Same shape as MCU main's 1ac1c7f."""
+    if not primitives:
+        return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
+                "30) per block: each is cut the moment its block breaks.")
     if atoms:
         return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
                 "30) per block: each is cut the moment its block breaks, and the wall "
@@ -212,6 +215,11 @@ class WorldModelAgent:
         # `near_deaths`: name a death whose respawn is close to where it happened
         # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
         near_deaths: bool = False,
+        # `primitives=False` (the mfm-noprim arm; mcu_worldmodel/own.py): not even
+        # the atoms -- the procedure set is empty, skills/ ships no procedure or reflex
+        # example, the wall watcher is off; the model acts through the keys and its own
+        # scripts. True: the paper's arms.
+        primitives: bool = True,
     ) -> None:
         if memory_mode not in ("direct", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -246,7 +254,9 @@ class WorldModelAgent:
         self.atoms, self.own = bool(atoms), bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
-        _P.set_visible(_P.ATOMS if self.atoms else None, own=self.own)
+        self.primitives = bool(primitives)
+        _P.set_visible(set() if not self.primitives else _P.ATOMS if self.atoms else None,
+                       own=self.own)
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
         #: Running ledger counts an own entry's scorecard is cut from (own.RECORD_FILE).
@@ -262,6 +272,9 @@ class WorldModelAgent:
             raise ValueError("own_live gives the model's own scripts the live view: it "
                              "needs the mfm arm (own, minimal)")
         self.own_live = bool(own_live)
+        if not self.primitives and not (self.own_live and self.own_reflexes and skills):
+            raise ValueError("no primitives leaves the model's own scripts as its only skills: "
+                             "it needs the mfm arm with own reflexes, skills and own_live")
         self.near_deaths = bool(near_deaths)
         #: closed loops run this life: name -> {"entries", "calls", "ticks"}
         self._own_loops: dict[str, dict[str, int]] = {}
@@ -523,13 +536,36 @@ class WorldModelAgent:
                     tail = tail.rstrip("\n") + ("\n- `references/own.md`: the contract for your own "
                                                 "procedures, reflexes and working memory (stdin "
                                                 "state, output shapes, caps)\n")
+                    if not self.primitives:
+                        refs["own.md"] = _own.no_builtins(refs["own.md"])
+                if not self.primitives:
+                    # nothing to describe: the file and its line in the tail go
+                    refs.pop("procedures.md", None)
+                    tail = "\n".join(ln for ln in tail.split("\n")
+                                     if not ln.startswith("- `references/procedures.md`"))
+                    tail = (tail.replace(prompts._THIN_FILES["gui.md"],
+                                         "the GUI by hand (the cursor, the clicks, the slot "
+                                         "positions) and the screen rules")
+                            .replace(prompts._THIN_FILES["skills.md"],
+                                     "the skills by situation -- wood, stone, iron, diamonds, "
+                                     "water, lava, the portal, the Nether, the End -- as "
+                                     "recipes, and what to write down"))
                 contract = prompts.minimal_contract(
                     task_text=self.task_text, progress_block=self.ledger.progress_block(),
                     entry_cap=self.entry_cap, step_cap=self.step_cap, atoms=self.atoms,
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
-                    references_tail=tail)
-            if self.atoms and refs.get("skills.md"):
+                    references_tail=tail, primitives=self.primitives)
+            if not self.primitives:
+                # every reference that names a macro says none exists; gui.md opens with
+                # the screen by hand
+                from mcu_worldmodel import own as _own
+                for f in ("skills.md", "survival.md", "more.md", "gui.md"):
+                    if refs.get(f):
+                        refs[f] = _own.NO_PRIMITIVES_REF_LINE + "\n\n" + refs[f]
+                if refs.get("gui.md"):
+                    refs["gui.md"] = prompts.raw_gui_ref() + "\n" + refs["gui.md"]
+            elif self.atoms and refs.get("skills.md"):
                 # the situations reference names the task-shaped macros: say they are recipes here
                 from mcu_worldmodel import own as _own
                 refs["skills.md"] = _own.atoms_ref_line() + "\n\n" + refs["skills.md"]
@@ -537,9 +573,10 @@ class WorldModelAgent:
                 self.memory.write_references(refs)
         if self.skills:
             from mcu_worldmodel import skills as _skills
-            written = _skills.write_skills(self.memory.root)
+            written = _skills.write_skills(self.memory.root, primitives=self.primitives)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
-            contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
+            contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.primitives
+                                                    else _skills.SKILLS_NOTE_NO_PRIMITIVES) + "\n"
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
         self.codex.write_system_prompt(contract)
@@ -1439,7 +1476,8 @@ class WorldModelAgent:
                     # one flag per 100 steps, the rest of the plan flushed with the
                     # [NOTE]. Three lives mined
                     # 12,000 steps each on raw holds with 0-3 sightings between them.
-                    if self.atoms and _is_attack_hold(head) and self._ore_flag(self._raw_ore):
+                    if (self.atoms and self.primitives and _is_attack_hold(head)
+                            and self._ore_flag(self._raw_ore)):
                         self.cursor_stats["raw_hold_flags"] = (
                             self.cursor_stats.get("raw_hold_flags", 0) + 1)
                     action, _ = self.queue.popleft()
@@ -2012,7 +2050,7 @@ class WorldModelAgent:
         self.memory.add_note(
             f"attack-hold entry cut short at step {self.step}: a block broke "
             f"({self._last_break_item or 'log'}), {run} leftover attack ticks refunded. "
-            + _cut_short_hint(self.atoms))
+            + _cut_short_hint(self.atoms, self.primitives))
 
     #: Blocks the pillar reflex will stand on, best first. Gravel and sand fall.
     PILLAR_BLOCKS = ("cobblestone", "dirt", "stone", "andesite", "diorite", "granite",
@@ -4407,6 +4445,13 @@ class WorldModelAgent:
             "mainhand": ((info.get("equipped_items") or {}).get("mainhand") or {}).get("type"),
             "gui_open": bool(info.get("isGuiOpen", False)),
             "dimension": getattr(self, "_dimension", None),
+            # no primitives: what the GUI macros read for themselves -- every slot, and
+            # the cursor as [CURSOR] shows it -- so a script of the model's can click
+            **({} if self.primitives else {
+                "slots": {str(k): [n, c] for k, (n, c) in slot_map(info).items()},
+                "cursor": ({"pos": [round(self.cursor.pos[0], 1), round(self.cursor.pos[1], 1)],
+                            "over": self.cursor.over(None)}
+                           if self.cursor.pos is not None else None)}),
         }
 
     def _own_kwargs(self, info: dict) -> dict[str, Any]:
@@ -4734,7 +4779,8 @@ class WorldModelAgent:
             # The hotbar separately from the inventory: selecting a tool needs the slot
             # NUMBER, and "I have a pickaxe somewhere" does not tell the agent what to press.
             f"Hotbar: {hotbar_line(info)}\n"
-            f"Held: {held_line(info)}\n"
+            + ("" if self.primitives else f"Main rows: {main_rows_line(info)}\n")
+            + f"Held: {held_line(info)}\n"
             f"Nearby entities: {nearby_mobs(info)}\n"
             f"GUI open: {bool(info.get('isGuiOpen', False))}\n"
             # Where the cursor is, held by the harness. This is what removes the need for
@@ -5311,6 +5357,7 @@ class WorldModelAgent:
             **({"combat": {"kills": self._kills()}} if self._kills() else {}),
             "thin": self.thin,
             **({"atoms": True} if self.atoms else {}),
+            **({"no_primitives": True} if not self.primitives else {}),
             **({"own_live": True, "own_loops": {k: dict(v) for k, v in self._own_loops.items()}}
                if self.own_live else {}),
             **({"near_deaths": True} if self.near_deaths else {}),

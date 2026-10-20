@@ -380,9 +380,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run one memory arm as an MCU purple agent.")
     parser.add_argument("--memory", type=str, default="mfm", choices=sorted(ARMS),
-                        help="the arm: direct (no persistent memory) or mfm (Multimodal "
+                        help="the arm: direct (no persistent memory), mfm (Multimodal "
                              "Filesystem Memory; the agent writes its own procedures and "
-                             "reflexes). Settings: mcu_worldmodel/arms.py")
+                             "reflexes) or mfm-noprim (mfm without the 28 atoms: the agent "
+                             "builds every skill from raw actions). Settings: "
+                             "mcu_worldmodel/arms.py")
     parser.add_argument("--task", type=str, default="mine_diamond_from_scratch",
                         help="task_category being evaluated; names the public task "
                              "config the milestone checklist is loaded from")

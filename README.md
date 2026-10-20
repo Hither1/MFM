@@ -318,7 +318,9 @@ bash scripts/run-arm.sh --arm mfm_diamond --memory mfm \
     --task mine_diamond_from_scratch --green-port 9053 --purple-port 9063
 ```
 
-- `--memory`: `mfm` or `direct`.
+- `--memory`: `mfm` or `direct`, the two arms of the paper. `mfm-noprim` is MFM without
+  the 28 atoms: the agent has no built-in procedure and no example script, and it
+  makes all its skills from raw actions.
 - `--task`: `mine_diamond_from_scratch` (12,000 steps), `ender_dragon` (36,000 steps) or
   `nether_portal` (6,000 steps). These are the step budgets of the paper. `--steps N`
   sets a different budget.
