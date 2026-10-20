@@ -52,6 +52,10 @@
 #           the controls) on the same seeds
 #   PROBE_STEPS (default 2000), STOP_AFTER (default 400: steps played on after the last
 #   milestone), MODEL (default claude-opus-5, effort high)
+#   CLI     claude (default) or codex: the model channel of every life. codex needs
+#           CODEX_NODE_DIR (the codex install, as slurm/codex_lane.sbatch) and MCU_CODEX_AUTH,
+#           and a MODEL the account serves (gpt-6-astra); the quota guard reads Claude turns
+#           only and is not started.
 #   QUOTA_GUARD (default 1), QUOTA_5H_CAP, QUOTA_7D_CAP (default off): scripts/quota_guard.py
 #           runs beside the lives and cancels the job when a turn is REFUSED by the account's
 #           limit (a refused turn is a no-op, and two lives of 10-04 played 1,424 of them),
@@ -112,6 +116,14 @@ REP="${REP:-}"
 PROBE_STEPS="${PROBE_STEPS:-2000}"
 STOP_AFTER="${STOP_AFTER:-400}"
 MODEL="${MODEL:-claude-opus-5}"
+CLI="${CLI:-claude}"
+if [ "$CLI" = codex ]; then
+    export PATH="${CODEX_NODE_DIR:?}/bin:$PATH" CODEX_BIN="$CODEX_NODE_DIR/bin/codex"
+    export MCU_CODEX_AUTH="${MCU_CODEX_AUTH:?}"
+    "$CODEX_BIN" --version >/dev/null 2>&1 || { echo "FATAL: no runnable codex at $CODEX_BIN"; exit 1; }
+    echo "--- codex: $CODEX_BIN $("$CODEX_BIN" --version 2>&1 | tail -1)"
+    QUOTA_GUARD=0
+fi
 OWNX_SEED="${OWNX_SEED:-}"
 SMOKE_EXTRA="${SMOKE_EXTRA:-}"
 LIVE="${LIVE:-0}"
@@ -223,7 +235,7 @@ if [ "$STAGE" = smoke ]; then
         # shellcheck disable=SC2046
         X="$(row_opts "$R" "$T")" || exit 1
         # shellcheck disable=SC2046,SC2086
-        life "$ARM" "$T" "${SMOKE_STEPS:-$PROBE_STEPS}" --cli claude --model "$MODEL" --effort high \
+        life "$ARM" "$T" "${SMOKE_STEPS:-$PROBE_STEPS}" --cli "$CLI" --model "$MODEL" --effort high \
             $X $(task_extra "$T") $LIVE_OPT
         tell "$ARM"; echo "finished=$(date -Is)"; exit 0
     fi
@@ -269,7 +281,7 @@ for TASK in $TASKS; do
         esac
         X="$(row_opts "$ROW" "$TASK")" || exit 1
         # shellcheck disable=SC2046,SC2086
-        life "$ARM" "$TASK" "$PROBE_STEPS" --cli claude --model "$MODEL" --effort high \
+        life "$ARM" "$TASK" "$PROBE_STEPS" --cli "$CLI" --model "$MODEL" --effort high \
             $X $(task_extra "$TASK") $LIVE_OPT
         tell "$ARM"
     done

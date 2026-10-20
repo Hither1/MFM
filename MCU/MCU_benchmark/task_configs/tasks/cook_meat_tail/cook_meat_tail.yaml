@@ -8,8 +8,14 @@
 #
 # `kill_animal` is the `kill_entity` statistic; it was never seen to fire in a recorded
 # life, so a smoke life checks it before the rows are run.
+#
+# 2026-10-11: a stone sword joins the kit (two hits kill a cow; bare hands need ten, and a
+# cow runs after the first). The rows are now none vs the fight scripts another probe's
+# chain wrote (the blaze chain, skill_reuse3.sbatch ROWS=ownx): the hunt is the part a
+# carried skill can bear on. No life had been run as a row on the kit without the sword.
 custom_init_commands:
 - /give @s minecraft:stone_pickaxe 1
+- /give @s minecraft:stone_sword 1
 - /give @s minecraft:crafting_table 1
 - /give @s minecraft:cobblestone 8
 - /give @s minecraft:oak_log 6
@@ -19,7 +25,7 @@ custom_init_commands:
 defaults:
 - base
 - _self_
-text: Cook a piece of meat. You start with a stone pickaxe, a crafting table, 8 cobblestone and 6 oak logs in your inventory, and three cows stand near you; build a furnace, kill an animal and cook its meat.
+text: Cook a piece of meat. You start with a stone pickaxe, a stone sword, a crafting table, 8 cobblestone and 6 oak logs in your inventory, and three cows stand near you; build a furnace, kill an animal and cook its meat.
 
 milestone_reward_cfg:
   - event: craft_item
