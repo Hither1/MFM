@@ -828,7 +828,8 @@ def register(p: Procedure) -> None:
 #: one turn -- the closed-loop aims and walks, the GUI cursor and the one-call craft (9
 #: of the dragon's 24 milestones are crafts; the raw-cursor craft cost ~450 steps), the
 #: placements, the bucket -- and nothing task-shaped: no tree, no strip mine, no shaft,
-#: no obsidian, no portal, no Nether or End macro.
+#: no obsidian, no portal, no Nether or End macro. The mfm-atoms and direct arms get
+#: these; the default mfm arm gets none (an empty VISIBLE).
 ATOMS = ("look", "look_at", "look_abs", "equip_hotbar", "open_inventory", "close_inventory",
          "cursor_to_slot", "cursor_to_cell", "gui_click", "gui_right_click", "craft",
          "place_and_open", "furnace_load", "furnace_take", "place_at", "use_at", "use_held",

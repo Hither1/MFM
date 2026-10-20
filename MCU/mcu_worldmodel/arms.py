@@ -1,14 +1,14 @@
-"""The arms of the paper on the Minecraft chassis.
+"""The arms on the Minecraft chassis.
 
 One chassis (executor, perception, caps, milestone ledger) runs every arm; an arm is
 the memory it is given and the contract that goes with it. `ARMS[name]` is what
 `WorldModelAgent` is built with beside `memory_mode=MEMORY_MODE[name]`. Every arm reads a
 short contract, none is given a task-shaped macro, and the runner's own guards are off
-for all. `direct` and `mfm-atoms` act through the same 28 closed-loop primitives
-(`procedures.ATOMS`); `mfm` has none of them.
+for all. The default arm, `mfm`, has no built-in procedure (no primitives): every plan
+entry is a raw action or a script the model wrote. `mfm-atoms` and `direct` act through
+the 28 closed-loop primitives of `procedures.ATOMS`.
 
-    direct  no persistent memory: every turn is the present alone
-    mfm     Multimodal Filesystem Memory: the log, one episode per plan entry (frame,
+    mfm     (the default) Multimodal Filesystem Memory: the log, one episode per plan entry (frame,
             state, action, outcome), the index and its query tool, the frame tools,
             the [RECALL] block and the carried lives under `previous/`; and the
             agent builds its own harness: its own `mine/` (notes, working memory,
@@ -19,12 +19,13 @@ for all. `direct` and `mfm-atoms` act through the same 28 closed-loop primitives
             procedures, closed loops and reflexes it writes itself
     mfm-atoms  mfm with the 28 atoms and the example procedures and reflexes under
             skills/ (the setting of the paper's runs)
+    direct  no persistent memory: every turn is the present alone; the 28 atoms
 """
 from __future__ import annotations
 
 from typing import Any
 
-#: What both arms are given.
+#: What every arm is given (`mfm` then empties the procedure set: primitives=False).
 SHARED: dict[str, Any] = dict(
     thin=True,                # the short contract; the rules under references/
     atoms=True,               # the procedure set is the closed-loop primitives
@@ -50,9 +51,9 @@ MFM_OWN: dict[str, Any] = dict(
 )
 
 ARMS: dict[str, dict[str, Any]] = {
-    "direct": SHARED,
     "mfm": {**SHARED, **MFM_MEMORY, **MFM_OWN, "primitives": False},
     "mfm-atoms": {**SHARED, **MFM_MEMORY, **MFM_OWN},
+    "direct": SHARED,
 }
 
 #: The memory mode of the chassis each arm runs in.

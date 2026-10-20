@@ -31,6 +31,11 @@ underscore in the file name keeps a copied script off):
 
 With `--no-harness-reflexes` the runner's own guards, escapes, governor and nudges are off
 (as in `--human-play`) and the reflexes the model copies or writes are the whole tick layer.
+
+The list above is the package of the mfm-atoms arm. The default mfm arm (no primitives)
+gets the same four SKILL.md rewritten by `_NO_PRIMITIVES_EDITS` (no atoms, no example to
+copy, no build schedule), the memory scripts, and one example reflex,
+`skills/reflexes/scripts/ore_watch.py`, which is not installed.
 """
 from __future__ import annotations
 

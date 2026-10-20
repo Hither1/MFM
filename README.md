@@ -56,7 +56,7 @@ functions of the paper (Section 3.2). The table gives the names in Minecraft:
 | Agent-written memory | `mine/GUIDE.md` and `mine/notes.md`: facts about the world. `mine/procedures/` and `mine/reflexes/`: scripts. `mine/working.md`: the current plan. | model | semantic, procedural, working |
 
 The harness also writes the task and the rules: `CLAUDE.md` for Claude Code, `AGENTS.md`
-for the Codex CLI. It adds reference text and example scripts (`references/`, `skills/`)
+for the Codex CLI. It adds reference text and skill files (`references/`, `skills/`)
 and two search tools (`tools/`). The model must not change the files of the harness. If
 a turn makes the log, the index or the rules shorter, the harness reports a fault.
 
@@ -322,9 +322,10 @@ bash scripts/run-arm.sh --arm mfm_diamond --memory mfm \
     --task mine_diamond_from_scratch --green-port 9053 --purple-port 9063
 ```
 
-- `--memory`: `mfm`, `mfm-atoms` or `direct`. `mfm-atoms` is MFM with the 28 atoms of
-  the `direct` arm and with example procedures and reflexes. The runs of the paper used
-  this setting.
+- `--memory`: `mfm` (the default arm), `mfm-atoms` or `direct`. `mfm` has no built-in
+  procedure: the model makes each skill from raw actions. `mfm-atoms` is MFM with the 28
+  atoms of the `direct` arm and with example procedures and reflexes. The runs of the
+  paper used this setting.
 - `--task`: `mine_diamond_from_scratch` (12,000 steps), `ender_dragon` (36,000 steps) or
   `nether_portal` (6,000 steps). These are the step budgets of the paper. `--steps N`
   sets a different budget.

@@ -210,10 +210,10 @@ class WorldModelAgent:
         event_sheet: bool = True,
         # `own_live` (mcu_worldmodel/own.py, the closed-loop section): a procedure
         # script that declares `LOOP = True` is run DURING the plan on the live state
-        # and the live frame, and the reflexes get the frame too. Off: the shipped arm.
+        # and the live frame, and the reflexes get the frame too. On in both mfm arms.
         own_live: bool = False,
         # `near_deaths`: name a death whose respawn is close to where it happened
-        # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
+        # (`_respawned_here`). Off: a death is named by its teleport alone. On in every arm.
         near_deaths: bool = False,
         # `primitives=False` (the mfm arm; mcu_worldmodel/own.py): not even the atoms --
         # the procedure set is empty, skills/ ships no procedure or reflex example, the
