@@ -1,6 +1,6 @@
 # MFM: Multimodal Filesystem Memory for Long-Horizon Embodied Agents
 
-<!-- TODO(authors): add the arXiv badge when the paper is public. -->
+[![arXiv](https://img.shields.io/badge/arXiv-2610.22686-b31b1b.svg)](https://arxiv.org/abs/2610.22686)
 [![Project Page](https://img.shields.io/badge/Project-Page-327a62.svg)](https://hither1.github.io/MFM-project/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
