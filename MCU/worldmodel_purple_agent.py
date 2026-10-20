@@ -95,6 +95,10 @@ class WorldModelExecutor(AgentExecutor):
         start_dimension: str | None = None,
         own_live: bool = False,
         near_deaths: bool = False,
+        primitives: bool = True,
+        vista_aligned: bool = False,
+        model_step_budget: int | None = None,
+        turn_budget: int | None = None,
         session_max_turns: int = 1,
         codex_timeout: int = 480,
         vista_options: dict | None = None,
@@ -120,6 +124,10 @@ class WorldModelExecutor(AgentExecutor):
         self.endgame_recipes, self.start_dimension = bool(endgame_recipes), start_dimension
         self.own_live = bool(own_live)
         self.near_deaths = bool(near_deaths)
+        self.primitives = bool(primitives)
+        self.vista_aligned = bool(vista_aligned)
+        self.model_step_budget = model_step_budget
+        self.turn_budget = turn_budget
         self.session_max_turns = session_max_turns
         self.codex_timeout = codex_timeout
         self.vista_options = vista_options
@@ -228,6 +236,11 @@ class WorldModelExecutor(AgentExecutor):
             **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
             **({"own_live": True} if self.own_live else {}),
             **({"near_deaths": True} if self.near_deaths else {}),
+            **({"primitives": False} if not self.primitives else {}),
+            **({"vista_aligned": True} if self.vista_aligned else {}),
+            **({"model_step_budget": self.model_step_budget}
+               if self.model_step_budget is not None else {}),
+            **({"turn_budget": self.turn_budget} if self.turn_budget is not None else {}),
             frame_size=self.frame_size,
             **ARMS[self.arm],
         )
@@ -578,8 +591,31 @@ def main() -> None:
                            "away, and a death at the spawn (a fight there, a fall onto it) "
                            "passes unnamed with the plan still running. Any memory mode. "
                            "Off (default): the shipped rule")
+    live.add_argument("--no-primitives", action="store_true",
+                      help="no hand-written skill of any grain -- the procedure set is "
+                           "empty (not even the atoms) and the runner's wall watcher is off. "
+                           "mfm: skills/ ships no procedure or reflex example, and the model "
+                           "acts through the raw keys and the procedures, closed loops and "
+                           "reflexes it writes itself (needs --own-live). logbook, vista: "
+                           "every entry is a raw action")
+
+    live.add_argument("--model-step-budget", type=int, default=None,
+                      help="model steps for the life, in every arm the same unit: every tool "
+                           "call the model makes and every turn it ends with its answer. "
+                           "Shown every turn; once spent the model is not called again and "
+                           "the rest of the life runs idle. Codex cli only. Off: no budget")
+    live.add_argument("--turn-budget", type=int, default=None,
+                      help="turns for the life: each call for a plan (an act turn; a vista "
+                           "`play`). Shown every turn; once spent the rest of the life runs "
+                           "idle. Off: no budget")
 
     vista = parser.add_argument_group("vista")
+    vista.add_argument("--vista-aligned", action="store_true",
+                       help="vista on the other arms' interface: a `play` runs a plan (their "
+                            "entry and tick caps), the references they read are in its "
+                            "contract, and the checkpoint handoff fires where their CLI "
+                            "compacts. Its memory -- frame archive, GUIDE.md / WORKING.md, "
+                            "the handoff -- is unchanged")
     vista.add_argument("--vista-thread-bytes", type=int, default=None,
                        help="base64 image bytes one thread may carry before the "
                             "checkpoint handoff (default 4,000,000; 0 = off)")
@@ -604,6 +640,19 @@ def main() -> None:
     if args.own_live and args.memory != "mfm":
         parser.error("--own-live gives the model's own scripts the live view: it needs "
                      "--memory mfm")
+    if args.no_primitives and args.memory not in ("logbook", "vista", "mfm"):
+        parser.error("--no-primitives: --memory logbook, vista or mfm")
+    if args.no_primitives and args.memory == "mfm" and not args.own_live:
+        parser.error("--no-primitives leaves the model's own scripts as its only skills: it "
+                     "needs --own-live")
+    if args.no_primitives and (args.grant or args.withhold or args.endgame_recipes):
+        parser.error("--no-primitives: there is nothing to grant or withhold")
+    if args.vista_aligned and args.memory != "vista":
+        parser.error("--vista-aligned needs --memory vista")
+    if args.model_step_budget is not None and (args.cli != "codex" or args.model_step_budget < 1):
+        parser.error("--model-step-budget: a positive count, on --cli codex")
+    if args.turn_budget is not None and args.turn_budget < 1:
+        parser.error("--turn-budget: a positive count")
     if args.seed_log and mode != "logbook":
         parser.error("--seed-log carries an earlier life's log: it needs --memory logbook")
     vista_options = {k: v for k, v in (("thread_bytes", args.vista_thread_bytes),
@@ -639,6 +688,10 @@ def main() -> None:
         grant=names(args.grant) or None, withhold=names(args.withhold) or None,
         endgame_recipes=args.endgame_recipes, start_dimension=args.start_dimension,
         own_live=args.own_live, near_deaths=args.near_deaths,
+        primitives=not args.no_primitives,
+        vista_aligned=args.vista_aligned,
+        model_step_budget=args.model_step_budget,
+        turn_budget=args.turn_budget,
         session_max_turns=session_turns,
         codex_timeout=args.codex_timeout,
         vista_options=vista_options or None,

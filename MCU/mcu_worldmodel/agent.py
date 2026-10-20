@@ -49,8 +49,8 @@ from mcu_worldmodel.grid import Grid
 from mcu_worldmodel.memory import MultimodalMemory, norm_yaw, state_line
 from mcu_worldmodel.macros_world import norm_yaw_delta
 from mcu_worldmodel.milestones import (
-    MilestoneLedger, held_line, hotbar_line, inventory_counts, location, nearby_mobs,
-    slot_is_empty, vitals,
+    MilestoneLedger, held_line, hotbar_line, inventory_counts, location, main_rows_line,
+    nearby_mobs, slot_is_empty, slot_map, vitals,
 )
 
 
@@ -155,13 +155,16 @@ def _num(v) -> bool:
         return False
 
 
-def _cut_short_hint(atoms: bool) -> str:
+def _cut_short_hint(atoms: bool, primitives: bool = True) -> str:
     """The tail of the attack-hold cut-short note: names tools that exist in this run.
     Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
     241 times in one run to a model that could not call them.
     A raw attack hold is also never watched for ore: mine_ahead(ore_watch=true) is the
     one entry point to the wall watcher there (that life: 79 turns of raw holds, zero
     sightings, 9/10). Same shape as MCU main's 1ac1c7f."""
+    if not primitives:
+        return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
+                "30) per block: each is cut the moment its block breaks.")
     if atoms:
         return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
                 "30) per block: each is cut the moment its block breaks, and the wall "
@@ -250,6 +253,23 @@ class WorldModelAgent:
         # `--near-deaths`: name a death whose respawn is close to where it happened
         # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
         near_deaths: bool = False,
+        # `--no-primitives` (mcu_worldmodel/own.py, the no-primitives section): not even
+        # the atoms -- the procedure set is empty, skills/ ships no procedure or reflex
+        # example, the wall watcher is off; the model acts through the keys and its own
+        # scripts. On: the shipped arm.
+        primitives: bool = True,
+        # `--vista-aligned` (mcu_worldmodel/vista.py): the vista arm's interface on the
+        # other arms' terms -- a `play` runs a plan at their caps, the references are in
+        # its contract, the checkpoint handoff fires where their CLI compacts. Its memory
+        # (frame archive, GUIDE.md / WORKING.md, the handoff itself) is unchanged.
+        vista_aligned: bool = False,
+        # `--model-step-budget N`: N model steps for the life -- every tool call the model
+        # makes and every turn it ends with its answer -- shown every turn; once spent the
+        # model is not called again and the rest of the life runs idle.
+        model_step_budget: int | None = None,
+        # `--turn-budget N`: N turns for the life -- each call for a plan (an act turn; a
+        # vista `play`) -- shown every turn; once spent the rest of the life runs idle.
+        turn_budget: int | None = None,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -297,7 +317,23 @@ class WorldModelAgent:
         self.atoms, self.own = bool(atoms), bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
-        _P.set_visible(_P.ATOMS if self.atoms else None, own=self.own)
+        self.primitives = bool(primitives)
+        if vista_aligned and memory_mode != "vista":
+            raise ValueError("vista_aligned needs memory_mode='vista'")
+        if model_step_budget is not None and (cli != "codex" or int(model_step_budget) < 1):
+            raise ValueError("model_step_budget: a positive count, on the codex cli")
+        if turn_budget is not None and int(turn_budget) < 1:
+            raise ValueError("turn_budget: a positive count")
+        self.turn_budget = None if turn_budget is None else int(turn_budget)
+        self.vista_aligned = bool(vista_aligned)
+        self.model_step_budget = None if model_step_budget is None else int(model_step_budget)
+        #: The step at which the model-step budget was found spent (None: not yet).
+        self._budget_spent_at: int | None = None
+        self._budget_spent_why: str | None = None
+        if not self.primitives and (grant or withhold or endgame_recipes):
+            raise ValueError("no primitives: there is nothing to grant or withhold")
+        _P.set_visible(set() if not self.primitives else _P.ATOMS if self.atoms else None,
+                       own=self.own)
         self.granted = _P.grant(grant or [])
         self.withheld = _P.withhold(withhold or [])
         self.endgame_recipes = bool(endgame_recipes)
@@ -320,6 +356,12 @@ class WorldModelAgent:
             raise ValueError("own_live gives the model's own scripts the live view: it "
                              "needs the mfm arm (own, minimal)")
         self.own_live = bool(own_live)
+        if not self.primitives and memory_mode == "direct":
+            raise ValueError("no primitives: the logbook, vista or mfm arm")
+        if (not self.primitives and memory_mode == "mfm"
+                and not (self.own_live and self.own_reflexes and skills)):
+            raise ValueError("no primitives leaves the model's own scripts as its only skills: "
+                             "it needs the mfm arm with own reflexes, skills and own_live")
         self.near_deaths = bool(near_deaths)
         #: closed loops run this life: name -> {"entries", "calls", "ticks"}
         self._own_loops: dict[str, dict[str, int]] = {}
@@ -598,7 +640,8 @@ class WorldModelAgent:
             # direct and vista have no file tools: what the short contract moves out is
             # dropped for them, and the procedures keep their descriptions in place
             contract, refs = prompts.thin_split(
-                contract, tools=self.memory_mode not in ("direct", "vista"),
+                contract, tools=(self.memory_mode not in ("direct", "vista")
+                                 or self.vista_aligned),
                 safety="" if (self.reflexes or self.minimal) else prompts.THIN_SAFETY)
             if self.minimal:
                 tail = (contract[contract.index("**References.**"):]
@@ -612,6 +655,20 @@ class WorldModelAgent:
                     tail = tail.rstrip("\n") + ("\n- `references/own.md`: the contract for your own "
                                                 "procedures, reflexes and working memory (stdin "
                                                 "state, output shapes, caps)\n")
+                    if not self.primitives:
+                        refs["own.md"] = _own.no_builtins(refs["own.md"])
+                if not self.primitives:
+                    # nothing to describe: the file and its line in the tail go
+                    refs.pop("procedures.md", None)
+                    tail = "\n".join(ln for ln in tail.split("\n")
+                                     if not ln.startswith("- `references/procedures.md`"))
+                    tail = (tail.replace(prompts._THIN_FILES["gui.md"],
+                                         "the GUI by hand (the cursor, the clicks, the slot "
+                                         "positions) and the screen rules")
+                            .replace(prompts._THIN_FILES["skills.md"],
+                                     "the skills by situation -- wood, stone, iron, diamonds, "
+                                     "water, lava, the portal, the Nether, the End -- as "
+                                     "recipes, and what to write down"))
                 if self.endgame_recipes:
                     tail = tail.rstrip("\n") + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n"
                 contract = prompts.minimal_contract(
@@ -619,8 +676,23 @@ class WorldModelAgent:
                     entry_cap=self.entry_cap, step_cap=self.step_cap, atoms=self.atoms,
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
-                    references_tail=tail, carried_world=self.carried_world)
-            if self.atoms and refs.get("skills.md"):
+                    references_tail=tail, carried_world=self.carried_world,
+                    primitives=self.primitives)
+            elif not self.primitives:
+                # logbook, vista: the thin contract with every built-in taken out
+                contract = prompts.no_primitives_thin(contract, self.memory_mode,
+                                                      vista_plan=self.vista_aligned)
+                refs.pop("procedures.md", None)
+            if not self.primitives:
+                # every reference that names a macro says none exists; gui.md opens with
+                # the screen by hand
+                from mcu_worldmodel import own as _own
+                for f in ("skills.md", "survival.md", "more.md", "gui.md"):
+                    if refs.get(f):
+                        refs[f] = _own.no_primitives_ref_line(self.own) + "\n\n" + refs[f]
+                if refs.get("gui.md"):
+                    refs["gui.md"] = prompts.raw_gui_ref() + "\n" + refs["gui.md"]
+            elif self.atoms and refs.get("skills.md"):
                 # the situations reference names the task-shaped macros: say they are recipes here
                 from mcu_worldmodel import own as _own
                 refs["skills.md"] = (_own.atoms_ref_line() + _granted_note(self.granted)
@@ -630,20 +702,30 @@ class WorldModelAgent:
                 if not self.minimal and "**References.**" in contract:
                     contract = (contract.rstrip("\n")
                                 + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n")
+            if self.vista_aligned:
+                # no file tools: the references the other arms read are in the contract
+                contract, refs = prompts.inline_references(contract, refs), {}
             if refs:
                 self.memory.write_references(refs)
         if self.skills:
             from mcu_worldmodel import skills as _skills
             written = _skills.write_skills(self.memory.root, self.carried_world,
-                                           installed=self.install_carried or bool(self.install_scripts))
+                                           installed=self.install_carried or bool(self.install_scripts),
+                                           primitives=self.primitives)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
-            contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
+            contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.primitives
+                                                    else _skills.SKILLS_NOTE_NO_PRIMITIVES) + "\n"
             if self.install_carried or self.install_scripts:
                 from mcu_worldmodel.previous import installed_note
                 contract = contract.rstrip() + "\n\n" + installed_note(
                     self.installed, record=self.install_carried)
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
+        if self.model_step_budget is not None or self.turn_budget is not None:
+            contract = (contract.rstrip() + "\n\n"
+                        + prompts.budget_note(self.model_step_budget, self.turn_budget,
+                                              self.max_steps, vista=self.vista is not None)
+                        + "\n")
         self.codex.write_system_prompt(contract)
         if self.cli == "claude":
             # The skills and references were written naming codex's image tool; on this
@@ -694,6 +776,7 @@ class WorldModelAgent:
             expect=self.expect, frames=self.frames, own=self.own, atoms=self.atoms,
             own_reflexes=self.own_reflexes,
             harness_reflexes=self.reflexes,
+            **({"vista_plan": True} if self.vista_aligned else {}),
         )
 
     # -- observation ------------------------------------------------------
@@ -1555,7 +1638,8 @@ class WorldModelAgent:
                     # one flag per 100 steps, the rest of the plan flushed with the
                     # [NOTE]. Three lives mined
                     # 12,000 steps each on raw holds with 0-3 sightings between them.
-                    if self.atoms and _is_attack_hold(head) and self._ore_flag(self._raw_ore):
+                    if (self.atoms and self.primitives and _is_attack_hold(head)
+                            and self._ore_flag(self._raw_ore)):
                         self.cursor_stats["raw_hold_flags"] = (
                             self.cursor_stats.get("raw_hold_flags", 0) + 1)
                     action, _ = self.queue.popleft()
@@ -2128,7 +2212,7 @@ class WorldModelAgent:
         self.memory.add_note(
             f"attack-hold entry cut short at step {self.step}: a block broke "
             f"({self._last_break_item or 'log'}), {run} leftover attack ticks refunded. "
-            + _cut_short_hint(self.atoms))
+            + _cut_short_hint(self.atoms, self.primitives))
 
     #: Blocks the pillar reflex will stand on, best first. Gravel and sand fall.
     PILLAR_BLOCKS = ("cobblestone", "dirt", "stone", "andesite", "diorite", "granite",
@@ -4161,9 +4245,50 @@ class WorldModelAgent:
         from mcu_worldmodel.milestones import _stat
         return _stat(self.ledger._prev or {}, event, obj)
 
+    def _model_steps_used(self) -> int:
+        """Model steps spent so far (`--model-step-budget`): the vista runner counts its
+        tool calls and answered turns; the exec backend reads its rollouts."""
+        if self.vista is not None:
+            return self.vista.runner.model_steps() if self.vista.runner else 0
+        return self.codex.model_steps()
+
+    def _turns_used(self) -> int:
+        """Turns spent so far (`--turn-budget`): act turns that called the model; for the
+        vista arm, `play` calls."""
+        if self.vista is not None:
+            return self.vista.runner.dispatcher.calls.get("play", 0) if self.vista.runner else 0
+        return self.turns["act"]
+
+    def _model_steps_spent(self) -> bool:
+        """Whether a budget (`--model-step-budget`, `--turn-budget`) is spent."""
+        if self.model_step_budget is None and self.turn_budget is None:
+            return False
+        if self._budget_spent_at is None:
+            if self.vista is not None:
+                c = self.vista.controller
+                why = (c.termination_reason if c is not None and c.termination_reason in
+                       ("model_step_budget", "turn_budget") else None)
+            elif (self.model_step_budget is not None
+                  and self.codex.model_steps() >= self.model_step_budget):
+                why = "model_step_budget"
+            elif self.turn_budget is not None and self.turns["act"] >= self.turn_budget:
+                why = "turn_budget"
+            else:
+                why = None
+            if why is None:
+                return False
+            self._budget_spent_at, self._budget_spent_why = self.step, why
+            logger.info(f"[agent] {why.replace('_', ' ')} spent by step {self.step}: the "
+                        f"rest of the life runs idle")
+        return True
+
     def _act_turn(self, info: dict) -> None:
         from mcu_worldmodel.procedures import noop
 
+        if self._model_steps_spent():
+            # `--model-step-budget`: no model call; the tick runs idle.
+            self.cursor_stats["budget_hold"] = self.cursor_stats.get("budget_hold", 0) + 1
+            return
         self.turns["act"] += 1
         # Stall detection: ground truth is "moving" when a milestone fired or any
         # inventory count changed since the last act turn.
@@ -4529,6 +4654,13 @@ class WorldModelAgent:
             "mainhand": ((info.get("equipped_items") or {}).get("mainhand") or {}).get("type"),
             "gui_open": bool(info.get("isGuiOpen", False)),
             "dimension": getattr(self, "_dimension", None),
+            # `--no-primitives`: what the GUI macros read for themselves -- every slot,
+            # and the cursor as [CURSOR] shows it -- so a script of the model's can click
+            **({} if self.primitives else {
+                "slots": {str(k): [n, c] for k, (n, c) in slot_map(info).items()},
+                "cursor": ({"pos": [round(self.cursor.pos[0], 1), round(self.cursor.pos[1], 1)],
+                            "over": self.cursor.over(None)}
+                           if self.cursor.pos is not None else None)}),
         }
 
     def _own_kwargs(self, info: dict) -> dict[str, Any]:
@@ -4842,6 +4974,12 @@ class WorldModelAgent:
             f"{max(0, self.max_steps - self.step)} steps remain. "
             f"{self.ledger.progress_line()}\n"
         )
+        if self.model_step_budget is not None:
+            budget_part += (f"Model steps: {self._model_steps_used()} of "
+                            f"{self.model_step_budget} used (every tool call and every "
+                            f"answer counts one).\n")
+        if self.turn_budget is not None:
+            budget_part += f"Turns: this is turn {self._turns_used()} of {self.turn_budget}.\n"
         # Shown to the planner: goal_furnace burned 2,400 steps (one run) while nothing
         # said out loud that nothing had changed. Identical in the memory arms.
         stall_part = (
@@ -4856,7 +4994,8 @@ class WorldModelAgent:
             # The hotbar separately from the inventory: selecting a tool needs the slot
             # NUMBER, and "I have a pickaxe somewhere" does not tell the agent what to press.
             f"Hotbar: {hotbar_line(info)}\n"
-            f"Held: {held_line(info)}\n"
+            + ("" if self.primitives else f"Main rows: {main_rows_line(info)}\n")
+            + f"Held: {held_line(info)}\n"
             f"Nearby entities: {nearby_mobs(info)}\n"
             f"GUI open: {bool(info.get('isGuiOpen', False))}\n"
             # Where the cursor is, held by the harness. This is what removes the need for
@@ -5436,6 +5575,15 @@ class WorldModelAgent:
             **({"combat": {"kills": self._kills()}} if self._kills() else {}),
             "thin": self.thin,
             **({"atoms": True} if self.atoms else {}),
+            **({"no_primitives": True} if not self.primitives else {}),
+            **({"vista_aligned": True} if self.vista_aligned else {}),
+            **({"model_steps": {"used": self._model_steps_used(),
+                                "budget": self.model_step_budget,
+                                "turns_used": self._turns_used(),
+                                "turn_budget": self.turn_budget,
+                                "spent": self._budget_spent_why,
+                                "spent_at_step": self._budget_spent_at}}
+               if self.model_step_budget is not None or self.turn_budget is not None else {}),
             **({"granted": list(self.granted)} if self.granted else {}),
             **({"withheld": list(self.withheld)} if self.withheld else {}),
             **({"endgame_recipes": True} if self.endgame_recipes else {}),

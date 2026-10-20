@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 MAX_CHECKPOINT_ATTEMPTS = 4
 MAX_COMPACT_CYCLES_WITHOUT_ACTION = 3
 MAX_RUNTIME_RECOVERIES_PER_TURN = 8
+#: The wait before retrying after a runtime failure (a seam for the tests).
+RUNTIME_RETRY_SLEEP = time.sleep
 #: Runtime failures at one turn before the thread is abandoned for a fresh one that
 #: starts from the notes (upstream tries the fresh path last).
 FRESH_AFTER_RUNTIME_FAILURES = 4
@@ -108,6 +110,9 @@ class VistaSession:
             if recoveries_at_turn > MAX_RUNTIME_RECOVERIES_PER_TURN:
                 raise RuntimeError("Codex player runtime failed repeatedly at the same state; "
                                    f"last stderr: {results[-1].stderr_path}")
+            # A refusal (rate limit, capacity) clears with time, not with a retry at once:
+            # 30 s doubling to 10 min, ~45 min over the per-turn cap.
+            RUNTIME_RETRY_SLEEP(min(30 * 2 ** (recoveries_at_turn - 1), 600))
             return recoveries_at_turn
 
         while True:
