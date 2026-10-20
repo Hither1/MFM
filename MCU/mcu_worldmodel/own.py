@@ -418,20 +418,18 @@ def atoms_ref_line() -> str:
 
 #: The contract's procedure section, in place of the index.
 NO_PRIMITIVES_LINE = (
-    "This run has NO built-in procedures: no atom, no macro, no example script. Every "
-    "entry is a raw action or one of your own procedures under `mine/procedures/`, and "
-    "what your procedures, closed loops and reflexes return is raw actions too. "
-    "Everything above the keys -- an aim, a walk to a point, a dig, a craft, a fight -- "
-    "is yours to write; when a sequence has worked twice by hand, keep it as a procedure.")
+    "This run has NO built-in procedures: no atom and no macro. Every entry is a raw "
+    "action or one of your own procedures under `mine/procedures/`, and what your "
+    "procedures, closed loops and reflexes return is raw actions too. Which scripts to "
+    "write, if any, is yours to decide.")
 
 #: Head of every reference file that names procedures (skills.md, survival.md, more.md).
 NO_PRIMITIVES_REF_LINE = (
     "No procedure this file names exists in this run -- not `craft`, `cursor_to_slot`, "
     "`gui_click`, `look_abs`, `go_to`, `mine_ahead`, `place_at`, `use_at`, `eat`, "
     "`pillar_up`, nor any macro (harvest_tree, strip_mine, dig_down, scan_around, fight, "
-    "...): this run has NO built-in procedures. Read each as a recipe -- the situation, "
-    "the order of steps, what to verify -- to build from raw actions as your own "
-    "procedures. Where it says the runner does something for you (a guard, a pillar, a "
+    "...): this run has NO built-in procedures. Read each as a description of how a "
+    "thing can be done, not as something you can call. Where it says the runner does something for you (a guard, a pillar, a "
     "stop at ore), it does not here: nothing watches your digging for ore, and nothing "
     "acts on a hit.")
 
@@ -445,6 +443,12 @@ _NO_BUILTINS = (
      "  built from raw actions (this run has no built-in procedures; never another own procedure)"),
     ("(built-in procedures and raw actions, never an own procedure;",
      "(raw actions: this run has no built-in procedures, and never an own procedure;"),
+    ("run, alphabetical; keep each under 50 ms -- read the state, not the logs. Reflexes\n"
+     "worth writing FIRST, from what killed earlier runs: lava coming into the lower view\n"
+     "while you walk or dig (stop, step back); a drop of 4+ blocks within a few ticks (stop,\n"
+     "look before moving); health falling with no lava in view (a mob -- stop a dig or a\n"
+     "sweep, pillar up or wall off); in the Nether, any walk with lava in view. ",
+     "run, alphabetical; keep each under 50 ms -- read the state, not the logs. "),
     ("(optional: built-in procedures and raw actions,",
      "(optional: raw actions -- this run has no built-in procedures --"),
     ('"gui_open", "dimension"}`;',
@@ -461,14 +465,22 @@ NO_PRIMITIVES_LINE_RAW = (
     "craft, a fight -- is yours to compose from raw actions, entry by entry.")
 
 
+#: NO_PRIMITIVES_REF_LINE for an arm with no procedures of its own (logbook, vista), as the
+#: 2026-10-19 no-primitives baseline lives read it.
+NO_PRIMITIVES_REF_LINE_RAW = (
+    "No procedure this file names exists in this run -- not `craft`, `cursor_to_slot`, "
+    "`gui_click`, `look_abs`, `go_to`, `mine_ahead`, `place_at`, `use_at`, `eat`, "
+    "`pillar_up`, nor any macro (harvest_tree, strip_mine, dig_down, scan_around, fight, "
+    "...): this run has NO built-in procedures. Read each as a recipe -- the situation, "
+    "the order of steps, what to verify -- to carry out with raw actions. Where it says "
+    "the runner does something for you (a guard, a pillar, a stop at ore), it does not "
+    "here: nothing watches your digging for ore, and nothing acts on a hit.")
+
+
 def no_primitives_ref_line(own: bool = True) -> str:
     """NO_PRIMITIVES_REF_LINE for this run's arm: an arm without procedures of its own
-    carries a recipe out with raw actions instead of keeping it as a procedure."""
-    if own:
-        return NO_PRIMITIVES_REF_LINE
-    return NO_PRIMITIVES_REF_LINE.replace(
-        "to build from raw actions as your own procedures.",
-        "to carry out with raw actions.")
+    carries a recipe out with raw actions."""
+    return NO_PRIMITIVES_REF_LINE if own else NO_PRIMITIVES_REF_LINE_RAW
 
 
 def no_builtins(text: str) -> str:

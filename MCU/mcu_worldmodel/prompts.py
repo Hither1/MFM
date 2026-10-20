@@ -1066,8 +1066,8 @@ _MINIMAL_SAFETY = {
 _MINIMAL_SAFETY_NO_EXAMPLES = (
     "**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a "
     "hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is "
-    "installed or shipped as an example: `skills/reflexes/SKILL.md` names the classes, and "
-    "you write them into `mine/reflexes/` in your first turn. Natural healing needs the food "
+    "installed: `skills/reflexes/SKILL.md` says how they run, and `skills/reflexes/scripts/` "
+    "holds an example. Natural healing needs the food "
     "bar at 18+; here it falls about a point per 4000 steps, so a life's whole deficit is one "
     "animal (raw meat is fine) -- eat when the bar is below 18 (hold `use` with the food "
     "selected, about 32 ticks).")
@@ -1124,6 +1124,15 @@ describes macros that do not exist here. What a screen takes is the keys:
 """
 
 
+#: Camera degrees per container pixel of cursor travel in a screen, as measured in the no-primitives
+#: lives (2026-10-18: every raw move of the first crafts landed at exactly 6.667 container
+#: px per degree, i.e. 0.15 degrees per pixel, VPT's CAMERA_SCALER). `gui.PX_PER_DEGREE`
+#: (4.17) is a one-off measurement from before the env action space (0d7421a) that the
+#: macros never rely on (their servo closes on the measured cursor); it is left as is so
+#: the shipped arms move exactly as they did.
+RAW_GUI_DEG_PER_PX = 360.0 / 2400.0
+
+
 def raw_gui_ref() -> str:
     """`_RAW_GUI` with the geometry of `gui.py` filled in."""
     def c(tl):
@@ -1133,7 +1142,8 @@ def raw_gui_ref() -> str:
     mx, my = G.centre(G.MAIN_INV_ORIGIN)
     tx, ty = G.centre(G.TABLE_CRAFT_IN[0])
     return _RAW_GUI.format(
-        ppd=G.PX_PER_DEGREE, slot_deg=G.SLOT_PITCH / G.PX_PER_DEGREE,
+        ppd=f"{1.0 / RAW_GUI_DEG_PER_PX:.2f}",
+        slot_deg=G.SLOT_PITCH * RAW_GUI_DEG_PER_PX,
         ox=G.CURSOR_OPEN[0], oy=G.CURSOR_OPEN[1],
         hx=f"{hx:.0f}", hy=f"{hy:.0f}", mx=f"{mx:.0f}", my=f"{my:.0f}",
         c2=" ".join(c(tl) for tl in G.SURVIVAL_CRAFT_IN), o2=c(G.SURVIVAL_CRAFT_OUT),

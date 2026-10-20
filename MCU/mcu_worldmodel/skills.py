@@ -925,22 +925,24 @@ _NO_PRIMITIVES_EDITS = (
 craft, placements, the bucket, watch/pillar/eat/throw). Everything task-shaped you build
 yourself as `mine/procedures/<name>.py` (the script contract is in the main contract).
 This file says what a good one looks like.""",
-     """This run has NO built-in procedures and ships no example script: every aim, walk,
-dig, craft and fight is a script you write as `mine/procedures/<name>.py` from raw
-actions (the script contract and the closed loops are in `references/own.md`). This
-file says what a good one looks like; where it names a procedure or a script
-(shaft_down, strip_segment, a craft), read it as a recipe for one of yours."""),
+     """This run has NO built-in procedures and ships no example procedure: every aim,
+walk, dig, craft and fight is done with raw actions, or by a script of yours under
+`mine/procedures/<name>.py` (the script contract and the closed loops are in
+`references/own.md`). This file says what makes a script good, not which to write."""),
     ("procedures",
-     "- A skill is 50-400 ticks of atoms that you would otherwise write out by hand every\n  turn:",
-     "- A skill is 50-400 ticks of raw actions that you would otherwise write out by hand\n  every turn:"),
+     "- A skill is 50-400 ticks of atoms that you would otherwise write out by hand every\n  turn: a staircase step, a tunnel segment with its torch, a GUI craft with its\n  verification, a bucket fill from a bank, a pour and a scoop at a pool.",
+     "- A skill is 50-400 ticks of raw actions that you would otherwise write out by hand\n  every turn."),
     ("procedures",
      """- Compute targets from the state (your position, yaw, the hotbar) instead of asking the
   caller for coordinates; `skills/procedures/scripts/torch_wall.py` shows how.""",
      """- Compute targets from the state (your position, yaw, the hotbar) instead of asking the
   caller for coordinates.
-- Anything that must see while it acts -- an aim, a walk that stops at an edge, a cursor
-  landing on a slot, a fight -- is a closed loop (`LOOP = True`): it reads the frame and
-  [STATE] every few ticks. A plan-time script is blind once it starts."""),
+- A plan-time script is blind once it starts; a closed loop (`LOOP = True`) reads the
+  frame and the state every few ticks."""),
+    ("procedures",
+     """blaze rod. Write the phase skills for water/gravel/flint and for pour -> frame -> light
+before you polish a staircase; those are the turns the budget rewards.""",
+     "blaze rod."),
     ("procedures",
      """## Examples
 
@@ -977,33 +979,28 @@ stone, the speckles were a block further in: hold again at the same aim.
      """## Mining one block
 
 A raw `{"attack": 1}` hold of 30 ticks. The runner cuts it the moment the block breaks
-and refunds the rest (the [NOTE] says so). Nothing watches the walls for ore in this
-run: the view is the only sighting, so a reflex or a closed loop of yours that reads
-`frame` while you dig is the way to stop at ore you would otherwise tunnel past.
+and refunds the rest (the [NOTE] says so). Nothing in the runner watches the walls for
+ore in this run.
 """),
     ("reflexes",
      "the classes that killed earlier runs, the starters already installed, and how to keep or retire them",
-     "the classes that killed earlier runs, and how to write, keep or retire them"),
+     "how they run, an example, and how to keep or retire them"),
     ("reflexes",
-     """blocks of one while moving. `skills/reflexes/scripts/known_hazards.py` is the example
-   -- copy it into `mine/reflexes/` once your guide has coordinates in it.""",
-     """blocks of one while moving. Write it once your guide has coordinates in it."""),
+     "reflex cannot be tried by hand -- write it from the class of danger, then refine it",
+     "reflex cannot be tried by hand -- write it, then refine it"),
     ("reflexes",
-     """## The examples
+     "for the reflexes whose answer is always the same (step back from lava).",
+     "for the reflexes whose answer is always the same."),
+    ("reflexes",
+     REFLEXES_SKILL[REFLEXES_SKILL.index("## The classes, from what killed the earlier runs"):],
+     """## The example
 
-Under `skills/reflexes/scripts/`: `lava_ahead.py`, `fell.py`, `hit.py`, `starving.py`
-(classes 1, 2, 3, 5) and `known_hazards.py` (class 7). Nothing is installed for you:
-`mine/reflexes/` is empty until you copy a script into it (`cp
-skills/reflexes/scripts/lava_ahead.py mine/reflexes/`), and from then on it runs every 4
-ticks. Decide in your first turn which to copy, edit their thresholds, write the Nether
-one (class 4) before you go there.""",
-     """## Writing them
-
-No reflex ships with this run, installed or as an example: `mine/reflexes/` is empty
-until you write a script into it, and from then on it runs every 4 ticks. Write the
-first ones (classes 1, 2, 3, 5) in your first turn, the Nether one (class 4) before you
-go there. `lava_frac`, `fire_frac`, `hurt_100` and `frame` in the state are what the
-classes are read from."""),
+`skills/reflexes/scripts/ore_watch.py` is an example reflex: it reads `frame` and stops
+the plan when diamond-ore speckles come into view below y 60. Nothing is installed for
+you: `mine/reflexes/` is empty until you put a script there, and from then on it runs
+every 4 ticks. Copy the example, change it, or leave it. At most 4 run, alphabetical;
+to retire one, rename it with a leading underscore (`_name.py` stays off).
+"""),
     ("harness",
      "built from the atoms, your own procedures and raw actions.",
      "built from raw actions and your own procedures (no built-in procedure exists in\nthis run)."),
@@ -1012,16 +1009,101 @@ classes are read from."""),
      "Does: execute plans, measure the GUI cursor ([CURSOR]) and the grid ([GRID]), record"),
 )
 
+_NO_PRIMITIVES_EDITS += (
+    ("procedures", PROCEDURES_SKILL[PROCEDURES_SKILL.index("\n## The budget, as a schedule"):],
+     "\n"),
+)
+
+#: `--no-primitives`: the one example script that ships beside the reflex skill (not
+#: installed). Raw keys and the frame only; no harness code is imported.
+NO_PRIMITIVES_REFLEX_EXAMPLES: dict[str, str] = {
+    "ore_watch.py": '''"""ore_watch: diamond-ore speckles in the view below y 60 -- stop the plan and say where on screen."""
+# Example reflex (harness-written, yours to copy, edit or ignore; nothing is installed for
+# you). A procedure planned at turn time runs without looking, so ore that comes into
+# view in the middle of it is gone by your next turn; a reflex sees `frame` every few
+# ticks while the plan runs. This one reads the colour of diamond speckles on grey stone:
+# cyan, with green and blue about equal and both well above red. Lapis, water and ice are
+# bluer; a cyan that fills whole blocks (wool, prismarine) is a mass, where ore is a
+# scatter of small dots. The numbers are a starting point measured on this game's frames
+# -- tune them on the frames under episodes/ (the same picture, smaller) before trusting
+# them. Iron is harder by colour alone: dim, warm-lit stone reads tan too, so the same
+# test for iron fires on bare tunnel walls.
+import json
+import sys
+
+import numpy as np
+from PIL import Image
+
+KINDS = ("diamond",)
+MIN_PIXELS = 30          # speckle pixels for a sighting (at the frame's own size)
+MAX_FILL = 0.35          # speckles cover a minority of their box: dots, not a mass
+MAX_Y = 60               # only below this height
+
+
+def bands(rgb: np.ndarray, kind: str = "diamond") -> np.ndarray:
+    """The pixels whose colour is in the speckle band of `kind`."""
+    r, g, b = (rgb[..., i].astype(np.float32) for i in range(3))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        br = (b - r) / np.maximum(b, 1.0)
+        gr = (g - r) / np.maximum(g, 1.0)
+        bg = (b - g) / np.maximum(b, 1.0)
+        return ((br > 0.30) & (br < 0.80) & (gr > 0.36) & (gr < 0.80)
+                & (np.abs(bg) <= 0.10) & (b > 48))
+
+
+def look(path: str):
+    """(kind, x, y, pixels) of an ore sighting in the picture, or None."""
+    img = np.asarray(Image.open(path).convert("RGB"))
+    body = img[: int(img.shape[0] * 0.82)]          # the hotbar and the hearts are not the world
+    for kind in KINDS:
+        m = bands(body, kind)
+        n = int(m.sum())
+        if n < MIN_PIXELS:
+            continue
+        ys, xs = np.nonzero(m)
+        # the densest 64x64 window around the median, so two far-apart flecks do not add up
+        cx, cy = int(np.median(xs)), int(np.median(ys))
+        win = m[max(0, cy - 32):cy + 32, max(0, cx - 32):cx + 32]
+        k = int(win.sum())
+        if k < MIN_PIXELS:
+            continue
+        wy, wx = np.nonzero(win)
+        box = (wy.max() - wy.min() + 1) * (wx.max() - wx.min() + 1)
+        if k / box > MAX_FILL:
+            continue
+        return kind, cx, cy, k
+    return None
+
+
+if __name__ == "__main__":
+    s = json.load(sys.stdin)
+    pos = s.get("pos") or {}
+    if not s.get("frame") or s.get("gui_open") or pos.get("y", 999) > MAX_Y:
+        print("{}")
+        sys.exit(0)
+    hit = look(s["frame"])
+    if hit is None:
+        print("{}")
+        sys.exit(0)
+    kind, x, y, n = hit
+    w, h = s.get("frame_size") or [None, None]
+    print(json.dumps({"stop": True,
+                      "note": f"{kind}-ore-like speckles at ({x}, {y}) of a {w}x{h} view, "
+                              f"{n} px, while running {s.get('entry')}: the view is still "
+                              f"the sighting view -- aim there before anything else"}))
+''',
+}
+
 #: `--no-primitives`, the contract paragraph in place of SKILLS_NOTE.
 SKILLS_NOTE_NO_PRIMITIVES = """\
 
 **Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
-of this run: how to use your memory (`skills/memory`), how to build skills of the right
-grain (`skills/procedures`), which reflexes to write and why (`skills/reflexes`), how the
-loop and its economics work and the do-not list (`skills/harness`). Read all four in your
-first turn. No procedure or reflex ships with this run, as code or as an example
-(`skills/memory/scripts/` holds memory queries only): `mine/reflexes/` is empty until you
-write one -- do that in your first turn."""
+of this run: how to use your memory (`skills/memory`), what makes a script of the right
+grain (`skills/procedures`), how reflexes run (`skills/reflexes`), how the loop and its
+economics work and the do-not list (`skills/harness`). Read all four in your first turn.
+Nothing is installed for you: `skills/reflexes/scripts/ore_watch.py` is an example you
+may copy into `mine/reflexes/`, change or ignore, and `skills/memory/scripts/` holds
+memory queries."""
 
 
 def write_skills(root: Path, carried_world: str = "same", installed: bool = False,
@@ -1049,7 +1131,7 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                         raise ValueError(f"{name} skill text drifted from its no-primitives edit")
                     text = text.replace(old, new)
             if name != "memory":
-                scripts = {}
+                scripts = NO_PRIMITIVES_REFLEX_EXAMPLES if name == "reflexes" else {}
         d = root / SKILLS_DIR / name
         d.mkdir(parents=True, exist_ok=True)
         p = d / "SKILL.md"
