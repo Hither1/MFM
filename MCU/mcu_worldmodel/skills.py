@@ -843,7 +843,7 @@ four in your first turn; `scripts/` beside them are working examples to copy int
 from `skills/reflexes/scripts/` -- do that in your first turn."""
 
 
-#: The mfm-noprim arm: the run ships no procedure or reflex example (each is a hand-written
+#: No primitives (the mfm arm): the run ships no procedure or reflex example (each is a hand-written
 #: skill) and has no built-in procedure, so the paragraphs that name them are rewritten.
 #: (skill, old, new); each old text occurs exactly once in its skill.
 _NO_PRIMITIVES_EDITS = (
@@ -944,7 +944,7 @@ _NO_PRIMITIVES_EDITS += (
      "\n"),
 )
 
-#: The mfm-noprim arm: the one example script that ships beside the reflex skill (not
+#: No primitives (the mfm arm): the one example script that ships beside the reflex skill (not
 #: installed). Raw keys and the frame only; no harness code is imported.
 NO_PRIMITIVES_REFLEX_EXAMPLES: dict[str, str] = {
     "ore_watch.py": '''"""ore_watch: diamond-ore speckles in the view below y 60 -- stop the plan and say where on screen."""
@@ -1024,7 +1024,7 @@ if __name__ == "__main__":
 ''',
 }
 
-#: The mfm-noprim arm, the contract paragraph in place of SKILLS_NOTE.
+#: No primitives (the mfm arm), the contract paragraph in place of SKILLS_NOTE.
 SKILLS_NOTE_NO_PRIMITIVES = """\
 
 **Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
@@ -1040,7 +1040,7 @@ def write_skills(root: Path, primitives: bool = True) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts, the reflex examples included. Nothing is installed under mine/: the model
     copies the reflexes it wants into mine/reflexes/ itself. Without `primitives` (the
-    mfm-noprim arm) only the memory examples are written and the SKILL.md texts say so.
+    mfm arm) only the memory examples are written and the SKILL.md texts say so.
     Returns the paths written."""
     root = Path(root)
     written: list[str] = []

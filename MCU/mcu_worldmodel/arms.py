@@ -2,21 +2,23 @@
 
 One chassis (executor, perception, caps, milestone ledger) runs every arm; an arm is
 the memory it is given and the contract that goes with it. `ARMS[name]` is what
-`WorldModelAgent` is built with beside `memory_mode=MEMORY_MODE[name]`. The two arms of
-the paper read a short contract and act through the same 28 closed-loop primitives
-(`procedures.ATOMS`); neither is given a task-shaped macro, and the runner's own guards
-are off for both.
+`WorldModelAgent` is built with beside `memory_mode=MEMORY_MODE[name]`. Every arm reads a
+short contract, none is given a task-shaped macro, and the runner's own guards are off
+for all. `direct` and `mfm-atoms` act through the same 28 closed-loop primitives
+(`procedures.ATOMS`); `mfm` has none of them.
 
     direct  no persistent memory: every turn is the present alone
     mfm     Multimodal Filesystem Memory: the log, one episode per plan entry (frame,
             state, action, outcome), the index and its query tool, the frame tools,
             the [RECALL] block and the carried lives under `previous/`; and the
             agent builds its own harness: its own `mine/` (notes, working memory,
-            procedures, reflexes), the skill package, the contract written around them
-    mfm-noprim  mfm with no hand-written skill of any grain: the procedure set is empty
-            (not even the atoms), skills/ ships no procedure or reflex example, and the
-            runner's wall watcher is off; the model acts through the raw keys and the
+            procedures, reflexes), the skill package, the contract written around them.
+            No hand-written skill of any grain: the procedure set is empty (not even
+            the atoms), skills/ ships no procedure or reflex example, and the runner's
+            wall watcher is off; the model acts through the raw keys and the
             procedures, closed loops and reflexes it writes itself
+    mfm-atoms  mfm with the 28 atoms and the example procedures and reflexes under
+            skills/ (the setting of the paper's runs)
 """
 from __future__ import annotations
 
@@ -49,12 +51,12 @@ MFM_OWN: dict[str, Any] = dict(
 
 ARMS: dict[str, dict[str, Any]] = {
     "direct": SHARED,
-    "mfm": {**SHARED, **MFM_MEMORY, **MFM_OWN},
-    "mfm-noprim": {**SHARED, **MFM_MEMORY, **MFM_OWN, "primitives": False},
+    "mfm": {**SHARED, **MFM_MEMORY, **MFM_OWN, "primitives": False},
+    "mfm-atoms": {**SHARED, **MFM_MEMORY, **MFM_OWN},
 }
 
 #: The memory mode of the chassis each arm runs in.
-MEMORY_MODE = {"direct": "direct", "mfm": "mfm", "mfm-noprim": "mfm"}
+MEMORY_MODE = {"direct": "direct", "mfm": "mfm", "mfm-atoms": "mfm"}
 
 #: Turns one model session is kept for (0 = the whole life, compacted by the CLI).
-SESSION_TURNS = {"direct": 1, "mfm": 0, "mfm-noprim": 0}
+SESSION_TURNS = {"direct": 1, "mfm": 0, "mfm-atoms": 0}

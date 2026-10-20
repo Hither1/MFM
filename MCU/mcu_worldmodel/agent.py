@@ -215,10 +215,10 @@ class WorldModelAgent:
         # `near_deaths`: name a death whose respawn is close to where it happened
         # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
         near_deaths: bool = False,
-        # `primitives=False` (the mfm-noprim arm; mcu_worldmodel/own.py): not even
-        # the atoms -- the procedure set is empty, skills/ ships no procedure or reflex
-        # example, the wall watcher is off; the model acts through the keys and its own
-        # scripts. True: the paper's arms.
+        # `primitives=False` (the mfm arm; mcu_worldmodel/own.py): not even the atoms --
+        # the procedure set is empty, skills/ ships no procedure or reflex example, the
+        # wall watcher is off; the model acts through the keys and its own scripts.
+        # True: the mfm-atoms and direct arms.
         primitives: bool = True,
     ) -> None:
         if memory_mode not in ("direct", "mfm"):

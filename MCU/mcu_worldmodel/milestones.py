@@ -306,7 +306,7 @@ def slot_map(info: dict) -> dict[int, tuple[str, int]]:
 
 
 def main_rows_line(info: dict) -> str:
-    """What is in each main-row slot (9-35), as the mfm-noprim arm shows it beside the
+    """What is in each main-row slot (9-35), as the mfm arm shows it beside the
     hotbar: with no `craft` to find the ingredients, a click needs the slot NUMBER."""
     parts = [f"{slot}={name}x{n}" for slot, (name, n) in slot_map(info).items() if slot >= 9]
     return ", ".join(parts) or "empty"

@@ -14,12 +14,12 @@
 # Options
 #   --arm NAME          names output/NAME, logs/NAME_* and the model-CLI home. Required,
 #                       and given first (scripts/stop_arm.py finds the run by it).
-#   --memory ARM        direct | mfm | mfm-noprim. Required.
-#                         direct      no persistent memory: each turn is the present
-#                         mfm         Multimodal Filesystem Memory; the agent writes its
-#                                     own procedures and reflexes
-#                         mfm-noprim  mfm without the 28 atoms: the agent builds every
-#                                     skill from raw actions
+#   --memory ARM        mfm | mfm-atoms | direct. Required.
+#                         mfm        Multimodal Filesystem Memory; no built-in procedure:
+#                                    the agent builds its own procedures and reflexes
+#                                    from raw actions
+#                         mfm-atoms  mfm with the 28 atoms (the setting of the paper's runs)
+#                         direct     no persistent memory: each turn is the present
 #                       The settings of each arm: mcu_worldmodel/arms.py
 #   --task NAME         mine_diamond_from_scratch (default) | ender_dragon | nether_portal
 #   --steps N           the step budget. Default by task: 12000 (diamond), 36000
@@ -91,8 +91,8 @@ while [ $# -gt 0 ]; do
 done
 : "${ARM:?--arm is required}" "${MEMORY:?--memory is required}"
 : "${GREEN_PORT:?--green-port is required}" "${PURPLE_PORT:?--purple-port is required}"
-case "$MEMORY" in direct|mfm|mfm-noprim) ;;
-    *) echo "unknown --memory: $MEMORY (direct|mfm|mfm-noprim)" >&2; exit 2;; esac
+case "$MEMORY" in mfm|mfm-atoms|direct) ;;
+    *) echo "unknown --memory: $MEMORY (mfm|mfm-atoms|direct)" >&2; exit 2;; esac
 case "$CLI" in codex|claude) ;; *) echo "unknown --cli: $CLI (codex|claude)" >&2; exit 2;; esac
 case "$ROUTE" in account|openrouter) ;;
     *) echo "unknown --route: $ROUTE (account|openrouter)" >&2; exit 2;; esac

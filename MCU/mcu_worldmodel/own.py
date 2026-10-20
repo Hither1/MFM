@@ -408,7 +408,7 @@ def atoms_ref_line() -> str:
             else ATOMS_REF_LINE.replace("from the atoms and your own scripts", "from the atoms"))
 
 
-# -- the mfm-noprim arm: not even the atoms --------------------------------------------
+# -- no primitives (the mfm arm): not even the atoms -----------------------------------
 #
 # The arm with no hand-written skill of any grain: the procedure set is empty, no example
 # script ships under skills/, and the runner's wall watcher is off. The model acts through

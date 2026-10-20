@@ -1013,7 +1013,7 @@ _MINIMAL_SAFETY = {
             "per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat "
             "when the bar is below 18 (the starving example does it when you carry food)."),
 }
-#: The mfm-noprim arm: the same, for a run that ships no example to copy.
+#: No primitives (the mfm arm): the same, for a run that ships no example to copy.
 _MINIMAL_SAFETY_NO_EXAMPLES = (
     "**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a "
     "hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is "
@@ -1024,7 +1024,7 @@ _MINIMAL_SAFETY_NO_EXAMPLES = (
     "selected, about 32 ticks).")
 
 
-#: The mfm-noprim arm: the minimal contract's procedure section, and the two sentences of the
+#: No primitives (the mfm arm): the minimal contract's procedure section, and the two sentences of the
 #: action schema that name built-ins (its procedure example, discard_stack).
 _MINIMAL_PROC_SECTION = ("**Procedures** (name, arguments, one line each; full descriptions, "
                          "preconditions and\nthe notes on each: `references/procedures.md`):\n"
@@ -1042,7 +1042,7 @@ _DISCARD_RAW = ("To throw a stack away: open the inventory,\nleft-click the stac
                 "so you do not walk onto it -- the one way to shed junk here.")
 assert _NAMED_PROCEDURE.replace(_DIG_EXAMPLE, "") in ACTION_REFERENCE and _DISCARD in ACTION_REFERENCE
 
-#: The mfm-noprim arm, the head of references/gui.md: the screen numbers every GUI macro is
+#: No primitives (the mfm arm), the head of references/gui.md: the screen numbers every GUI macro is
 #: built on, given as facts (the same ones `gui.py` computes with), since no macro clicks.
 _RAW_GUI = """\
 **The GUI by hand (this run).** No procedure clicks for you; the rest of this file
@@ -1076,7 +1076,7 @@ describes macros that do not exist here. What a screen takes is the keys:
 
 
 #: Camera degrees per container pixel of cursor travel in a screen, as measured in the
-#: mfm-noprim lives (every raw move of the first crafts landed at exactly 6.667 container
+#: no-primitives lives (every raw move of the first crafts landed at exactly 6.667 container
 #: px per degree, i.e. 0.15 degrees per pixel, VPT's CAMERA_SCALER). `gui.PX_PER_DEGREE`
 #: (4.17) is an older measurement that the macros never rely on (their servo closes on
 #: the measured cursor); it is left as is so the other arms move exactly as they did.

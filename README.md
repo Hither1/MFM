@@ -35,6 +35,9 @@ Results with GPT-6-Astra (mean of 3 seeds):
 | Ender Dragon | milestones (of 24) | 6.3 | 16.0 |
 | CUABench-KiCad | mean reward | 0.267 | 0.440 |
 
+The Minecraft results of MFM in this table used the `mfm-atoms` arm (see
+[Run](#minecraft)).
+
 The code of the other baselines in the paper (PRO-LONG, VISTA) is not in this repository.
 
 ## How MFM works
@@ -74,11 +77,11 @@ four parts:
    plan and its scripts. A note gives the episodes that show it, so that the model can
    examine the note against its frames later.
 4. **Act.** The model writes its next plan to `actions.json`. A plan entry is a raw
-   action that the harness holds for some steps, one of 28 atoms (for example `go_to`,
-   `place_at` or `pillar_up`), or one of the procedures of the model. The harness runs
-   the plan and writes one episode for each entry. It stops the plan early after an
-   important event, for example a milestone, a death or damage. A reflex of the model
-   can also stop the plan.
+   action that the harness holds for some steps, or one of the procedures of the model.
+   The harness gives no built-in procedure: the model makes each skill (a walk, a dig,
+   a craft) from raw actions. The harness runs the plan and writes one episode for each
+   entry. It stops the plan early after an important event, for example a milestone, a
+   death or damage. A reflex of the model can also stop the plan.
 
 ### Lives and tasks
 
@@ -94,9 +97,10 @@ The memory continues from one life or task to the next:
   records and the scores of the finished tasks. `notes/` keeps the notes of the model
   from task to task.
 
-The `direct` arm has the same actions, but no persistent memory. In Minecraft, each turn
-is a new model session that shows only the present. In KiCad, each call gets a text list
-of the earlier actions.
+The `direct` arm has no persistent memory. In Minecraft, each turn is a new model session
+that shows only the present, and a plan entry is a raw action or one of 28 built-in
+procedures (the atoms, for example `go_to`, `place_at` or `pillar_up`). In KiCad, each
+call gets a text list of the earlier actions.
 
 ### From the paper to the code
 
@@ -318,9 +322,9 @@ bash scripts/run-arm.sh --arm mfm_diamond --memory mfm \
     --task mine_diamond_from_scratch --green-port 9053 --purple-port 9063
 ```
 
-- `--memory`: `mfm` or `direct`, the two arms of the paper. `mfm-noprim` is MFM without
-  the 28 atoms: the agent has no built-in procedure and no example script, and it
-  makes all its skills from raw actions.
+- `--memory`: `mfm`, `mfm-atoms` or `direct`. `mfm-atoms` is MFM with the 28 atoms of
+  the `direct` arm and with example procedures and reflexes. The runs of the paper used
+  this setting.
 - `--task`: `mine_diamond_from_scratch` (12,000 steps), `ender_dragon` (36,000 steps) or
   `nether_portal` (6,000 steps). These are the step budgets of the paper. `--steps N`
   sets a different budget.
