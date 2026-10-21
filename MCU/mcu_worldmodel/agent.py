@@ -716,6 +716,11 @@ class WorldModelAgent:
                     carried_world=self.carried_world)
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
+        if not self.primitives:
+            # what casting obsidian costs in scored milestones (every arm, this task only)
+            note = prompts.casting_note(m.get("identity") for m in (self.ledger.cfg or []))
+            if note:
+                contract = contract.rstrip() + "\n\n" + note + "\n"
         if self.model_step_budget is not None or self.turn_budget is not None:
             contract = (contract.rstrip() + "\n\n"
                         + prompts.budget_note(self.model_step_budget, self.turn_budget,

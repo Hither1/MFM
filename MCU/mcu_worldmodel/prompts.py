@@ -1334,6 +1334,25 @@ def inline_references(contract: str, refs: dict[str, str]) -> str:
             + body + "\n")
 
 
+#: The milestones that need a diamond pickaxe or a diamond: casting obsidian skips them.
+_DIAMOND_GATED = ("mine_diamond_ore", "diamond", "diamond_pickaxe", "diamond_sword", "mine_obsidian")
+
+
+def casting_note(identities) -> str:
+    """`--no-primitives`, a task whose list has `mine_obsidian` and a diamond milestone: what
+    casting obsidian (water on a lava source) costs in scored milestones. Every arm's contract
+    ends with it; empty for any other task."""
+    ids = list(identities or ())
+    skipped = [m for m in _DIAMOND_GATED if m in ids]
+    if "mine_obsidian" not in skipped or len(skipped) < 2:
+        return ""
+    return ("**Scoring note.** Obsidian can be cast in place by pouring water onto a lava "
+            "source, with no diamond pickaxe. A portal built that way skips "
+            f"{len(skipped)} milestones on your list -- "
+            + ", ".join(f"`{m}`" for m in skipped)
+            + " (cast obsidian is never mined) -- so the diamond route to the portal scores "
+            f"{len(skipped)} more. Cast only once the diamond route is truly out of reach.")
+
 def budget_note(model_steps: int | None, turns: int | None, max_steps: int, *,
                 vista: bool = False) -> str:
     """`--model-step-budget` / `--turn-budget`: the paragraph every arm's contract ends with."""
