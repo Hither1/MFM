@@ -31,12 +31,6 @@ class MemorySink:
              lines: list[str]) -> None:
         """A log section was written for this observation (and the previous action)."""
 
-    def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
-        """A line appended to this turn's prompt, or None. The model does not pull from
-        a memory it is only told about (0 query-tool calls in 1,410 commands on KiCad
-        GPT-6), so a memory that can establish one fact cheaply pushes it here."""
-        return None
-
     def refill(self, agent: "MemoryAgent", obs: "Observation") -> None:
         """The queue is empty and a model turn is about to run. Whatever entry was still
         open did not run to its last tick (the plan was flushed, or the previous turn

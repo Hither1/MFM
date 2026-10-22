@@ -8,7 +8,7 @@ describe one action space.
 
 The system prompt (AGENTS.md; CLAUDE.md under Claude Code) is `build_system_prompt`,
 then one paragraph for each memory (`MemoryAgent.full_system_prompt`): the episode
-store's is `MFM_MEMORY_NOTE`, `RECALL_NOTE` and `PLAN_QUEUE_NOTE`. Each turn's message
+store's is `MFM_MEMORY_NOTE`, `PERCEPTION_NOTE` and `PLAN_QUEUE_NOTE`. Each turn's message
 is `build_turn_prompt`. The design call before the first action turn has its own
 prompt, `DESIGN_PROMPT`.
 """
@@ -159,14 +159,9 @@ that clicked, typed or pressed keys, or when a queued `terminate` comes up: a te
 is only executed when you decided it on the screen you are looking at. A plain \
 `{"actions": [...]}` is still accepted as a one-batch plan."""
 
-RECALL_NOTE = """\
+PERCEPTION_NOTE = """\
 Each episode's index row also records what you said you saw (`perception`), meant \
-(`intent`) and what the next turn said the action did (`effect`), with a perceptual \
-hash of its frame. When the situation and action of your last turn happened before, \
-the turn prompt carries a `[RECALL]` block: the earlier turn(s) with the same \
-perception and action, what followed, and the step after that. It is your own history \
-retrieved for this moment; if the chain matches what you intend, queue its steps as \
-one plan."""
+(`intent`) and what the next turn said the action did (`effect`)."""
 
 
 CONVENTIONS_NOTE = """\

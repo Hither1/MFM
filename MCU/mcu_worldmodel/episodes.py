@@ -28,7 +28,6 @@ from typing import Any
 
 
 from mfm.agent.base import Observation
-from mfm.memory.retrieve import recall_block
 from mfm.memory.store import EpisodeStore
 
 from mcu_worldmodel.actions import describe_entry
@@ -104,32 +103,6 @@ over ground you have not walked, the frames of the nearest episodes; before a pl
 an earlier life, that life's frame of it (`--previous --near X Z`). The log knows where;
 the frame knows what."""
 
-#: Added to the contract when the retrieval flag is on (`--retrieval`): the turn
-#: message then carries a block the harness computed from the store. Its content is
-#: `mfm.memory.retrieve.recall_block`; this paragraph only says what the block is.
-MFM_RETRIEVAL_NOTE = """\
-When the episodes hold something that bears on this turn, the turn message carries a
-`[RECALL]` block the harness computed from them: actions that have changed nothing in
-their last several calls (and when the same action last did), what happened at this
-spot earlier than the sections you can see. Each cited entry carries its frame path: when the one line is not enough,
-`view_image` that frame -- what the entry saw is what you will see there -- or open the
-episode (`./tools/episodes.py --steps A B`). Each cited place is given as a bearing and
-a distance from where you stand. It is a reading of your own record, not advice, and it
-is absent when there is nothing to recall."""
-
-#: Entry kinds whose normal outcome is "nothing changed": a streak of them is not a
-#: loop. Everything else (harvest_tree, dig_down, craft, collect_drops, a held raw
-#: key...) is meant to change the world or the inventory when it works.
-RECALL_IGNORE_KINDS = frozenset({
-    "look", "look_abs", "look_at", "equip_hotbar", "close_inventory",
-    "inventory", "noop", "scan_around", "aim_at_ore", "aim_at_tree",
-    "wait", "cursor_to", "cursor_to_cell", "cursor_to_slot",
-})
-#: Entries whose job is to open a screen: they changed something iff a screen is
-#: open at their end (the `gui` tag). Not bookkeeping: five `use_until_gui` that
-#: opened nothing is the loop one run sat in.
-_OPENERS = frozenset({"use_until_gui", "open_inventory", "place_and_open"})
-
 
 def _num(v: Any) -> float | None:
     try:
@@ -164,15 +137,12 @@ class EpisodeBridge:
     #: Never auto-close on a tick count: the chassis says when an entry finished.
     _OPEN_ENDED = 10 ** 9
 
-    def __init__(self, memory, codex, ledger, *, retrieval: bool = False) -> None:
+    def __init__(self, memory, codex, ledger) -> None:
         self.memory = memory
         self.codex = codex                      # the store reads `agent.codex.calls`
         self.ledger = ledger
         self.store = EpisodeStore(memory.root)
         self.mfm_memory_note = MFM_MEMORY_NOTE
-        # `retrieval`: the turn prompt carries `recall()` when it is non-empty.
-        self.retrieval = bool(retrieval)
-        self.recalls = 0
         # Earlier lives' records under previous/ (previous.py); None until
         # `seed_previous` is given seed dirs.
         self.previous: PreviousLives | None = None
@@ -240,19 +210,6 @@ class EpisodeBridge:
         self.previous = PreviousLives(self.memory.root)
         self.previous.seed([Path(s) for s in seeds])
 
-    def recall(self, info: dict) -> str:
-        """The retrieval block for the turn about to run, from the rows the store
-        already holds; "" when there is nothing to recall or the flag is off."""
-        if not self.retrieval:
-            return ""
-        pos = _xz(location(info))
-        block = recall_block(self.store.closed, self.memory.root, pos=pos,
-                             ignore_kinds=RECALL_IGNORE_KINDS, movers=_MOVERS,
-                             openers=_OPENERS)
-        if block:
-            self.recalls += 1
-        return block
-
     def audit(self) -> dict[str, Any]:
         out = self.store.audit(self)
         # The chassis backend counts the tool in its rollout scan (`vision_audit`,
@@ -260,8 +217,6 @@ class EpisodeBridge:
         counts = getattr(self.codex, "_tool_error_counts", None) or {}
         out["episodes_tool_calls"] = counts.get("episodes_tool_calls")
         out["frames_written"] = self.frames_written
-        out["retrieval"] = self.retrieval
-        out["recalls"] = self.recalls
         if self.previous is not None:
             out["previous"] = self.previous.audit()
         return out

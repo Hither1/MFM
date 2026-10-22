@@ -69,8 +69,7 @@ memory/
 
 `logs.txt`, `index.jsonl` and the contract are harness-owned: a turn that shrinks one of
 them is a fault (`memory.py`). Everything the model is told about the past is a file it
-can open; the turn prompt carries only `mine/working.md` and the `[RECALL]` block, which
-the harness computes from the index (`mfm/memory/retrieve.py`).
+can open; of the memory, the turn prompt carries only `mine/working.md`.
 
 ## Modules
 

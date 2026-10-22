@@ -269,10 +269,6 @@ class MemoryAgent:
         # them (measured: 8 turns, 0 view_image calls when it was optional).
         images = [self.visible / obs.attachment] if obs.attachment else []
         base_prompt = self.turn_prompt(obs)
-        for sink in self.sinks:
-            note = sink.turn_note(self, obs)
-            if note:
-                base_prompt = base_prompt.rstrip("\n") + "\n\n" + note.strip()
 
         extend = self.retry_policy == "extend"
         attempt, budget, refusals, capacity = 0, self.analyzer_retries, 0, 0

@@ -9,8 +9,8 @@ entry is a raw action or a script the model wrote. `mfm-atoms` and `direct` act 
 the 28 closed-loop primitives of `procedures.ATOMS`.
 
     mfm     (the default) Multimodal Filesystem Memory: the log, one episode per plan entry (frame,
-            state, action, outcome), the index and its query tool, the frame tools,
-            the [RECALL] block and the carried lives under `previous/`; and the
+            state, action, outcome), the index and its query tool, the frame tools
+            and the carried lives under `previous/`; and the
             agent builds its own harness: its own `mine/` (notes, working memory,
             procedures, reflexes), the skill package, the contract written around them.
             No hand-written skill of any grain: the procedure set is empty (not even
@@ -37,7 +37,6 @@ SHARED: dict[str, Any] = dict(
 MFM_MEMORY: dict[str, Any] = dict(
     expect=True,              # the EXPECT line, echoed next turn against the record
     frames=True,              # tools/zoom.py
-    retrieval=True,           # the [RECALL] block in the turn prompt
     event_sheet=False,        # the current view alone is attached
 )
 

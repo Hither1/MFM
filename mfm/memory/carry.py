@@ -32,7 +32,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mfm.memory import recall as R
 from mfm.memory.consolidate import situations, to_markdown
 from mfm.memory.sink import MemorySink
 from mfm.memory.store import EpisodeStore
@@ -72,13 +71,10 @@ confident and scored 0.00 on means the belief was wrong, not that the task was h
 Read it with `notes/` before the first action, and when you write notes at the end, \
 write down what the scores support and mark what you are only assuming."""
 
-CARRY_RECALL_NOTE = """\
+CARRY_SITUATIONS_NOTE = """\
 `previous/situations.md` is the finished tasks' turns folded by what you said you were \
 looking at: for each recurring situation, the actions taken there, how often, and what \
-each led to. Read it before the first action. When the situation and action of your \
-last turn occurred in an earlier task, the turn prompt carries a `[RECALL]` block with \
-what followed then, two steps ahead: if it matches what you intend, queue those steps \
-as one plan instead of rediscovering them one screenshot at a time."""
+each led to. Read it before the first action."""
 
 
 @dataclass(frozen=True)
@@ -105,7 +101,7 @@ class CarrySeed:
 
 
 #: Index-row fields that name a file inside the record; rewritten to the carried path so
-#: `./tools/episodes.py --previous` and the recall block resolve them from the workspace.
+#: `./tools/episodes.py --previous` resolves them from the workspace.
 _PATH_FIELDS = ("path", "image", "attachment")
 
 
@@ -224,8 +220,8 @@ class CarrySink(MemorySink):
         store = self._store(agent)
         if store is not None:
             note += "\n\n" + CARRY_STORE_NOTE
-            if store.recall:
-                note += "\n\n" + CARRY_RECALL_NOTE
+            if store.perception:
+                note += "\n\n" + CARRY_SITUATIONS_NOTE
         return note
 
     @staticmethod
@@ -301,31 +297,6 @@ class CarrySink(MemorySink):
             lines.append("")
         prev_dir.mkdir(parents=True, exist_ok=True)
         (prev_dir / "outcomes.md").write_text("\n".join(lines), encoding="utf-8")
-
-    def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
-        """Across tasks: the model does not pull, so the harness pushes. With the
-        store's recall on, the earlier tasks' turns that repeated the previous turn's
-        transition (mfm.memory.recall); otherwise the exact-hash seen-before line."""
-        store = self._store(agent)
-        if store is not None and store.recall:
-            if not self.previous_rows:
-                return None
-            prev = store.previous_row(obs)
-            return R.recall_note(self.previous_rows, prev, store._dhash(obs.attachment),
-                                 "in an earlier task")
-        digest = (obs.state or {}).get("png_hash")
-        if not digest or not self.previous_rows:
-            return None
-        hits = [r for r in self.previous_rows
-                if r.get("observation_hash") == digest and r.get("kind") != "initial"]
-        if not hits:
-            return None
-        lines = [f"previous/{r['task']} step {r.get('first_step')}: {r.get('action_kind') or '-'}"
-                 + (f" -> {r['summary']}" if r.get("summary") else "")
-                 + (f" [{','.join(r['tags'])}]" if r.get("tags") else "")
-                 for r in hits[-3:]]
-        return ("[SEEN BEFORE] this exact screen appeared in earlier tasks: "
-                + "; ".join(lines) + ".")
 
     def close(self, agent: "MemoryAgent", **outcome: Any) -> None:
         self.register(reward=outcome.get("reward"), error=outcome.get("error"))

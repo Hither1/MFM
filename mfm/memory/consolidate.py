@@ -1,7 +1,7 @@
 """Consolidation: the episodic rows of finished tasks folded into a situation table.
 
 An episode is one decision; a *situation* is what the model said it was looking at,
-abstracted (`recall.norm_text`). Over a run the same situations recur -- the settings
+abstracted (`norm_text`). Over a run the same situations recur -- the settings
 dialog, the symbol chooser, the library-setup dialog, a properties dialog -- and for
 each the table keeps the actions taken there, how often, and what the model said each
 one did. This is procedural memory distilled from the episodic record, written for the
@@ -10,10 +10,51 @@ every task boundary (so it is never stale and needs no separate state).
 """
 from __future__ import annotations
 
+import re
 from collections import Counter
 from typing import Any, Iterable
 
-from mfm.memory.recall import norm_action, norm_text
+_REF = re.compile(r"\b(?:r|c|d|u|j|sw|l|q|y|k|f|bt|tp|h)\d+[a-z]?\b")
+_NUM = re.compile(r"\d+(?:\.\d+)?\s*(?:k|u|µ|n|p|m|meg)?(?:ω|ohm|ohms|f|v|hz|a|w)?\b")
+_QUOTES = re.compile(r"[\"'`“”‘’*]")
+_NONALPHA = re.compile(r"[^a-z ]+")
+_SENTENCE_END = re.compile(r"(?<=[.;!?])\s+")
+
+#: Words a perception line spends on itself rather than on the screen.
+_FILLER = {"the", "a", "an", "is", "are", "was", "were", "now", "still", "no", "not",
+           "with", "and", "of", "in", "on", "as", "at", "to", "its", "it", "this",
+           "that", "expected", "correctly", "feedback", "errors", "error", "reported",
+           "appears", "appear", "shows", "showing", "open", "opened", "visible"}
+KEY_WORDS = 8
+
+
+def first_sentence(text: str | None) -> str:
+    line = (text or "").strip().split("\n")[0]
+    return _SENTENCE_END.split(line, 1)[0]
+
+
+def norm_text(text: str | None, words: int = KEY_WORDS) -> str:
+    """A perception line reduced to its situation: the first sentence, refs and numbers
+    abstracted away, filler dropped, the first `words` content words."""
+    s = first_sentence(text).lower()
+    s = _QUOTES.sub("", s)
+    s = _REF.sub(" ref ", s)
+    s = _NUM.sub(" n ", s)
+    s = _NONALPHA.sub(" ", s)
+    toks = [t for t in s.split() if t not in _FILLER]
+    return " ".join(toks[:words])
+
+
+def norm_action(summary: str | None) -> str:
+    """An action string reduced to its kind and keys: `click(697,830)` -> `click(n,n)`,
+    `type("NE555P")` -> `type(text)`, `key(ctrl+s)` stays. Multi-action batches keep
+    their sequence."""
+    s = (summary or "").strip().lower()
+    s = re.sub(r'type\("[^"]*"\)', "type(text)", s)
+    s = re.sub(r"type\([^)]*\)", "type(text)", s)
+    s = re.sub(r"\d+", "n", s)
+    s = re.sub(r"\s+", "", s)
+    return s
 
 
 def situations(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -67,7 +108,7 @@ def to_markdown(table: list[dict[str, Any]], *, limit: int = 40, min_n: int = 2)
              "",
              "What you said you were looking at (abstracted), how many turns it took, "
              "and what each action there led to. Built by the harness from your own "
-             "earlier turns; a `[RECALL]` line in a turn prompt points at the same rows.",
+             "earlier turns.",
              ""]
     shown = 0
     for g in table:

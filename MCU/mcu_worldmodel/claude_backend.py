@@ -186,8 +186,8 @@ _IMAGE_MEDIA = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"
 
 # The image tool has a different name on this channel: codex's `view_image` is Claude
 # Code's `Read` on an image path (the Read tool returns the PNG as an image block --
-# measured 2.1.257). The contract, the skills, the references, the turn prompt and the
-# [RECALL] block all name the codex tool, so every harness-written text is renamed at
+# measured 2.1.257). The contract, the skills, the references and the turn prompt
+# all name the codex tool, so every harness-written text is renamed at
 # the moment it reaches this channel; nothing else in the wording changes. The
 # episodes tool prints the name at run time and reads it from MFM_IMAGE_TOOL (set in
 # the CLI's environment below), since it runs inside the model's own shell.

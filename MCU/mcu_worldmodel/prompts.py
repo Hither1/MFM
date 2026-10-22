@@ -761,13 +761,12 @@ def _own_mod():
     return own
 
 
-def _mfm_contract(retrieval: bool = False, previous: bool = False, expect: bool = False,
+def _mfm_contract(previous: bool = False, expect: bool = False,
                   frames: bool = False, own: bool = False, own_reflexes: bool = False,
                   harness_reflexes: bool = True) -> str:
-    from mcu_worldmodel.episodes import (MFM_EXPECT_NOTE, MFM_FRAMES_NOTE, MFM_MEMORY_NOTE,
-                                         MFM_RETRIEVAL_NOTE)
+    from mcu_worldmodel.episodes import MFM_EXPECT_NOTE, MFM_FRAMES_NOTE, MFM_MEMORY_NOTE
     from mcu_worldmodel.previous import MFM_DIGEST_NOTE, MFM_PREVIOUS_NOTE
-    note = (MFM_MEMORY_NOTE + ("\n\n" + MFM_RETRIEVAL_NOTE if retrieval else "")
+    note = (MFM_MEMORY_NOTE
             + ("\n\n" + MFM_PREVIOUS_NOTE if previous else "")
             + ("\n" + MFM_DIGEST_NOTE if (previous and own) else "")
             + ("\n\n" + MFM_EXPECT_NOTE if expect else "")
@@ -1193,13 +1192,12 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                memory_mode: str = "mfm",
                task_family: str = "from_scratch",
                scored_by_milestones: bool = True,
-               retrieval: bool = False,
                previous: bool = False, expect: bool = False,
                frames: bool = False, own: bool = False, atoms: bool = False,
                own_reflexes: bool = False,
                harness_reflexes: bool = True) -> str:
     contract = (_DIRECT_CONTRACT if memory_mode == "direct" else
-                _mfm_contract(retrieval, previous, expect, frames, own,
+                _mfm_contract(previous, expect, frames, own,
                               own_reflexes, harness_reflexes=harness_reflexes))
     output_contract = (_DIRECT_OUTPUT_CONTRACT if memory_mode == "direct"
                        else "Then write these files:\n" + _OUTPUT_FILES[memory_mode])

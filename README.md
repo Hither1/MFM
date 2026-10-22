@@ -36,7 +36,8 @@ Results with GPT-6-Astra (mean of 3 seeds):
 | CUABench-KiCad | mean reward | 0.267 | 0.440 |
 
 The Minecraft results of MFM in this table used the `mfm-atoms` arm (see
-[Run](#minecraft)).
+[Run](#minecraft)). The runs of the paper also had a `[RECALL]` block in the turn
+prompt: a summary that the harness computed from the index. This code does not have it.
 
 The code of the other baselines in the paper (PRO-LONG, VISTA) is not in this repository.
 
@@ -66,9 +67,7 @@ The harness calls the model when the current plan is complete or stopped. A turn
 four parts:
 
 1. **Show.** The harness gives the model the current frame, the state, the new events
-   and its working plan. When the index shows a pattern, the harness adds a `[RECALL]`
-   block. This block shows plans that repeat, actions that changed nothing, and earlier
-   events at the same place.
+   and its working plan.
 2. **Search** (Section 3.3). The model can run `tools/episodes.py` to find episodes by
    step, place, action, tag or text. This tool can also make a contact sheet of frames,
    or put a past frame next to the current view. `tools/zoom.py` magnifies a region of
@@ -111,7 +110,6 @@ call gets a text list of the earlier actions.
 | Associative index and spatial memory | `mfm/memory/store.py`, `MCU/mcu_worldmodel/grid.py` |
 | Agent-written memory, procedures and reflexes | `MCU/mcu_worldmodel/own.py`, `MCU/mcu_worldmodel/skills.py` |
 | Search tools (Section 3.3) | `mfm/memory/tools/episodes.py`, `mfm/memory/tools/zoom.py` |
-| The `[RECALL]` block | `mfm/memory/retrieve.py` (Minecraft), `mfm/memory/recall.py` (KiCad) |
 | Carried memory (Section 3.4) | `MCU/mcu_worldmodel/previous.py` (Minecraft), `mfm/memory/carry.py` and `mfm/memory/consolidate.py` (KiCad) |
 | The settings of each arm (Section 4) | `MCU/mcu_worldmodel/arms.py`, `CUA-KiCad/gym_codex/mfm_agent.py` |
 | The milestone score | the environment server (`MCU/src/`); `MCU/mcu_worldmodel/milestones.py` keeps the same count for the agent |
@@ -121,7 +119,7 @@ call gets a text list of the earlier actions.
 
 ```
 mfm/                        the method, shared by the two benchmarks
-  memory/                     episode store, index, recall, carried memory, search tools
+  memory/                     episode store, index, carried memory, search tools
   agent/, backend/            the agent base and the Codex CLI channel
 MCU/                        MCU-AgentBeats and the Minecraft harness (see MCU/README.md)
   src/, MCU_benchmark/        the environment server and the task configurations

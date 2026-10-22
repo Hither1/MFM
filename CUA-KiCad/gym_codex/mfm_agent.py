@@ -9,7 +9,7 @@ What the model has between steps:
   executed actions, the model's own plan), a persistent workspace, and a codex thread
   resumed across turns under an age cap;
 - the episode store beside the log: one episode per action batch (screenshot, state,
-  action, outcome), the index and its query tool, and recall of earlier episodes;
+  action, outcome), the index and its query tool;
 - a plan of up to ``PLAN_CAP`` batches, drained one batch per step under the flush
   rules of ``flush_reason``;
 - with ``carry_dir``, the records of the finished tasks under ``previous/`` with their
@@ -45,7 +45,7 @@ from typing import Any, Optional
 from gym_codex import mfm_prompts
 from gym_codex.actions import ParsedBatch, parse_batch
 from gym_codex.mfm_prompts import (DESIGN_EXISTING, DESIGN_PROMPT, MFM_MEMORY_NOTE,
-                                   PLAN_QUEUE_NOTE, RECALL_NOTE)
+                                   PERCEPTION_NOTE, PLAN_QUEUE_NOTE)
 from mfm.agent.base import MemoryAgent, Observation, Plan
 from mfm.backend import errors as backend_errors
 from mfm.backend.codex_turn import CodexTurn
@@ -123,9 +123,9 @@ class MfmGuiAgent(MemoryAgent):
         install_zoom_tool(record)
         # The episode store beside the log, and a multi-batch plan drained one batch per
         # step with the flush rules below.
-        self.store = EpisodeStore(record, recall=True)
+        self.store = EpisodeStore(record, perception=True)
         self.mfm_memory_note = "\n\n".join(
-            (MFM_MEMORY_NOTE, RECALL_NOTE, PLAN_QUEUE_NOTE.replace("{plan_cap}", str(PLAN_CAP))))
+            (MFM_MEMORY_NOTE, PERCEPTION_NOTE, PLAN_QUEUE_NOTE.replace("{plan_cap}", str(PLAN_CAP))))
         # The carry rung (mfm/memory/carry.py): the finished tasks' records with their
         # scores, and a persistent notes/ inside this task's workspace.
         self.carry = (CarrySink(Path(carry_dir), task_id or Path(workspace).parent.name,
