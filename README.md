@@ -36,8 +36,7 @@ Results with GPT-6-Astra (mean of 3 seeds):
 | CUABench-KiCad | mean reward | 0.267 | 0.440 |
 
 The Minecraft results of MFM in this table used the `mfm-atoms` arm (see
-[Run](#minecraft)). The runs of the paper also had a `[RECALL]` block in the turn
-prompt: a summary that the harness computed from the index. This code does not have it.
+[Run](#minecraft)).
 
 The code of the other baselines in the paper (PRO-LONG, VISTA) is not in this repository.
 
