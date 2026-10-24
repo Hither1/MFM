@@ -522,10 +522,14 @@ class WorldModelAgent:
         #: The last capped bunker: {"step", "cell"} (see _in_hole).
         self._last_bunker: dict[str, Any] | None = None
         #: Where the avatar is: "the Overworld" unless the task starts it elsewhere
-        #: (`start_dimension`); a death puts it back (respawn is in the Overworld). The End has no ground to run
+        #: (`start_dimension`); a death puts it back (respawn is in the Overworld), a portal
+        #: trip moves it (_portal_trip). The End has no ground to run
         #: on -- the island's edge is the void (a staged scene on the merged tree:
         #: the flee reflex sprinted the avatar off the platform to y -272).
         self._dimension = self.start_dimension or "the Overworld"
+        #: Where the life began (start()): a jump that lands near it empty-handed is a
+        #: respawn, and the way out of the End lands there too (_portal_trip).
+        self._spawn_pos: dict[str, float] | None = None
         #: `start_dimension`: the task config's teleport lands AFTER the first observation
         #: (the end_stone_tail smoke: step 0 at the Overworld spawn, step 1 on the
         #: platform), so the first jump of the life is the arrival, not a death.
@@ -667,6 +671,7 @@ class WorldModelAgent:
         if self.vista:
             self.vista.start(info, self._encode_pov(info.get("pov"), 0))
         self._prev_pos = pos
+        self._spawn_pos = dict(pos) if pos else None
         self._cur_inv = inventory_counts(info)
         self._empty_slot = _first_empty_slot(info)
         self._entry_start_inv = dict(self._cur_inv)
@@ -802,6 +807,26 @@ class WorldModelAgent:
                     f"You are in {self.start_dimension} at ({pos['x']:.0f}, {pos['y']:.0f}, "
                     f"{pos['z']:.0f}): the task put you here at the start (the first frame "
                     f"was the Overworld spawn for a tick). Nothing was lost.")
+            elif jump > 15 and (where := self._portal_trip(prev, pos, info)) is not None:
+                # Not a death: everything carried came along (a portal, a thrown pearl).
+                p0 = f"({prev['x']:.0f}, {prev['y']:.0f}, {prev['z']:.0f})"
+                p1 = f"({pos['x']:.0f}, {pos['y']:.0f}, {pos['z']:.0f})"
+                if where != self._dimension:
+                    self.cursor_stats["portal_trips"] = self.cursor_stats.get("portal_trips", 0) + 1
+                    self.memory.add_note(
+                        f"PORTAL: you went from {self._dimension} at {p0} to {where} at {p1} "
+                        f"in one tick, with everything you carried. The rest of the plan was "
+                        f"dropped: it was written for the other side.")
+                    self._dimension = where
+                else:
+                    self.cursor_stats["teleports"] = self.cursor_stats.get("teleports", 0) + 1
+                    self.memory.add_note(
+                        f"You moved {jump:.0f} blocks in one tick, from {p0} to {p1}, and "
+                        f"still carry everything: not a death. The rest of the plan was dropped.")
+                self.queue.clear()
+                self._reflex = None
+                self._last_bunker = None
+                self._hp_hist.clear()
             elif jump > 15 and (hp is None or hp >= 19.0):
                 self.cursor_stats["deaths"] = self.cursor_stats.get("deaths", 0) + 1
                 self.grid.mark_hazard(step, prev, 20.0, "death")
@@ -2584,6 +2609,36 @@ class WorldModelAgent:
             return False
         head = self.queue[0][0]
         return any(head.get(k) for k in self._MOVING_KEYS)
+
+    def _portal_trip(self, prev: dict, pos: dict, info: dict) -> str | None:
+        """Where a one-tick jump of more than 15 blocks went when it was NOT a death: the
+        dimension a portal led to, the same one for a jump that kept everything (a
+        thrown pearl), None for a death. One life walked into its own Nether portal by
+        raw keys and the harness logged "YOU DIED at (-2968, 13, -5654) and respawned at
+        (-377, 46, -694)", dropped the plan and put it back in the Overworld while it
+        stood in the Nether. A death drops every carried stack; a portal keeps them.
+        Empty-handed, the coordinates decide: a Nether portal scales x and z by 8, the
+        End's arrival is the obsidian platform at (100, 49, 0), and the way out of the
+        End lands at the spawn."""
+        before, after = self._cur_inv, inventory_counts(info)
+        n = sum(before.values())
+        kept = n > 0 and sum(min(c, after.get(k, 0)) for k, c in before.items()) >= 0.5 * n
+        spawn = self._spawn_pos
+        at_spawn = bool(spawn) and abs(pos["x"] - spawn["x"]) + abs(pos["z"] - spawn["z"]) <= 32
+        if not kept and (n > 0 or at_spawn):
+            return None
+        r0, r1 = math.hypot(prev["x"], prev["z"]), math.hypot(pos["x"], pos["z"])
+        if self._dimension == "the End":
+            if at_spawn:
+                return "the Overworld"
+        elif abs(pos["x"] - 100) <= 4 and abs(pos["z"]) <= 4 and 45 <= pos["y"] <= 52:
+            return "the End"
+        elif self._dimension == "the Nether":
+            if r1 >= 64 and r1 / 16 <= r0 <= r1 / 4:
+                return "the Overworld"
+        elif r0 >= 64 and r0 / 16 <= r1 <= r0 / 4:
+            return "the Nether"
+        return self._dimension if kept else None
 
     def _respawned_here(self, prev: dict, pos: dict, info: dict) -> bool:
         """A respawn seen without a teleport (`--near-deaths`). Measured on this engine
