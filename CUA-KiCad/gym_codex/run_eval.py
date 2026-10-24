@@ -188,7 +188,21 @@ def _make_agent(args, task_dir: Path):
     if args.agent.endswith("-carry"):
         kw["carry_dir"] = task_dir.parent / "carry"
         kw["task_id"] = task_dir.name
+    kw.update(_ablation_kw(args))
     return make_agent(args.agent, **kw, **ARMS[args.agent])
+
+
+def _ablation_kw(args) -> dict:
+    """The agent keywords of the ablation options that are on (nothing for a full arm,
+    so its construction, rows and summary are exactly as before)."""
+    kw = {}
+    if getattr(args, "no_history_images", False):
+        kw["history_images"] = False
+    if getattr(args, "flat_retrieval", False):
+        kw["flat_retrieval"] = True
+    if getattr(args, "no_consolidation", False):
+        kw["consolidation"] = False
+    return kw
 
 
 #: cua.bench's KiCad grader only ever reads /home/cua/kicad_project (a .net there,
@@ -462,6 +476,24 @@ async def main() -> int:
                         "each task's workspace under <out>/carry; tasks run in order at "
                         "concurrency 1). The options of the two MFM arms are "
                         "gym_codex.memory_agents.ARMS")
+    abl = p.add_argument_group(
+        "ablations of the MFM arms",
+        "Each removes one thing from mfm / mfm-carry and says so in the prompt; the rest of "
+        "the arm is unchanged.")
+    abl.add_argument("--no-history-images", action="store_true",
+                     help="without historical images: no episode keeps its screenshot, no "
+                          "earlier task's screenshot is carried, and every image in the "
+                          "workspace but the current turn's is removed before each call. "
+                          "The current screenshot is still attached")
+    abl.add_argument("--flat-retrieval", action="store_true",
+                     help="without structured episode retrieval: no tools/episodes.py and no "
+                          "[RECALL] or [SEEN BEFORE] block; the same episodes/ and index.jsonl, "
+                          "read with ordinary text search")
+    abl.add_argument("--no-consolidation", action="store_true",
+                     help="without long-term consolidation (mfm-carry): an earlier task is "
+                          "carried as the harness's record only (log, episodes, index, "
+                          "screenshots) -- no notes/ across tasks, no situation table, none "
+                          "of the files the model wrote")
     p.add_argument("--cli", choices=("codex", "claude"), default="codex",
                    help="which CLI carries the model: codex "
                         "(default), or claude -- Anthropic models through Claude Code "
@@ -496,6 +528,11 @@ async def main() -> int:
         args.max_steps = _DEFAULT_BUDGETS.get(args.env_id, _FALLBACK_BUDGET)
     if _cli_error(args):
         p.error(_cli_error(args))
+    if _ablation_kw(args) and args.agent not in ("mfm", "mfm-carry"):
+        p.error("--no-history-images/--flat-retrieval/--no-consolidation are ablations of "
+                "the mfm arms")
+    if args.no_consolidation and args.agent != "mfm-carry":
+        p.error("--no-consolidation ablates what is carried across tasks: it needs mfm-carry")
     logger.info("env=%s budget=%d steps", args.env_id, args.max_steps)
 
     import lite.gym as gym  # after sbatch has set up PATH/PODMAN_* for the shim
@@ -554,6 +591,11 @@ async def main() -> int:
                "max_steps": args.max_steps, "domain": args.domain, "env_id": args.env_id,
                "task_order_seed": args.task_order_seed}
     summary.update(_cli_kw(args))
+    if _ablation_kw(args):
+        summary["ablations"] = [n for f, n in (("no_history_images", "no_history_images"),
+                                               ("flat_retrieval", "flat_retrieval"),
+                                               ("no_consolidation", "no_consolidation"))
+                                if getattr(args, f)]
     options = ARMS.get(args.agent, {})
     if options:
         summary["design"] = {"design_turn": options["design"],

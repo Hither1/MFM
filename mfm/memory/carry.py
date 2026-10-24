@@ -44,6 +44,14 @@ if TYPE_CHECKING:  # pragma: no cover
 _NOT_CARRIED = frozenset({"previous", "notes", "tools", "AGENTS.md", "actions.json",
                           "last_message.txt", "workspace.codexhome"})
 
+#: Under `consolidation=False`, the only parts of a finished task that are carried: the
+#: record the harness wrote (the log with the model's briefings in it, the episodes,
+#: their index and the screenshots), none of the files the model wrote for itself.
+_RECORD_ONLY = frozenset({"logs.txt", "episodes", "index.jsonl", "frames"})
+
+#: Image files, as the "without historical images" ablation sees them.
+IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff"})
+
 CARRY_NOTE = """\
 This is one task of a sequence in the same application. `previous/<task>/` holds the \
 complete record of every task finished before this one, oldest first: its `logs.txt`, \
@@ -81,6 +89,65 @@ what followed then, two steps ahead: if it matches what you intend, queue those 
 as one plan instead of rediscovering them one screenshot at a time."""
 
 
+def _edit(text: str, old: str, new: str) -> str:
+    assert text.count(old) == 1, f"carry note drifted; cannot ablate: {old[:60]!r}"
+    return text.replace(old, new)
+
+
+def carry_note(*, images: bool = True, consolidation: bool = True) -> str:
+    """CARRY_NOTE for this run's ablations (the full arm's when both are on); `{count}`
+    stays a placeholder for `prompt_note`."""
+    text = CARRY_NOTE
+    if not images:
+        text = _edit(text, "its `logs.txt`, the screenshots that log names (under "
+                           "`previous/<task>/frames/`), and whatever",
+                     "its `logs.txt` (no screenshot of an earlier task is kept in this run), "
+                     "and whatever")
+    if not consolidation:
+        text = _edit(text, "and whatever that task wrote in its workspace.",
+                     "and its episodes -- the record only: what that task wrote in its "
+                     "workspace is not carried in this run.")
+        text = _edit(text, "`notes/` is yours and persists across tasks: read what is in "
+                           "`notes/` first, and before you finish write down what worked and "
+                           "what cost steps (recipes, stable coordinates, mistakes to avoid). ",
+                     "`notes/` does NOT persist across tasks in this run: every task starts "
+                     "with it empty, and nothing you write in this task reaches the next one "
+                     "except through this task's log. ")
+    return text
+
+
+def carry_outcomes_note(*, consolidation: bool = True) -> str:
+    if consolidation:
+        return CARRY_OUTCOMES_NOTE
+    return _edit(CARRY_OUTCOMES_NOTE,
+                 "Read it with `notes/` before the first action, and when you write notes at "
+                 "the end, write down what the scores support and mark what you are only "
+                 "assuming.", "Read it before the first action.")
+
+
+#: Under flat retrieval: the merged index without the query tool.
+CARRY_STORE_NOTE_FLAT = """\
+`previous/index.jsonl` indexes every episode of the finished tasks, one JSON line each \
+with its task and the same fields as `index.jsonl`; there is no query tool in this run: \
+grep it the way you grep the logs."""
+
+#: CARRY_RECALL_NOTE in its two parts: the situation table (consolidation) and the
+#: [RECALL] block (structured retrieval). Each ablation removes its own part.
+_SITUATIONS_PART, _RECALL_PART = CARRY_RECALL_NOTE.split("Read it before the first action. ")
+_SITUATIONS_PART += "Read it before the first action."
+assert CARRY_RECALL_NOTE == _SITUATIONS_PART + " " + _RECALL_PART
+
+
+def carry_recall_note(*, push: bool = True, consolidation: bool = True) -> str:
+    if push and consolidation:
+        return CARRY_RECALL_NOTE
+    if consolidation:
+        return _SITUATIONS_PART
+    if push:
+        return _RECALL_PART[0].upper() + _RECALL_PART[1:]
+    return ""
+
+
 @dataclass(frozen=True)
 class CarriedRecord:
     """One finished record to carry over: where it is now, what it is called under
@@ -110,21 +177,26 @@ _PATH_FIELDS = ("path", "image", "attachment")
 
 
 def link_record(src: Path, dst: Path, *, skip: frozenset[str] = frozenset(),
-                skip_hidden: bool = False) -> int:
+                skip_hidden: bool = False, keep: frozenset[str] | None = None,
+                images: bool = True) -> int:
     """Hard-link every file under `src` into `dst` (copy where linking fails).
 
     `skip` names top-level entries of the record that are its machinery rather than its
     history; `skip_hidden` drops top-level dotfiles as well (MCU's rule). Both apply at
-    the top level only: a name of the record's own, deeper in, is history. Returns the
-    number of files placed.
+    the top level only: a name of the record's own, deeper in, is history. `keep`, when
+    given, is the only top-level names linked; `images=False` links no image file.
+    Returns the number of files placed.
     """
     n = 0
     for p in src.rglob("*"):
         rel = p.relative_to(src)
         if rel.parts and (rel.parts[0] in skip
+                          or (keep is not None and rel.parts[0] not in keep)
                           or (skip_hidden and rel.parts[0].startswith("."))):
             continue
         if not p.is_file():
+            continue
+        if not images and p.suffix.lower() in IMAGE_SUFFIXES:
             continue
         target = dst / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -140,7 +212,8 @@ def link_record(src: Path, dst: Path, *, skip: frozenset[str] = frozenset(),
 
 def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
                   skip: frozenset[str] = frozenset(), skip_hidden: bool = False,
-                  write_index: bool = True) -> CarrySeed:
+                  write_index: bool = True, keep: frozenset[str] | None = None,
+                  images: bool = True) -> CarrySeed:
     """Link the finished records under `prev_dir` and merge their episode indexes.
 
     One `previous/index.jsonl` over every carried episode, each row stamped with its
@@ -154,7 +227,8 @@ def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
         if not rec.source.exists():
             continue
         seed.linked += link_record(rec.source, prev_dir / rec.name,
-                                   skip=skip, skip_hidden=skip_hidden)
+                                   skip=skip, skip_hidden=skip_hidden, keep=keep,
+                                   images=images)
         seed.names.append(rec.name)
         idx = rec.source / "index.jsonl"
         if not idx.exists():
@@ -170,6 +244,8 @@ def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
             for key in _PATH_FIELDS:
                 if row.get(key):
                     row[key] = f"previous/{rec.name}/{row[key]}"
+            if not images:
+                row["image"] = None                  # the frame was not carried
             seed.rows.append(row)
     if seed.rows and write_index:
         prev_dir.mkdir(parents=True, exist_ok=True)
@@ -181,7 +257,8 @@ def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
 
 class CarrySink(MemorySink):
     def __init__(self, root: Path | str, task_id: str, record_dir: Path | str,
-                 outcomes: bool = False) -> None:
+                 outcomes: bool = False, images: bool = True, push: bool = True,
+                 consolidation: bool = True) -> None:
         self.root = Path(root)
         self.task_id = str(task_id)
         self.record = Path(record_dir)
@@ -190,6 +267,12 @@ class CarrySink(MemorySink):
         # protocol decision and not a memory mechanism: without it the carried notes are
         # the model's own belief about what worked, never checked against anything.
         self.outcomes = bool(outcomes)
+        # The KiCad ablations, one each, the same three switches as the store's:
+        # `images=False` carries no screenshot of an earlier task; `push=False` puts no
+        # [RECALL] / [SEEN BEFORE] line into a turn; `consolidation=False` carries only
+        # the harness's record of an earlier task (_RECORD_ONLY), no `notes/` and no
+        # situation table.
+        self.images, self.push, self.consolidation = bool(images), bool(push), bool(consolidation)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "notes").mkdir(exist_ok=True)
         self.manifest_path = self.root / "manifest.json"
@@ -217,15 +300,18 @@ class CarrySink(MemorySink):
         n = len(self.prior())
         count = (f"{n} task(s) are recorded under `previous/` now." if n
                  else "This is the first task of the sequence: `previous/` is empty and "
-                      "`notes/` holds nothing yet.")
-        note = CARRY_NOTE.format(count=count)
+                      "`notes/` holds nothing yet." if self.consolidation
+                 else "This is the first task of the sequence: `previous/` is empty.")
+        note = carry_note(images=self.images, consolidation=self.consolidation).format(count=count)
         if self.outcomes and n:
-            note += "\n\n" + CARRY_OUTCOMES_NOTE
+            note += "\n\n" + carry_outcomes_note(consolidation=self.consolidation)
         store = self._store(agent)
         if store is not None:
-            note += "\n\n" + CARRY_STORE_NOTE
+            note += "\n\n" + (CARRY_STORE_NOTE if self.push else CARRY_STORE_NOTE_FLAT)
             if store.recall:
-                note += "\n\n" + CARRY_RECALL_NOTE
+                recall = carry_recall_note(push=self.push, consolidation=self.consolidation)
+                if recall:
+                    note += "\n\n" + recall
         return note
 
     @staticmethod
@@ -250,10 +336,11 @@ class CarrySink(MemorySink):
             [CarriedRecord(name=m["task_id"], source=Path(m["record_dir"]),
                            tag={"task": m["task_id"]})
              for m in self.prior()],
-            skip=_NOT_CARRIED)
+            skip=_NOT_CARRIED, keep=None if self.consolidation else _RECORD_ONLY,
+            images=self.images)
         self.seeded += seed.linked
         rows = seed.rows
-        if rows and any(r.get("perception") for r in rows):
+        if self.consolidation and rows and any(r.get("perception") for r in rows):
             # Consolidation: the episodic rows folded into the situation table.
             (prev_dir / "situations.md").write_text(to_markdown(situations(rows)),
                                                     encoding="utf-8")
@@ -262,6 +349,8 @@ class CarrySink(MemorySink):
             self._write_outcomes(prev_dir)
         notes_in = self.record / "notes"
         notes_in.mkdir(exist_ok=True)
+        if not self.consolidation:
+            return                                   # notes/ starts empty in every task
         for p in (self.root / "notes").rglob("*"):
             if p.is_file():
                 target = notes_in / p.relative_to(self.root / "notes")
@@ -306,6 +395,8 @@ class CarrySink(MemorySink):
         """Across tasks: the model does not pull, so the harness pushes. With the
         store's recall on, the earlier tasks' turns that repeated the previous turn's
         transition (mfm.memory.recall); otherwise the exact-hash seen-before line."""
+        if not self.push:
+            return None
         store = self._store(agent)
         if store is not None and store.recall:
             if not self.previous_rows:
@@ -338,7 +429,7 @@ class CarrySink(MemorySink):
         self._published = True
         notes_out = self.root / "notes"
         notes_in = self.record / "notes"
-        if notes_in.exists():
+        if notes_in.exists() and self.consolidation:
             for p in notes_in.rglob("*"):
                 if p.is_file():
                     target = notes_out / p.relative_to(notes_in)
@@ -355,10 +446,15 @@ class CarrySink(MemorySink):
         out = {"previous_tasks": len(self.prior()), "files_linked": self.seeded,
                "previous_episodes": len(self.previous_rows),
                "notes_files": sum(1 for p in (self.root / "notes").rglob("*") if p.is_file())}
-        if any(r.get("perception") for r in self.previous_rows):
+        if self.consolidation and any(r.get("perception") for r in self.previous_rows):
             out["situations"] = sum(1 for g in situations(self.previous_rows) if g["n"] >= 2)
         if self.outcomes:
             # Only when the arm has it: the audit keys of an arm that does not carry
             # outcomes must not move (tests/test_carry.py pins them).
             out["outcomes"] = True
+        ablations = ([] if self.images else ["no_history_images"]) \
+            + ([] if self.push else ["flat_retrieval"]) \
+            + ([] if self.consolidation else ["no_consolidation"])
+        if ablations:
+            out["ablations"] = ablations
         return out

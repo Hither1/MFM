@@ -15,6 +15,54 @@ screenshot the batch was decided on, the same file the `[SCREEN]` line names). \
 tiles their screenshots. Use it instead of parsing the log by hand when the question \
 is "have I seen this screen / tried this before"."""
 
+#: The memory paragraph under the KiCad ablations (`ProlongGuiAgent(history_images=False)`,
+#: `flat_retrieval=True`), each a checked edit of MFM_MEMORY_NOTE.
+_NOTE_IMAGE_CLAUSE = (", `outcome.json` (the feedback and whether the screen changed after it, "
+                      "tags) and `observation/image.png` (the 1920x1080 screenshot the batch "
+                      "was decided on, the same file the `[SCREEN]` line names). ")
+_NOTE_TOOL_CLAUSE = ("`./tools/episodes.py --last 5 | --steps A B | --tag feedback | --tag "
+                     "screen_unchanged | --grep text` lists matching episodes one per line with "
+                     "their paths; `--sheet out.png` tiles their screenshots. Use it instead of "
+                     "parsing the log by hand when the question is \"have I seen this screen / "
+                     "tried this before\".")
+assert MFM_MEMORY_NOTE.count(_NOTE_IMAGE_CLAUSE) == 1 and MFM_MEMORY_NOTE.count(_NOTE_TOOL_CLAUSE) == 1
+
+
+def mfm_memory_note(*, images: bool = True, flat: bool = False) -> str:
+    text = MFM_MEMORY_NOTE
+    if not images:
+        text = text.replace(_NOTE_IMAGE_CLAUSE,
+                            " and `outcome.json` (the feedback and whether the screen changed "
+                            "after it, tags). No screenshot is kept in this run: an episode has "
+                            "no `observation/image.png`, and an earlier turn's frame is removed "
+                            "when the next turn starts. ")
+    if flat:
+        text = text.replace(_NOTE_TOOL_CLAUSE,
+                            "`index.jsonl` is their flat chronological record: one JSON line per "
+                            "episode, in order, with its step, action, outcome summary, tags, "
+                            "what you said you saw (`perception`) and meant (`intent`), what the "
+                            "next turn said the action did (`effect`), and its paths. There is "
+                            "NO query tool in this run: grep `index.jsonl` and "
+                            "`episodes/*/outcome.json` the way you grep the log when the "
+                            "question is \"have I seen this screen / tried this before\".")
+    elif not images:
+        text = text.replace("with their paths; `--sheet out.png` tiles their screenshots.",
+                            "with their paths.")
+    return text
+
+
+#: The system prompt's [SCREEN] marker under `history_images=False`.
+SCREEN_MARKER = """\
+    [SCREEN] frames/<file> -- the screenshot at the start of that turn, on disk. The
+        *current* turn's screenshot is attached directly to this message; the paths let
+        you re-open an earlier screen and compare."""
+SCREEN_MARKER_NO_IMAGES = """\
+    [SCREEN] frames/<file> -- the screenshot at the start of that turn. The *current*
+        turn's screenshot is attached directly to this message and is the only one kept
+        on disk in this run: an earlier turn's file is removed when the next turn
+        starts, so no earlier screen can be re-opened."""
+
+
 PLAN_QUEUE_NOTE = """\
 You may plan several batches in one turn: write `./actions.json` as \
 `{"plan": [batch, batch, ...]}` where each `batch` is the usual `{"actions": [...]}` \

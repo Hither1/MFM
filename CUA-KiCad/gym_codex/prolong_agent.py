@@ -33,11 +33,11 @@ from typing import Any, Optional
 from gym_codex import prompts_prolong
 from gym_codex.actions import ParsedBatch, parse_batch
 from gym_codex.mfm_prompts import (CONVENTIONS_NOTE, DESIGN_EXISTING, DESIGN_NOTE,
-                                   DESIGN_PROMPT, MFM_MEMORY_NOTE,
-                                   PLAN_QUEUE_NOTE, RECALL_NOTE)
+                                   DESIGN_PROMPT, PLAN_QUEUE_NOTE, RECALL_NOTE,
+                                   SCREEN_MARKER, SCREEN_MARKER_NO_IMAGES, mfm_memory_note)
 from mfm.agent.base import MemoryAgent, Observation, Plan
 from mfm.backend import errors as backend_errors
-from mfm.memory.carry import CarrySink
+from mfm.memory.carry import IMAGE_SUFFIXES, CarrySink
 from mfm.memory.log import install_zoom_tool
 from mfm.memory.store import EpisodeStore
 from prolong_search.codex_backend import CodexTurn
@@ -102,7 +102,9 @@ class ProlongGuiAgent(MemoryAgent):
                  recall: bool = False, log_only: bool = False,
                  carry_outcomes: bool = False,
                  design: bool = False, design_effort: str = "high",
-                 conventions: bool = False, cli: str = "codex") -> None:
+                 conventions: bool = False, cli: str = "codex",
+                 history_images: bool = True, flat_retrieval: bool = False,
+                 consolidation: bool = True) -> None:
         # PRO-LONG (`prolong-logonly`): the record lives beside the workspace the model
         # works in, and `EpisodeLog.publish` takes the model's own files back every
         # turn (mfm/memory/log.py), so the log is the only memory.
@@ -126,6 +128,24 @@ class ProlongGuiAgent(MemoryAgent):
         # The conventions paragraph (`--conventions`): GND symbol on every return, no
         # labels the task does not ask for, designators in the task's order.
         self.conventions = conventions
+        # The MFM ablations (`run_eval.py --no-history-images / --flat-retrieval /
+        # --no-consolidation`), each removing one thing and saying so in the prompt:
+        # no screenshot of an earlier turn or task is kept (the current one is still
+        # attached); no query tool and no [RECALL]/[SEEN BEFORE] push (the rows are still
+        # written); an earlier task's record is carried without the files the model wrote,
+        # `notes/` or the situation table.
+        self.history_images = bool(history_images)
+        self.flat_retrieval = bool(flat_retrieval)
+        self.consolidation = bool(consolidation)
+        self.ablations = (([] if self.history_images else ["no_history_images"])
+                          + (["flat_retrieval"] if self.flat_retrieval else [])
+                          + ([] if self.consolidation else ["no_consolidation"]))
+        if self.ablations and not episodes:
+            raise ValueError("the MFM ablations need the episode store (an mfm arm)")
+        if not self.consolidation and not carry_dir:
+            raise ValueError("consolidation=False ablates what is carried across tasks: "
+                             "it needs an mfm-carry arm")
+        self.image_sweeps = 0
         visible, record = prepare_workspace(Path(workspace), view=log_only)
         log = EpisodeLog(record, attachment_markers=("SCREEN",), attachment_dirs=("frames",),
                          log_only=log_only)
@@ -136,10 +156,13 @@ class ProlongGuiAgent(MemoryAgent):
         # The MFM arm: the episode store beside the log, and (its one deliberate
         # deviation from the log arm's protocol) a
         # multi-batch plan drained one batch per step with the flush rules below.
-        self.store = EpisodeStore(record, recall=recall) if episodes else None
+        self.store = (EpisodeStore(record, recall=recall, tool=not self.flat_retrieval,
+                                   images=self.history_images, push=not self.flat_retrieval)
+                      if episodes else None)
         self.plan_queue = plan_queue
-        note = MFM_MEMORY_NOTE if episodes else ""
-        if episodes and recall:
+        note = (mfm_memory_note(images=self.history_images, flat=self.flat_retrieval)
+                if episodes else "")
+        if episodes and recall and not self.flat_retrieval:
             note += "\n\n" + RECALL_NOTE
         if plan_queue:
             note = (note + "\n\n" if note else "") + PLAN_QUEUE_NOTE.replace("{plan_cap}", str(PLAN_CAP))
@@ -148,7 +171,9 @@ class ProlongGuiAgent(MemoryAgent):
         # records and a persistent notes/ inside this task's workspace. Same material
         # for prolong-carry and mfm-carry; the store is the only difference.
         self.carry = (CarrySink(Path(carry_dir), task_id or Path(workspace).parent.name,
-                                record, outcomes=carry_outcomes) if carry_dir else None)
+                                record, outcomes=carry_outcomes, images=self.history_images,
+                                push=not self.flat_retrieval, consolidation=self.consolidation)
+                      if carry_dir else None)
         if cli == "claude":
             # prolong_search/claude_backend.py: CodexTurn's surface on `claude -p`, with a
             # per-episode config dir beside the workspace. The codex branch below is the
@@ -211,6 +236,8 @@ class ProlongGuiAgent(MemoryAgent):
             self.turn += 1
             step = step_idx + 1
             rel = self.log.save_attachment(f"frames/step_{step:04d}.png", screenshot_png or b"")
+            if not self.history_images:
+                self._sweep_history_images(keep=rel)
             feedback = self._pending_feedback
             self._pending_feedback = None
             title = f"Turn {self.turn} | Step {step}/{max_steps}"
@@ -251,6 +278,11 @@ class ProlongGuiAgent(MemoryAgent):
             out["design"] = self.design_result or {"ok": False, "error": "not run"}
         if self.conventions:
             out["conventions"] = True
+        if getattr(self, "ablations", None):
+            # Only when one is on: the full arm's audit keys do not move.
+            out["ablations"] = list(self.ablations)
+            if not self.history_images:
+                out["history_image_sweeps"] = self.image_sweeps
         return out
 
     def finish(self, reward: Any = None, error: Any = None, **outcome: Any) -> None:
@@ -263,8 +295,26 @@ class ProlongGuiAgent(MemoryAgent):
         return {"id": f"call_{self._call_seq:04d}", "type": "function",
                 "function": {"name": name, "arguments": args}}
 
+    def _sweep_history_images(self, keep: str) -> None:
+        """`history_images=False`: before the model is called, remove every image file in
+        the workspace except this turn's screenshot -- earlier turns' frames, and any
+        crop or copy the model saved. The store and the carry never write one."""
+        roots = {self.visible, self.record_dir}
+        keep_paths = {(r / keep).resolve() for r in roots}
+        gone = 0
+        for root in roots:
+            for p in root.rglob("*"):
+                if (p.suffix.lower() in IMAGE_SUFFIXES and p.is_file()
+                        and p.resolve() not in keep_paths):
+                    p.unlink(missing_ok=True)
+                    gone += 1
+        self.image_sweeps += gone
+
     def system_prompt(self) -> str:
         text = prompts_prolong.build_system_prompt(self.max_steps)
+        if not getattr(self, "history_images", True):
+            assert text.count(SCREEN_MARKER) == 1, "the [SCREEN] marker drifted"
+            text = text.replace(SCREEN_MARKER, SCREEN_MARKER_NO_IMAGES)
         if self.log_only:
             text = _log_only_edit(text, _LOG_ONLY_SYSTEM_EDITS)
         if self.conventions:

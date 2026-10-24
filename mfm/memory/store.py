@@ -69,12 +69,21 @@ class EpisodeStore(MemorySink):
     line with the transition recall of `mfm.memory.recall`. Off, the store is
     byte-identical to what the MCU ladder runs on."""
 
-    def __init__(self, root: Path | str, *, recall: bool = False, tool: bool = True) -> None:
+    def __init__(self, root: Path | str, *, recall: bool = False, tool: bool = True,
+                 images: bool = True, push: bool = True) -> None:
         self.root = Path(root)
         self.recall = recall
-        # `tool=False` (the MCU flat-retrieval ablation): the record is written exactly
-        # as before -- episodes/, index.jsonl, every image -- but `tools/episodes.py` is
-        # not put in the workspace, so the model reaches the same files by text search.
+        # `images=False` (the KiCad "without historical images" ablation): no episode
+        # keeps its observation/image.png and the row's `image` is None; the hashes the
+        # rows carry are still computed from the frame of the moment.
+        self.images = bool(images)
+        # `push=False` (the KiCad "without structured episode retrieval" ablation): the
+        # rows are written as before, but no [RECALL] or [SEEN BEFORE] line reaches a turn.
+        self.push = bool(push)
+        # `tool=False` (the MCU "without structured episode retrieval" ablation): the
+        # record is written exactly as before -- episodes/, index.jsonl, every image --
+        # but `tools/episodes.py` is not put in the workspace, so the model reaches the
+        # same files through ordinary text search only.
         self.tool = bool(tool)
         self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
@@ -197,6 +206,8 @@ class EpisodeStore(MemorySink):
     def turn_note(self, agent: "MemoryAgent", obs: "Observation") -> str | None:
         """Within this task: the earlier turns that faced this exact screen, or (recall
         on) the earlier turns that repeated the previous turn's transition."""
+        if not self.push:
+            return None
         if self.recall:
             prev = self.previous_row(obs)
             rows = [r for r in self.closed if r is not prev]
@@ -269,7 +280,7 @@ class EpisodeStore(MemorySink):
         d = self.dir / ep_id
         (d / "observation").mkdir(parents=True, exist_ok=True)
         (d / "state").mkdir(parents=True, exist_ok=True)
-        if obs.attachment and (self.root / obs.attachment).exists():
+        if self.images and obs.attachment and (self.root / obs.attachment).exists():
             _link(self.root / obs.attachment, d / "observation" / "image.png")
         _write_json(d / "state" / "state.json", state)
         ticks = 1
