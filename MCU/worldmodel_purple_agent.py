@@ -589,8 +589,9 @@ def main() -> None:
     abl.add_argument("--no-history-images", action="store_true",
                      help="without historical images: no episode keeps its "
                           "observation/image.png, image files under the workspace and beside "
-                          "the attached view are swept before every turn, and the hires "
-                          "record is written unreadable. The CURRENT view is still attached "
+                          "the attached view are swept before every turn, the hires record "
+                          "is written unreadable, and the codex thread is stripped of every "
+                          "earlier image before each call. The CURRENT view is still attached "
                           "and tools/zoom.py still crops it")
     abl.add_argument("--flat-retrieval", action="store_true",
                      help="without the episode index tool: the same episodes/, index.jsonl "

@@ -441,6 +441,13 @@ class WorldModelAgent:
         else:
             raise ValueError(f"unknown cli: {cli!r} (codex|claude)")
         self.cli = cli
+        if not self.history_images:
+            # A resumed thread re-sends every frame attached to it and a compaction keeps
+            # dozens: under the ablation the thread is stripped of them before each call.
+            if not hasattr(self.codex, "strip_history_images"):
+                raise ValueError("history_images=False needs --cli codex (the thread is "
+                                 "stripped of its earlier images before every call)")
+            self.codex.strip_history_images = True
         self.episodes: EpisodeBridge | None = (
             EpisodeBridge(self.memory, self.codex, self.ledger, images=self.history_images,
                           tool=not self.flat_retrieval)

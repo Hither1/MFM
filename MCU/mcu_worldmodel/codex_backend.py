@@ -491,6 +491,62 @@ def scan_rollout(path: Path) -> dict[str, int]:
     return out
 
 
+#: What an earlier image becomes in a stripped thread (`strip_history_images`).
+HISTORY_IMAGE_MARKER = "[an earlier view -- no past image is kept in this run]"
+
+
+def _strip_images(o: Any) -> tuple[Any, int]:
+    """`o` with every image replaced by HISTORY_IMAGE_MARKER, and how many there were:
+    an `input_image` content item becomes an `input_text` one, a bare data URL a string."""
+    if isinstance(o, dict):
+        if o.get("type") == "input_image":
+            return {"type": "input_text", "text": HISTORY_IMAGE_MARKER}, 1
+        n, out = 0, {}
+        for k, v in o.items():
+            out[k], m = _strip_images(v)
+            n += m
+        return out, n
+    if isinstance(o, list):
+        n, out = 0, []
+        for v in o:
+            w, m = _strip_images(v)
+            out.append(w)
+            n += m
+        return out, n
+    if isinstance(o, str) and o.startswith("data:image/"):
+        return HISTORY_IMAGE_MARKER, 1
+    return o, 0
+
+
+def strip_rollout_images(path: Path) -> int:
+    """Rewrite a saved codex thread with every image in it replaced by a text marker --
+    the user turns' attachments, view_image results and the recent history a compaction
+    keeps -- and return how many were replaced. `codex exec resume` rebuilds the
+    conversation from this file, so the next call carries no earlier frame: without it,
+    a resumed thread re-sends every prior attachment, and a compaction keeps dozens.
+    Only the images change; every other line is written back byte for byte."""
+    path = Path(path)
+    total, out = 0, []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            if '"input_image"' not in line and "data:image/" not in line:
+                out.append(line)
+                continue
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                out.append(line)
+                continue
+            obj, n = _strip_images(obj)
+            total += n
+            out.append(json.dumps(obj, ensure_ascii=False) + ("\n" if line.endswith("\n") else ""))
+    if total:
+        tmp = path.with_name(path.name + ".strip")
+        tmp.write_text("".join(out), encoding="utf-8")
+        os.replace(tmp, path)
+    return total
+
+
 def find_rollout(codex_home: Path | None, workspace: Path, session_id: str | None) -> Path | None:
     """The rollout file for this session, under whichever home the wrapper gave codex.
 
@@ -686,6 +742,13 @@ class CodexTurn:
         # arm is no longer "PRO-LONG memory + a cold start on overflow" and cannot be
         # averaged with the runs that were.
         self.compactions = 0
+        #: `strip_history_images` (the mfm arm's --no-history-images, set by the agent):
+        #: before a resumed call, every image the saved thread holds is replaced by a
+        #: text marker (strip_rollout_images), so the model's context carries the frame
+        #: attached to THIS call and no earlier one.
+        self.strip_history_images = False
+        self.history_images_stripped = 0
+        self.strip_resets = 0
 
     def _discard_session(self, why: str, counter: str) -> None:
         """Drop the thread rather than retry into it -- the baseline's stance for every
@@ -701,6 +764,20 @@ class CodexTurn:
         # The next call cold-starts, so the thread stops carrying its old frames.
         self.session_attachment_bytes = 0
         setattr(self, counter, getattr(self, counter) + 1)
+
+    def _strip_history(self) -> None:
+        """Take every earlier image out of the thread about to be resumed. A thread whose
+        saved file cannot be found would resume with its frames: it is dropped instead,
+        and the call cold-starts."""
+        path = find_rollout(self.codex_home, self.workspace, self.session_id)
+        if path is None:
+            self._discard_session("no saved thread to strip of its images", "strip_resets")
+            return
+        n = strip_rollout_images(path)
+        self.history_images_stripped += n
+        self.session_attachment_bytes = 0
+        if n:
+            logger.info(f"[codex] turn {self.calls}: {n} earlier image(s) taken out of the thread")
 
     def write_system_prompt(self, text: str) -> None:
         """Upstream puts the system prompt in AGENTS.md, which Codex discovers from
@@ -809,6 +886,8 @@ class CodexTurn:
                 f"reached {self.session_turns} turns, cap {self.session_max_turns}",
                 "age_resets",
             )
+        if self.session_id and self.strip_history_images:
+            self._strip_history()
         for stale in TURN_ARTEFACTS:
             (self.workspace / stale).unlink(missing_ok=True)
 
@@ -1128,6 +1207,8 @@ class CodexTurn:
             "age_resets": self.age_resets,
             "timeout_resets": self.timeout_resets,
             "empty_resets": self.empty_resets,
+            **({"history_images_stripped": self.history_images_stripped,
+                "strip_resets": self.strip_resets} if self.strip_history_images else {}),
         }
 
     @staticmethod

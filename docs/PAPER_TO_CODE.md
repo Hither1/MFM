@@ -76,8 +76,9 @@ never edits those files and never rewrites the episodic record.
 
 1. **Two of Table 4's four ablations are in this release, on Minecraft only.**
    `--no-history-images` (no frame of an earlier moment: no episode image, saved images
-   swept before every turn, the hires record unreadable; the current view is still
-   attached) and `--flat-retrieval` (the same `episodes/`, `index.jsonl` and frames,
+   swept before every turn, the hires record unreadable, and the codex thread stripped of
+   every earlier attachment before each call -- a resumed thread otherwise re-sends them
+   all; the current view is still attached) and `--flat-retrieval` (the same `episodes/`, `index.jsonl` and frames,
    without `tools/episodes.py`) are flags of `--memory mfm` for a life from scratch;
    with both off the arm is the full method, byte for byte, and both together give
    the indexing x visual-evidence 2x2 (`MCU/mcu_worldmodel/agent.py`, `episodes.py`,
