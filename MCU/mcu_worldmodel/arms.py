@@ -14,8 +14,7 @@ are off for all of them.
     mfm-matched  Multimodal Filesystem Memory on the baselines' contract: the log, one
                  episode per plan entry (frame, state, action, outcome), the index
                  and its query tool,
-                 the frame tools, the [RECALL] block and the carried lives under
-                 `previous/`
+                 the frame tools and the carried lives under `previous/`
     mfm          the same memory, and the agent builds its own harness: its own `mine/`
                  (notes, working memory, procedures, reflexes), the skill package, the
                  contract rewritten around them
@@ -35,7 +34,6 @@ SHARED: dict[str, Any] = dict(
 MFM_MEMORY: dict[str, Any] = dict(
     expect=True,              # the EXPECT line, echoed next turn against the record
     frames=True,              # tools/zoom.py
-    retrieval=True,           # the [RECALL] block in the turn prompt
     event_sheet=False,        # the current view alone is attached
 )
 

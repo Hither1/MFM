@@ -167,8 +167,6 @@ function TURN_PROMPT(o, s)                            # only what changed; the c
                    moved, descended, inv Δ, events, note, frame path
         "Begin your briefing `OBSERVED vs EXPECTED: ...`; end it `EXPECT: ...`"
         [WORKING] mine/working.md (first 1500 chars)
-        [RECALL]  plan stalls, atom streaks, repeated notes, here-before: computed by
-                  the harness from index.jsonl, absent when there is nothing to recall
         "Your memory is ./logs.txt; ./tools/episodes.py queries the episodes;
          view_image opens a frame. The current view is attached. Write ./actions.json."
     return head + body

@@ -24,7 +24,6 @@ mfm/                    the method, benchmark-neutral
   memory/store.py         the episode store and index.jsonl
   memory/tools/           episodes.py (query the index), zoom.py (magnify a frame):
                           copied into every MFM workspace, run by the model
-  memory/retrieve.py      the [RECALL] block computed from the index
   memory/recall.py        situation and action keys, screen hashes
   memory/carry.py         the finished tasks' records carried into the next task
   memory/consolidate.py   the situation table folded from the carried index

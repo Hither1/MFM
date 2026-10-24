@@ -32,10 +32,9 @@ The harness-written files are immutable for the model: a turn that shrinks `logs
 | Magnifying a region | `mfm/memory/tools/zoom.py`, in `W` as `./tools/zoom.py` |
 | The question kept with the lookup | `--q "<question>"` is printed back into the tool output, which the turn transcript keeps |
 
-Beside the search the model starts, the harness computes a `[RECALL]` block from the
-index and puts it in the turn prompt when there is something to report: repeated plans,
-runs of an action that changed nothing, what happened at this place before
-(`mfm/memory/retrieve.py` `recall_block`; on KiCad `mfm/memory/recall.py`).
+On Minecraft the search is the model's alone: the harness pushes nothing from the index
+into the turn prompt. On KiCad the harness also computes a `[RECALL]` block from the index
+when the last turn's situation and action occurred before (`mfm/memory/recall.py`).
 
 ## Section 3.4: consolidation
 

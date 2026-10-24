@@ -205,9 +205,6 @@ class WorldModelAgent:
         # backend's environment fallback (the offline tests).
         session_max_turns: int | None = None,
         codex_timeout: int | None = None,
-        # The mfm arm's retrieval block in the turn prompt. Only the mfm mode has a
-        # store to compute it from.
-        retrieval: bool = False,
         # The vista arm's knobs (mcu_worldmodel/vista.py: thread_bytes, frame_every,
         # idle_timeout, close_timeout, codex_bin); None keeps its defaults.
         vista_options: dict[str, Any] | None = None,
@@ -273,8 +270,6 @@ class WorldModelAgent:
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
-        if retrieval and memory_mode != "mfm":
-            raise ValueError("retrieval needs memory_mode='mfm'")
         if previous_lives and memory_mode != "mfm":
             raise ValueError("previous_lives needs memory_mode='mfm'")
         if carried_world not in ("same", "other"):
@@ -373,7 +368,6 @@ class WorldModelAgent:
         self._own_reflex_prev: dict[str, Any] | None = None
         self._last_expect: str | None = None
         self._turn_outcomes: list[dict[str, Any]] = []
-        self.retrieval = bool(retrieval)
         self.task_text = task_text
         self.ledger = ledger
         self.entry_cap, self.repeat_cap, self.step_cap = entry_cap, repeat_cap, step_cap
@@ -468,7 +462,7 @@ class WorldModelAgent:
             raise ValueError(f"unknown cli: {cli!r} (codex|claude)")
         self.cli = cli
         self.episodes: EpisodeBridge | None = (
-            EpisodeBridge(self.memory, self.codex, self.ledger, retrieval=self.retrieval)
+            EpisodeBridge(self.memory, self.codex, self.ledger)
             if memory_mode == "mfm" else None)
         if self.episodes is not None and previous_lives:
             self.episodes.seed_previous(list(previous_lives))
@@ -770,7 +764,6 @@ class WorldModelAgent:
             memory_mode=self.memory_mode,
             task_family=prompts.task_family(self.ledger.cfg),
             scored_by_milestones=bool(self.ledger.cfg),
-            retrieval=self.retrieval,
             previous=(bool(self.episodes is not None and self.episodes.previous is not None)
                       or (self.memory_mode == "logbook"
                           and (self.memory.root / "previous_expedition_log.txt").exists())),
@@ -5035,12 +5028,9 @@ class WorldModelAgent:
                 '{"actions": [...]} -- the LAST fenced JSON block is executed.'
             )
         if self.memory_mode in ("logbook", "mfm"):
-            # The retrieval block (mfm arm, `--retrieval` only): between the present
-            # and the pointer to the log, absent when there is nothing to recall.
-            recall = self.episodes.recall(info) if self.episodes else ""
             expect = self._expect_block() if self.expect else ""
             working = self._working_block()
-            return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (recall + "\n\n" if recall else "") + (
+            return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
                 "Your memory is `./logs.txt` -- grep it for anything before this call: "
                 "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
                 + ("`./tools/episodes.py` queries the same history as episodes, by step, "
