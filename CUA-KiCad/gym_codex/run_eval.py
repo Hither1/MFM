@@ -202,6 +202,8 @@ def _ablation_kw(args) -> dict:
         kw["flat_retrieval"] = True
     if getattr(args, "no_consolidation", False):
         kw["consolidation"] = False
+    if getattr(args, "no_recall", False):
+        kw["recall_push"] = False
     return kw
 
 
@@ -494,6 +496,10 @@ async def main() -> int:
                           "carried as the harness's record only (log, episodes, index, "
                           "screenshots) -- no notes/ across tasks, no situation table, none "
                           "of the files the model wrote")
+    abl.add_argument("--no-recall", action="store_true",
+                     help="without the [RECALL] block: no earlier turn is pushed into a turn "
+                          "prompt, within or across tasks; the query tool, the situation table "
+                          "and the index are unchanged")
     p.add_argument("--cli", choices=("codex", "claude"), default="codex",
                    help="which CLI carries the model: codex "
                         "(default), or claude -- Anthropic models through Claude Code "
@@ -533,6 +539,9 @@ async def main() -> int:
                 "the mfm arms")
     if args.no_consolidation and args.agent != "mfm-carry":
         p.error("--no-consolidation ablates what is carried across tasks: it needs mfm-carry")
+    if args.no_recall and args.flat_retrieval:
+        p.error("--flat-retrieval already removes the [RECALL] block; --no-recall is the "
+                "block alone")
     logger.info("env=%s budget=%d steps", args.env_id, args.max_steps)
 
     import lite.gym as gym  # after sbatch has set up PATH/PODMAN_* for the shim
@@ -594,7 +603,8 @@ async def main() -> int:
     if _ablation_kw(args):
         summary["ablations"] = [n for f, n in (("no_history_images", "no_history_images"),
                                                ("flat_retrieval", "flat_retrieval"),
-                                               ("no_consolidation", "no_consolidation"))
+                                               ("no_consolidation", "no_consolidation"),
+                                               ("no_recall", "no_recall"))
                                 if getattr(args, f)]
     options = ARMS.get(args.agent, {})
     if options:

@@ -83,6 +83,11 @@ perception and action, what followed, and the step after that. It is your own hi
 retrieved for this moment; if the chain matches what you intend, queue its steps as \
 one plan."""
 
+#: RECALL_NOTE under `run_eval.py --no-recall`: the index fields it describes, without the
+#: block (the rows are written and the query tool reads them as before).
+RECALL_NOTE_NO_PUSH = RECALL_NOTE.split(" When the situation", 1)[0]
+assert RECALL_NOTE_NO_PUSH.endswith("a perceptual hash of its frame.")
+
 
 CONVENTIONS_NOTE = """\
 Schematic conventions the netlist comparison is sensitive to:

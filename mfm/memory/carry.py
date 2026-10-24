@@ -258,7 +258,7 @@ def seed_previous(prev_dir: Path, records: "list[CarriedRecord]", *,
 class CarrySink(MemorySink):
     def __init__(self, root: Path | str, task_id: str, record_dir: Path | str,
                  outcomes: bool = False, images: bool = True, push: bool = True,
-                 consolidation: bool = True) -> None:
+                 consolidation: bool = True, tool: bool | None = None) -> None:
         self.root = Path(root)
         self.task_id = str(task_id)
         self.record = Path(record_dir)
@@ -273,6 +273,9 @@ class CarrySink(MemorySink):
         # the harness's record of an earlier task (_RECORD_ONLY), no `notes/` and no
         # situation table.
         self.images, self.push, self.consolidation = bool(images), bool(push), bool(consolidation)
+        # Whether the store's query tool is there (the note on the carried index names
+        # it); by default the push and the tool go together, as flat retrieval removes both.
+        self.tool = self.push if tool is None else bool(tool)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "notes").mkdir(exist_ok=True)
         self.manifest_path = self.root / "manifest.json"
@@ -307,7 +310,7 @@ class CarrySink(MemorySink):
             note += "\n\n" + carry_outcomes_note(consolidation=self.consolidation)
         store = self._store(agent)
         if store is not None:
-            note += "\n\n" + (CARRY_STORE_NOTE if self.push else CARRY_STORE_NOTE_FLAT)
+            note += "\n\n" + (CARRY_STORE_NOTE if self.tool else CARRY_STORE_NOTE_FLAT)
             if store.recall:
                 recall = carry_recall_note(push=self.push, consolidation=self.consolidation)
                 if recall:
@@ -453,7 +456,7 @@ class CarrySink(MemorySink):
             # outcomes must not move (tests/test_carry.py pins them).
             out["outcomes"] = True
         ablations = ([] if self.images else ["no_history_images"]) \
-            + ([] if self.push else ["flat_retrieval"]) \
+            + ([] if self.push else ["flat_retrieval" if not self.tool else "no_recall"]) \
             + ([] if self.consolidation else ["no_consolidation"])
         if ablations:
             out["ablations"] = ablations

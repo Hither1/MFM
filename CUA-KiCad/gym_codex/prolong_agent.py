@@ -34,6 +34,7 @@ from gym_codex import prompts_prolong
 from gym_codex.actions import ParsedBatch, parse_batch
 from gym_codex.mfm_prompts import (CONVENTIONS_NOTE, DESIGN_EXISTING, DESIGN_NOTE,
                                    DESIGN_PROMPT, PLAN_QUEUE_NOTE, RECALL_NOTE,
+                                   RECALL_NOTE_NO_PUSH,
                                    SCREEN_MARKER, SCREEN_MARKER_NO_IMAGES, mfm_memory_note)
 from mfm.agent.base import MemoryAgent, Observation, Plan
 from mfm.backend import errors as backend_errors
@@ -104,7 +105,7 @@ class ProlongGuiAgent(MemoryAgent):
                  design: bool = False, design_effort: str = "high",
                  conventions: bool = False, cli: str = "codex",
                  history_images: bool = True, flat_retrieval: bool = False,
-                 consolidation: bool = True) -> None:
+                 consolidation: bool = True, recall_push: bool = True) -> None:
         # PRO-LONG (`prolong-logonly`): the record lives beside the workspace the model
         # works in, and `EpisodeLog.publish` takes the model's own files back every
         # turn (mfm/memory/log.py), so the log is the only memory.
@@ -133,15 +134,21 @@ class ProlongGuiAgent(MemoryAgent):
         # no screenshot of an earlier turn or task is kept (the current one is still
         # attached); no query tool and no [RECALL]/[SEEN BEFORE] push (the rows are still
         # written); an earlier task's record is carried without the files the model wrote,
-        # `notes/` or the situation table.
+        # `notes/` or the situation table. `--no-recall` removes the [RECALL] push alone:
+        # the query tool, the situation table and every row stay.
         self.history_images = bool(history_images)
         self.flat_retrieval = bool(flat_retrieval)
         self.consolidation = bool(consolidation)
+        self.recall_push = bool(recall_push)
         self.ablations = (([] if self.history_images else ["no_history_images"])
                           + (["flat_retrieval"] if self.flat_retrieval else [])
-                          + ([] if self.consolidation else ["no_consolidation"]))
+                          + ([] if self.consolidation else ["no_consolidation"])
+                          + ([] if self.recall_push else ["no_recall"]))
         if self.ablations and not episodes:
             raise ValueError("the MFM ablations need the episode store (an mfm arm)")
+        if not self.recall_push and (self.flat_retrieval or not recall):
+            raise ValueError("recall_push=False removes the [RECALL] block: it needs an arm "
+                             "with recall on, and flat retrieval removes the block already")
         if not self.consolidation and not carry_dir:
             raise ValueError("consolidation=False ablates what is carried across tasks: "
                              "it needs an mfm-carry arm")
@@ -156,14 +163,15 @@ class ProlongGuiAgent(MemoryAgent):
         # The MFM arm: the episode store beside the log, and (its one deliberate
         # deviation from the log arm's protocol) a
         # multi-batch plan drained one batch per step with the flush rules below.
+        push = not self.flat_retrieval and self.recall_push
         self.store = (EpisodeStore(record, recall=recall, tool=not self.flat_retrieval,
-                                   images=self.history_images, push=not self.flat_retrieval)
+                                   images=self.history_images, push=push)
                       if episodes else None)
         self.plan_queue = plan_queue
         note = (mfm_memory_note(images=self.history_images, flat=self.flat_retrieval)
                 if episodes else "")
         if episodes and recall and not self.flat_retrieval:
-            note += "\n\n" + RECALL_NOTE
+            note += "\n\n" + (RECALL_NOTE if self.recall_push else RECALL_NOTE_NO_PUSH)
         if plan_queue:
             note = (note + "\n\n" if note else "") + PLAN_QUEUE_NOTE.replace("{plan_cap}", str(PLAN_CAP))
         self.mfm_memory_note = note or None
@@ -172,7 +180,8 @@ class ProlongGuiAgent(MemoryAgent):
         # for prolong-carry and mfm-carry; the store is the only difference.
         self.carry = (CarrySink(Path(carry_dir), task_id or Path(workspace).parent.name,
                                 record, outcomes=carry_outcomes, images=self.history_images,
-                                push=not self.flat_retrieval, consolidation=self.consolidation)
+                                push=push, tool=not self.flat_retrieval,
+                                consolidation=self.consolidation)
                       if carry_dir else None)
         if cli == "claude":
             # prolong_search/claude_backend.py: CodexTurn's surface on `claude -p`, with a
