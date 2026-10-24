@@ -32,8 +32,10 @@ The harness-written files are immutable for the model: a turn that shrinks `logs
 | Magnifying a region | `mfm/memory/tools/zoom.py`, in `W` as `./tools/zoom.py` |
 | The question kept with the lookup | `--q "<question>"` is printed back into the tool output, which the turn transcript keeps |
 
-On Minecraft the search is the model's alone: the harness pushes nothing from the index
-into the turn prompt. On KiCad the harness also computes a `[RECALL]` block from the index
+On Minecraft the search is the model's alone: the harness computes no recall from the
+index. What the turn prompt does carry from the record is the recent past -- `[RECENT]`,
+the last six finished entries, and `[OBSERVED]`, the last plan's entries with the frame
+each started from (difference 2). On KiCad the harness also computes a `[RECALL]` block from the index
 when the last turn's situation and action occurred before (`mfm/memory/recall.py`).
 
 ## Section 3.4: consolidation
@@ -95,6 +97,13 @@ never edits those files and never rewrites the episodic record.
      `logbook` and `mfm` read the longer rules under `references/`; `direct` and `vista`
      have no file access, so their contract carries the GUI facts and the recipe list,
      and the GUI, skills and survival references are left out for them.
+   - The turn message: every arm gets the state, the inventory and the milestone
+     ledger. The two MFM arms also get `[RECENT]` (the last six finished entries, from
+     the record), `[MAP]` (the cells this life walked, its hazards and water) and
+     `[EXPECTED]`/`[OBSERVED]` (last turn's EXPECT line against what the harness
+     recorded, with each entry's frame); `mfm` also gets `[WORKING]`, the head of its
+     `mine/working.md`. `logbook` reads its past from `logs.txt` alone, and `vista`
+     from its own thread and `inspect` (`MCU/mcu_worldmodel/agent.py` `_turn_message`).
    - `mfm` alone has the skill package and its own procedures and reflexes; the
      reflexes it copies or writes act on every fourth tick, and no other arm has a
      tick layer.

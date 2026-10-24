@@ -1206,6 +1206,13 @@ _NO_PRIMITIVES_VISTA = (
     _NO_PRIMITIVES_KEPT_SHORT,
     ("a procedure that\n  stopped early says why there,", "an entry cut short\n  says why there,"),
 )
+#: The logbook and vista turns carry no [OBSERVED] and no [MAP] (both are the MFM arms'
+#: own, agent._turn_message): the Verify step names what those arms do read.
+_NO_HARNESS_BLOCKS = (
+    ("read what the last plan did from [OBSERVED], [INV], [EVENT] and the view",
+     "read what the last plan did from [INV], [EVENT] and the view"),
+    ("reachable space (`[MAP]`, the view)", "reachable space (the view)"),
+)
 #: The two vista edits whose text exists only in the one-entry contract.
 _NO_PRIMITIVES_ONE_ENTRY_ONLY = frozenset({
     _NO_PRIMITIVES_VISTA[1][0], _NO_PRIMITIVES_VISTA[2][0]})
@@ -1243,6 +1250,8 @@ def no_primitives_thin(contract: str, memory_mode: str, vista_plan: bool = False
                   if not (vista_plan and e[0] in _NO_PRIMITIVES_ONE_ENTRY_ONLY)]
     elif memory_mode == "direct":
         edits.append(_NO_PRIMITIVES_KEPT_SHORT)
+    if memory_mode in ("logbook", "vista"):
+        edits += list(_NO_HARNESS_BLOCKS)
     for old, new in edits:
         if old not in contract:
             raise ValueError(f"no-primitives: the {memory_mode} contract drifted: {old[:60]!r}")

@@ -92,7 +92,9 @@ guards (the lava stop, the pillar on a hit, the refusal of a repeated plan) are 
 every arm, and each contract says so.
 
 The two MFM arms have the same memory (the log, the episodes with their frames, the
-index and its query tool, the carried lives) and differ in the harness around it:
+index and its query tool, the carried lives, and the `[RECENT]`, `[MAP]` and
+`[OBSERVED]` blocks of the turn message, which `logbook` and `vista` do not get) and
+differ in the harness around it:
 
 - `mfm` is the arm of the paper's tables. The model writes its own procedures and
   reflexes under `mine/` and has the skill package.

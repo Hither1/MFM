@@ -3513,13 +3513,16 @@ class WorldModelAgent:
             f"{(self._grid_line() + chr(10)) if self._grid_line() else ''}\n"
         )
         head = budget_part + stall_part + state_part
-        if self.memory_mode != "direct":
+        if self.memory_mode == "mfm":
+            # [RECENT] and [MAP] are the MFM arms' (mfm, mfm-matched); the logbook arm
+            # reads its past from logs.txt alone
             recent = self._recent_block()
             map_block = self.grid.summary(pos, self.step)
             head += ((recent + "\n\n") if recent else "") + (
                 "[MAP] what the runner knows for certain from this life's own positions "
                 "and events (exact unless marked a sighting):\n" + map_block + "\n\n"
                 if map_block else "")
+        if self.memory_mode != "direct":
             if self.own:
                 self._scan_own()
                 own_block = _own.index_block(self._own_procs, self._own_calls,
