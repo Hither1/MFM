@@ -89,13 +89,8 @@ class WorldModelExecutor(AgentExecutor):
         carried_world: str = "same",
         install_carried: bool = False,
         install_scripts: list[str] | None = None,
-        grant: list[str] | None = None,
-        withhold: list[str] | None = None,
-        endgame_recipes: bool = False,
         start_dimension: str | None = None,
-        own_live: bool = False,
         near_deaths: bool = False,
-        primitives: bool = True,
         vista_aligned: bool = False,
         model_step_budget: int | None = None,
         turn_budget: int | None = None,
@@ -120,11 +115,8 @@ class WorldModelExecutor(AgentExecutor):
         self.carried_world = carried_world
         self.install_carried = install_carried
         self.install_scripts = install_scripts
-        self.grant, self.withhold = list(grant or []), list(withhold or [])
-        self.endgame_recipes, self.start_dimension = bool(endgame_recipes), start_dimension
-        self.own_live = bool(own_live)
+        self.start_dimension = start_dimension
         self.near_deaths = bool(near_deaths)
-        self.primitives = bool(primitives)
         self.vista_aligned = bool(vista_aligned)
         self.model_step_budget = model_step_budget
         self.turn_budget = turn_budget
@@ -229,14 +221,8 @@ class WorldModelExecutor(AgentExecutor):
             # only passed when on, so an arm without it calls the agent as before
             **({"install_carried": True} if self.install_carried else {}),
             **({"install_scripts": list(self.install_scripts)} if self.install_scripts else {}),
-            # the endgame skill probes' row options, only passed when set
-            **({"grant": list(self.grant)} if self.grant else {}),
-            **({"withhold": list(self.withhold)} if self.withhold else {}),
-            **({"endgame_recipes": True} if self.endgame_recipes else {}),
             **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
-            **({"own_live": True} if self.own_live else {}),
             **({"near_deaths": True} if self.near_deaths else {}),
-            **({"primitives": False} if not self.primitives else {}),
             **({"vista_aligned": True} if self.vista_aligned else {}),
             **({"model_step_budget": self.model_step_budget}
                if self.model_step_budget is not None else {}),
@@ -560,45 +546,17 @@ def main() -> None:
                        help="logbook: the logs.txt of an earlier life; copied beside this "
                             "life's log as previous_expedition_log.txt")
 
-    probe = parser.add_argument_group("the endgame skill probes (slurm/skill_reuse3.sbatch)")
-    probe.add_argument("--grant", type=str, action="append", default=None,
-                       help="procedure names, comma-separated (repeatable), ADDED to the arm's "
-                            "set: a row is the shipped arm (the atoms) plus these macros")
-    probe.add_argument("--withhold", type=str, action="append", default=None,
-                       help="procedure names taken OUT of the arm's set; a call answers with "
-                            "a note")
-    probe.add_argument("--endgame-recipes", action="store_true",
-                       help="write the chain's doctrine past the iron pickaxe (blazes, "
-                            "endermen, the eye, the stronghold, the End, the dragon) as "
-                            "references/endgame.md, headed by which macros it names are "
-                            "built in for this row")
-    probe.add_argument("--start-dimension", choices=("overworld", "nether", "end"), default=None,
-                       help="where the task config puts the avatar at reset (the engine's "
-                            "biome id cannot tell); end_stone_tail and dragon_tail start "
-                            "in the End")
-
-    live = parser.add_argument_group("the model's own scripts")
-    live.add_argument("--own-live", action="store_true",
-                      help="mfm: a script under mine/procedures/ that declares LOOP = True is "
-                           "a closed loop -- run during the plan, each time the actions it "
-                           "returned have finished, on the live state and a PNG of the live "
-                           "view -- and the model's reflexes get that PNG too. Off (default): "
-                           "its scripts see the numbers of the turn only")
-
+    live = parser.add_argument_group("the life")
+    live.add_argument("--start-dimension", choices=("overworld", "nether", "end"), default=None,
+                      help="where the task config puts the avatar at reset (the engine's "
+                           "biome id cannot tell); end_stone_tail and dragon_tail start "
+                           "in the End")
     live.add_argument("--near-deaths", action="store_true",
                       help="name a death whose respawn is close to where it happened: the "
                            "YOU DIED note is otherwise written only for a respawn 15+ blocks "
                            "away, and a death at the spawn (a fight there, a fall onto it) "
                            "passes unnamed with the plan still running. Any memory mode. "
                            "Off (default): the shipped rule")
-    live.add_argument("--no-primitives", action="store_true",
-                      help="no hand-written skill of any grain -- the procedure set is "
-                           "empty (not even the atoms) and the runner's wall watcher is off. "
-                           "mfm: skills/ ships no procedure or reflex example, and the model "
-                           "acts through the raw keys and the procedures, closed loops and "
-                           "reflexes it writes itself (needs --own-live). logbook, vista: "
-                           "every entry is a raw action")
-
     live.add_argument("--model-step-budget", type=int, default=None,
                       help="model steps for the life, in every arm the same unit: every tool "
                            "call the model makes and every turn it ends with its answer. "
@@ -637,16 +595,6 @@ def main() -> None:
     if args.install_scripts and (args.seed_memory or args.memory != "mfm"):
         parser.error("--install-scripts installs scripts without carrying the lives: it needs "
                      "--memory mfm and no --seed-memory (with one, use --install-carried)")
-    if args.own_live and args.memory != "mfm":
-        parser.error("--own-live gives the model's own scripts the live view: it needs "
-                     "--memory mfm")
-    if args.no_primitives and args.memory not in ("logbook", "vista", "mfm"):
-        parser.error("--no-primitives: --memory logbook, vista or mfm")
-    if args.no_primitives and args.memory == "mfm" and not args.own_live:
-        parser.error("--no-primitives leaves the model's own scripts as its only skills: it "
-                     "needs --own-live")
-    if args.no_primitives and (args.grant or args.withhold or args.endgame_recipes):
-        parser.error("--no-primitives: there is nothing to grant or withhold")
     if args.vista_aligned and args.memory != "vista":
         parser.error("--vista-aligned needs --memory vista")
     if args.model_step_budget is not None and (args.cli != "codex" or args.model_step_budget < 1):
@@ -667,7 +615,6 @@ def main() -> None:
     session_turns = (SESSION_TURNS[args.memory] if args.session_turns is None
                      else args.session_turns)
 
-    names = lambda vals: [n.strip() for v in (vals or []) for n in v.split(",") if n.strip()]  # noqa: E731
     executor = WorldModelExecutor(
         workspace_root=Path(args.workspace),
         model=args.model,
@@ -685,10 +632,7 @@ def main() -> None:
         carried_world=args.carried_world,
         install_carried=args.install_carried,
         install_scripts=args.install_scripts,
-        grant=names(args.grant) or None, withhold=names(args.withhold) or None,
-        endgame_recipes=args.endgame_recipes, start_dimension=args.start_dimension,
-        own_live=args.own_live, near_deaths=args.near_deaths,
-        primitives=not args.no_primitives,
+        start_dimension=args.start_dimension, near_deaths=args.near_deaths,
         vista_aligned=args.vista_aligned,
         model_step_budget=args.model_step_budget,
         turn_budget=args.turn_budget,

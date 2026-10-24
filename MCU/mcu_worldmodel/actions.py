@@ -1,14 +1,14 @@
 """Parse and validate the `actions.json` one turn produces.
 
-Two entry shapes, because the agent works at two levels:
+Two entry shapes:
 
     {"action": {"forward": 1}, "repeat": 20}          a raw action, held N ticks
-    {"procedure": "dig_down", "args": {"n": 40}}      a named macro from procedures.py
+    {"procedure": "tunnel", "args": {"n": 40}}        one of the model's own scripts
+                                                      (mine/procedures/tunnel.py, own.py)
 
-The raw form is MineExplorer's `prolong_mc/actions.py` contract unchanged. The procedure
-form is what makes crafting expressible at all (see procedures.py) and what lets one turn
-cover a few hundred ticks instead of forty -- which is the difference between 12,000 steps
-costing 300 model turns and costing 3,000.
+The raw form is MineExplorer's `prolong_mc/actions.py` contract unchanged. A script's
+plan is parsed here with the same caps and is raw actions too; a procedure name that is
+not one of the model's own is refused with a [NOTE] (there is no built-in procedure).
 
 Validation is deliberately lenient about *entries* and strict about *keys*: an
 unrecognised key is dropped with a warning and the rest of the entry still runs, because
@@ -148,8 +148,8 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                   _depth: int = 0) -> ActionPlan:
     """Return the validated plan. An empty plan means the turn produced nothing usable.
 
-    `own_names` / `own_expand` (mcu_worldmodel/own.py, `--own`): a procedure name that is
-    not a built-in but one of the model's own scripts is run through `own_expand`, and
+    `own_names` / `own_expand` (mcu_worldmodel/own.py, `own`): a procedure name that is
+    one of the model's own scripts is run through `own_expand`, and
     the plan text it returns is parsed HERE with the same caps, the remaining tick room
     as its step cap, and `_depth` 1 -- an own procedure cannot call another. Its notes
     come back prefixed with its name; it is one kept entry (`own: True`) worth as many
@@ -157,21 +157,17 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
 
     The caps are much larger than MineExplorer's (15/20/40). They have to be: these
     episodes are 6,000-12,000 steps against that repo's 300, and a 40-step ceiling would
-    mean 300 model turns for the diamond task before any thinking time at all. A single
-    `strip_mine` procedure is worth ~100 ticks on its own.
+    mean 300 model turns for the diamond task before any thinking time at all.
 
-    `entry_cap` is 40 rather than 20 because an absolute cursor makes a whole recipe one
-    plan: opening a screen, picking up a stack, right-clicking it into six cells, putting
-    the remainder back, taking the output and closing costs ~21 entries. At 20 the plan
-    would be truncated exactly halfway through a craft -- with the ingredients in the grid
-    and the screen still open, which is the most expensive state to be left in.
+    `entry_cap` is 40 rather than 20 because a whole recipe is one plan: opening a
+    screen, picking up a stack, right-clicking it into six cells, putting the remainder
+    back, taking the output and closing costs ~21 entries. At 20 the plan would be
+    truncated exactly halfway through a craft -- with the ingredients in the grid and the
+    screen still open, which is the most expensive state to be left in.
 
-    `cursor` is a *projection* of the harness's `CursorState`, advanced as the plan is
-    parsed so that an absolute cursor address late in a plan is computed from where the
-    earlier entries will have left the cursor. Raw entries advance it too: a plan that
-    hand-rolls a `camera` delta and then calls `cursor_to_slot` would otherwise address
-    the slot from a stale position, which is exactly the drift the absolute form exists
-    to remove.
+    `cursor` is a *projection* of the harness's `CursorState`, advanced by every raw
+    entry as the plan is parsed (the [CURSOR] line the next turn shows is the real one,
+    advanced tick by tick).
     """
     notes: list[str] = []
     try:
@@ -207,7 +203,7 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
             if not isinstance(args, dict):
                 notes.append(f"`args` for {name!r} must be an object; ignored")
                 args = {}
-            if name not in P.REGISTRY and name in own_names:
+            if name in own_names:
                 if _depth > 0:
                     notes.append(f"{name}: an own procedure cannot call another own "
                                  f"procedure; `{name}` skipped")
@@ -249,8 +245,8 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                     notes.append(f"{name}: its plan had nothing to run")
                     continue
                 cost = sum(max(0, int(x.get("_cost", 1))) for x in sub.steps)
-                # `atoms`: the built-ins the script's plan ran, in order, with their
-                # queue items -- what lets a reflex see the atom running INSIDE the
+                # `atoms`: the entries the script's plan ran, in order, with their
+                # queue items -- what lets a reflex see the step running INSIDE the
                 # call (agent._own_reflex_state), not just the script's name.
                 atoms = [[e.get("procedure", "raw"),
                           e.get("items", e["steps"]) if "procedure" in e else e["repeat"]]
@@ -261,67 +257,8 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                 steps.extend(sub.steps)
                 used += cost
                 continue
-            expanded, note = P.expand(name, info=info, cursor=cursor, **args)
-            if (not expanded and note and kept and name in P.DEFERRABLE
-                    and "bad arguments" not in note):
-                # Refused against the state NOW, but earlier entries of this plan run
-                # first and may supply what is missing (logs from a harvest, the table
-                # screen from use_until_gui). Queue it to expand when its turn comes.
-                expanded = [{"_later": {"name": name, "args": dict(args), "why": note},
-                             "_cost": 1}]
-                note = (f"{name} will expand when its turn comes, after the entries "
-                        f"before it; as things stand it would be refused: {note}")
-            if note:
-                # A procedure's own note -- "cannot craft stone_pickaxe: need 3x
-                # cobblestone, have 1" -- is the most useful thing the turn produces when
-                # it produces nothing else, so it reaches the log either way.
-                notes.append(note)
-            if not expanded:
-                continue
-            cut: list[dict[str, Any]] = []
-            cost = 0
-            for s in expanded:
-                c = max(0, int(s.get("_cost", 1)))
-                if cost + c > room:
-                    shrunk = P.shrink_marker(s, room - cost)
-                    if shrunk is not None:
-                        cut.append(shrunk)
-                        cost += int(shrunk["_cost"])
-                        notes.append(f"procedure {name!r} shrunk to fit the step cap: "
-                                     f"{c} -> {shrunk['_cost']} ticks (the plan's "
-                                     f"{step_cap}-tick budget; call it again to continue)")
-                    elif name in P.RESUMABLE and cut:
-                        # A build that resumes (a filled cell is skipped next call) keeps
-                        # what fits: build_portal_frame's 870 ticks were meant to run as
-                        # two calls, and the all-or-nothing rule below dropped it whole
-                        # (a staged scene: "NOT STARTED: it needs 870 ticks").
-                        need = sum(max(0, int(x.get("_cost", 1))) for x in expanded)
-                        notes.append(f"procedure {name!r} cut at the step cap after "
-                                     f"{cost} of its {need} ticks; call it again from the "
-                                     f"same spot to continue")
-                    else:
-                        # A macro that cannot shrink is all or nothing: a craft cut
-                        # after its first clicks fills cells and never takes the output
-                        # (one run: "craft(diamond_pickaxe) -> 1 ticks",
-                        # then 400 steps of manual clicking). Drop the whole procedure
-                        # and say so; it comes first next turn.
-                        need = sum(max(0, int(x.get("_cost", 1))) for x in expanded)
-                        notes.append(f"procedure {name!r} NOT STARTED: it needs {need} "
-                                     f"ticks and only {room} of the plan's {step_cap}-tick "
-                                     f"budget were left; put it first next turn")
-                        cut = []
-                    break
-                cut.append(s)
-                cost += c
-            if not cut:
-                continue
-            # `steps` is the tick budget (what describe_entry reports); `items` is how
-            # many queue entries were actually appended -- a closed-loop marker is one
-            # item worth many ticks, and the runner's (action, entry) pairing walks items.
-            kept.append({"procedure": name, "args": args, "steps": cost,
-                         "items": len(cut), **overrides})
-            steps.extend(cut)
-            used += cost
+            # not one of the model's own: there is no built-in to expand
+            notes.append(P.refusal(name))
             continue
 
         if not isinstance(entry.get("action"), dict):

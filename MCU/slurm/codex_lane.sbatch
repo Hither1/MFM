@@ -7,7 +7,7 @@
 #
 # Submit from MCU/ of the run worktree with a clean environment. TASK, STEPS, WORLD_SEED,
 # PACE and PREFLIGHT_ONLY as in abl_lane.sbatch; MEMORY is the --memory of every arm in the
-# lane (default mfm; logbook and vista for the no-primitives baselines). The model is MODEL (default gpt-6-astra)
+# lane (default mfm; logbook, vista or direct for the baselines). The model is MODEL (default gpt-6-astra)
 # at reasoning effort high, on the account whose auth.json is MCU_CODEX_AUTH
 # (scripts/codex-home.sh), through the codex of CODEX_NODE_DIR (its bin/ holds `codex`
 # and the `node` that runs it; gpt-6-astra needs 0.153 or newer).

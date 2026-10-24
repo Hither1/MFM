@@ -11,26 +11,22 @@ everything here is about how to play, how to remember, what to protect against.
 What is written into the workspace, once per life, harness-owned and immutable:
 
     skills/memory/SKILL.md          using the multimodal memory: log, episodes, frames,
-                                    previous lives, the guide, the workshop turn
-    skills/procedures/SKILL.md      the skill layer: the phase ladder, the right grain,
-                                    guards, reuse; scripts/stair_step.py, torch_wall.py, shaft_down.py, strip_segment.py, aim_speckles.py
-    skills/reflexes/SKILL.md        the reflex layer: write before the event, the six
-                                    classes; the examples and how to retire one
+                                    previous lives, the guide, the workshop turn;
+                                    scripts/death_sheet.py, where_was.py (memory queries)
+    skills/procedures/SKILL.md      the skill layer: the right grain, guards, reuse
+    skills/reflexes/SKILL.md        the reflex layer: how reflexes run, how to retire
+                                    one; scripts/ore_watch.py, an example (nothing is
+                                    installed under `mine/reflexes/`: the model copies
+                                    what it wants, edits it, and a leading underscore in
+                                    the file name keeps a copied script off)
     skills/harness/SKILL.md         the loop, the economics of turns vs steps, what the
                                     runner does and does not do in this run, the do-not
                                     list from the earlier runs
 
-and, as EXAMPLES under `skills/reflexes/scripts/` (nothing is installed under
-`mine/reflexes/`: the model copies what it wants, edits it, and a leading
-underscore in the file name keeps a copied script off):
-
-    lava_ahead.py   lava in the lower view while a walk or a dig moves you, or at a look: stop; in it, climb out
-    fell.py         2+ blocks down within four ticks (a free fall): stop, look before moving
-    hit.py          3+ health lost with no lava in view: a mob -- stop, pillar up 2 with a block carried
-    starving.py     the food bar below 18 (no natural healing): eats what you carry, else a note
-
-With `--no-harness-reflexes` the runner's own guards, escapes, governor and nudges are off
-(as in `--human-play`) and the reflexes the model copies or writes are the whole tick layer.
+The SKILL.md texts were written for a harness with built-in procedures and shipped
+procedure and reflex examples; `_NO_PRIMITIVES_EDITS` rewrites what names them. With the
+runner's own guards off (`harness_reflexes=False`, every arm) the reflexes the model
+writes are the whole tick layer.
 """
 from __future__ import annotations
 
@@ -40,377 +36,7 @@ SKILLS_DIR = Path("skills")
 
 # -- the reflex examples (skills/reflexes/scripts/; the model copies them into mine/reflexes/) --
 
-STARTER_REFLEXES: dict[str, str] = {
-    "lava_ahead.py": '''"""lava_ahead: lava in the lower view (1.5% below y 40 or in the Nether, 4% above) while a walk or a dig moves you, or at a look -- stop; in it, climb out. Flames are not lava."""
-# Example reflex (harness-written, yours to edit or retire): the runs that died in lava
-# were all MOVING toward it -- a go_to, a mine_ahead, a raw walk -- with the orange already
-# in the frame, or stepped into a pool the camera had never looked at (a tunnel whose
-# floor was missing). Three cases:
-#   moving with lava in view        -> stop, step back 6 ticks
-#   a look_abs/watch shows lava     -> stop, no step: the plan was about to walk there
-#                                      (strip_segment looks at the next floor before each
-#                                      step); a look with nothing queued after it is quiet
-#   in the lava (lava damage with   -> stop and climb: back and jump; place a block under
-#   the screen orange)                 you if you carry one
-# Standing at a pool or a fire on purpose (fill_bucket, use_at, use_held, place_at) is
-# exempt: the plan is there by design. A walk covers ~0.9 blocks between two samples, so
-# the threshold is low where lava is close (underground, the Nether): a pool three blocks
-# ahead reads 2-3% of the lower view; the surface threshold is higher so a distant lake
-# does not stop every walk.
-# FLAMES ARE NOT LAVA. A fire block (a portal just lit, a burning tree) and the flames
-# drawn over the view while you burn share lava's orange, but they are brighter and
-# yellower: `fire_frac` runs 5-15x `lava_frac` on flames and 0.3-0.5x on a lake. One life
-# lit its portal from inside and this reflex's old in-lava escape pulled it back into the
-# fire, where it died with the frame half built; another, burning on a bank, had every
-# walk stopped. So flames are left to the plan (walk out, pour water), and the escape
-# runs on lava's DAMAGE: lava takes 4 health every 10 ticks, fire 1 every 20, so between
-# two samples (4 ticks) only lava takes 3 or more.
-# BURNING BESIDE LAVA is the case the colours cannot settle: the overlay over a pool reads
-# 1.5-2.5x (two lives burned to death 35 blocks from a stronghold while this reflex took
-# the overlay for lava ahead, stepped one back into the pocket and stopped the other's
-# climb out, 65 samples in all), and a pool one block away with no fire reads 1.0-1.3x.
-# What does settle it is that you are being hurt: flames on screen and health lost in the
-# last 100 ticks (`hurt_100`) is a burn, and the plan that is walking out of it is left
-# to run. Unhurt, the same picture still stops you.
-import json, math, sys
-s = json.load(sys.stdin)
-MOVING = {"go_to", "mine_ahead", "collect_drops", "raw"}
-LOOKING = {"look_abs", "look", "look_at", "watch"}
-ON_PURPOSE = {"fill_bucket", "use_at", "use_held", "place_at"}
-p, q = s.get("pos"), s.get("pos_prev")
-moved = math.hypot(p["x"] - q["x"], p["z"] - q["z"]) if p and q else 0.0
-deep = bool(p) and (p["y"] < 40.0 or s.get("dimension") == "the Nether")
-thr = 0.015 if deep else 0.04
-frac, fire = s["lava_frac"], s.get("fire_frac", 0.0)
-entry = s.get("atom") or s.get("entry")      # the atom inside an own procedure
-lost = s.get("health_prev", 20) - s.get("health", 20)
-flames = fire >= 0.12 and fire > 2.0 * frac      # the overlay flickers down to ~0.14 between flames
-burning = fire >= 0.05 and fire > frac and s.get("hurt_100", 0.0) >= 1.0      # 0.06-0.07 between flames
-in_lava = bool(s.get("in_lava")) or (lost >= 3.0 and frac >= 0.2)     # head under: the view is flat red, frac ~0
-if entry in ON_PURPOSE:
-    pass
-elif in_lava and p and not s.get("gui_open"):
-    block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
-    acts = ([{"procedure": "equip_hotbar", "args": {"slot": int(block["slot"]) + 1}}] if block else []) + \
-           [{"action": {"back": 1, "jump": 1, **({"use": 1} if block else {})}, "repeat": 10}]
-    print(json.dumps({"stop": True,
-                      "note": "IN LAVA at (%.0f, %.1f, %.0f), health %.0f: climbing out -- back and jump%s. "
-                              "Then seal the pool with blocks before any step toward it"
-                              % (p["x"], p["y"], p["z"], s.get("health", 0), " placing %s under you" % block["item"] if block else ""),
-                      "actions": acts}))
-elif flames or burning:
-    pass          # a fire block or the burning overlay: the plan walks out of it or pours water
-elif frac >= thr and entry in MOVING and (moved >= 0.1 or entry == "mine_ahead"):
-    print(json.dumps({"stop": True,
-                      "note": "lava fills %d%% of the lower view during %s -- stepped back 6 ticks; "
-                              "seal the flow with a block or go around, never through"
-                              % (round(100 * frac), entry),
-                      "actions": [{"action": {"back": 1}, "repeat": 6}]}))
-elif frac >= thr and entry in LOOKING and s.get("queue_len", 0) > 1:      # something queued after the look
-    print(json.dumps({"stop": True,
-                      "note": "lava fills %d%% of the lower view at a %s -- the plan was about to step there; "
-                              "stopped before the step. Seal it (place_at cobblestone on the lava) or turn"
-                              % (round(100 * frac), entry)}))
-''',
-    "fell.py": '''"""fell: 2+ blocks down within four ticks (a free fall of 3+) -- a drop the plan did not see; stop and look."""
-# Example reflex: a hole under a walk, a ledge, a shaft. The plan that fell is wrong
-# about the ground; the next move must come from a look, not from the rest of it. A
-# walked staircase never drops more than a block in four ticks; free fall does after
-# ~9 ticks (3+ blocks), whichever four-tick window the sample lands in.
-import json, sys
-s = json.load(sys.stdin)
-p, q = s.get("pos"), s.get("pos_prev")
-if p and q and q["y"] - p["y"] >= 2.0:
-    print(json.dumps({"stop": True,
-                      "note": "dropping %.1f blocks in four ticks, a fall, now at (%.0f, %.0f, %.0f) -- "
-                              "look at four yaws before moving; go back up the way you came "
-                              "(pillar_up, a stair), never onward"
-                              % (q["y"] - p["y"], p["x"], p["y"], p["z"])}))
-''',
-    "hit.py": '''"""hit: 3+ health lost in four ticks with no lava or flames in view -- a mob; stop, decide, act."""
-# Example reflex: monsters are reported on no channel; the health drop is the only sign.
-# A plan standing still under hits (a dig, a sweep, a click) is how most deaths began.
-# The stop hands you the turn at zero game-clock cost: wall the tunnel (place_at), pillar
-# up two blocks (pillar_up), or fight with the sword selected -- your call, made now.
-# With a block in the hotbar it pillars up two blocks at once (pillar_up, an atom): most
-# mobs cannot reach you there, and the turn is yours to wall off or fight. Not during a
-# place_at or a use_at: the pillar swaps the hand to the block and leaves a column in
-# the middle of what you were building (a portal frame, a wall).
-import json, sys
-s = json.load(sys.stdin)
-lost = s.get("health_prev", s["health"]) - s["health"]
-if lost >= 3.0 and s["lava_frac"] < 0.01 and s.get("fire_frac", 0.0) < 0.2 and not s.get("in_lava"):
-    block = next((h for h in s.get("hotbar", []) if h.get("item") in ("cobblestone", "dirt", "netherrack", "stone", "gravel")), None)
-    pillar = bool(block) and not s.get("gui_open") and (s.get("atom") or s.get("entry")) not in ("pillar_up", "place_at", "use_at")
-    print(json.dumps({"stop": True,
-                      "note": "took %.0f damage (health %.0f/20) with no lava in view: a mob is at you. "
-                              "Do not keep digging or clicking -- %s"
-                              % (lost, s["health"], "pillared up 2 blocks; wall off or fight from there" if pillar
-                                 else "wall off, pillar up, or fight now"),
-                      **({"actions": [{"procedure": "pillar_up", "args": {"n": 2}}]} if pillar else {})}))
-''',
-    "starving.py": '''"""starving: the food bar below 18 -- no natural healing from here; eats what you carry, else a note."""
-# Example reflex: health regenerates only with the food bar at 18+, and this engine drains
-# about one point per 4000 steps, so a life that never eats spends its second half unable
-# to heal. Fires only when the bar has just dropped a point: with food carried it runs `eat`
-# (one turn); with none it notes the crossing below 18 once; at health 10.5 with nothing to
-# eat it stops the plan once. Never every tick.
-import json, sys
-s = json.load(sys.stdin)
-f, fp = s.get("food", 20), s.get("food_prev", 20)
-h, hp = s.get("health", 20), s.get("health_prev", 20)
-FOODS = ("cooked_beef", "cooked_porkchop", "cooked_mutton", "cooked_chicken", "steak",
-         "golden_apple", "bread", "cooked_cod", "cooked_salmon", "baked_potato", "apple",
-         "carrot", "melon_slice", "cookie", "beef", "porkchop", "mutton", "chicken",
-         "potato", "beetroot", "sweet_berries")
-inv = s.get("inventory") or {}
-food = next((k for k in FOODS if inv.get(k, 0) > 0), None)
-if f < 18 and f < fp and food and not s.get("gui_open") and (s.get("atom") or s.get("entry")) != "eat":
-    print(json.dumps({"actions": [{"procedure": "eat", "args": {"item": food}}],
-                      "note": "food %.0f/20 with %s carried: eating (no natural healing below 18)"
-                              % (f, food)}))
-elif f < 18 and fp >= 18 and (s.get("atom") or s.get("entry")) != "eat":
-    print(json.dumps({"note": ("food %.0f/20: no natural healing from here; eat the %s once the GUI is closed"
-                               % (f, food)) if food else
-                              ("food %.0f/20 and nothing to eat: no natural healing from here. "
-                               "Any animal in view is one kill of food" % f)}))
-elif h <= 10.5 and hp > 10.5 and f < 18 and not food:
-    print(json.dumps({"stop": True,
-                      "note": "health %.0f/20, food %.0f/20, nothing to eat: you cannot heal until "
-                              "you eat" % (h, f)}))
-''',
-}
-
 # -- example procedures (skills/procedures/scripts/) ---------------------------------------
-
-EXAMPLE_PROCEDURES: dict[str, str] = {
-    "stair_step.py": '''"""stair_step: one step of a staircase DOWN along the heading -- foot block, head block, step in."""
-# Example procedure (harness-written; copy it to mine/procedures/ and make it yours). The
-# grain a skill should have: one phase step, ~120 ticks, composed of atoms, with guards on
-# the pose that made it work. A model-written north_stair (55 calls) is the same shape.
-# One block = one raw {"attack": 1} hold of 30 ticks: the runner cuts it the moment the block
-# breaks (the leftover ticks are refunded, a [NOTE] says so) and the wall watcher samples it
-# for iron/diamond speckles (a [NOTE], the flag-time frame, the rest of the plan dropped).
-# mine_ahead(n) would spend all n ticks on a block that breaks in 15.
-import json, math, sys
-PARAMS = {"yaw": "heading to dig along (default: the current yaw, snapped to 90)",
-          "pick": "hotbar slot 1-9 holding the pickaxe (default: the first pickaxe found)"}
-args = json.loads(sys.argv[sys.argv.index("--args") + 1]) if "--args" in sys.argv else {}
-s = json.load(sys.stdin)
-p = s["pos"]
-if p is None or s["gui_open"]:
-    raise SystemExit("no position yet, or a screen is open")
-if abs(p["y"] - round(p["y"])) > 0.05:
-    raise SystemExit("not standing on solid ground (y %.2f)" % p["y"])
-yaw = float(args.get("yaw", round(p["yaw"] / 90.0) * 90.0))
-pick = args.get("pick")
-if pick is None:
-    hb = next((h for h in s["hotbar"] if "pickaxe" in str(h.get("item", ""))), None)
-    if hb is None:
-        raise SystemExit("no pickaxe in the hotbar")
-    pick = int(hb["slot"]) + 1
-plan = [{"procedure": "equip_hotbar", "args": {"slot": int(pick)}},
-        {"procedure": "look_abs", "args": {"pitch": 47, "yaw": yaw, "ticks": 12}},
-        {"action": {"attack": 1}, "repeat": 30},
-        {"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 8}},
-        {"action": {"attack": 1}, "repeat": 30},
-        {"procedure": "look_abs", "args": {"pitch": 60, "yaw": yaw, "ticks": 8}},
-        {"action": {"forward": 1}, "repeat": 4},
-        {"procedure": "watch", "args": {"n": 8}}]
-print(json.dumps({"actions": plan}))
-''',
-    "torch_wall.py": '''"""torch_wall: place a torch on the wall beside you (computed from your pose), then look back along the heading."""
-# Example procedure: a skill that COMPUTES its target from the state instead of asking
-# for coordinates. The torch goes on the side face of the wall block to your left.
-import json, math, sys
-PARAMS = {"side": "'left' (default) or 'right'", "slot": "hotbar slot 1-9 with torches (default: found)"}
-args = json.loads(sys.argv[sys.argv.index("--args") + 1]) if "--args" in sys.argv else {}
-s = json.load(sys.stdin)
-p = s["pos"]
-if p is None or s["gui_open"]:
-    raise SystemExit("no position yet, or a screen is open")
-slot = args.get("slot")
-if slot is None:
-    hb = next((h for h in s["hotbar"] if h.get("item") == "torch"), None)
-    if hb is None:
-        raise SystemExit("no torches in the hotbar")
-    slot = int(hb["slot"]) + 1
-yaw = round(p["yaw"] / 90.0) * 90.0
-side = -90.0 if args.get("side", "left") == "left" else 90.0
-sy = math.radians(yaw + side)
-dx, dz = -math.sin(sy), math.cos(sy)          # the unit vector toward that side
-bx, bz = math.floor(p["x"] + dx * 1.0), math.floor(p["z"] + dz * 1.0)
-by = math.floor(p["y"]) + 1                   # the wall block at eye level's floor
-face = {(0, 1): "north", (0, -1): "south", (1, 0): "west", (-1, 0): "east"}[(round(dx), round(dz))]
-plan = [{"procedure": "equip_hotbar", "args": {"slot": int(slot)}},
-        {"procedure": "place_at", "args": {"x": bx, "y": by, "z": bz, "item": "torch", "face": face}},
-        {"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 8}}]
-print(json.dumps({"actions": plan}))
-''',
-    "shaft_down.py": '''"""shaft_down: dig straight down toward a target y (default 13), one call of up to ~370 ticks -- the dig_down recipe, from atoms."""
-# Example procedure (harness-written; copy it to mine/procedures/ and make it yours).
-# Why it exists: a hand-built staircase costs ~80 ticks per level of depth -- two lives on
-# this chassis spent 3,500-4,000 steps going from y 66 to y 23 that way and
-# reached diamond depth with under 900 steps left. Holding attack at pitch 88 bores a 1x1
-# shaft instead: the floor breaks, you drop one block, the crosshair is already on the next
-# floor block. Measured break times on stone: ~17 ticks with a stone pickaxe, ~13 with iron,
-# plus ~5 while you fall (mining is slow in the air).
-# mine_ahead does not stop on y, so the tick count is computed here from the depth still to
-# go and the pickaxe. Ores and granite take longer (you stop short: call again); dirt and
-# gravel are a little quicker (you run slightly ahead) -- so the count is also capped so that
-# even all-soft blocks cannot take you below y 12. Lava lakes sit at y <= 10: standing at
-# y 13 keeps two blocks of stone between your floor and a lake, y 12 keeps one.
-# ore_watch=True: the wall watcher samples the view (here, the shaft walls and floor) and
-# stops the dig on speckles, exactly as it samples a raw attack hold. Your lava_ahead and fell reflexes, if installed, stop it on lava in the
-# lower view or a real drop. The way back up is pillar_up(n) with the cobblestone the shaft
-# gave you; the shaft itself cannot be walked up.
-import json, math, sys
-PARAMS = {"target_y": "depth to stop at (default 13; never below 12)",
-          "pick": "hotbar slot 1-9 holding the pickaxe (default: the best pickaxe in the hotbar)"}
-# ticks per level with each pickaxe: (planned on stone, fastest on soft blocks)
-SPEED = {"diamond_pickaxe": (15, 12), "iron_pickaxe": (18, 15),
-         "stone_pickaxe": (22, 19), "wooden_pickaxe": (32, 20)}
-MINE_CAP = 370                     # leaves room for the equip and the two looks in 400
-args = json.loads(sys.argv[sys.argv.index("--args") + 1]) if "--args" in sys.argv else {}
-s = json.load(sys.stdin)
-p = s["pos"]
-if p is None or s["gui_open"]:
-    raise SystemExit("no position yet, or a screen is open")
-if abs(p["y"] - round(p["y"])) > 0.05:
-    raise SystemExit("not standing on solid ground (y %.2f)" % p["y"])
-fx, fz = p["x"] - math.floor(p["x"]), p["z"] - math.floor(p["z"])
-if not (0.29 <= fx <= 0.71 and 0.29 <= fz <= 0.71):
-    raise SystemExit("standing across a block edge (x fraction %.2f, z fraction %.2f): the block under "
-                     "your centre would break and leave you standing on its neighbour. Get inside one "
-                     "block first -- walk into a wall for 4 ticks (it stops you 0.3 from its face), then "
-                     "strafe into the side wall the same way" % (fx, fz))
-target = max(12, int(args.get("target_y", 13)))
-y = int(round(p["y"]))
-if y <= target:
-    raise SystemExit("already at y %d, at or below the target y %d -- mine level from here" % (y, target))
-picks = [h for h in s["hotbar"] if h.get("item") in SPEED]
-if args.get("pick") is not None:
-    picks = [h for h in picks if int(h["slot"]) + 1 == int(args["pick"])]
-if not picks:
-    raise SystemExit("no pickaxe in the hotbar" + (" at slot %s" % args["pick"] if args.get("pick") else ""))
-best = min(picks, key=lambda h: SPEED[h["item"]][0])
-plan_tpb, soft_tpb = SPEED[best["item"]]
-ticks = min(MINE_CAP, (y - target) * plan_tpb, (y - 12) * soft_tpb)
-plan = [{"procedure": "equip_hotbar", "args": {"slot": int(best["slot"]) + 1}},
-        {"procedure": "look_abs", "args": {"pitch": 88, "yaw": None, "ticks": 8}},
-        {"procedure": "mine_ahead", "args": {"n": int(ticks), "ore_watch": True}},
-        {"procedure": "look_abs", "args": {"pitch": 10, "yaw": None, "ticks": 8}}]
-print(json.dumps({"actions": plan}))
-''',
-    "strip_segment.py": '''"""strip_segment: a lit 1x2 tunnel along the heading, up to 4 blocks per call -- the strip_mine recipe, from atoms."""
-# Example procedure (harness-written; copy it to mine/procedures/ and make it yours).
-# Why it exists: the tunnels the last lives wrote cost ~85 ticks per block of advance and
-# spent all of a 45-tick mine_ahead on blocks that break in 15. This one costs ~45 ticks a
-# block with an iron pickaxe, ~52 with stone: per block, aim at the head block and hold
-# attack 30 (cut at the break), aim at the foot block and hold attack 30, look at the floor
-# of the opened column for 4 ticks (pitch 65: the one look that shows a missing floor, a
-# pool below it, or lava in the cell -- your lava_ahead and fell reflexes stop the plan
-# there, BEFORE the step; two lives walked into pools the camera had never looked at),
-# then walk 6 ticks into the new column (the next face stops you 0.3 from itself, which is
-# the stance the aims assume). Every hold is watched for ore speckles; a sighting drops the
-# rest of the plan with a [NOTE] -- convert it, then call again.
-# Mine at y 12 or 13: lava lakes sit at y <= 10, this never touches the floor, and at y 13
-# two blocks of stone separate your floor from a lake. light=true
-# puts a torch on the LEFT wall first (torch_wall's geometry); every other call keeps a
-# tunnel lit. Two 40-block strips with no sighting = a cold site: 3 blocks sideways, strip
-# back parallel -- the area of NEW wall is what finds ore.
-import json, math, sys
-PARAMS = {"blocks": "columns to advance, 1-4 (default 4)",
-          "light": "true: a torch on the left wall before advancing (default false)",
-          "yaw": "heading (default: the current yaw, snapped to 90)"}
-args = json.loads(sys.argv[sys.argv.index("--args") + 1]) if "--args" in sys.argv else {}
-s = json.load(sys.stdin)
-p = s["pos"]
-if p is None or s["gui_open"]:
-    raise SystemExit("no position yet, or a screen is open")
-if abs(p["y"] - round(p["y"])) > 0.05:
-    raise SystemExit("not standing on solid ground (y %.2f)" % p["y"])
-yaw = float(args.get("yaw", round(p["yaw"] / 90.0) * 90.0))
-blocks = max(1, min(4, int(args.get("blocks", 4))))
-picks = [h for h in s["hotbar"] if "pickaxe" in str(h.get("item", ""))]
-if not picks:
-    raise SystemExit("no pickaxe in the hotbar")
-rank = {"diamond_pickaxe": 0, "iron_pickaxe": 1, "stone_pickaxe": 2, "wooden_pickaxe": 3}
-pick = min(picks, key=lambda h: rank.get(h["item"], 9))
-# across the tunnel you must be centred, or the aims hit the side wall
-ry = math.radians(yaw)
-across = (p["x"] - math.floor(p["x"])) if abs(math.cos(ry)) > 0.5 else (p["z"] - math.floor(p["z"]))
-if not 0.25 <= across <= 0.75:
-    raise SystemExit("off the tunnel's centre line (fraction %.2f across): strafe into the side wall "
-                     "for 4 ticks and back 2, or walk the next column first" % across)
-plan = [{"procedure": "equip_hotbar", "args": {"slot": int(pick["slot"]) + 1}}]
-if args.get("light"):
-    torch = next((h for h in s["hotbar"] if h.get("item") == "torch"), None)
-    if torch is None:
-        raise SystemExit("light=true but no torches in the hotbar")
-    sy = math.radians(yaw - 90.0)
-    dx, dz = -math.sin(sy), math.cos(sy)
-    bx, bz = math.floor(p["x"] + dx * 1.0), math.floor(p["z"] + dz * 1.0)
-    face = {(0, 1): "north", (0, -1): "south", (1, 0): "west", (-1, 0): "east"}[(round(dx), round(dz))]
-    plan += [{"procedure": "equip_hotbar", "args": {"slot": int(torch["slot"]) + 1}},
-             {"procedure": "place_at", "args": {"x": bx, "y": math.floor(p["y"]) + 1, "z": bz,
-                                                "item": "torch", "face": face}},
-             {"procedure": "equip_hotbar", "args": {"slot": int(pick["slot"]) + 1}}]
-for _ in range(blocks):
-    plan += [{"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 6}},
-             {"action": {"attack": 1}, "repeat": 30},
-             {"procedure": "look_abs", "args": {"pitch": 48, "yaw": yaw, "ticks": 6}},
-             {"action": {"attack": 1}, "repeat": 30},
-             {"procedure": "look_abs", "args": {"pitch": 65, "yaw": yaw, "ticks": 4}},
-             {"procedure": "watch", "args": {"n": 4}},
-             {"action": {"forward": 1}, "repeat": 6}]
-plan.append({"procedure": "look_abs", "args": {"pitch": 8, "yaw": yaw, "ticks": 6}})
-print(json.dumps({"actions": plan}))
-''',
-    "aim_speckles.py": '''"""aim_speckles: turn the crosshair onto the (x, y) pixel a 'mining stopped: ...-ore-like speckles' [NOTE] names, then mine that block and sweep its drop."""
-# Example procedure (harness-written; copy it to mine/procedures/ and make it yours).
-# Why it exists: the life that found the diamond did exactly this within 20 steps of the
-# watcher's [NOTE] -- aim at the speckles, mine the block under the crosshair, walk to the
-# drop. Lives that answered a sighting with "finish the column first" or "craft a sword
-# first" never mined the ore at all: by the next turn the view had moved and the speckles
-# were gone. So: a sighting [NOTE] outranks everything; call this from its (x, y) BEFORE any
-# other look or step, while the view is still the flag-time view (the runner dropped the
-# rest of the plan for exactly that).
-# The frame the watcher reads is 640x360 with a 70-degree vertical field of view: the focal
-# length is 180 / tan(35 deg) = 257 px, so an offset of d pixels from the centre (320, 180) is
-# atan(d / 257) degrees -- 104 px right is 22 degrees of yaw, not the 17 a linear scale gives.
-# Two 30-tick holds: ore takes longer than stone, and the hold is cut the moment the block
-# breaks anyway. collect_drops then sweeps the drop; the milestone is the PICKUP, not the break.
-import json, math, sys
-PARAMS = {"x": "screen x from the [NOTE] (0-640)", "y": "screen y from the [NOTE] (0-360)",
-          "pick": "hotbar slot 1-9 with the pickaxe (default: the best in the hotbar)"}
-args = json.loads(sys.argv[sys.argv.index("--args") + 1]) if "--args" in sys.argv else {}
-s = json.load(sys.stdin)
-if s.get("gui_open"):
-    raise SystemExit("a screen is open: close_inventory first")
-if "x" not in args or "y" not in args:
-    raise SystemExit("pass x and y: the pixel the sighting [NOTE] names, e.g. (424, 145)")
-x, y = float(args["x"]), float(args["y"])
-if not (0 <= x <= 640 and 0 <= y <= 360):
-    raise SystemExit("x must be 0-640 and y 0-360 (the [NOTE]'s frame)")
-rank = {"diamond_pickaxe": 0, "iron_pickaxe": 1, "stone_pickaxe": 2, "wooden_pickaxe": 3}
-picks = [h for h in s["hotbar"] if h.get("item") in rank]
-if args.get("pick") is not None:
-    picks = [h for h in picks if int(h["slot"]) + 1 == int(args["pick"])]
-if not picks:
-    raise SystemExit("no pickaxe in the hotbar (diamond ore needs IRON or better to drop a diamond)")
-pick = min(picks, key=lambda h: rank[h["item"]])
-F = 180.0 / math.tan(math.radians(35.0))               # 257 px
-dpitch = round(math.degrees(math.atan((y - 180.0) / F)), 1)   # + is down, like the screen
-dyaw = round(math.degrees(math.atan((x - 320.0) / F)), 1)     # + is right, like the screen
-plan = [{"procedure": "equip_hotbar", "args": {"slot": int(pick["slot"]) + 1}},
-        {"action": {"camera": [dpitch, dyaw]}, "repeat": 1},
-        {"action": {"attack": 1}, "repeat": 30},
-        {"action": {"attack": 1}, "repeat": 30},
-        {"procedure": "collect_drops", "args": {"ticks": 48}}]
-print(json.dumps({"actions": plan}))
-''',
-}
 
 # -- example memory script (skills/memory/scripts/) ----------------------------------------
 
@@ -470,46 +96,6 @@ for log in logs:
 }
 
 # -- example reflex (skills/reflexes/scripts/) ----------------------------------------------
-
-EXAMPLE_REFLEXES: dict[str, str] = {
-    "known_hazards.py": '''"""known_hazards: moving to within 6 blocks of a place your guide marks as lava or a death -- stop, say which."""
-# Example reflex (harness-written; copy to mine/reflexes/ to arm it). The hazard list is
-# YOURS: every line of mine/GUIDE.md that names lava, a pour or a death
-# and carries a coordinate "(x, y, z)" or "(x, z)" counts. Same-life deaths are in
-# logs.txt too ("YOU DIED at (x, y, z)"), so the list grows as you play. Fires only while
-# you MOVE toward one (pos changed since the last sample), never while you stand and work
-# at it on purpose (a pour, a bucket fill).
-import json, re, sys
-st = json.load(sys.stdin)
-pos, prev = st.get("pos"), st.get("pos_prev")
-if not pos or not prev:
-    sys.exit(0)
-if abs(pos["x"] - prev["x"]) + abs(pos["z"] - prev["z"]) < 0.3:
-    sys.exit(0)                                   # standing still: not a walk
-KEY = re.compile(r"lava|died|death|pour|obsidian", re.I)
-XYZ = re.compile(r"\\((-?\\d+(?:\\.\\d+)?),\\s*(-?\\d+(?:\\.\\d+)?)(?:,\\s*(-?\\d+(?:\\.\\d+)?))?\\)")
-spots = []
-for fn in ("mine/GUIDE.md", "logs.txt"):
-    try:
-        for ln in open(fn, encoding="utf-8", errors="ignore"):
-            if fn == "logs.txt" and "YOU DIED" not in ln:
-                continue
-            if fn != "logs.txt" and not KEY.search(ln):
-                continue
-            for m in XYZ.finditer(ln):
-                a, b, c = m.groups()
-                x, z = (float(a), float(c)) if c is not None else (float(a), float(b))
-                spots.append((x, z, ln.strip()[:90]))
-    except OSError:
-        pass
-for x, z, why in spots:
-    d = ((pos["x"] - x) ** 2 + (pos["z"] - z) ** 2) ** 0.5
-    if d <= 6.0:
-        print(json.dumps({"stop": True,
-                          "note": f"known hazard {d:.1f} blocks away at ({x:.0f}, {z:.0f}): {why}"}))
-        break
-''',
-}
 
 # -- the SKILL.md texts --------------------------------------------------------------------
 
@@ -824,25 +410,6 @@ skill you call twenty times is the best turn of the life.
 - Do not write a one-block script; do not write a script you will not call twice.
 """
 
-SKILLS: dict[str, tuple[str, dict[str, str]]] = {
-    "memory": (MEMORY_SKILL, EXAMPLE_MEMORY),
-    "procedures": (PROCEDURES_SKILL, EXAMPLE_PROCEDURES),
-    "reflexes": (REFLEXES_SKILL, {**EXAMPLE_REFLEXES, **STARTER_REFLEXES}),
-    "harness": (HARNESS_SKILL, {}),
-}
-
-#: The contract paragraph (`--skills`), appended to the thin contract's tail.
-SKILLS_NOTE = """\
-
-**Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
-of this run: how to use your memory (`skills/memory`), how to compose skills of the
-right grain (`skills/procedures`), which reflexes to write and why (`skills/reflexes`),
-how the loop and its economics work and the do-not list (`skills/harness`). Read all
-four in your first turn; `scripts/` beside them are working examples to copy into
-`mine/`. No reflex is installed for you: `mine/reflexes/` is empty until you copy one
-from `skills/reflexes/scripts/` -- do that in your first turn."""
-
-
 #: The memory skill's two paragraphs about `previous/`, as shipped and as they read when
 #: the carried lives were played in another world on another task (`--carried-world
 #: other`): their places are not here, so the workshop turn takes how to act from them.
@@ -913,8 +480,9 @@ def _installed(text: str, old_new: tuple[str, str]) -> str:
     return text.replace(old, new)
 
 
-#: `--no-primitives`: the run ships no procedure or reflex example (each is a hand-written
-#: skill) and has no built-in procedure, so the paragraphs that name them are rewritten.
+#: The skill texts were written for a harness with built-in procedures and shipped
+#: procedure and reflex examples (each a hand-written skill); neither exists, so the
+#: paragraphs that name them are rewritten.
 #: (skill, old, new); each old text occurs exactly once in its skill.
 _NO_PRIMITIVES_EDITS = (
     ("procedures",
@@ -1014,9 +582,9 @@ _NO_PRIMITIVES_EDITS += (
      "\n"),
 )
 
-#: `--no-primitives`: the one example script that ships beside the reflex skill (not
-#: installed). Raw keys and the frame only; no harness code is imported.
-NO_PRIMITIVES_REFLEX_EXAMPLES: dict[str, str] = {
+#: The one example script that ships beside the reflex skill (not installed). Raw keys
+#: and the frame only; no harness code is imported.
+REFLEX_EXAMPLES: dict[str, str] = {
     "ore_watch.py": '''"""ore_watch: diamond-ore speckles in the view below y 60 -- stop the plan and say where on screen."""
 # Example reflex (harness-written, yours to copy, edit or ignore; nothing is installed for
 # you). A procedure planned at turn time runs without looking, so ore that comes into
@@ -1094,8 +662,8 @@ if __name__ == "__main__":
 ''',
 }
 
-#: `--no-primitives`, the contract paragraph in place of SKILLS_NOTE.
-SKILLS_NOTE_NO_PRIMITIVES = """\
+#: The contract paragraph (`--skills`), appended to the thin contract's tail.
+SKILLS_NOTE = """\
 
 **Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
 of this run: how to use your memory (`skills/memory`), what makes a script of the right
@@ -1106,15 +674,20 @@ may copy into `mine/reflexes/`, change or ignore, and `skills/memory/scripts/` h
 memory queries."""
 
 
-def write_skills(root: Path, carried_world: str = "same", installed: bool = False,
-                 primitives: bool = True) -> list[str]:
+SKILLS: dict[str, tuple[str, dict[str, str]]] = {
+    "memory": (MEMORY_SKILL, EXAMPLE_MEMORY),
+    "procedures": (PROCEDURES_SKILL, {}),
+    "reflexes": (REFLEXES_SKILL, REFLEX_EXAMPLES),
+    "harness": (HARNESS_SKILL, {}),
+}
+
+
+def write_skills(root: Path, carried_world: str = "same", installed: bool = False) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
-    scripts, the reflex examples included. Nothing is installed under mine/: the model
-    copies the reflexes it wants into mine/reflexes/ itself. With `installed` the
-    carried lives' own scripts were put in mine/ before this, and the memory and
-    procedures skills say so instead of telling the model to copy them. Without
-    `primitives` (`--no-primitives`) only the memory examples are written and the
-    SKILL.md texts say so. Returns the paths written."""
+    scripts (the memory queries and one reflex example). Nothing is installed under mine/:
+    the model copies what it wants into mine/ itself. With `installed` the carried lives'
+    own scripts were put in mine/ before this, and the memory and procedures skills say so
+    instead of telling the model to copy them. Returns the paths written."""
     root = Path(root)
     written: list[str] = []
     for name, (text, scripts) in SKILLS.items():
@@ -1124,14 +697,11 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                 text = _installed(text, _COPY_MEMORY)
         elif name == "procedures" and installed:
             text = _installed(text, _COPY_PROCEDURES)
-        if not primitives:
-            for skill, old, new in _NO_PRIMITIVES_EDITS:
-                if skill == name:
-                    if text.count(old) != 1:
-                        raise ValueError(f"{name} skill text drifted from its no-primitives edit")
-                    text = text.replace(old, new)
-            if name != "memory":
-                scripts = NO_PRIMITIVES_REFLEX_EXAMPLES if name == "reflexes" else {}
+        for skill, old, new in _NO_PRIMITIVES_EDITS:
+            if skill == name:
+                if text.count(old) != 1:
+                    raise ValueError(f"{name} skill text drifted from its no-primitives edit")
+                text = text.replace(old, new)
         d = root / SKILLS_DIR / name
         d.mkdir(parents=True, exist_ok=True)
         p = d / "SKILL.md"

@@ -82,11 +82,12 @@ bash scripts/run-arm.sh --arm mfm_diamond_s0 --memory mfm \
 | reasoning effort | `--effort high` (default) \| `xhigh` |
 | an earlier life in the same world | `--seed-memory output/<arm>/episode_001/memory` (mfm and mfm-matched, repeatable), `--seed-log <logs.txt>` (logbook) |
 
-Every arm reads a short contract (12 to 18 KB) and acts through raw actions and the same
-28 primitive procedures (`procedures.ATOMS`); no arm is given a task-shaped macro (a
-tree, a strip mine, a shaft, the portal). The arms that can read files (`logbook`, `mfm`,
-`mfm-matched`) have the longer rules under `references/`; `direct` and `vista` cannot,
-and have the procedures' full descriptions in the contract instead. The runner's own
+Every arm reads a short contract (7 to 14 KB) and acts through raw actions alone: no arm
+is given a built-in procedure of any grain (no aim, walk, craft or mine, no tree, shaft or
+portal macro); the `mfm` arm's own scripts under `mine/procedures/` are the only
+procedures there are. The arms that can read files (`logbook`, `mfm`, `mfm-matched`) have
+the longer rules under `references/`; `direct` and `vista` cannot, and have the GUI facts
+and the recipe list in the contract instead. The runner's own
 guards (the lava stop, the pillar on a hit, the refusal of a repeated plan) are off for
 every arm, and each contract says so.
 

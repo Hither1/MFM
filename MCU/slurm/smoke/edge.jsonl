@@ -1,9 +1,0 @@
-{"artifact": {"actions": [{"procedure": "look_abs", "args": {"pitch": 30, "yaw": 0}}, {"action": {"forward": 1, "sneak": 1}, "repeat": 100}, {"action": {}, "repeat": 5}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {"forward": 1, "sneak": 1}, "repeat": 100}, {"action": {}, "repeat": 5}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {"forward": 1}, "repeat": 40}, {"action": {}, "repeat": 20}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}
-{"artifact": {"actions": [{"action": {}, "repeat": 40}]}, "message": "[PLAN]\nedge check"}

@@ -79,7 +79,7 @@ them by place with their paths."""
 
 MFM_MEMORY_NOTE = """\
 `episodes/` holds the same history as `logs.txt` a second time, structured: one
-directory per plan entry (one procedure call or one held raw action -- exactly the
+directory per plan entry (one held raw action -- exactly the
 entries the log has an "Action N" section for). In each `ep_NNNNNN/`:
 `observation/image.png` (the view the entry started from), `state/state.json`
 (position, inventory, hotbar, GUI, vitals, mobs, milestones at the entry's first
@@ -88,7 +88,7 @@ plan, the briefing and plan it came from) and `outcome.json` (what it changed: m
 descended, inventory delta, [EVENT]s, milestone transition, harness notes, tags such as
 `stuck`, `inventory_changed`, `milestone`, `damage`, `gui`, `flushed`). `index.jsonl`
 has one line per episode. `./tools/episodes.py --last 5 | --steps A B | --near X Z
-[--radius R] | --tag stuck | --action go_to | --grep text` lists matching episodes
+[--radius R] | --tag stuck | --action attack | --grep text` lists matching episodes
 one per line with their paths; add `--sheet out.png` to tile their frames into one
 image you can view, `--json` for the rows. These files persist across turns like
 `logs.txt`; they are harness-written and immutable.

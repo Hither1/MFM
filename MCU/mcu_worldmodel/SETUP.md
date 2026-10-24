@@ -62,6 +62,6 @@ inventory jump left pickItem right sneak sprint swapHands use ESC
 ```
 
 and nothing else: `craft`, `nearbyCraft`, `nearbySmelt` and `place` are absent, and
-`equip` takes a number. Crafting goes through the inventory GUI (`gui.py`,
-`macros_gui.py`). `craft_env.py` adds `drop`, the one verb the engine supports and the
+`equip` takes a number. Crafting goes through the inventory GUI, by hand (`gui.py` has
+its geometry). `craft_env.py` adds `drop`, the one verb the engine supports and the
 simulator's action spec leaves out.

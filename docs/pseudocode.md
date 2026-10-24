@@ -35,7 +35,7 @@ W : workspace directory of this life = the model's cwd = its whole memory
                              GUIDE.md      what is true of this world across lives
                              working.md    the continuation note, served back every turn
                              notes.md      what worked, what each script assumes
-                             procedures/*.py   scripts that expand to atom lists
+                             procedures/*.py   scripts that expand to raw actions
                              reflexes/*.py     scripts run on the live state every 4 ticks
     previous/life_i/       every earlier life's workspace, hard-linked, oldest first
     previous/index.jsonl   all earlier lives' episodes, paths rewritten
@@ -45,8 +45,8 @@ T : one resumable codex thread rooted at W (sandbox: workspace-write, view_image
     auto-compacts at 100k tokens; cold-started on overflow or on two failed turns in a row
 Q : deque of (env_action, entry_index)        the plan being executed
 L : milestone ledger (rules, achieved set, stat stream)
-ATOMS : the 28 primitive procedures the model may call (look, move, mine_ahead,
-        place_at, pillar_up, ...); the task-shaped macros are withheld
+(no built-in procedure: every plan entry is a raw action or one of the model's own
+ scripts under mine/procedures/)
 ```
 
 ```
@@ -55,7 +55,7 @@ procedure RUN_LIFE(task, seeds)                       # one life = one MCU episo
 ────────────────────────────────────────────────────────────────────────────
     W ← fresh directory
     SEED_PREVIOUS(W, seeds)
-    write W/AGENTS.md ← CONTRACT(task, ATOMS, previous = seeds ≠ ∅)
+    write W/AGENTS.md ← CONTRACT(task, previous = seeds ≠ ∅)
     write W/skills/*, W/references/*, W/tools/episodes.py
     T ← new codex thread with cwd W
     for each environment step s with observation o:
@@ -144,9 +144,9 @@ procedure ACT_TURN(o, s)                              # one model call
     if no actions.json:
         note "no valid actions.json this turn; one no-op was executed"; Q ← [noop]; return
     plan ← PARSE(actions.json)
-        # entries are {action, repeat} over ATOMS, or {procedure: <own name>, args}
+        # entries are {action, repeat}, or {procedure: <own name>, args}
         # an own procedure runs `python mine/procedures/<name>.py --args ...` on the live
-        # state and expands to its atom list; caps: 40 entries, 400 steps per plan
+        # state and expands to its raw actions; caps: 40 entries, 400 steps per plan
     memory.add_note(each parse note)
     Q ← [(step, i) for i, entry in enumerate(plan.entries) for step in entry.steps]
 
@@ -202,8 +202,8 @@ every later turn
     read [OBSERVED] against your own EXPECT; look at the cited frame when they differ
     grep logs.txt / query episodes when the present does not explain itself
     rewrite mine/working.md when the plan changes (< 40 lines)
-    write ./actions.json: ≤ 40 entries of atoms or own procedures, with an EXPECT line
-    write a new procedure or reflex when the same atom sequence recurs or the same
+    write ./actions.json: ≤ 40 entries of raw actions or own procedures, with an EXPECT line
+    write a new procedure or reflex when the same action sequence recurs or the same
     event keeps killing you; write each reflex firing into mine/notes.md
 
 between lives

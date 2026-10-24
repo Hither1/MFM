@@ -35,7 +35,7 @@ from loguru import logger
 RETRY_SLEEP = time.sleep
 from PIL import Image
 
-from mcu_worldmodel import gui, macros, macros_entity, prompts, vision
+from mcu_worldmodel import gui, prompts, vision
 from mcu_worldmodel.actions import describe_entry, parse_actions
 from mcu_worldmodel import own as _own
 from mcu_worldmodel import procedures as _P
@@ -47,7 +47,7 @@ from mcu_worldmodel.governor import Governor, cell_of
 from mcu_worldmodel import grid as grid_mod
 from mcu_worldmodel.grid import Grid
 from mcu_worldmodel.memory import MultimodalMemory, norm_yaw, state_line
-from mcu_worldmodel.macros_world import norm_yaw_delta
+from mcu_worldmodel.geometry import norm_yaw_delta
 from mcu_worldmodel.milestones import (
     MilestoneLedger, held_line, hotbar_line, inventory_counts, location, main_rows_line,
     nearby_mobs, slot_is_empty, slot_map, vitals,
@@ -137,14 +137,8 @@ def _is_attack_hold(a: dict) -> bool:
     return not any(a.get(f"hotbar.{n}") for n in range(1, 10))
 
 
-#: `start_dimension` (the endgame skill probes): what the harness calls each dimension.
+#: `start_dimension`: what the harness calls each dimension.
 _DIMENSION = {"overworld": "the Overworld", "nether": "the Nether", "end": "the End"}
-
-
-def _granted_note(names: list[str]) -> str:
-    """Appended to the atoms head of references/skills.md: the macros a row grants."""
-    return (" Built in for this run all the same, as the procedure index describes them: "
-            + ", ".join(names) + ".") if names else ""
 
 
 def _num(v) -> bool:
@@ -155,22 +149,9 @@ def _num(v) -> bool:
         return False
 
 
-def _cut_short_hint(atoms: bool, primitives: bool = True) -> str:
-    """The tail of the attack-hold cut-short note: names tools that exist in this run.
-    Under --atoms the macros are withheld (procedures.ATOMS); the old hint named them
-    241 times in one run to a model that could not call them.
-    A raw attack hold is also never watched for ore: mine_ahead(ore_watch=true) is the
-    one entry point to the wall watcher there (that life: 79 turns of raw holds, zero
-    sightings, 9/10). Same shape as MCU main's 1ac1c7f."""
-    if not primitives:
-        return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
-                "30) per block: each is cut the moment its block breaks.")
-    if atoms:
-        return ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
-                "30) per block: each is cut the moment its block breaks, and the wall "
-                "watcher samples every hold for ore speckles. mine_ahead(n) spends all n "
-                "ticks -- use it only for continuous digging (a shaft).")
-    return "To mine several blocks in a row use mine_forward/strip_mine/stair_down."
+#: The tail of the attack-hold cut-short note: how to mine a row with the keys alone.
+_CUT_SHORT_HINT = ("To mine several blocks in a row queue one {\"attack\": 1} hold (repeat "
+                   "30) per block: each is cut the moment its block breaks.")
 
 
 class WorldModelAgent:
@@ -227,34 +208,22 @@ class WorldModelAgent:
         expect: bool = False,
         frames: bool = False,
         thin: bool = False,
-        atoms: bool = False,
         own: bool = False,
         own_reflexes: bool = False,
         harness_reflexes: bool = True,
         skills: bool = False,
         minimal: bool = False,
         event_sheet: bool = True,
-        # The endgame skill probes (slurm/skill_reuse3.sbatch): `grant` adds registered
-        # procedures to the arm's set (the atoms) and `withhold` takes some out, so a row
-        # is "the shipped arm plus these macros"; `endgame_recipes` writes the chain's
-        # late doctrine as references/endgame.md; `start_dimension` says where the task
-        # config put the avatar at reset (the engine's biome id reads 0 everywhere).
-        grant: list | None = None,
-        withhold: list | None = None,
-        endgame_recipes: bool = False,
+        # `start_dimension`: where the task config put the avatar at reset (the engine's
+        # biome id reads 0 everywhere).
         start_dimension: str | None = None,
-        # `--own-live` (mcu_worldmodel/own.py, the closed-loop section): a procedure
-        # script that declares `LOOP = True` is run DURING the plan on the live state
-        # and the live frame, and the reflexes get the frame too. Off: the shipped arm.
+        # `own_live` (mcu_worldmodel/own.py, the closed-loop section; on in the mfm arm):
+        # a procedure script that declares `LOOP = True` is run DURING the plan on the
+        # live state and the live frame, and the reflexes get the frame too.
         own_live: bool = False,
         # `--near-deaths`: name a death whose respawn is close to where it happened
         # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
         near_deaths: bool = False,
-        # `--no-primitives` (mcu_worldmodel/own.py, the no-primitives section): not even
-        # the atoms -- the procedure set is empty, skills/ ships no procedure or reflex
-        # example, the wall watcher is off; the model acts through the keys and its own
-        # scripts. On: the shipped arm.
-        primitives: bool = True,
         # `--vista-aligned` (mcu_worldmodel/vista.py): the vista arm's interface on the
         # other arms' terms -- a `play` runs a plan at their caps, the references are in
         # its contract, the checkpoint handoff fires where their CLI compacts. Its memory
@@ -295,9 +264,8 @@ class WorldModelAgent:
         # response format, the action schema and the procedure index; the long sections
         # go to references/ (prompts.thin_split). The model reads them when it needs them.
         self.thin = bool(thin)
-        # `atoms` (any mode): the procedure set the contract shows and `expand` accepts
-        # is procedures.ATOMS; `own` (mfm): mine/ persists and mine/procedures/*.py
-        # are procedures (mcu_worldmodel/own.py).
+        # No arm has a built-in procedure (procedures.py): every entry is a raw action or,
+        # with `own` (mfm), one of the model's scripts under mine/procedures/ (own.py).
         #: `harness_reflexes=False`: no reflex, guard, governor or nudge acts for the
         #: model (the arm's own reflexes are the tick layer)
         self.reflexes = bool(harness_reflexes)
@@ -309,10 +277,9 @@ class WorldModelAgent:
         self.minimal = bool(minimal)
         #: `--no-event-sheet` (mfm): no 2x2 sheet of this turn's event frames; the view alone.
         self.event_sheet = bool(event_sheet)
-        self.atoms, self.own = bool(atoms), bool(own)
+        self.own = bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
-        self.primitives = bool(primitives)
         if vista_aligned and memory_mode != "vista":
             raise ValueError("vista_aligned needs memory_mode='vista'")
         if model_step_budget is not None and (cli != "codex" or int(model_step_budget) < 1):
@@ -325,13 +292,7 @@ class WorldModelAgent:
         #: The step at which the model-step budget was found spent (None: not yet).
         self._budget_spent_at: int | None = None
         self._budget_spent_why: str | None = None
-        if not self.primitives and (grant or withhold or endgame_recipes):
-            raise ValueError("no primitives: there is nothing to grant or withhold")
-        _P.set_visible(set() if not self.primitives else _P.ATOMS if self.atoms else None,
-                       own=self.own)
-        self.granted = _P.grant(grant or [])
-        self.withheld = _P.withhold(withhold or [])
-        self.endgame_recipes = bool(endgame_recipes)
+        _P.set_own(self.own)
         if start_dimension is not None and start_dimension not in _DIMENSION:
             raise ValueError(f"unknown start_dimension: {start_dimension!r} "
                              f"({'|'.join(_DIMENSION)})")
@@ -351,12 +312,6 @@ class WorldModelAgent:
             raise ValueError("own_live gives the model's own scripts the live view: it "
                              "needs the mfm arm (own, minimal)")
         self.own_live = bool(own_live)
-        if not self.primitives and memory_mode == "direct":
-            raise ValueError("no primitives: the logbook, vista or mfm arm")
-        if (not self.primitives and memory_mode == "mfm"
-                and not (self.own_live and self.own_reflexes and skills)):
-            raise ValueError("no primitives leaves the model's own scripts as its only skills: "
-                             "it needs the mfm arm with own reflexes, skills and own_live")
         self.near_deaths = bool(near_deaths)
         #: closed loops run this life: name -> {"entries", "calls", "ticks"}
         self._own_loops: dict[str, dict[str, int]] = {}
@@ -510,20 +465,12 @@ class WorldModelAgent:
         self._recent_outcomes: deque = deque(maxlen=6)
         self._cur_pos: dict | None = None
         self._cur_info: dict | None = None    # the latest raw observation
-        self._placed: dict[str, tuple[int, int, int]] = {}   # item -> block placed by place_and_open
         # The GUI cursor, held by the harness rather than by the agent. See cursor.py for
         # why: with a relative-only cursor the agent had to keep its position in the belief
         # graph (208 of 243 hypotheses were one-shot `state_cursor_*` bookkeeping) and had
         # to end its plan after every move in order to look, which is what made the median
         # plan two entries long.
         self.cursor = CursorState()
-        # Where the last cursor servo verifiably landed, and a click awaiting its
-        # next-tick verdict. Both belong to the current screen: cleared when it closes.
-        self._servo_landed: tuple[float, float] | None = None
-        self._pending_click: dict | None = None
-        # Consecutive guard-stop streaks per procedure family, cleared whenever
-        # verified progress lands. {label: [count, first_fail_step]}
-        self._proc_fails: dict[str, list] = {}
         self._cur_inv: dict[str, int] = {}
         self._entry_start_inv: dict[str, int] = {}
         self._gui_open = False
@@ -534,12 +481,9 @@ class WorldModelAgent:
         #: 'furnace' or None), read by vision.screen_kind every observe tick.
         self._screen: str | None = None
         self.turns = {"act": 0, "act_failed": 0}
-        # Closed-loop bookkeeping. `_close_armed` is set by a `_allow_close` marker and
-        # consumed by the next inventory toggle; `_vision_miss_streak` counts consecutive
-        # GUI ticks where the arrow was not found in the frame (transition frames omit
-        # it), which is when a servo is allowed to trust dead reckoning instead.
+        # `_close_armed`: the runner's own fightback reflex arms one forced screen close,
+        # consumed by the next inventory toggle (`_guard_close`).
         self._close_armed = False
-        self._vision_miss_streak = 0
         self._log_breaks = 0.0
         self._other_breaks = 0.0
         self._last_break_item = ""
@@ -551,9 +495,6 @@ class WorldModelAgent:
         self._sword_nudged = False
         #: The frame before `_last_pov` -- what a motion detector diffs against.
         self._prev_pov = None
-        self._last_ore_flag_step = -1000
-        #: `--atoms`: the wall watcher's marker for raw attack holds (see next_action).
-        self._raw_ore: dict[str, Any] = {}
         self._last_lava_step = -1000
         self._last_lava_action = -1          # the action the guard last stopped
         self._last_shaft: tuple[Any, int] = (None, -1)   # (cell, action) the shaft guard stopped
@@ -580,9 +521,8 @@ class WorldModelAgent:
         self._reflex: dict[str, Any] | None = None
         #: The last capped bunker: {"step", "cell"} (see _in_hole).
         self._last_bunker: dict[str, Any] | None = None
-        #: Where the avatar is: "the Overworld" until a portal wait confirms "the Nether"
-        #: or "the End" (macros_nether._dimcheck_tick / macros_end._endcheck_tick); a
-        #: death puts it back (respawn is in the Overworld). The End has no ground to run
+        #: Where the avatar is: "the Overworld" unless the task starts it elsewhere
+        #: (`start_dimension`); a death puts it back (respawn is in the Overworld). The End has no ground to run
         #: on -- the island's edge is the void (a staged scene on the merged tree:
         #: the flee reflex sprinted the avatar off the platform to y -272).
         self._dimension = self.start_dimension or "the Overworld"
@@ -649,53 +589,29 @@ class WorldModelAgent:
                     tail = tail.rstrip("\n") + ("\n- `references/own.md`: the contract for your own "
                                                 "procedures, reflexes and working memory (stdin "
                                                 "state, output shapes, caps)\n")
-                    if not self.primitives:
-                        refs["own.md"] = _own.no_builtins(refs["own.md"])
-                if not self.primitives:
-                    # nothing to describe: the file and its line in the tail go
-                    refs.pop("procedures.md", None)
-                    tail = "\n".join(ln for ln in tail.split("\n")
-                                     if not ln.startswith("- `references/procedures.md`"))
-                    tail = (tail.replace(prompts._THIN_FILES["gui.md"],
-                                         "the GUI by hand (the cursor, the clicks, the slot "
-                                         "positions) and the screen rules")
-                            .replace(prompts._THIN_FILES["skills.md"],
-                                     "the skills by situation -- wood, stone, iron, diamonds, "
-                                     "water, lava, the portal, the Nether, the End -- as "
-                                     "recipes, and what to write down"))
-                if self.endgame_recipes:
-                    tail = tail.rstrip("\n") + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n"
+                    refs["own.md"] = _own.no_builtins(refs["own.md"])
+                # no built-in procedure to describe: the file and its line in the tail go
+                refs.pop("procedures.md", None)
+                tail = prompts.raw_references_tail(tail)
                 contract = prompts.minimal_contract(
                     task_text=self.task_text, progress_block=self.ledger.progress_block(),
-                    entry_cap=self.entry_cap, step_cap=self.step_cap, atoms=self.atoms,
+                    entry_cap=self.entry_cap, step_cap=self.step_cap,
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
-                    references_tail=tail, carried_world=self.carried_world,
-                    primitives=self.primitives)
-            elif not self.primitives:
-                # logbook, vista: the thin contract with every built-in taken out
+                    references_tail=tail, carried_world=self.carried_world)
+            else:
+                # the thin contract with every built-in taken out
                 contract = prompts.no_primitives_thin(contract, self.memory_mode,
                                                       vista_plan=self.vista_aligned)
                 refs.pop("procedures.md", None)
-            if not self.primitives:
-                # every reference that names a macro says none exists; gui.md opens with
-                # the screen by hand
-                from mcu_worldmodel import own as _own
-                for f in ("skills.md", "survival.md", "more.md", "gui.md"):
-                    if refs.get(f):
-                        refs[f] = _own.no_primitives_ref_line(self.own) + "\n\n" + refs[f]
-                if refs.get("gui.md"):
-                    refs["gui.md"] = prompts.raw_gui_ref() + "\n" + refs["gui.md"]
-            elif self.atoms and refs.get("skills.md"):
-                # the situations reference names the task-shaped macros: say they are recipes here
-                from mcu_worldmodel import own as _own
-                refs["skills.md"] = (_own.atoms_ref_line() + _granted_note(self.granted)
-                                     + "\n\n" + refs["skills.md"])
-            if self.endgame_recipes:
-                refs["endgame.md"] = prompts.endgame_recipes_ref(_P.visible_names())
-                if not self.minimal and "**References.**" in contract:
-                    contract = (contract.rstrip("\n")
-                                + f"\n- `references/endgame.md`: {prompts.ENDGAME_REF_LINE}\n")
+            # every reference that names a macro says none exists; gui.md opens with the
+            # screen by hand
+            from mcu_worldmodel import own as _own
+            for f in ("skills.md", "survival.md", "more.md", "gui.md"):
+                if refs.get(f):
+                    refs[f] = _own.no_primitives_ref_line(self.own) + "\n\n" + refs[f]
+            if refs.get("gui.md"):
+                refs["gui.md"] = prompts.raw_gui_ref() + "\n" + refs["gui.md"]
             if self.vista_aligned:
                 # no file tools: the references the other arms read are in the contract
                 contract, refs = prompts.inline_references(contract, refs), {}
@@ -704,11 +620,9 @@ class WorldModelAgent:
         if self.skills:
             from mcu_worldmodel import skills as _skills
             written = _skills.write_skills(self.memory.root, self.carried_world,
-                                           installed=self.install_carried or bool(self.install_scripts),
-                                           primitives=self.primitives)
+                                           installed=self.install_carried or bool(self.install_scripts))
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
-            contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.primitives
-                                                    else _skills.SKILLS_NOTE_NO_PRIMITIVES) + "\n"
+            contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
             if self.install_carried or self.install_scripts:
                 from mcu_worldmodel.previous import installed_note
                 contract = contract.rstrip() + "\n\n" + installed_note(
@@ -716,11 +630,10 @@ class WorldModelAgent:
                     carried_world=self.carried_world)
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
-        if not self.primitives:
-            # what casting obsidian costs in scored milestones (every arm, this task only)
-            note = prompts.casting_note(m.get("identity") for m in (self.ledger.cfg or []))
-            if note:
-                contract = contract.rstrip() + "\n\n" + note + "\n"
+        # what casting obsidian costs in scored milestones (every arm, this task only)
+        note = prompts.casting_note(m.get("identity") for m in (self.ledger.cfg or []))
+        if note:
+            contract = contract.rstrip() + "\n\n" + note + "\n"
         if self.model_step_budget is not None or self.turn_budget is not None:
             contract = (contract.rstrip() + "\n\n"
                         + prompts.budget_note(self.model_step_budget, self.turn_budget,
@@ -772,7 +685,7 @@ class WorldModelAgent:
             previous=(bool(self.episodes is not None and self.episodes.previous is not None)
                       or (self.memory_mode == "logbook"
                           and (self.memory.root / "previous_expedition_log.txt").exists())),
-            expect=self.expect, frames=self.frames, own=self.own, atoms=self.atoms,
+            expect=self.expect, frames=self.frames, own=self.own,
             own_reflexes=self.own_reflexes,
             harness_reflexes=self.reflexes,
             **({"vista_plan": True} if self.vista_aligned else {}),
@@ -822,26 +735,18 @@ class WorldModelAgent:
         fired = self.ledger.update(info, step)
         if fired:
             self._pending_events += [f"MILESTONE {f['identity']} verified" for f in fired]
-            head0 = self.queue[0][0] if self.queue else None
-            if (self.queue and not self._harvesting() and not self._gui_open
-                    and macros.kind_of(head0) is None):
+            if self.queue and not self._gui_open:
                 # The milestone chain is ordered, so ground truth that one just fired
                 # changes what the right next action is: after `mine_log` the move is to
                 # craft, not to keep chopping. Without this the rest of a plan runs to the
                 # end first -- up to `step_cap` (400) ticks of an intention the world has
                 # already moved past. Dropped before the entry-done check below, so the
                 # abandoned entry is still logged with the position it reached.
-                # Exception: harvest_tree. Its first log IS the mine_log milestone, and
-                # its whole point is the three logs after it; one run lost 400-500 steps of
-                # hand-chopping to this drop on its very first call.
                 # Exception: a screen is open. A craft_item milestone fires the moment
                 # the output is lifted, and the entries behind that click (bank it,
                 # close the screen) are what make the milestone bankable -- a staged scene
                 # ended every craft milestone with the product riding
                 # the cursor and a refused close.
-                # Exception: a module macro (macros.TICKS) is at the head. Those are
-                # goal-directed and end themselves (build_wall places its N blocks;
-                # a use_item milestone fired by block 1 must not drop blocks 2-N).
                 logger.info(f"[agent] milestone verified at step {step}: dropping "
                             f"{len(self.queue)} queued action(s) and re-planning")
                 self.queue.clear()
@@ -889,15 +794,6 @@ class WorldModelAgent:
         if prev and pos:
             jump = (abs(pos["x"] - prev["x"]) + abs(pos["y"] - prev["y"])
                     + abs(pos["z"] - prev["z"]))
-            # A portal trip is a teleport too: the coordinates divide by 8 and the
-            # height changes, health untouched. While an enter_portal wait (`_dimcheck`)
-            # heads the queue the jump is the trip it is waiting for, not a death
-            # (a staged scene: the first Nether arrival was logged as "YOU DIED"
-            # and the queue -- with the marker that would have said "the Nether" --
-            # was cleared).
-            # The End portal's `_endcheck` (macros_end.enter_end) is the same wait.
-            portal_wait = bool(self.queue) and any(
-                k in self.queue[0][0] for k in ("_dimcheck", "_endcheck"))
             if jump > 15 and not self._arrived and step <= 5:
                 self._arrived = True
                 self._dimension = self.start_dimension
@@ -906,7 +802,7 @@ class WorldModelAgent:
                     f"You are in {self.start_dimension} at ({pos['x']:.0f}, {pos['y']:.0f}, "
                     f"{pos['z']:.0f}): the task put you here at the start (the first frame "
                     f"was the Overworld spawn for a tick). Nothing was lost.")
-            elif jump > 15 and (hp is None or hp >= 19.0) and not portal_wait:
+            elif jump > 15 and (hp is None or hp >= 19.0):
                 self.cursor_stats["deaths"] = self.cursor_stats.get("deaths", 0) + 1
                 self.grid.mark_hazard(step, prev, 20.0, "death")
                 self.memory.add_note(
@@ -914,7 +810,7 @@ class WorldModelAgent:
                     f"and respawned at ({pos['x']:.0f}, {pos['y']:.0f}, "
                     f"{pos['z']:.0f}). Everything you carried dropped at the death "
                     f"point and despawns after ~6000 ticks. Decide now: recover it "
-                    f"(stair_down beside the site -- NEVER jump into an open shaft, "
+                    f"(dig a staircase down beside the site -- NEVER jump into an open shaft, "
                     f"that is how the second death happened) or rebuild from scratch."
                     + self._dying_during())
                 self.queue.clear()
@@ -923,7 +819,7 @@ class WorldModelAgent:
                 self._last_bunker = None
                 self._hp_hist.clear()
                 self._dimension = "the Overworld"
-            elif (self.near_deaths and (hp is None or hp >= 19.0) and not portal_wait
+            elif (self.near_deaths and (hp is None or hp >= 19.0)
                   and self._respawned_here(prev, pos, info)):
                 # The same death, without the teleport that names it above: the avatar
                 # died where it respawns (a fight at the spawn, a fall onto it). The
@@ -954,22 +850,16 @@ class WorldModelAgent:
                      if (hp is not None and len(self._hp_hist) > 1) else 0.0)
         repeat_hit = (hp is not None and tick_drop >= 3.0
                       and step - self._last_hit_step <= 120)
-        # A combat macro IS the response to the attacker (macros.COMBAT: fight,
-        # face_entity, shoot_bow, block_with_shield, use_on_entity). Turning the avatar
-        # 180 degrees away from the mob it is aiming at, and dropping the rest of the
-        # plan, aborts the fight on the mob's FIRST swing -- so a combat head survives
-        # a first hit the way a moving head survives a repeated one. Each of those
-        # macros carries its own retreat rule; below CRITICAL_HP the pillar escape
-        # below still wins, unchanged.
-        combat_head = (macros.kind_of(self.queue[0][0]) in macros.COMBAT
-                       if self.queue else False)
-        # Under --own-live a closed loop of the model's own at the head is its combat
-        # macro: it reads its health and the frame at every call, and its reflexes are
-        # its retreat rule. Treated as "a plan standing still", every fight entry of
-        # three probe lives ended on the first hit it took (6.4 a hit on hard), and the
-        # model replanned after each exchange. Below CRITICAL_HP the stop still wins.
-        if self.own_live and self.queue and self._entry_is_loop(self.queue[0][1]):
-            combat_head = True
+        # A closed loop of the model's own at the head (`own_live`) IS the response to
+        # the attacker: it reads its health and the frame at every call, and its reflexes
+        # are its retreat rule. Turning the avatar 180 degrees and dropping the plan
+        # aborts the fight on the mob's FIRST swing -- treated as "a plan standing
+        # still", every fight entry of three probe lives ended on the first hit it took
+        # (6.4 a hit on hard), and the model replanned after each exchange. So a loop
+        # head survives a first hit the way a moving head survives a repeated one;
+        # below CRITICAL_HP the stop still wins.
+        combat_head = bool(self.own_live and self.queue
+                           and self._entry_is_loop(self.queue[0][1]))
         combat_hit = (combat_head and hp is not None
                       and (tick_drop >= 3.0 or slow_drop >= 3.0))
         if (repeat_hit or combat_hit) and (
@@ -1151,7 +1041,7 @@ class WorldModelAgent:
             elif active == "drown":
                 reflex = " The runner is still swimming you up (jump held)."
             elif pos and (not info.get("isGuiOpen", False) or self._in_hole(pos, step)):
-                from mcu_worldmodel import macros_world as MW
+                from mcu_worldmodel import geometry as MW
                 gui_open = bool(info.get("isGuiOpen", False))
                 in_hole = self._in_hole(pos, step)
                 melee = combat_head
@@ -1478,7 +1368,7 @@ class WorldModelAgent:
             base = dict(self.cursor.baseline or {})
             dropped = self.cursor.off_inventory(self._cur_inv)
             p = self._cur_pos
-            if self._screen in macros.KEEPS_CONTENTS:
+            if self._screen in gui.KEEPS_CONTENTS:
                 # A furnace (or chest, brewing stand...) keeps its contents across a
                 # close: what is "off-inventory" sits in it, not on the floor. Without
                 # this every smelt ended with a note that sent the model sweeping the
@@ -1522,26 +1412,22 @@ class WorldModelAgent:
                 st["anchored"] += 1
                 st["drift_sum"] += drift
                 st["drift_max"] = max(st["drift_max"], drift)
-                self._vision_miss_streak = 0
             else:
                 self.cursor_stats["missed"] += 1
-                self._vision_miss_streak += 1
 
     # -- the act turn -----------------------------------------------------
 
     def next_action(self, info: dict) -> dict[str, Any]:
         """One env action. Fires a turn only when the queue is dry.
 
-        A queue entry is either a plain env action or a closed-loop marker that resolves
-        against the current tick's state: a `_servo` steers toward its target using the
-        position `_sync_cursor` just measured from the frame, a `_chop` holds attack until
-        wood lands, `_allow_close` arms one forced screen close. A marker stays at the
-        head of the queue until it declares itself done, so the (action, entry) pairing
-        and the entry-done log both keep working.
+        A queue entry is a plain env action or an `_ownloop` marker -- a closed loop of
+        the model's own (own.py) that runs its script on the current tick's state and
+        queues what it returns in front of itself. A marker stays at the head of the
+        queue until it declares itself done, so the (action, entry) pairing and the
+        entry-done log both keep working.
         """
         from mcu_worldmodel.procedures import act as mk_act, noop
 
-        self._judge_pending_click()
         # Post-completion hold: every configured milestone is verified, so no model
         # turn can raise the score -- it can only spend wall-clock and calls (a
         # completed run idled ~30 s/turn, one step per call, for its last ~1000
@@ -1558,10 +1444,9 @@ class WorldModelAgent:
             action = self._reflex_tick(mk_act)
             if action is not None:
                 return action
-        # A raw attack-hold is cut the moment its block breaks. Markers already key on
-        # the stat stream; plain steps popped blind ran a 100-tick attack 71 ticks past
-        # the grass it was written for (one run, step 5242). Multi-block digs belong
-        # to mine_forward/strip_mine, which re-aim between blocks.
+        # A raw attack-hold is cut the moment its block breaks: plain steps popped blind
+        # ran a 100-tick attack 71 ticks past the grass it was written for (one run,
+        # step 5242).
         total_breaks = self._log_breaks + self._other_breaks
         if total_breaks > self._breaks_seen:
             self._cut_attack_hold()
@@ -1581,15 +1466,13 @@ class WorldModelAgent:
                         self.episodes.open(
                             self._plan_entries[idx], idx, len(self._plan_entries), info,
                             self.step, self._encode_pov(info.get("pov"), self.step))
-                if "_allow_close" in head:
-                    self._close_armed = True
-                    self.queue.popleft()
-                    continue
                 if "_ownloop" in head:
-                    # A closed-loop own procedure (own.py, `--own-live`): the script is
+                    # A closed-loop own procedure (own.py, `own_live`): the script is
                     # run on THIS tick's state and frame, and what it returns goes in
                     # front of the marker under the same entry; the marker is back at
-                    # the head when those have run. False: the loop is over.
+                    # the head when those have run. False: the loop is over. A marker
+                    # finishes *between* observes, so the entry-done log `observe`
+                    # writes on a head change would never see it: written here.
                     if not self._own_loop_step(head["_ownloop"], idx, info):
                         self.queue.popleft()
                         nxt = self.queue[0][1] if self.queue else None
@@ -1597,52 +1480,8 @@ class WorldModelAgent:
                             self._log_entry_done(idx)
                             self._entry_index = None
                     continue
-                _MARKERS = {"_servo": self._servo_tick, "_chop": self._chop_tick,
-                            "_dig": self._dig_tick, "_use_gui": self._use_gui_tick,
-                            "_opengui": self._opengui_tick,
-                            "_closegui": self._closegui_tick,
-                            "_click": self._click_tick,
-                            "_goto": self._goto_tick, "_seq": self._seq_tick,
-                            "_lookabs": self._lookabs_tick,
-                            "_aimore": self._aimore_tick,
-                            "_aimtree": self._aimtree_tick,
-                            "_harvest": self._harvest_tick,
-                            "_sweep": self._sweep_tick,
-                            "_mfwd": self._mfwd_tick}
-                kind = next((k for k in _MARKERS if k in head), None)
-                ext = None if kind is not None else macros.kind_of(head)
-                if kind is not None or ext is not None:
-                    if kind is not None:
-                        action = (self._servo_tick(head["_servo"]) if kind == "_servo"
-                                  else _MARKERS[kind](head[kind], mk_act))
-                    else:
-                        # A marker owned by a macro module (see macros.py): same
-                        # contract, dispatched by key without touching this table.
-                        action = macros.TICKS[ext](self, head[ext], mk_act)
-                    if action is None:
-                        # A marker finishes *between* observes, so the entry-done log
-                        # `observe` writes on a head change would never see it. Written
-                        # here instead, with the same freshness -- observe ran this tick
-                        # before this call did.
-                        self.queue.popleft()
-                        nxt = self.queue[0][1] if self.queue else None
-                        if nxt != idx:
-                            self._log_entry_done(idx)
-                            self._entry_index = None
-                        continue
-                else:
-                    # `--atoms`: a raw attack hold is the model's own mining step (the
-                    # macros that carried the wall watcher are withheld), so the watcher
-                    # samples it too. Same marker semantics as a macro: every 8th tick,
-                    # one flag per 100 steps, the rest of the plan flushed with the
-                    # [NOTE]. Three lives mined
-                    # 12,000 steps each on raw holds with 0-3 sightings between them.
-                    if (self.atoms and self.primitives and _is_attack_hold(head)
-                            and self._ore_flag(self._raw_ore)):
-                        self.cursor_stats["raw_hold_flags"] = (
-                            self.cursor_stats.get("raw_hold_flags", 0) + 1)
-                    action, _ = self.queue.popleft()
-                    action = self._guard_close(action, noop)
+                action, _ = self.queue.popleft()
+                action = self._guard_close(action, noop)
                 # Advanced here, one tick at a time, against the projection that
                 # `_act_turn` advanced entry by entry at planning time. `toggle=False`:
                 # for the real cursor `isGuiOpen` decides whether a screen is up, and
@@ -1693,8 +1532,8 @@ class WorldModelAgent:
                                             ("out", gui.FURNACE_OUT)) if hit(tl)]
             if fparts:
                 bits.append(f"furnace [{','.join(fparts)}]")
-        # The containers macros_container.py drives. A chest row is only emitted for a
-        # chest screen the frame actually named: 27 (or 54) cell readings under an
+        # Containers: a chest row is only emitted for a chest screen the frame actually
+        # named: 27 (or 54) cell readings under an
         # unknown screen would bury the rows above rather than inform them.
         if screen in ("chest", "chest2"):
             cs = gui.chest_cells(screen)
@@ -1749,8 +1588,8 @@ class WorldModelAgent:
         if not held:
             return action
         txt = ", ".join(f"{k}x{v}" for k, v in sorted(held.items()))
-        if self._screen in macros.KEEPS_CONTENTS:
-            # Furnace cells (and any container in macros.KEEPS_CONTENTS) keep their
+        if self._screen in gui.KEEPS_CONTENTS:
+            # Furnace cells (and any container in gui.KEEPS_CONTENTS) keep their
             # contents: closing is lossless (bar a stack riding the cursor, which the
             # [CURSOR] line warns about). The refusal here cost every smelt a refused
             # close, a forced close and a false "on the floor" note (8-45 refusals
@@ -1768,417 +1607,6 @@ class WorldModelAgent:
             f'force=true is lossless. Otherwise {{"procedure": "close_inventory", '
             f'"args": {{"force": true}}}} drops them deliberately.')
         return noop()
-
-    def _note_failure(self, label: str) -> None:
-        """One more consecutive guard-stop for this procedure family."""
-        entry = self._proc_fails.setdefault(label, [0, self.step])
-        entry[0] += 1
-
-    def _flush_tail(self, note: str, stat: str) -> None:
-        """Drop everything queued after the current head, with one note saying so.
-
-        The same move the mining stall-stop makes, for the same reason: the diagnosis
-        is only read at the NEXT act turn, and the queue gets there first. The head is
-        kept so the dispatch loop's pop after a marker returns None stays valid."""
-        head = self.queue[0] if self.queue else None
-        dropped = len({idx for _, idx in list(self.queue)[1:]}) if head else 0
-        if dropped:
-            self.queue.clear()
-            self.queue.append(head)
-        self.cursor_stats[stat] = self.cursor_stats.get(stat, 0) + 1
-        tail = (f" The rest of the plan ({dropped} entr{'y' if dropped == 1 else 'ies'})"
-                f" was dropped so you can replan from what you actually see."
-                if dropped else "")
-        self.memory.add_note(note + tail)
-
-    def _servo_tick(self, sv: dict[str, Any]) -> dict[str, Any] | None:
-        """One tick of a closed-loop cursor move; None when the move is finished.
-
-        Arrival is declared against a *measured* position (anchored this very tick), not
-        against dead reckoning -- reckoning converges on its own belief by construction,
-        which is precisely the failure this replaces. When the arrow has not been drawn
-        for several frames running (transition ticks omit it), reckoning is accepted
-        rather than deadlocking, and counted separately in the report.
-        """
-        from mcu_worldmodel.procedures import act as mk_act
-
-        if not self.cursor.is_open:
-            self._servo_landed = None
-            self._note_failure("gui (screen closed)")
-            self._flush_tail(
-                f"cursor move to {sv['label']}: the screen closed mid-move; stopped. "
-                f"If you did not close it, the game did: container screens auto-close "
-                f"when you drift out of reach (~5 blocks). Stand ADJACENT to the block, "
-                f"then use_at it again. If the cursor was carrying an "
-                f"item, it dropped at your feet -- a follow-up [NOTE] will name "
-                f"anything that went missing.", "gui_closed_flush")
-            return None
-        pos = self.cursor.pos
-        ex, ey = sv["tx"] - pos[0], sv["ty"] - pos[1]
-        measured = self.cursor.anchored_step == self.step
-        if abs(ex) <= 2.0 and abs(ey) <= 2.0 and (measured
-                                                  or self._vision_miss_streak >= 4):
-            self.cursor_stats["servo_ok" if measured else "servo_unverified"] += 1
-            self._servo_landed = (float(sv["tx"]), float(sv["ty"]))
-            return None
-        if sv["budget"] <= 0:
-            self.cursor_stats["servo_gave_up"] += 1
-            self._servo_landed = None
-            self.memory.add_note(
-                f"cursor move to {sv['label']} gave up at container "
-                f"({pos[0]:.0f}, {pos[1]:.0f}), {(ex * ex + ey * ey) ** 0.5:.0f}px "
-                f"short of its target. The pointer may be pinned at a screen edge.")
-            return None
-        sv["budget"] -= 1
-        # 0.8 gain and a 60 px per-axis clamp. The gain damps the oscillation a wrong
-        # scale constant causes (if the game really moves 6.7 px/degree, an undamped step
-        # overshoots by 60% and rings); the clamp keeps one bad measurement from flinging
-        # the pointer into a screen-edge clamp. Both numbers were set by the simulation
-        # described at `procedures.SERVO_BUDGET`.
-        step_x = max(-60.0, min(60.0, 0.8 * ex))
-        step_y = max(-60.0, min(60.0, 0.8 * ey))
-        return mk_act(camera=[step_y / gui.PX_PER_DEGREE, step_x / gui.PX_PER_DEGREE])
-
-    def _click_tick(self, ck: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """A GUI click held against the screen it is about to touch.
-
-        Two facts a human sees before pressing the button, checked the same way: the
-        screen is still open, and the pointer is still where the last cursor move left
-        it. One run step 5367: the servo landed on the cobble slot, the pointer was
-        back at the container's opening position three ticks later, and the click --
-        plus the 25 entries queued behind it -- ran anyway and built nothing."""
-        if ck["t"] == 0 and ck.get("gui", True):
-            if not self.cursor.is_open:
-                self._servo_landed = None
-                self._note_failure("gui (screen closed)")
-                self._flush_tail(
-                    f"gui_{'right_' if ck['btn'] == 'use' else ''}click: the screen is "
-                    f"closed; not clicking. If you did not close it, the game did: "
-                    f"container screens auto-close when you drift out of reach "
-                    f"(~5 blocks). Stand ADJACENT to the block, then use_at it "
-                    f"again.", "gui_closed_flush")
-                return None
-            if self._servo_landed is not None and self.cursor.pos is not None:
-                px, py = self.cursor.pos
-                lx, ly = self._servo_landed
-                off = ((px - lx) ** 2 + (py - ly) ** 2) ** 0.5
-                if off > 8.0:
-                    self._servo_landed = None
-                    self._note_failure("gui_click")
-                    self._flush_tail(
-                        f"click aborted: the cursor is at ({px:.0f}, {py:.0f}), "
-                        f"{off:.0f}px away from ({lx:.0f}, {ly:.0f}) where the last "
-                        f"cursor move landed -- it moved between the servo and the "
-                        f"click. Run cursor_to_slot / cursor_to_cell again (check "
-                        f"[CURSOR] over=) before clicking.", "click_pos_mismatch")
-                    return None
-        if ck["t"] == 0 and ck["btn"] == "attack" and ck.get("gui", True):
-            # A left click made with an empty cursor over a player inventory slot is a
-            # lift attempt. Remember what the screen shows BEFORE the press -- a
-            # put-back click empties the cursor by succeeding, and a snapshot taken at
-            # the release tick would read exactly like a lift that did nothing.
-            over = self.cursor.over(self._screen)
-            held = self.cursor.off_inventory(dict(self._cur_inv))
-            # A quick-move (shift) changes which slot holds a stack, not the counts
-            # the verdict compares, so it is never judged as "lifted nothing".
-            if (not held and "slot" in over and not ck.get("probe")
-                    and not ck.get("shift")):
-                # Judged hold+3 ticks on: the inventory observation lagged a lift by
-                # more than the old hold+1 in a staged scene -- a lifted
-                # cobblestone stack was judged "lifted nothing", the queue cleared
-                # and the forced close that followed threw the stack on the floor.
-                self._pending_click = {"over": over, "inv": dict(self._cur_inv),
-                                       "due": ck["hold"] + 3}
-        if ck["t"] < ck["hold"]:
-            ck["t"] += 1
-            # `shift`: sneak held with the button is the GUI's quick-move (shift-click)
-            # -- measured in the standalone sim: a stack jumps between
-            # the hotbar and the main rows, a chest slot empties into the inventory,
-            # a craft output crafts everything the grid holds and banks it. No stack
-            # ever rides the cursor, so no bank click can miss.
-            return mk_act(**{ck["btn"]: 1, **({"sneak": 1} if ck.get("shift") else {})})
-        if ck["t"] == ck["hold"]:
-            ck["t"] += 1
-            return mk_act()
-        return None
-
-    def _judge_pending_click(self) -> None:
-        """The lift attempt's verdict, one tick after the click finishes, from the same
-        two channels the prompt teaches the model to check by hand ([CURSOR] holdings
-        and [INV])."""
-        pc = self._pending_click
-        if pc is None:
-            return
-        pc["due"] -= 1
-        if pc["due"] > 0:
-            return
-        self._pending_click = None
-        if not self.cursor.is_open:
-            return
-        held = self.cursor.off_inventory(dict(self._cur_inv))
-        if held or dict(self._cur_inv) != pc["inv"]:
-            return
-        # The frame is the direct evidence: a lifted stack vanishes from its slot on
-        # the client at once, while the inventory observation can lag a lift by 5+
-        # ticks (a staged scene: a 3-cobblestone lift right after a quick-move
-        # craft was judged "lifted nothing" while the stack was already on the
-        # cursor and being placed into the grid). A slot that renders EMPTY under
-        # the pointer means the lift happened, whatever the counts say.
-        m = re.search(r"slot (\d+)", str(pc.get("over", "")))
-        if m and self._last_pov is not None:
-            try:
-                # A double chest draws the player rows 27 px lower: read the slot where
-                # THIS screen draws it (gui.player_slot_topleft knows the shift).
-                tl = gui.player_slot_topleft(int(m.group(1)), self._screen)
-                ox, oy = gui.container_origin(*self.cursor.render)
-                if not vision.slot_occupied(np.asarray(self._last_pov),
-                                            int(ox + tl[0]), int(oy + tl[1])):
-                    return
-            except ValueError:
-                pass
-        dropped = len({idx for _, idx in self.queue})
-        if dropped:
-            self.queue.clear()
-            self._entry_index = None
-        self._note_failure("gui_click")
-        self.cursor_stats["click_lifted_nothing"] = (
-            self.cursor_stats.get("click_lifted_nothing", 0) + 1)
-        self.memory.add_note(
-            f"the gui_click over {pc['over']} lifted nothing: the cursor holds nothing "
-            f"and the inventory did not change. The slot may be empty or the pointer "
-            f"not on the stack -- land cursor_to_slot on it again before clicking."
-            + (f" The rest of the plan ({dropped} entr{'y' if dropped == 1 else 'ies'})"
-               f" was dropped so you can replan from what you actually see."
-               if dropped else ""))
-
-    def _chop_tick(self, ch: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of attack, ending early the moment wood actually breaks.
-
-        Keyed on the `mine_block` statistic, not the inventory: the block breaking is the
-        instant the aim is proven (the drop can take seconds to be walked over, or fall
-        out of reach entirely), and one run ran a whole episode with zero early stops
-        because it waited on the pickup. The inventory count is kept as a second trigger
-        for the case where a drop from an earlier miss rolls in mid-chop.
-        """
-        if ch.get("base") is None:
-            ch["base"] = {k: v for k, v in self._cur_inv.items() if "log" in k}
-            ch["base_breaks"] = self._log_breaks
-            ch["base_other"] = self._other_breaks
-            ch["used"] = 0
-        broken = self._log_breaks - ch["base_breaks"]
-        if ch["until"]:
-            gained = sum(v - ch["base"].get(k, 0)
-                         for k, v in self._cur_inv.items()
-                         if "log" in k and v > ch["base"].get(k, 0))
-            if max(broken, gained) >= ch["until"]:
-                self.cursor_stats["chop_early_stops"] += 1
-                return None
-        # Miss-fast: the stat stream names what is actually breaking. Two non-wood
-        # breaks with no wood yet means the crosshair is on leaves/dirt; 75 ticks with
-        # nothing breaking at all means out of range or aimed at sky. Ending the macro
-        # there turns a 180-tick miss into a <=75-tick answer.
-        if broken == 0:
-            wrong = self._other_breaks - ch["base_other"]
-            if wrong >= 2:
-                self.cursor_stats["chop_wrong_target"] = (
-                    self.cursor_stats.get("chop_wrong_target", 0) + 1)
-                self.memory.add_note(
-                    f"chop stopped early: breaking {self._last_break_item}, not wood. "
-                    f"Re-aim at a trunk face (zoom the frame centre to check).")
-                return None
-            if ch["used"] >= 75:
-                self.cursor_stats["chop_nothing_broke"] = (
-                    self.cursor_stats.get("chop_nothing_broke", 0) + 1)
-                self.memory.add_note(
-                    "chop stopped early: 75 ticks and nothing broke -- the block is out "
-                    "of reach or the crosshair is on sky. Get within ~3 blocks of the "
-                    "trunk and centre a bark face before chopping again.")
-                return None
-        if ch["remaining"] <= 0:
-            return None
-        ch["remaining"] -= 1
-        ch["used"] += 1
-        return mk_act(attack=1)
-
-    def _opengui_tick(self, og: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """Press `inventory` until a screen is actually up (isGuiOpen), a few tries.
-
-        The toggle is edge-triggered and the engine drops a press that lands within a
-        tick or two of the previous screen change: a staged scene pressed E four
-        ticks after a forced close and nothing opened, so the whole recipe queued
-        behind it ran against a closed screen. The same check `use_until_gui` makes,
-        for the one key that opens the survival inventory."""
-        if self._gui_open:
-            return None
-        t = og["t"]
-        og["t"] += 1
-        if t % 3 == 0:
-            if og["attempts"] <= 0:
-                self.memory.add_note(
-                    "open_inventory: the screen did not open after "
-                    f"{og.get('tries', 0)} presses; try again next turn.")
-                return None
-            og["attempts"] -= 1
-            og["tries"] = og.get("tries", 0) + 1
-            return mk_act(inventory=1)
-        return mk_act()
-
-    def _closegui_tick(self, cg: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """Press `inventory` until no screen is open, through the drop guard each time.
-
-        A close is verified on `isGuiOpen`, not assumed from the press: right after a
-        `use`-opened container the first E is swallowed (every container in the
-        probe needed two), and a plan that believed the screen shut then
-        walked away with a stack still on the cursor. `force` arms the guard for every
-        press of this close, so a swallowed first press does not turn the second into
-        a refusal.
-
-        One observation without a screen is not a close either: an E sent the tick
-        after `place_and_open` brought the table up read closed for one observation
-        and the table was on screen again in the next. The close is done when two
-        observations running show no screen; a screen that is back is pressed again."""
-        if not self._gui_open:
-            if not cg.get("tries") or cg.get("shut"):
-                return None
-            cg["shut"] = True
-            return mk_act()
-        if cg.pop("shut", False):
-            cg["t"] = 0
-        t = cg["t"]
-        cg["t"] += 1
-        if t % 3 == 0:
-            if cg["attempts"] <= 0:
-                self.memory.add_note(
-                    f"close_inventory: the screen is still open after "
-                    f"{cg.get('tries', 0)} presses; call it again.")
-                return None
-            cg["attempts"] -= 1
-            cg["tries"] = cg.get("tries", 0) + 1
-            if cg.get("force"):
-                self._close_armed = True
-            action = self._guard_close(mk_act(inventory=1), mk_act)
-            if not action.get("inventory"):
-                return None         # refused: the guard wrote its note
-            return action
-        return mk_act()
-
-    def _use_gui_tick(self, ug: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """Press use, give the screen two ticks to come up, check, repeat.
-
-        `isGuiOpen` is the arbiter -- the press either opened a screen or it did not,
-        and one run spent fifteen model-turn round trips discovering "did not" one
-        plan at a time. Stops the moment the screen is up.
-        """
-        if self._gui_open:
-            # One settle tick with the screen up: a click or an E sent on the very
-            # tick the screen appeared was swallowed in the probes.
-            if not ug.get("settled"):
-                ug["settled"] = True
-                return mk_act()
-            self.cursor_stats["use_gui_opened"] = (
-                self.cursor_stats.get("use_gui_opened", 0) + 1)
-            opened_item = self._screen_item_for(ug)
-            if opened_item:
-                self.grid.mark_opened(self.step, opened_item, self._cur_pos)
-                if ug.get("replay"):
-                    self.cursor_stats["pose_reopens"] = (
-                        self.cursor_stats.get("pose_reopens", 0) + 1)
-            if ug.get("grace"):
-                self.cursor_stats["use_gui_late_open"] = (
-                    self.cursor_stats.get("use_gui_late_open", 0) + 1)
-            return None
-        item = ug.get("item")
-        if item and not ug.get("aimed") and not ug.get("pose_done"):
-            # First choice: replay the exact pose this screen last opened from
-            # (grid.opened). The cell estimate below is the fallback.
-            replay = self.grid.opened.get(str(item))
-            if replay and replay.get("pose") and self._cur_pos:
-                if ug.get("attempts0") is None:
-                    ug["attempts0"] = ug["attempts"]
-                act = self._pose_replay_tick(ug, replay["pose"], mk_act)
-                if act is not None:
-                    return act
-                st = ug.get("replay") or {}
-                if st.get("phase") == "done":
-                    ug["aimed"] = True
-                    ug["pose_done"] = "pressing"
-                    return mk_act()
-                ug["pose_done"] = "unreachable"
-        if item and not ug.get("aimed"):
-            # Aim at the block place_and_open put down (its estimate, see
-            # _placecheck_tick) before the first press: two runs
-            # pressed `use` at guessed angles 18 times between them and
-            # opened nothing -- the runner knew where the table went, the model did not.
-            at = self._placed.get(str(item))
-            if at is None:
-                self.memory.add_note(
-                    f"use_until_gui(item={item!r}): this run has not placed a {item} "
-                    f"with place_and_open, so there is no remembered spot -- look_at "
-                    f"its coordinates yourself, then use_until_gui.")
-                ug["aimed"] = True
-            elif ug.get("aim") is None:
-                from mcu_worldmodel.procedures import look_at
-                from mcu_worldmodel.macros_world import EYE, REACH
-                pos = self._cur_pos or {}
-                dist = (math.dist((pos["x"], pos["y"] + EYE, pos["z"]),
-                                  (at[0] + 0.5, at[1] + 0.5, at[2] + 0.5))
-                        if pos else 0.0)
-                if dist > REACH + 0.3:
-                    # One run called use_until_gui(item="crafting_table")
-                    # from 5, 16 and 18 blocks away: the camera turned toward the
-                    # remembered table and eight presses opened nothing, seven times
-                    # over. Out of reach is a walk, not a press.
-                    self.cursor_stats["use_gui_far"] = (
-                        self.cursor_stats.get("use_gui_far", 0) + 1)
-                    self.memory.add_note(
-                        f"use_until_gui(item={item!r}): the {item} this run placed is at "
-                        f"({at[0]}, {at[1]}, {at[2]}), {dist:.1f} blocks from your eye -- "
-                        f"out of reach (max {REACH}). go_to({at[0]}, {at[2]}, within=2) "
-                        f"first, then use_until_gui(item={item!r}) again.")
-                    return None
-                aim, _ = look_at(self._cur_info or {}, at[0] + 0.5, at[1] + 0.5, at[2] + 0.5)
-                ug["aim"] = [a for a in aim if a.get("camera")]
-                ug["aim_note"] = at
-            if ug.get("aim"):
-                return ug["aim"].pop(0)
-            if not ug.get("aimed"):
-                ug["aimed"] = True
-                self.cursor_stats["use_gui_aimed"] = self.cursor_stats.get("use_gui_aimed", 0) + 1
-                return mk_act()          # one settle tick after the turn
-        if ug["attempts"] <= 0:
-            # The presses are spent: wait out the observation lag before the verdict
-            # (GUI_LAG_TICKS); a screen that comes up meanwhile is a success above.
-            ug["grace"] = ug.get("grace", 0) + 1
-            if ug["grace"] <= self.GUI_LAG_TICKS:
-                return mk_act()
-            if ug.get("pose_done") == "pressing" and not ug.get("cell_tried"):
-                # The replayed pose opened nothing (the block is gone, or the spot
-                # was not reached exactly): one more round at the estimated cell.
-                ug["cell_tried"] = True
-                ug["pose_done"] = "failed"
-                ug["aimed"] = False
-                ug["attempts"] = int(ug.get("attempts0") or 4)
-                ug["grace"] = 0
-                return mk_act()
-            at = ug.get("aim_note")
-            self._keep_event_frame(self.step, "no screen", self._last_pov)
-            self.memory.add_note(
-                (f"use_until_gui(item={ug['item']!r}): aimed at the remembered {ug['item']} "
-                 f"at ({at[0]}, {at[1]}, {at[2]}) and no screen opened -- the block may be "
-                 f"gone (broken, or a death ago), or something stands between you and it; "
-                 f"check the newest frame, and the selected hotbar item must not be a "
-                 f"placeable block."
-                 if at else
-                 "use_until_gui: no screen opened. Either the crosshair is not on the "
-                 "block (look_at it first) or the selected hotbar item is placeable and "
-                 "placed a block instead -- select your pickaxe and retry."))
-            return None
-        t = ug["t"]
-        ug["t"] += 1
-        if t % 3 == 0:
-            ug["attempts"] -= 1
-            return mk_act(use=1)
-        return mk_act()
 
     def _cut_attack_hold(self) -> None:
         """Refund the rest of a raw attack-hold entry once a block has broken.
@@ -2211,7 +1639,7 @@ class WorldModelAgent:
         self.memory.add_note(
             f"attack-hold entry cut short at step {self.step}: a block broke "
             f"({self._last_break_item or 'log'}), {run} leftover attack ticks refunded. "
-            + _cut_short_hint(self.atoms, self.primitives))
+            + _CUT_SHORT_HINT)
 
     #: Blocks the pillar reflex will stand on, best first. Gravel and sand fall.
     PILLAR_BLOCKS = ("cobblestone", "dirt", "stone", "andesite", "diorite", "granite",
@@ -2309,7 +1737,7 @@ class WorldModelAgent:
         becomes the two-block hole below it), and the cap is placed against a side
         wall of that cell -- a strip mine's walls run along the avatar's heading, so
         the faces across the heading come first."""
-        from mcu_worldmodel import macros_world as MW
+        from mcu_worldmodel import geometry as MW
         cell = MW.block_of(pos)
         along_x = MW.axis_facing(float(pos["yaw"]))[0] != 0
         faces = (["north", "south", "west", "east"] if along_x
@@ -2327,7 +1755,7 @@ class WorldModelAgent:
         then place it in the cell the feet started in (the placement engine aims at a
         side wall's face and verifies through use_item). Every exit tells the model
         what state it is in."""
-        from mcu_worldmodel import macros_world as MW
+        from mcu_worldmodel import geometry as MW
         pos = self._cur_pos
         rf["remaining"] -= 1
         if pos is None or rf["remaining"] < 0:
@@ -2621,31 +2049,6 @@ class WorldModelAgent:
             self._last_water_seen = (step, float(pos["x"]), float(pos["z"]))
             self.grid.mark_water(step, float(pos["x"]), float(pos["z"]), float(pos["y"]))
 
-    def _dig_water_refusal(self, label: str) -> str | None:
-        """The note refusing a shaft beside water seen lately, or None."""
-        seen = self._last_water_seen
-        pos = self._cur_pos
-        if seen is None or pos is None or self.step - seen[0] > self.DIG_WATER_STEPS:
-            return None
-        d = math.hypot(float(pos["x"]) - seen[1], float(pos["z"]) - seen[2])
-        if d > self.DIG_WATER_BLOCKS:
-            return None
-        # The way out, as one call: one run spent steps 579-4113 beside the
-        # pond it had filled the bucket at, refused here twice and swimming in circles.
-        from mcu_worldmodel import macros_world as MW
-        if d >= 0.5:
-            ux, uz = (float(pos["x"]) - seen[1]) / d, (float(pos["z"]) - seen[2]) / d
-        else:
-            ux, uz = MW.facing(float(pos.get("yaw", 0.0)) + 180.0)
-        away = self.DIG_WATER_BLOCKS + 2.0
-        gx, gz = seen[1] + ux * away, seen[2] + uz * away
-        return (f"{label} REFUSED: water was within reach {self.step - seen[0]} ticks ago, "
-                f"{d:.0f} block(s) from here -- a shaft dug beside a pond or a stream FLOODS "
-                f"(a flooded shaft has drowned the runner before). Walk "
-                f"{self.DIG_WATER_BLOCKS:.0f}+ blocks away from the water's edge, look down "
-                f"at dry ground, then dig: `go_to(x={gx:.1f}, z={gz:.1f}, within=1, "
-                f"n=120)` is that far from it, straight away from the water.")
-
     def _finish_lava(self, rf: dict[str, Any], why: str | None) -> None:
         pos = self._cur_pos
         moved = (math.hypot(float(pos["x"]) - rf["x0"], float(pos["z"]) - rf["z0"])
@@ -2709,25 +2112,10 @@ class WorldModelAgent:
         lb = self._last_bunker
         if lb is None or pos is None or step - lb["step"] > self.BUNKER_HOLE_STEPS:
             return False
-        from mcu_worldmodel import macros_world as MW
+        from mcu_worldmodel import geometry as MW
         c = MW.block_of(pos)
         cx, cy, cz = lb["cell"]
         return (int(c[0]), int(c[2])) == (cx, cz) and float(pos["y"]) <= cy - 1.5
-
-    def _shaft_cap_line(self) -> str:
-        """The line after a dig_down: the shaft over the head is the way a mob gets
-        into the cell (one run: a zombie down a 60-block shaft at y 11,
-        dead with the bunker reflex and a diamond sword in the inventory)."""
-        pos = self._cur_pos
-        if pos is None:
-            return ""
-        from mcu_worldmodel import macros_world as MW
-        bx, by, bz = MW.block_of(pos)
-        return (f" The shaft over your head is open: a mob that drops down it lands IN "
-                f"your cell, where no bunker or wall separates you (one life died so). Before "
-                f"mining sideways close it -- place_at(x={int(bx)}, y={int(by) + 2}, "
-                f"z={int(bz)}, item=\"cobblestone\", face=\"north\") (any side is "
-                f"solid wall here) -- and keep the sword in the hotbar.")
 
     def _in_shaft(self, cell: tuple[int, int, int] | list[int]) -> bool:
         """The column over `cell` is open and walked: the avatar dug straight down to
@@ -2835,13 +2223,13 @@ class WorldModelAgent:
         # The step toward the mob is for a tunnel: in a 1x1 cell it is a step into
         # the wall, and the auto-jump it starts lifts the eye over the mob's head
         # (s20: the avatar airborne at three of five probes).
-        period = int(rf.get("period", macros_entity.RECOVER + 1))
+        period = int(rf.get("period", self.WEAPON_PERIOD["sword"]))
         return mk_act(attack=1 if rf["t"] % period == 1 else 0,
                       forward=0 if rf.get("center") else (1 if rf["t"] % 24 < 4 else 0))
 
     def _finish_fightback(self, rf: dict[str, Any], why: str | None) -> None:
         pos = self._cur_pos
-        # custom.damage_dealt counts tenths of a heart-point (macros_entity divides by 10)
+        # custom.damage_dealt counts tenths of a heart-point
         dealt = max(0.0, self.stat_now("custom", "damage_dealt") - rf["dealt0"]) / 10.0
         hp = self._last_health
         where = (f"({pos['x']:.0f}, {pos['y']:.0f}, {pos['z']:.0f})" if pos else "?")
@@ -2903,7 +2291,7 @@ class WorldModelAgent:
         block at feet level and one on top of it. Needs a placeable block in the hotbar
         and 3+ blocks of run; the targets are the cell one block back along the run
         and the cell above it."""
-        from mcu_worldmodel import macros_world as MW
+        from mcu_worldmodel import geometry as MW
 
         pos = self._cur_pos
         slot = self._pillar_slot(self._cur_info or {}, min_qty=2)
@@ -2925,7 +2313,7 @@ class WorldModelAgent:
         """The seal: block selected, turn to face the way back, click the floor's top
         (the feet cell fills), click the new block's top (the head cell fills); the
         inventory says whether both went down. One retry."""
-        from mcu_worldmodel import macros_world as MW
+        from mcu_worldmodel import geometry as MW
 
         pos = self._cur_pos
         rf["seal_t"] += 1
@@ -3042,343 +2430,6 @@ class WorldModelAgent:
             return None
         return mk_act(camera=[0.0, max(-30.0, min(30.0, dy))])
 
-    def _lookabs_tick(self, la: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of steering the camera to an ABSOLUTE (pitch, yaw), from truth.
-
-        `look()` is relative and correct only when the entry pose is known:
-        `stair_down`'s opening `look(pitch=38)` entered at pitch 25 dug its staircase
-        at 63, and entered at pitch 90 clamped into digging straight down -- the exact
-        shaft the macro exists to avoid (one run). Absolute aim needs the measured
-        [STATE] angles, which exist only at run time, hence a marker.
-        """
-        pos = self._cur_pos
-        if la["remaining"] <= 0:
-            if pos is not None:
-                self.memory.add_note(
-                    f"look_abs ran out of ticks at pitch {pos['pitch']:.0f} yaw "
-                    f"{norm_yaw(pos['yaw']):.0f} (target {la.get('pitch')}, "
-                    f"{la.get('yaw')}).")
-            return None
-        la["remaining"] -= 1
-        if pos is None:
-            return mk_act()     # first tick of an episode: wait for ground truth
-        dp = (float(la["pitch"]) - pos["pitch"]) if la.get("pitch") is not None else 0.0
-        dy = ((float(la["yaw"]) - pos["yaw"] + 180.0) % 360.0 - 180.0
-              ) if la.get("yaw") is not None else 0.0
-        if abs(dp) <= 2.0 and abs(dy) <= 2.0:
-            return None
-        return mk_act(camera=[max(-30.0, min(30.0, dp)), max(-30.0, min(30.0, dy))])
-
-    def _aimore_tick(self, ao: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of steering the crosshair onto the iron-ore speckle cluster.
-
-        The missing link the flag->conversion gap exposed: four runs had
-        the sentinel stop a macro on a genuine sighting, and none converted, because the
-        NOTE hands over a SCREEN pixel while `look_at` wants a WORLD coordinate. This
-        closes the loop in screen space directly: re-detect the cluster in each tick's
-        frame, steer the camera toward its centroid, declare done when centred. The
-        constants are per-tick gains against a moving detection, so exact FOV mapping is
-        unnecessary -- 0.14 deg/px horizontal and 0.19 vertical are the 640x360 defaults,
-        damped by 0.8 and clamped.
-        """
-        from mcu_worldmodel import vision
-
-        if ao["remaining"] <= 0:
-            self.memory.add_note(
-                "aim_at_ore ran out of ticks before centring; the speckles may be "
-                "occluded now. zoom the newest frame to re-locate them.")
-            return None
-        ao["remaining"] -= 1
-        frame = self._last_pov
-        found = vision.find_ore(frame) if frame is not None else None
-        hit = found[1] if found else None
-        if hit is None:
-            ao["miss"] = ao.get("miss", 0) + 1
-            if ao.get("walk", 0) and ao["miss"] >= 3:
-                # Lost WHILE closing in: within ~2 blocks the speckles outgrow the
-                # detector's blob and density caps and the face reads as solid (both
-                # ore faces in a staged scene) -- the crosshair still points at it.
-                self.cursor_stats["ore_aimed"] = self.cursor_stats.get("ore_aimed", 0) + 1
-                self.memory.add_note(
-                    f"aim_at_ore: walked {ao['walk']} ticks up to the speckles; they are "
-                    f"too close for the detector now (a face within ~2 blocks reads as "
-                    f"solid) and the crosshair holds on them. mine_ahead(n=120) takes it.")
-                return None
-            if ao["miss"] >= 6:
-                self.memory.add_note(
-                    "aim_at_ore: the speckle cluster is no longer detected (6 frames). "
-                    "It may be out of view or was a false positive -- zoom the newest "
-                    "frame; if the wall shows plain stone, resume mining.")
-                return None
-            return mk_act()             # hold still; the next frame may re-detect
-        ao["miss"] = 0
-        h, w = frame.shape[0], frame.shape[1]
-        ex, ey = hit[0] - w / 2.0, hit[1] - h / 2.0
-        # +pitch looks down (screen-down error is positive ey); +yaw turns right.
-        dp = max(-20.0, min(20.0, ey * 0.19 * 0.8))
-        dy = max(-20.0, min(20.0, ex * 0.14 * 0.8))
-        if abs(ex) <= 10.0 and abs(ey) <= 10.0:
-            # Centred -- but centred on WHAT distance? The sentinel fires on a face up
-            # to ~6 blocks off (a staged scene: 320 px at 5 blocks) and arm's
-            # reach is 4.5, so mine_ahead from the flag spot swung 120 ticks at air.
-            # Close the distance first: walk at the cluster, re-centring as it grows,
-            # until the wall stops the walk (the face is now in reach), the cluster
-            # fills the view, or the walk budget is spent. No position -> no walk.
-            pos = self._cur_pos
-            if pos is not None and ao.get("walking"):
-                lx, lz = ao["last_xz"]
-                moved = math.hypot(float(pos["x"]) - lx, float(pos["z"]) - lz)
-                ao["stuck"] = ao.get("stuck", 0) + 1 if moved < 0.02 else 0
-            close = (pos is None or hit[2] >= self.AIM_NEAR_PX
-                     or ao.get("walk", 0) >= self.AIM_WALK_TICKS or ao.get("stuck", 0) >= 3)
-            if not close:
-                ao["walk"] = ao.get("walk", 0) + 1
-                ao["walking"], ao["last_xz"] = True, (float(pos["x"]), float(pos["z"]))
-                return mk_act(forward=1, camera=[dp, dy])
-            self.cursor_stats["ore_aimed"] = self.cursor_stats.get("ore_aimed", 0) + 1
-            walked = ao.get("walk", 0)
-            why = ("the wall stopped the walk" if ao.get("stuck", 0) >= 3
-                   else "the speckles fill the view" if hit[2] >= self.AIM_NEAR_PX
-                   else "walk budget spent" if walked else "")
-            self.memory.add_note(
-                f"aim_at_ore: crosshair centred on the speckles ({hit[2]} px cluster, "
-                f"{abs(ex):.0f}/{abs(ey):.0f} px off"
-                + (f"; walked {walked} ticks toward them, {why}" if walked else "")
-                + "). Mine what you are aiming at now -- mine_ahead(n=120) takes it.")
-            return None
-        ao["walking"] = False
-        return mk_act(camera=[dp, dy])
-
-    def _aimtree_tick(self, at: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of steering the crosshair onto the most trunk-like bark column.
-
-        The wood-phase counterpart of `_aimore_tick`, against `vision.find_tree_trunk`:
-        wood-phase aim variance is the largest cross-task loss source (1,900-3,000
-        steps in four runs), and every one of those losses was an aiming
-        problem, not a finding problem -- leaves were on screen the whole time. Same
-        gains, damping and stop rules as the ore servo.
-        """
-        from mcu_worldmodel import vision
-
-        if at["remaining"] <= 0:
-            self.memory.add_note(
-                "aim_at_tree ran out of ticks before centring; the trunk may be "
-                "occluded by leaves. Walk a few blocks and try again.")
-            return None
-        at["remaining"] -= 1
-        frame = self._last_pov
-        hit = vision.find_tree_trunk(np.asarray(frame)) if frame is not None else None
-        if hit is None:
-            at["miss"] = at.get("miss", 0) + 1
-            if at["miss"] >= 6:
-                self.memory.add_note(
-                    "aim_at_tree: no trunk detected (6 frames). Turn toward visible "
-                    "LEAVES and retry -- a tree's leaves mark where its trunk stands; "
-                    "in a treeless view, travel toward the nearest leaf mass first.")
-                return None
-            return mk_act()             # hold still; the next frame may re-detect
-        at["miss"] = 0
-        h, w = frame.shape[0], frame.shape[1]
-        ex, ey = hit[0] - w / 2.0, hit[1] - h / 2.0
-        if abs(ex) <= 10.0 and abs(ey) <= 10.0:
-            self.cursor_stats["tree_aimed"] = (
-                self.cursor_stats.get("tree_aimed", 0) + 1)
-            self.memory.add_note(
-                f"aim_at_tree: crosshair centred on the trunk ({hit[2]} px of bark, "
-                f"{abs(ex):.0f}/{abs(ey):.0f} px off). chop_tree now -- and if chops "
-                f"miss, the trunk is out of reach: walk 2-3 blocks forward while "
-                f"centred and chop again.")
-            return None
-        dp = max(-20.0, min(20.0, ey * 0.19 * 0.8))
-        dy = max(-20.0, min(20.0, ex * 0.14 * 0.8))
-        return mk_act(camera=[dp, dy])
-
-    def _harvesting(self) -> bool:
-        """True while the queue's head is a running harvest_tree marker."""
-        if not self.queue:
-            return False
-        head = self.queue[0][0]
-        return isinstance(head, dict) and "_harvest" in head
-
-    def _harvest_tick(self, hv: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of `harvest_tree`: aim, walk until the trunk blocks you, chop until
-        the stat stream says a log broke, sweep the drop, repeat (mcu_worldmodel.harvest).
-        The state lives in the marker dict, so the queue stays serialisable."""
-        from mcu_worldmodel import harvest
-
-        frame = self._last_pov
-        inv_logs = sum(int(v) for k, v in self._cur_inv.items() if "log" in k)
-        action, note = harvest.tick(
-            hv, np.asarray(frame) if frame is not None else None, self._cur_pos,
-            self._log_breaks, self._other_breaks, inv_logs, self._gui_open)
-        if note:
-            self.memory.add_note(note)
-        if action is None:
-            self.cursor_stats["harvest_runs"] = self.cursor_stats.get("harvest_runs", 0) + 1
-            self.cursor_stats["harvest_logs"] = (
-                self.cursor_stats.get("harvest_logs", 0)
-                + max(0, inv_logs - int(hv.get("base_inv") or 0)))
-            return None
-        kw = dict(action)
-        if "camera" in kw:
-            kw["camera"] = [float(kw["camera"][0]), float(kw["camera"][1])]
-        return mk_act(**kw)
-
-    def _goto_tick(self, gt: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of walking toward a world (x, z), heading recomputed from truth.
-
-        Turn-then-move: a large heading error is corrected standing still (a yaw change
-        plus forward curves the path into an arc -- the repo's own movement doctrine),
-        and only small corrections ride along with the walk. Three ticks without
-        horizontal progress while trying to walk reads as a wall or a drop, and stopping
-        with a [NOTE] there beats walking into it for the rest of the entry.
-        """
-        import math
-
-        pos = self._cur_pos
-        if not pos:
-            # No position yet (first tick of an episode): wait, don't declare arrival.
-            if gt["remaining"] <= 0:
-                return None
-            gt["remaining"] -= 1
-            return mk_act()
-        # A detour (see the stall branch below) walks the waypoints first, each
-        # within 0.7 of its centre, then the target itself.
-        via = gt.get("via") or []
-        if via:
-            # Reached any waypoint (a corner cut counts): drop it and those before it.
-            near = [i for i, (wx, wz) in enumerate(via)
-                    if math.hypot(wx - pos["x"], wz - pos["z"]) <= 0.7]
-            if near:
-                del via[:near[-1] + 1]
-                gt["stuck"] = 0
-        tx, tz = (via[0] if via else (gt["x"], gt["z"]))
-        dx, dz = tx - pos["x"], tz - pos["z"]
-        dist = math.hypot(dx, dz)
-        if not via and dist <= gt["within"]:
-            self.cursor_stats["goto_arrived"] = (
-                self.cursor_stats.get("goto_arrived", 0) + 1)
-            if gt.get("detoured"):
-                self.cursor_stats["goto_detour_arrived"] = (
-                    self.cursor_stats.get("goto_detour_arrived", 0) + 1)
-            return None
-        if gt["remaining"] <= 0:
-            short = math.hypot(gt["x"] - pos["x"], gt["z"] - pos["z"])
-            self.memory.add_note(
-                f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) ran out of ticks at "
-                f"({pos['x']:.1f}, {pos['z']:.1f}), {short:.1f} blocks short.")
-            return None
-        last = gt.get("last")
-        moved = (math.hypot(pos["x"] - last[0], pos["z"] - last[1])
-                 if last is not None else None)
-        gt["last"] = (pos["x"], pos["z"])
-        yaw_target = math.degrees(math.atan2(-dx, dz))
-        dyaw = ((yaw_target - pos["yaw"] + 180.0) % 360.0) - 180.0
-        gt["remaining"] -= 1
-        if abs(dyaw) > 20.0:
-            gt["stuck"] = 0
-            return mk_act(camera=[0.0, max(-30.0, min(30.0, dyaw))])
-        if moved is not None and moved < 0.03:
-            gt["stuck"] += 1
-            if gt["stuck"] >= 3:
-                return self._goto_stalled(gt, pos, mk_act)
-        else:
-            gt["stuck"] = 0
-        if gt.get("sneak"):
-            # Sneaking, the game does not let the avatar step off a block edge: no jump
-            # and no sprint, which would carry it over.
-            return mk_act(forward=1, sneak=1, camera=[0.0, max(-8.0, min(8.0, dyaw))])
-        return mk_act(forward=1, jump=1, sprint=1,
-                      camera=[0.0, max(-8.0, min(8.0, dyaw))])
-
-    def _goto_stalled(self, gt: dict[str, Any], pos: dict[str, float], mk_act
-                      ) -> dict[str, Any] | None:
-        """Three ticks without progress: record the cell ahead as blocked, then
-        detour ONCE over cells this life has walked (grid.detour) when that ends
-        nearer the target; otherwise stop with the note. Measured before this:
-        30-50% of blocked targets were never reached, and the ground between was
-        usually the avatar's own trail."""
-        short = math.hypot(gt["x"] - pos["x"], gt["z"] - pos["z"])
-        if gt.get("sneak"):
-            # An edge or a wall: the walk does not know which, and a detour or a pit
-            # climb would leave the sneak that is holding it back from the drop.
-            self._keep_event_frame(self.step, "blocked", self._last_pov)
-            self.memory.add_note(
-                f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) with sneak stopped at "
-                f"({pos['x']:.1f}, {pos['y']:.1f}, {pos['z']:.1f}), {short:.1f} blocks "
-                f"short: a block edge with a drop of a block or more ahead (sneak does "
-                f"not step off one), or a wall or a step up (sneak does not jump). Look "
-                f"down over it before choosing.")
-            return None
-        self.grid.mark_blocked(self.step, pos)
-        if not gt.get("detoured"):
-            path = self.grid.detour(pos, gt["x"], gt["z"])
-            if path:
-                gt["detoured"] = True
-                gt["via"] = [(c[0] + 0.5, c[2] + 0.5) for c in path]
-                gt["stuck"] = 0
-                gt["remaining"] += min(160, 6 * len(path))
-                end = path[-1]
-                self.cursor_stats["goto_detours"] = (
-                    self.cursor_stats.get("goto_detours", 0) + 1)
-                self._keep_event_frame(self.step, "blocked", self._last_pov)
-                self.memory.add_note(
-                    f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) stalled at "
-                    f"({pos['x']:.1f}, {pos['z']:.1f}), {short:.1f} blocks short -- the "
-                    f"runner is detouring over {len(path)} cells you walked earlier, "
-                    f"ending at ({end[0]}, {end[1]}, {end[2]}), then trying the target "
-                    f"again from there.")
-                return mk_act()
-        # No detour, or the detour stalled as well: standing in a hole below the trail?
-        if not gt.get("pit_climbed"):
-            up = self.grid.above(pos)
-            if up is not None and self._queue_pit_climb(gt, pos, up):
-                return None
-        self._keep_event_frame(self.step, "blocked", self._last_pov)
-        self.memory.add_note(
-            f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) is blocked at "
-            f"({pos['x']:.1f}, {pos['z']:.1f}), {short:.1f} blocks short -- a "
-            f"wall, pit or tree is in the way"
-            + (" (the detour over walked cells stalled too)" if gt.get("detoured")
-               else " and no walked cell lies nearer the target")
-            + ". Clear it (mine_forward toward it) or pick a target you have walked.")
-        return None
-
-    def _queue_pit_climb(self, gt: dict[str, Any], pos: dict[str, float],
-                         up: tuple) -> bool:
-        """The stalled walk stands `rise` blocks below a cell it walked within 6 blocks:
-        a hole (a fall, a shaft, a ravine floor) the walk cannot climb. Queue
-        `pillar_up(rise)` and the same go_to once more behind the stalled one, so the
-        next try starts at the rim. False (with a note) when no block can be placed.
-        One run sat 700 steps at y 63-64 under its y 69 trail re-issuing go_to."""
-        from mcu_worldmodel import macros_world
-        from mcu_worldmodel.procedures import go_to
-        cell, rise = up
-        n = int(max(2, min(6, rise)))
-        acts, msg = macros_world.pillar_up(self.cursor, self._cur_info, n=n)
-        if not acts:
-            self.memory.add_note(
-                f"You stand {rise} blocks below the cell ({cell[0]}, {cell[1]}, {cell[2]}) "
-                f"you walked earlier: a hole the walk cannot climb. {msg} Dig a stair "
-                f"up (stair_up) or get {n} blocks to pillar_up({n}).")
-            return False
-        gt["pit_climbed"] = True
-        again = go_to(x=gt["x"], z=gt["z"], within=gt["within"], n=160)[0]
-        again["_goto"]["pit_climbed"] = True
-        idx = self.queue[0][1] if self.queue else 0
-        at = 1 if self.queue else 0
-        for e in acts + [again]:
-            self.queue.insert(at, (e, idx))
-            at += 1
-        self.cursor_stats["pit_climbs"] = self.cursor_stats.get("pit_climbs", 0) + 1
-        self._keep_event_frame(self.step, "hole", self._last_pov)
-        self.memory.add_note(
-            f"go_to ({gt['x']:.1f}, {gt['z']:.1f}) stalled at ({pos['x']:.1f}, "
-            f"{pos['z']:.1f}): you stand {rise} blocks below the cell ({cell[0]}, "
-            f"{cell[1]}, {cell[2]}) you walked earlier -- a hole the walk cannot climb. "
-            f"The runner queued pillar_up({n}) and the same go_to again from the top.")
-        return True
-
     def _keep_event_frame(self, step: int, label: str, pov) -> None:
         """Keep the view at an event for this turn's sheet (the last three)."""
         if pov is None or self.memory_mode == "direct" or not getattr(self, "event_sheet", True):
@@ -3427,108 +2478,6 @@ class WorldModelAgent:
         self._event_frames = []
         return path
 
-    def _pose_replay_tick(self, ug: dict[str, Any], pose: dict[str, float], mk_act
-                          ) -> dict[str, Any] | None:
-        """Walk to the recorded standing spot (sneaking the last block), turn to the
-        recorded pitch/yaw, then let the presses run. None when done or given up.
-        The estimated cell was one block off in one run (~10k steps) and another (4 failed
-        re-opens by step 1073); the pose that opened the screen is exact."""
-        pos = self._cur_pos
-        st = ug.setdefault("replay", {"phase": "walk", "t": 0, "stuck": 0, "last": None})
-        st["t"] += 1
-        if pos is None or st["t"] > 140:
-            return None
-        if st["phase"] == "walk":
-            dx, dz = pose["x"] - pos["x"], pose["z"] - pos["z"]
-            d = math.hypot(dx, dz)
-            if d <= 0.35:
-                st["phase"] = "turn"
-                return mk_act()
-            yaw_target = math.degrees(math.atan2(-dx, dz))
-            dyaw = ((yaw_target - pos["yaw"] + 180.0) % 360.0) - 180.0
-            last = st.get("last")
-            moved = (math.hypot(pos["x"] - last[0], pos["z"] - last[1])
-                     if last is not None else None)
-            st["last"] = (pos["x"], pos["z"])
-            if abs(dyaw) > 20.0:
-                return mk_act(camera=[0.0, max(-30.0, min(30.0, dyaw))])
-            if moved is not None and moved < 0.02:
-                st["stuck"] += 1
-                if st["stuck"] >= 8:
-                    return None
-            else:
-                st["stuck"] = 0
-            return mk_act(forward=1, sneak=1 if d < 1.2 else 0,
-                          camera=[0.0, max(-8.0, min(8.0, dyaw))])
-        if st["phase"] == "turn":
-            dp = float(pose["pitch"]) - float(pos["pitch"])
-            dy = norm_yaw_delta(float(pose["yaw"]), float(pos["yaw"]))
-            if abs(dp) > 1.5 or abs(dy) > 1.5:
-                return mk_act(camera=[max(-30.0, min(30.0, dp)), max(-30.0, min(30.0, dy))])
-            st["phase"] = "done"
-        return None
-
-    def _screen_item_for(self, ug: dict[str, Any]) -> str | None:
-        """The table/furnace a use_until_gui is opening: its `item`, or the kind the
-        `_screen_need` marker queued behind it expects."""
-        if ug.get("item"):
-            return str(ug["item"])
-        for head, _ in list(self.queue)[:3]:
-            need = head.get("_screen_need") if isinstance(head, dict) else None
-            if need:
-                return {"table": "crafting_table", "furnace": "furnace"}.get(
-                    str(need.get("kind")))
-        return None
-
-    def _queue_water_escape(self, idx: int) -> None:
-        """After a water refusal: walk the avatar along its own trail to the nearest
-        walked cell 8+ blocks from every water cell, as one go_to queued right behind
-        the refused dig. The pond trap cost a median 612 steps per half run."""
-        path = self.grid.escape_from_water(self._cur_pos, self.DIG_WATER_BLOCKS + 2.0)
-        if not path:
-            return
-        from mcu_worldmodel.procedures import go_to
-        end = path[-1]
-        entry = go_to(x=end[0] + 0.5, z=end[2] + 0.5, within=0.8,
-                      n=min(300, 40 + 8 * len(path)))[0]
-        entry["_goto"]["via"] = [(c[0] + 0.5, c[2] + 0.5) for c in path[:-1]]
-        entry["_goto"]["detoured"] = True
-        self.queue.insert(1 if self.queue else 0, (entry, idx))
-        self.cursor_stats["water_escapes"] = self.cursor_stats.get("water_escapes", 0) + 1
-        self.memory.add_note(
-            f"The runner is walking you {len(path)} cells along your own trail to "
-            f"({end[0]}, {end[1]}, {end[2]}), {self.DIG_WATER_BLOCKS + 2.0:.0f}+ blocks from "
-            f"every water cell it knows; dig_down from there.")
-
-    #: collect_drops walk cycle: out-and-back on both axes, 80 ticks per lap. The
-    #: forward leg comes first and is the long one because the drops a sweep is
-    #: called for lie AHEAD (the trunk or the face just worked), and an empty sweep
-    #: ends at SWEEP_EMPTY_CAP: with 8/16 those 24 ticks were 1.7 blocks out and 3.5
-    #: back, ending further from the drops than they began (one run: three
-    #: logs 3 blocks ahead, "picked up nothing"); 12/24 is 2.6 blocks out and back
-    #: to the start.
-    _SWEEP_CYCLE = (("forward", 12), ("back", 24), ("forward", 12),
-                    ("left", 8), ("right", 16), ("left", 8))
-    _SWEEP_LAP = 80
-
-    #: Ticks an empty collect_drops sweep runs before giving up (see _sweep_tick).
-    SWEEP_EMPTY_CAP = 24
-    #: aim_at_ore's closing walk (see _aimore_tick): a centred cluster smaller than
-    #: this (px) is walked at, for at most this many ticks. Measured: 320 px at 5
-    #: blocks, 481 at 4 (diamond); a face within two blocks is thousands.
-    AIM_NEAR_PX = 1500
-    AIM_WALK_TICKS = 30
-    #: Ticks use_until_gui waits after its last press before calling the screen
-    #: absent. `isGuiOpen` reports a screen late under server load: one run (step
-    #: 11775, ten arms on the node) got "no screen opened" from a two-press call and
-    #: its next block showed the furnace screen OPEN -- the last take of its run.
-    GUI_LAG_TICKS = 20
-    #: Mean brightness (0-255) of the lower-central view below which a mining macro
-    #: ran in the dark. Measured: an unlit stage tunnel reads 11-16, a
-    #: torch-lit one 41-91, one run's y=11 strip mine 18. The colour ore watch sees
-    #: nothing in the dark (a probe: n=0 on dark frames), and no arm
-    #: of that cohort crafted a torch while five of them mined 1-10 coal.
-    DARK_TUNNEL_LUM = 30.0
     #: Health at or below which a repeated hit always interrupts the plan.
     CRITICAL_HP = 6.0
     #: Underground (below BUNKER_Y), a hit at or below BUNKER_HP makes the runner dig
@@ -3541,8 +2490,6 @@ class WorldModelAgent:
     #: died at 4 hp with the hole one block deep -- the dig plus the cap needs 47+
     #: ticks, three hits of margin, so it starts at 14.
     BUNKER_HP = 17.5        # any hit of 3+ underground (was 14: the second hit came too late)
-    TORCH_EVERY = 8.0       # blocks of level tunnel between torches
-    TORCH_MAX_Y = 50.0      # torches only underground
     BUNKER_Y = 50.0
     #: A second hit within this many ticks of the first is a melee mob at arm's length
     #: (a zombie swings every 20-25 ticks; arrows come 40+ apart): under it a dig
@@ -3580,10 +2527,6 @@ class WorldModelAgent:
     LAVA_ESCAPE_FRAC = 0.15
     #: Any lava in view at all (the vision floor is 1%): with a 4.0 loss it is contact.
     LAVA_TOUCH_FRAC = 0.02
-    #: Markers the lava guard never interrupts: the deliberate approaches to lava
-    #: (find_lava's search, make_obsidian's standoff / pour / scoop / check, the
-    #: obsidian mining at the pool) carry their own stops and notes.
-    LAVA_GUARD_EXEMPT = ("_findlava", "_backoff", "_scoop", "_obsidiancheck", "_mineobs")
     #: The shaft guard looks this far ahead of the feet (the hitbox is 0.6 wide, a walk
     #: covers 0.2 a tick and slides ~0.25 after the key is released).
     SHAFT_LOOKAHEAD = 1.0
@@ -3611,7 +2554,6 @@ class WorldModelAgent:
     #: DIG_WATER_STEPS ticks (the shaft floods; one run's ran a block from the pond it had
     #: just tried to fill the bucket at).
     DIG_WATER_BLOCKS = 6.0
-    DIG_WATER_STEPS = 200
     #: A melee attacker keeps hitting through a dig or a pillar: one run (y 18)
     #: fought a zombie from 16 hp, was bunkered at 4 and died inside the dig;
     #: a staged scene saw a zombie follow the avatar into the hole. Melee is read off
@@ -3629,586 +2571,19 @@ class WorldModelAgent:
     #: Pickaxes the bunker digs with, best first (the floor of a mine is stone).
     PICKAXES = ("netherite_pickaxe", "diamond_pickaxe", "iron_pickaxe", "stone_pickaxe",
                 "golden_pickaxe", "wooden_pickaxe")
-    #: Markers / raw keys that move the avatar: a plan whose head is one of these is
-    #: an escape (or a walk) and survives repeated hits; anything else stands still.
-    _MOVING_MARKERS = ("_goto", "_servo")
+    #: Raw keys that move the avatar: a plan whose head presses one is an escape (or a
+    #: walk) and survives repeated hits; anything else stands still.
     _MOVING_KEYS = ("forward", "back", "left", "right", "jump", "sprint")
 
     def _head_is_movement(self) -> bool:
         """True when the queued plan's head moves the avatar (see the repeat-hit rule):
-        a walk (go_to / a position servo) or raw movement keys -- one run's lava
-        escape was "left + jump x80". The mining cycles (`_mfwd`: stair_down and
-        strip_mine) are NOT movement here: they stand at a face most of the time, and
-        one run died inside one with the hits arriving every few seconds."""
+        raw movement keys -- one run's lava escape was "left + jump x80". A plan that
+        mines at a face stands still: one run died inside one with the hits arriving
+        every few seconds."""
         if not self.queue:
             return False
         head = self.queue[0][0]
-        if any(k in head for k in self._MOVING_MARKERS) or any(
-                k in head for k in macros.MOVING):
-            return True
-        if any(k in head for k in ("_dig", "_chop", "_harvest", "_sweep", "_aimore",
-                                   "_aimtree", "_click", "_use_gui", "_lookabs",
-                                   "_seq", "_mfwd")):
-            return False
         return any(head.get(k) for k in self._MOVING_KEYS)
-
-    def _sweep_tick(self, sw: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of a pickup sweep; done the moment the inventory total rises.
-
-        Exists because mined drops kept being left on the ground: one run chopped two
-        logs by step 518 and reached step 600 with an empty hotbar, then spent seven
-        near-identical turns hunting them; its endgame lost two iron ores the same way.
-        Pickup is proximity-triggered, so the fix is to *walk the area*, keyed on the
-        one signal that cannot lie -- the inventory count."""
-        if self._gui_open:
-            self.cursor_stats["sweep_gui_stops"] = (
-                self.cursor_stats.get("sweep_gui_stops", 0) + 1)
-            self.memory.add_note(
-                "collect_drops stopped at once: a SCREEN is open, and movement does "
-                "nothing in the world while it is. Close it, then sweep.")
-            return None
-        if "base" not in sw:
-            sw["base"] = sum(self._cur_inv.values())
-            sw["start"] = self.step
-        gained = sum(self._cur_inv.values()) - sw["base"]
-        if gained > 0:
-            self.cursor_stats["sweep_collected"] = (
-                self.cursor_stats.get("sweep_collected", 0) + 1)
-            self.memory.add_note(
-                f"collect_drops: the inventory rose by {gained} item"
-                f"{'s' if gained != 1 else ''} after "
-                f"{self.step - sw['start']} tick(s); stopping the sweep.")
-            return None
-        if sw["i"] >= min(sw["t"], self.SWEEP_EMPTY_CAP):
-            # Across the 24 landed z arms, collect_drops was called 22-65 times a run
-            # and 87% of its ticks (26,152 of 29,934) gained nothing; a sweep that
-            # does pay off does so within ~12-25 ticks. So an empty sweep ends at
-            # the cap, whatever budget was asked for.
-            self.cursor_stats["sweep_empty"] = (
-                self.cursor_stats.get("sweep_empty", 0) + 1)
-            self.memory.add_note(
-                f"collect_drops: swept {sw['i']} ticks and picked up nothing, so it "
-                f"stopped early -- there is no drop within reach of this spot. Blocks "
-                f"you mine while standing next to them are picked up by themselves; "
-                f"sweep only for a drop you walked away from, standing ON the spot "
-                f"that was mined (drops can sit down the hole or behind the trunk).")
-            return None
-        pos, key = sw["i"] % self._SWEEP_LAP, "forward"
-        for k, n in self._SWEEP_CYCLE:
-            if pos < n:
-                key = k
-                break
-            pos -= n
-        sw["i"] += 1
-        return mk_act(**{key: 1})
-
-    def _ore_flag(self, marker: dict[str, Any]) -> bool:
-        """True when the current frame shows an iron- or diamond-ore candidate worth
-        stopping for.
-
-        Sampled every 8th tick of a mining marker, never while a GUI is up, and rate
-        limited to one flag per 100 steps -- resuming the same tunnel with the same
-        speckles still on screen must not re-stop the macro instantly.
-        """
-        marker["t"] = marker.get("t", 0) + 1
-        if marker["t"] % 8 or self._gui_open or self._last_pov is None:
-            return False
-        frame = np.asarray(self._last_pov)
-        if frame.ndim == 3 and frame.shape[0] >= 3 and frame.shape[1] >= 4:
-            h, w = frame.shape[:2]
-            marker["lum_sum"] = (marker.get("lum_sum", 0.0)
-                                 + float(frame[h // 3:, w // 4:3 * w // 4].mean()))
-            marker["lum_n"] = marker.get("lum_n", 0) + 1
-        if self.step - self._last_ore_flag_step < 100:
-            return False
-        found = vision.find_ore(frame)
-        if found is None:
-            return False
-        kind, hit = found
-        self._last_ore_flag_step = self.step
-        self.cursor_stats["ore_flagged"] = self.cursor_stats.get("ore_flagged", 0) + 1
-        if kind == "diamond":
-            self.cursor_stats["ore_flagged_diamond"] = (
-                self.cursor_stats.get("ore_flagged_diamond", 0) + 1)
-        # Flush the rest of the plan, exactly as the damage interrupt does. Hardening,
-        # not a bug fix: the trajectory audit found every live flag happened
-        # to sit in the plan's LAST entry (models put the open-ended mining entry last),
-        # so the act turn arrived within 0-2 steps anyway. The flush guarantees that
-        # alignment for mid-plan flags too. The executing marker stays at the head --
-        # it is about to return None and next_action pops it.
-        head = self.queue[0] if self.queue else None
-        dropped = len({idx for _, idx in list(self.queue)[1:]}) if head else 0
-        if dropped:
-            self.queue.clear()
-            self.queue.append(head)
-            self.cursor_stats["ore_flush_dropped"] = (
-                self.cursor_stats.get("ore_flush_dropped", 0) + dropped)
-        self.memory.add_note(
-            f"mining stopped: {kind}-ore-like speckles on screen at ({hit[0]}, {hit[1]}), "
-            f"{hit[2]} px. The rest of the plan "
-            f"({dropped} entr{'y' if dropped == 1 else 'ies'}) was dropped so you can "
-            + (f"act while the speckles are still in view: zoom the frame, look_abs "
-               f"(or look_at) onto the speckles, then {{\"attack\": 1}} holds (repeat 30, "
-               f"each cut when its block breaks) to dig out exactly what you are aiming "
-               f"at. The watcher rests 100 steps after a flag, so the next holds push "
-               f"through." if self.atoms else
-               f"act while the speckles are still in view: aim_at_ore (centres the "
-               f"crosshair), then mine_ahead(n=120) to dig out exactly what you are "
-               f"aiming at. Pass ore_watch=false to push through instead."))
-        return True
-
-    def _seq_tick(self, sq: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """Play out a fixed mining sequence, watching the walls for ore candidates."""
-        if "base_breaks" not in sq:
-            sq["base_breaks"] = self._log_breaks + self._other_breaks
-        if sq["ore"] and self._ore_flag(sq):
-            return None
-        if sq.get("until_item"):
-            # mine_until: the swings stop the moment the named item lands in the
-            # inventory (flint out of gravel, a drop that needs the block below it
-            # broken), measured from the count at the first tick of THIS marker.
-            have = int(self._cur_inv.get(str(sq["until_item"]), 0))
-            if sq.get("base_n") is None:
-                sq["base_n"] = have
-            gained = have - int(sq["base_n"])
-            if gained >= max(1, int(sq.get("until_n", 1))):
-                self.cursor_stats["mine_until_hits"] = (
-                    self.cursor_stats.get("mine_until_hits", 0) + 1)
-                self.memory.add_note(
-                    f"{sq.get('label', 'mine_until')}: stopped early -- "
-                    f"{sq['until_item']} +{gained} in the inventory after {sq['i']} "
-                    f"ticks.")
-                return None
-        if sq["i"] >= len(sq["steps"]):
-            # The same accounting the displacement cycle gives: a labelled sequence
-            # (mine_ahead) says what its swings actually produced, so an aimed dig
-            # that broke nothing is visible at the next act turn, not just in stats.
-            if sq.get("label"):
-                broke = int(self._log_breaks + self._other_breaks - sq["base_breaks"])
-                self.memory.add_note(
-                    f"{sq['label']}: finished {sq['i']} ticks, broke {broke} "
-                    f"block{'s' if broke != 1 else ''}"
-                    + ("." if broke else " -- the aim may be off or the block out of "
-                       "reach; zoom the newest frame before swinging again."))
-            return None
-        action = sq["steps"][sq["i"]]
-        sq["i"] += 1
-        return action
-
-    def _mfwd_tick(self, mf: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of displacement-verified tunnelling: foot block, eye block, walk in.
-
-        The census: 58-97% of mining entries ended with <0.5 blocks of
-        movement -- the old macros held attack at eye level (or walked 2 ticks into an
-        unbroken wall) and the avatar dug in place while the iron search scanned no new
-        rock. Both endgame models independently re-derived the working cycle in their
-        world models (ked_final1: "pitch28 mine ~100, forward+jump 40, pitch0 mine
-        ~100"; one run: "check coordinates rather than assuming advance"). This marker
-        is that discovery promoted into mechanism, closed on the two signals that
-        matter: the break stat (did the face open?) and [STATE] position (did we move?).
-        Two consecutive cycles that break blocks without gaining ground stop the entry
-        with a diagnosis instead of spending the rest of the budget in place.
-        """
-        if self._gui_open:
-            # With a screen up, attack/movement do nothing in the world: one run
-            # spent 4x158 ticks swinging at a crafting menu before this check existed.
-            # One tick, an honest note, and the model can close the screen properly.
-            self.cursor_stats["mine_gui_stops"] = (
-                self.cursor_stats.get("mine_gui_stops", 0) + 1)
-            self.memory.add_note(
-                f"{mf['label']} stopped at once: a SCREEN is open, and mining ticks do "
-                f"nothing in the world while it is. Stow any off-inventory stacks, "
-                f"close the screen (close_inventory), then mine.")
-            return None
-        if mf["ore"] and self._ore_flag(mf):
-            return None
-        pos = self._cur_pos
-        if pos is None:
-            return mk_act()             # first tick of an episode: wait for ground truth
-        if mf["start"] is None and mf["label"] == "stair_down":
-            refusal = self._dig_water_refusal("stair_down")
-            if refusal:
-                self._note_failure("stair_down")
-                self._flush_tail(refusal, "dig_water_refusals")
-                return None
-        if mf["start"] is None:
-            mf["start"] = (pos["x"], pos["y"], pos["z"])
-        breaks = self._log_breaks + self._other_breaks
-        if mf["base_breaks"] is None:
-            mf["base_breaks"] = breaks
-            if mf["down_by"] is None:
-                mf["phase"], mf["phase_t"] = "close", 0
-
-        def _finish(reason: str) -> None:
-            desc = mf["start"][1] - pos["y"]
-            self.memory.add_note(
-                f"{mf['label']}: broke {mf['broken']} blocks, advanced "
-                f"{mf['advanced']:.1f} blocks in {mf['used']} ticks"
-                + (f", descended {desc:.1f}" if mf["down_by"] is not None else "")
-                + (f" (plus {mf['closed']:.1f} blocks walked up to the face first)"
-                   if mf.get("closed", 0.0) >= 0.3 else "")
-                + (f", {mf['torches']} torch(es) planted on the way"
-                   if mf.get("torches") else "")
-                + (f". {reason}" if reason else ".")
-                + self._dark_line(mf))
-
-        if mf["down_by"] is not None and mf["start"][1] - pos["y"] >= mf["down_by"]:
-            self.cursor_stats["mine_reached_depth"] = (
-                self.cursor_stats.get("mine_reached_depth", 0) + 1)
-            _finish("Target depth reached.")
-            return None
-        if mf["budget"] <= 0:
-            _finish("Mostly digging in place -- the passage is not opening; re-aim or "
-                    "change heading." if mf["broken"] >= 3 and mf["advanced"] < 1.0
-                    else "")
-            return None
-        mf["budget"] -= 1
-        mf["used"] += 1
-        if mf["down_by"] is not None:
-            # A staircase that is not going down is the one thing its cycle cannot
-            # see from breaks and advance alone: one run ran stair_downs that broke 4-13
-            # blocks, advanced 2-5, and descended 0.0 to their full tick budgets, on
-            # both arms. ~32 ticks buys a block of depth when the carve works, so 96
-            # ticks with less than one block of descent means it is not working.
-            if mf.get("desc_used") is None:
-                mf["desc_used"], mf["desc_y"] = mf["used"], pos["y"]
-            elif mf["used"] - mf["desc_used"] >= 96:
-                if mf["desc_y"] - pos["y"] < 1.0:
-                    # Escalate before giving up. A failing carve cycle runs ~97
-                    # ticks, so this checkpoint always fires one tick before the
-                    # first cycle-end bump could: two runs ended with every arm at
-                    # min_y>=50 and stair_steepened=0 across all six -- the
-                    # steepening ladder was dead code behind this abort.
-                    if mf.get("p_lo_bump", 0.0) < 14.0:
-                        mf["p_lo_bump"] = min(14.0, mf.get("p_lo_bump", 0.0) + 5.0)
-                        self.cursor_stats["stair_steepened"] = (
-                            self.cursor_stats.get("stair_steepened", 0) + 1)
-                        self.memory.add_note(
-                            f"{mf['label']}: no depth gained in the last "
-                            f"{mf['used'] - mf['desc_used']} ticks -- steepening "
-                            f"the cut to {mf['p_lo'] + mf['p_lo_bump']:.0f} deg "
-                            f"and continuing this entry.")
-                        mf["desc_used"], mf["desc_y"] = mf["used"], pos["y"]
-                    else:
-                        self._note_failure(mf["label"])
-                        self._flush_tail(
-                            f"{mf['label']}: broke {mf['broken']} blocks, advanced "
-                            f"{mf['advanced']:.1f} in {mf['used']} ticks, descended "
-                            f"{mf['start'][1] - pos['y']:.1f}. STOPPED EARLY: no "
-                            f"depth in the last {mf['used'] - mf['desc_used']} ticks "
-                            f"even at the steepest cut "
-                            f"({mf['p_lo'] + mf['p_lo_bump']:.0f} deg). This ground "
-                            f"is not taking a staircase here -- move a few blocks "
-                            f"and start a fresh stair_down on different footing.",
-                            "stair_no_descent_stops")
-                        return None
-                else:
-                    mf["desc_used"], mf["desc_y"] = mf["used"], pos["y"]
-
-        def _enter(phase: str) -> None:
-            mf["phase"] = phase
-            mf["phase_t"] = 0
-            mf["base_breaks"] = breaks
-            mf["adv_from"] = (pos["x"], pos["z"]) if phase == "adv" else None
-            if phase == "foot":
-                mf["cycle_y"] = pos["y"]
-
-        ph = mf["phase"]
-        if ph == "torch":
-            act = self._torch_step(mf, mk_act)
-            if act is not None:
-                return act
-            _enter("close")
-            return mk_act()
-        if ph == "close":
-            # Walk up to the face first. The foot carve at p_lo assumes the face is
-            # adjacent: from 2.3+ blocks the pitch-35 ray lands on the FLOOR of the
-            # cell before it, and the walk-in then hops into that hole -- y 11 -> 10 at
-            # the third cycle, "did not move" for the rest (a probe;
-            # one run stalled the same way three times at y 12, each
-            # strip_mine resumed from 2+ blocks behind its face). Blocked = no ground
-            # gained on a tick; an open passage is walked for up to 40 ticks before
-            # the carve. The walk is reported apart from `advanced` (tunnelled
-            # distance): folded in, it muted the "digging in place" diagnosis for an
-            # entry that started behind its face (audit pass 19).
-            mf["phase_t"] += 1
-            prev = mf.get("close_from")
-            mf["close_from"] = (pos["x"], pos["z"])
-            if prev is not None:
-                step_d = math.hypot(pos["x"] - prev[0], pos["z"] - prev[1])
-                mf["close_gain"] = mf.get("close_gain", 0.0) + step_d
-                if (mf["phase_t"] >= 3 and step_d < 0.03) or mf["phase_t"] > 40:
-                    mf["closed"] = mf.get("closed", 0.0) + mf["close_gain"]
-                    mf["close_gain"] = 0.0
-                    mf["close_from"] = None
-                    _enter("foot")
-                    return mk_act()
-            return mk_act(forward=1)
-        if ph in ("foot", "eye"):
-            mf["phase_t"] += 1
-            # The stair carve is aim-geometry-sensitive: at the stock 48 the ray can
-            # land on the same-level floor block instead of the one-below step, and the
-            # avatar then advances without dropping -- every stair failure of
-            # two runs read "broke 3, advanced 1.0, descended 0.0". Each cycle
-            # that completes without descending steepens the next foot carve by 5
-            # degrees (up to +14); a cycle that actually drops resets the bump.
-            target = (mf["p_lo"] + mf.get("p_lo_bump", 0.0) if ph == "foot"
-                      else mf["p_hi"])
-            dp = target - pos["pitch"]
-            # Align first; but if [STATE] pitch is not converging (stale wire truth),
-            # mine at the current aim rather than spinning the camera forever.
-            if abs(dp) > 4.0 and mf["phase_t"] <= 12:
-                return mk_act(camera=[max(-20.0, min(20.0, dp)), 0.0])
-            if breaks > mf["base_breaks"] + 0.5:
-                mf["broken"] += 1
-                _enter("eye" if ph == "foot" else "adv")
-                return mk_act()
-            if mf["phase_t"] > 34:      # nothing broke: air, or out of reach -- move on
-                _enter("eye" if ph == "foot" else "adv")
-                return mk_act()
-            return mk_act(attack=1)
-        # ph == "adv": both faces had their chance; walk into the opening.
-        if mf["adv_from"] is None:
-            mf["adv_from"] = (pos["x"], pos["z"])
-        gained = ((pos["x"] - mf["adv_from"][0]) ** 2
-                  + (pos["z"] - mf["adv_from"][1]) ** 2) ** 0.5
-        mf["phase_t"] += 1
-        if gained >= 0.9:
-            mf["advanced"] += gained
-            mf["stall"] = 0
-            self.cursor_stats["mine_cycles"] = (
-                self.cursor_stats.get("mine_cycles", 0) + 1)
-            if mf["down_by"] is not None and mf.get("cycle_y") is not None:
-                if mf["cycle_y"] - pos["y"] < 0.8:
-                    mf["p_lo_bump"] = min(14.0, mf.get("p_lo_bump", 0.0) + 5.0)
-                    self.cursor_stats["stair_steepened"] = (
-                        self.cursor_stats.get("stair_steepened", 0) + 1)
-                # A cycle that descended KEEPS its bump: one run's live entries showed
-                # the first fix's reset-on-success re-failing every other cycle at the
-                # stock pitch ("193 ticks, descended 1.0" -- one earned drop per
-                # entry, then the 96-tick checkpoint fired before the bump was earned
-                # again). The angle that worked on this terrain stays for the entry.
-            if mf["down_by"] is None and self._torch_due(mf, pos):
-                return mk_act()
-            _enter("foot" if mf["down_by"] is not None else "close")
-            return mk_act()
-        if mf["phase_t"] > 8:
-            mf["advanced"] += gained
-            mf["stall"] += 1
-            if mf["stall"] >= 2:
-                self._note_failure(mf["label"])
-                self.cursor_stats["mine_stall_stops"] = (
-                    self.cursor_stats.get("mine_stall_stops", 0) + 1)
-                # Flush the queued rest of the plan, as the ore flag does: one run
-                # ran three identical doomed stair_downs back to back because the
-                # diagnosis note is only read at the NEXT act turn, and the queue got
-                # there first.
-                head = self.queue[0] if self.queue else None
-                dropped = len({idx for _, idx in list(self.queue)[1:]}) if head else 0
-                if dropped:
-                    self.queue.clear()
-                    self.queue.append(head)
-                    self.cursor_stats["stall_flush_dropped"] = (
-                        self.cursor_stats.get("stall_flush_dropped", 0) + dropped)
-                tail = (f" The rest of the plan ({dropped} "
-                        f"entr{'y' if dropped == 1 else 'ies'}) was dropped so you can "
-                        f"replan from what you actually see." if dropped else "")
-                if mf["broken"] == 0:
-                    _finish("STOPPED EARLY: nothing broke and the avatar did not move. "
-                            "The swings are hitting nothing breakable -- the face may "
-                            "be out of reach, unbreakable with this tool, or the view "
-                            "mis-aimed. Reposition or look_abs before mining again."
-                            + tail)
-                else:
-                    alt = ("pick a different heading" if mf["label"] == "stair_down"
-                           else "pick a different heading, or stair_down")
-                    _finish(f"STOPPED EARLY: two cycles broke blocks but the avatar "
-                            f"did not move. The passage is not opening -- re-aim with "
-                            f"look_abs or {alt}; do not repeat the same call.{tail}")
-                return None
-            _enter("foot" if mf["down_by"] is not None else "close")
-            return mk_act()
-        return mk_act(forward=1, jump=1 if mf["jump"] else 0)
-
-    def _torch_due(self, mf: dict[str, Any], pos: dict[str, float]) -> bool:
-        """Arm the torch phase of a level tunnel when another TORCH_EVERY blocks have
-        been tunnelled underground and a torch is in the hotbar. Three runs
-        carried 8+ torches through 11 stretches the ore watch reported
-        as DARK and placed none; two of them were killed by mobs in those tunnels."""
-        from mcu_worldmodel import macros_world as MW
-
-        if float(pos.get("y", 99.0)) >= self.TORCH_MAX_Y:
-            return False
-        if mf["advanced"] - float(mf.get("torch_adv", 0.0)) < self.TORCH_EVERY:
-            return False
-        info = self._cur_info or {}
-        slots = [sl for sl, _ in gui.find_slots(info, "torch") if 0 <= int(sl) <= 8]
-        if not slots:
-            return False
-        mf["torch_adv"] = mf["advanced"]
-        held = ((info.get("equipped_items") or {}).get("mainhand") or {}).get("type")
-        back = None
-        if isinstance(held, str) and held not in ("none", "air"):
-            back = next((int(sl) for sl, _ in gui.find_slots(info, held)
-                         if 0 <= int(sl) <= 8), None)
-        yaw = math.radians(float(pos["yaw"]))
-        behind = (math.floor(pos["x"] + 1.1 * math.sin(yaw)), math.floor(pos["y"]),
-                  math.floor(pos["z"] - 1.1 * math.cos(yaw)))
-        mf["torch"] = {"step": "select", "slot": int(slots[0]), "back": back,
-                       "yaw0": float(pos["yaw"]), "t": 0,
-                       "use": MW.new_use_state(behind, "torch", "below", "place", 1,
-                                               f"{mf['label']} torch")}
-        mf["phase"], mf["phase_t"] = "torch", 0
-        return True
-
-    def _torch_step(self, mf: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of the torch phase: select the torch, plant it on the floor of the
-        cell just tunnelled through (behind the avatar), take the tool back, face the
-        heading again. None when the phase is over."""
-        from mcu_worldmodel import macros_world as MW
-
-        tp = mf["torch"]
-        pos = self._cur_pos or {}
-        tp["t"] += 1
-        if tp["t"] > 60:
-            tp["step"] = "done"
-        if tp["step"] == "select":
-            tp["step"] = "place"
-            return mk_act(**{f"hotbar_{tp['slot'] + 1}": 1})
-        if tp["step"] == "place":
-            status, action = MW.use_step(self, tp["use"], mk_act)
-            if status == "run":
-                return action
-            if status == "done":
-                mf["torches"] = mf.get("torches", 0) + 1
-                self.cursor_stats["torches_placed"] = (
-                    self.cursor_stats.get("torches_placed", 0) + 1)
-            else:
-                self.cursor_stats["torch_misses"] = (
-                    self.cursor_stats.get("torch_misses", 0) + 1)
-            tp["step"] = "restore"
-            return mk_act()
-        if tp["step"] == "restore":
-            tp["step"] = "turn"
-            if tp["back"] is not None:
-                return mk_act(**{f"hotbar_{tp['back'] + 1}": 1})
-            return mk_act()
-        if tp["step"] == "turn":
-            if pos.get("yaw") is None:
-                return None
-            dy = MW.norm_yaw_delta(tp["yaw0"], float(pos["yaw"]))
-            if abs(dy) <= 3.0 or tp["t"] > 55:
-                return None
-            return mk_act(camera=[0.0, max(-30.0, min(30.0, dy))])
-        return None
-
-    def _dig_tick(self, dg: dict[str, Any], mk_act) -> dict[str, Any] | None:
-        """One tick of digging, ending when the target depth is reached.
-
-        Reports what it did on every exit, and stops early when nothing is happening:
-        One run ran three dig_downs for 600+ ticks that broke zero blocks and moved
-        zero y, and the model repeated the call because no note ever said so --
-        `_mine_cycle` had the self-report and the stall stop, `_dig` had neither."""
-        if self._gui_open:
-            self.cursor_stats["mine_gui_stops"] = (
-                self.cursor_stats.get("mine_gui_stops", 0) + 1)
-            self.memory.add_note(
-                "dig_down stopped at once: a SCREEN is open, and mining ticks do "
-                "nothing in the world while it is. Stow any off-inventory stacks, "
-                "close the screen (close_inventory), then mine.")
-            return None
-        if self._ore_flag(dg):
-            return None
-        if not dg.get("used"):
-            refusal = self._dig_water_refusal("dig_down")
-            if refusal:
-                self._note_failure("dig_down")
-                self._flush_tail(refusal, "dig_water_refusals")
-                self._keep_event_frame(self.step, "water", self._last_pov)
-                self._queue_water_escape(self.queue[0][1] if self.queue else 0)
-                return None
-        y = (self._cur_pos or {}).get("y")
-        breaks = self._log_breaks + self._other_breaks
-        if dg.get("start_y") is None and y is not None:
-            dg["start_y"] = float(y)
-        if dg.get("base_breaks") is None:
-            dg["base_breaks"] = breaks
-        broken = int(breaks - dg["base_breaks"])
-        used = dg.get("used", 0)
-        desc = (dg["start_y"] - y) if (y is not None
-                                       and dg.get("start_y") is not None) else 0.0
-
-        def _finish(reason: str = "") -> None:
-            self.memory.add_note(
-                f"dig_down: broke {broken} blocks, descended {desc:.1f} in {used} "
-                f"ticks." + (f" {reason}" if reason else "") + self._dark_line(dg))
-
-        if dg["until_y"] is not None and y is not None and y <= dg["until_y"]:
-            self.cursor_stats["dig_reached_depth"] = (
-                self.cursor_stats.get("dig_reached_depth", 0) + 1)
-            _finish("Target depth reached." + self._shaft_cap_line())
-            return None
-        if dg["remaining"] <= 0:
-            _finish()
-            return None
-        if used >= 60 and broken == 0 and desc < 0.5:
-            self._note_failure("dig_down")
-            self._flush_tail(
-                f"dig_down: broke 0 blocks, descended 0.0 in {used} ticks. STOPPED "
-                f"EARLY: nothing broke and y did not change. The swings are hitting "
-                f"nothing breakable -- the face may be out of reach, unbreakable with "
-                f"this tool, or the view mis-aimed. Reposition, re-equip or look_abs "
-                f"before digging again.", "dig_stall_stops")
-            return None
-        # Breaking-but-not-descending is the case the zero-break guard misses:
-        # One run's one deep commit read "broke 4 blocks, descended 0.0 in 390
-        # ticks" -- the whole budget burned carving a wall beside the shaft, and
-        # the only report came at the end. Same windowing as the stair.
-        if y is not None:
-            if dg.get("win_used") is None:
-                dg["win_used"], dg["win_y"] = used, float(y)
-            elif used - dg["win_used"] >= 96:
-                if dg["win_y"] - y < 1.0:
-                    self._note_failure("dig_down")
-                    self._flush_tail(
-                        f"dig_down: broke {broken} blocks, descended {desc:.1f} in "
-                        f"{used} ticks. STOPPED EARLY: blocks are breaking but the "
-                        f"last {used - dg['win_used']} ticks gained no depth -- the "
-                        f"swings are carving a wall, not the column under your feet. "
-                        f"Step onto the shaft centre and aim straight down "
-                        f"(look_abs pitch=90) before digging again.",
-                        "dig_no_descent_stops")
-                    return None
-                dg["win_used"], dg["win_y"] = used, float(y)
-        dg["remaining"] -= 1
-        dg["used"] = used + 1
-        # Stay over the column: the swings carve the block under the crosshair, and an
-        # avatar standing on a cell's edge (a knockback, a diagonal approach) breaks the
-        # neighbour instead and never descends -- three runs each burned
-        # 96-tick windows "breaking but no depth". Walk back over the cell centre while
-        # swinging, the bunker's own rule.
-        keys: dict[str, int] = {}
-        pos = self._cur_pos
-        if pos is not None:
-            if dg.get("cx") is None:
-                dg["cx"], dg["cz"] = math.floor(float(pos["x"])) + 0.5, math.floor(float(pos["z"])) + 0.5
-            dx = dg["cx"] - float(pos["x"])
-            dz = dg["cz"] - float(pos["z"])
-            if math.hypot(dx, dz) > 0.25:
-                r = math.radians(float(pos["yaw"]))
-                fwd = -dx * math.sin(r) + dz * math.cos(r)
-                rgt = -dx * math.cos(r) - dz * math.sin(r)
-                if fwd > 0.1:
-                    keys["forward"] = 1
-                elif fwd < -0.1:
-                    keys["back"] = 1
-                if rgt > 0.1:
-                    keys["right"] = 1
-                elif rgt < -0.1:
-                    keys["left"] = 1
-                if keys:
-                    self.cursor_stats["dig_recentred"] = self.cursor_stats.get("dig_recentred", 0) + 1
-        return mk_act(attack=1, **keys)
 
     def _respawned_here(self, prev: dict, pos: dict, info: dict) -> bool:
         """A respawn seen without a teleport (`--near-deaths`). Measured on this engine
@@ -4295,7 +2670,6 @@ class WorldModelAgent:
         if marker != self._progress_marker:
             self._progress_marker = marker
             self._stall_turns = 0
-            self._proc_fails.clear()
             self._plan_repeat = 0
             self._plan_sig = None
         else:
@@ -4592,9 +2966,7 @@ class WorldModelAgent:
 
     def _scan_own(self) -> None:
         if self.own:
-            self._own_procs = (_own.scan(self.memory.root, set(_P.REGISTRY), loops=True)
-                               if self.own_live else
-                               _own.scan(self.memory.root, set(_P.REGISTRY)))
+            self._own_procs = _own.scan(self.memory.root, loops=self.own_live)
             if self._own_record is None:
                 # Once per life: the record the scripts arrived with (carried by
                 # previous.install_scripts), and this life's number in it.
@@ -4653,13 +3025,12 @@ class WorldModelAgent:
             "mainhand": ((info.get("equipped_items") or {}).get("mainhand") or {}).get("type"),
             "gui_open": bool(info.get("isGuiOpen", False)),
             "dimension": getattr(self, "_dimension", None),
-            # `--no-primitives`: what the GUI macros read for themselves -- every slot,
-            # and the cursor as [CURSOR] shows it -- so a script of the model's can click
-            **({} if self.primitives else {
-                "slots": {str(k): [n, c] for k, (n, c) in slot_map(info).items()},
-                "cursor": ({"pos": [round(self.cursor.pos[0], 1), round(self.cursor.pos[1], 1)],
-                            "over": self.cursor.over(None)}
-                           if self.cursor.pos is not None else None)}),
+            # every slot, and the cursor as [CURSOR] shows it, so a script of the
+            # model's can click
+            "slots": {str(k): [n, c] for k, (n, c) in slot_map(info).items()},
+            "cursor": ({"pos": [round(self.cursor.pos[0], 1), round(self.cursor.pos[1], 1)],
+                        "over": self.cursor.over(None)}
+                       if self.cursor.pos is not None else None),
         }
 
     def _own_kwargs(self, info: dict) -> dict[str, Any]:
@@ -4993,8 +3364,8 @@ class WorldModelAgent:
             # The hotbar separately from the inventory: selecting a tool needs the slot
             # NUMBER, and "I have a pickaxe somewhere" does not tell the agent what to press.
             f"Hotbar: {hotbar_line(info)}\n"
-            + ("" if self.primitives else f"Main rows: {main_rows_line(info)}\n")
-            + f"Held: {held_line(info)}\n"
+            f"Main rows: {main_rows_line(info)}\n"
+            f"Held: {held_line(info)}\n"
             f"Nearby entities: {nearby_mobs(info)}\n"
             f"GUI open: {bool(info.get('isGuiOpen', False))}\n"
             # Where the cursor is, held by the harness. This is what removes the need for
@@ -5181,10 +3552,6 @@ class WorldModelAgent:
                 "A blaze or a fortress sighting still ends the walk with its note.")
         return a
 
-    #: Entries whose descent is deliberate and dug or bridged, not walked.
-    NETHER_DESCENT_OK = frozenset({"stair_down", "dig_down", "bridge_forward", "find_lava",
-                                   "make_obsidian", "mine_obsidian", "enter_portal",
-                                   "pillar_down"})
     NETHER_DESCENT_MIN = 0.9
 
     def _nether_descent_guard(self, step: int, pos: dict[str, float] | None) -> None:
@@ -5194,8 +3561,8 @@ class WorldModelAgent:
         dropped with a NETHER DESCENT note. One run (30472-30505): forward+
         sprint+jump down a slope from y 36 to 28 into the sea, one raw entry after
         another, LAVA AHEAD already in its notes; one run (17893-17976): the explore walk
-        went 4 blocks down-slope to the lake's edge and fell in. Dug descents
-        (NETHER_DESCENT_OK) and the runner's own escapes are exempt."""
+        went 4 blocks down-slope to the lake's edge and fell in. The runner's own
+        escapes are exempt."""
         if pos is None or self._dimension != "the Nether" or not getattr(self, "reflexes", True):
             return
         if step % 4 or self._gui_open:
@@ -5211,8 +3578,6 @@ class WorldModelAgent:
         entry = (self._plan_entries[idx]
                  if idx is not None and 0 <= idx < len(self._plan_entries) else None)
         name = entry.get("procedure", "raw") if isinstance(entry, dict) else "raw"
-        if name in self.NETHER_DESCENT_OK:
-            return
         drop = float(self._entry_start_pos["y"]) - float(pos["y"])
         if drop < self.NETHER_DESCENT_MIN or self._nether_lava < vision.LAVA_FRAC_MIN:
             return
@@ -5236,20 +3601,12 @@ class WorldModelAgent:
         blocks (or dropped >= 0.5) since the previous sample -- a table or a torch seen
         standing still is never an alarm, and the colour band excludes both anyway.
         Re-fires after 150 ticks, or after 40 when the lava got 1.5x bigger.
-
-        `find_lava` is exempt: that macro is a deliberate search FOR lava with the same
-        reading, a stricter stop (it halts at least 2 blocks short and backs off if the
-        geometry says nearer) and its own frame and note. The guard runs in `observe`,
-        one tick ahead of the marker's own tick, so without the exemption it would clear
-        the queue -- and the macro -- on the very frame the search was run to get.
         """
         if pos is not None:
             self._pos_hist.append((step, pos["x"], pos["y"], pos["z"]))
         if not getattr(self, "reflexes", True):
             return
         if step % 4 or self._gui_open or self._last_pov is None or pos is None:
-            return
-        if self.queue and macros.kind_of(self.queue[0][0]) in self.LAVA_GUARD_EXEMPT:
             return
         if pos["y"] > 40.0 or len(self._pos_hist) < 2:
             return
@@ -5493,7 +3850,7 @@ class WorldModelAgent:
         With a water bucket in the pack and the obsidian milestone still open, this lava
         is not only a hazard: it is the one ingredient the chain needs, and the frame the
         guard just read is enough to name the rim block to pour on
-        (macros_nether.lava_cells). Fifteen second-half arms carried the bucket to y <= 15
+        (lava.lava_cells). Fifteen second-half arms carried the bucket to y <= 15
         and none ever poured. Without the bucket, or with obsidian already banked, the
         old avoid-it text stands.
         """
@@ -5501,7 +3858,7 @@ class WorldModelAgent:
                  "tunnel elsewhere -- lava ends a run in seconds.")
         if not self._cur_inv.get("water_bucket", 0) or not self._obsidian_unmet():
             return avoid
-        from mcu_worldmodel import macros_nether as MN
+        from mcu_worldmodel import lava as MN
         cells = None
         frac = 0.0
         if self._last_pov is not None:
@@ -5535,23 +3892,6 @@ class WorldModelAgent:
                   "with NO arguments use them exactly. Do not walk into it and do not walk "
                   "around it -- pour from where you stand; lava ends a run in seconds.")
 
-    def _dark_line(self, marker: dict[str, Any]) -> str:
-        """The sentence a mining macro's finish note carries when the ore watch sampled
-        a dark view throughout: the stretch was mined blind, and the model has to know
-        that the silence of the sentinel meant nothing."""
-        n = int(marker.get("lum_n", 0))
-        if n < 3:
-            return ""
-        mean = float(marker.get("lum_sum", 0.0)) / n
-        if mean >= self.DARK_TUNNEL_LUM:
-            return ""
-        self.cursor_stats["mine_dark"] = self.cursor_stats.get("mine_dark", 0) + 1
-        return (f" The view was DARK throughout (mean brightness {mean:.0f}/255): the ore "
-                f"watch cannot see ore colours in the dark, so this stretch was mined "
-                f"blind. Light the tunnel before mining on -- torches (1 coal + 1 stick = "
-                f"4, a 2x2 recipe) on a wall's side face every ~8 blocks; with no coal, a "
-                f"log smelted in the furnace is charcoal and works the same.")
-
     # -- reporting --------------------------------------------------------
 
     def report(self) -> dict[str, Any]:
@@ -5570,8 +3910,6 @@ class WorldModelAgent:
             # life without a kill reports exactly what it did before)
             **({"combat": {"kills": self._kills()}} if self._kills() else {}),
             "thin": self.thin,
-            **({"atoms": True} if self.atoms else {}),
-            **({"no_primitives": True} if not self.primitives else {}),
             **({"vista_aligned": True} if self.vista_aligned else {}),
             **({"model_steps": {"used": self._model_steps_used(),
                                 "budget": self.model_step_budget,
@@ -5580,9 +3918,6 @@ class WorldModelAgent:
                                 "spent": self._budget_spent_why,
                                 "spent_at_step": self._budget_spent_at}}
                if self.model_step_budget is not None or self.turn_budget is not None else {}),
-            **({"granted": list(self.granted)} if self.granted else {}),
-            **({"withheld": list(self.withheld)} if self.withheld else {}),
-            **({"endgame_recipes": True} if self.endgame_recipes else {}),
             **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
             **({"own_live": True, "own_loops": {k: dict(v) for k, v in self._own_loops.items()}}
                if self.own_live else {}),

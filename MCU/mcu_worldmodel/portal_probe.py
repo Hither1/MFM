@@ -62,7 +62,7 @@ class PortalProbeCallback(MinecraftCallback):
         offsets from the player's block position, upper bounds exclusive. The default
         reaches 8 blocks out horizontally and from 5 below to 5 above the feet, which
         covers a 5-tall frame whether the builder stands on the ground or on the
-        4-block pillar `macros_nether.build_portal_frame` raises to reach the top row.
+        4-block pillar a builder raises to reach the top row.
     :param every: env steps between queries.
     :param snapshots: save PNGs at ignitions and at the end.
     """

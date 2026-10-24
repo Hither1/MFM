@@ -3,9 +3,9 @@
 One chassis (executor, perception, caps, milestone ledger) runs every arm; an arm is the
 memory it is given and the contract that goes with it. `ARMS[name]` is what
 `WorldModelAgent` is built with beside `memory_mode=MEMORY_MODE[name]`. Every arm reads
-the short contract and acts through the same 28 closed-loop primitives
-(`procedures.ATOMS`); no arm is given a task-shaped macro, and the runner's own guards
-are off for all of them.
+the short contract and acts through the raw keys alone: no arm is given a built-in
+procedure of any grain (procedures.py), and the runner's own guards are off for all of
+them. The mfm arm's own scripts are the only procedures there are.
 
     direct       no persistent memory: every turn is the present alone
     logbook      PRO-LONG: one append-only `logs.txt` the model greps
@@ -26,7 +26,6 @@ from typing import Any
 #: What every arm is given.
 SHARED: dict[str, Any] = dict(
     thin=True,                # the short contract; the rules under references/
-    atoms=True,               # the procedure set is the closed-loop primitives
     harness_reflexes=False,   # the runner's guards and escapes are off
 )
 
@@ -42,6 +41,7 @@ MFM_OWN: dict[str, Any] = dict(
     minimal=True,             # the contract written for an arm with files of its own
     own=True,                 # mine/ persists; mine/procedures/*.py are procedures
     own_reflexes=True,        # mine/reflexes/*.py run on the live state
+    own_live=True,            # LOOP = True scripts run during the plan on the live frame
     skills=True,              # the skill package under skills/
 )
 

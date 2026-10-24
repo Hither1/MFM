@@ -12,12 +12,14 @@ model is given and the contract that describes it.
 | `mfm` | MFM | the log, one episode per plan entry with its frame, the index and its query tool, the carried lives, its own procedures and reflexes |
 | `mfm-matched` | (not in the paper) | the memory of `mfm` on the contract of the baselines; no procedures of its own, no `mine/` |
 
-Every arm reads a short contract and has the same procedure set, the 28 closed-loop
-primitives of `procedures.ATOMS`; a call of any other procedure is refused with a note.
-`logbook` and the MFM arms read the longer rules under `references/`; `direct` and
-`vista` have no file access, so their contract carries the procedures' full
-descriptions and the other references are left out. The runner's own guards are off
-for every arm; the reflexes under `mine/reflexes/` are the `mfm` arm's.
+Every arm reads a short contract and acts through the raw keys alone: no arm has a
+built-in procedure of any grain, and a procedure call that is not one of the `mfm` arm's
+own scripts is refused with a note. `logbook` and the MFM arms read the longer rules
+under `references/`, headed by a line that says the procedures they name do not exist;
+`direct` and `vista` have no file access, so their contract carries the GUI facts and
+the recipe list and the other references are left out. The runner's own guards are off
+for every arm; the procedures, closed loops and reflexes under `mine/` are the `mfm`
+arm's.
 
 The settings of the arms are in `arms.py` and nowhere else.
 
@@ -68,10 +70,10 @@ can open; of its memory the turn prompt carries only `mine/working.md`.
 | `own.py`, `skills.py` | the model's own procedures and reflexes; the skill package |
 | `vista.py` | the VISTA arm's adapter |
 | `codex_backend.py`, `claude_backend.py` | one model turn through either CLI |
-| `actions.py`, `procedures.py`, `macros*.py`, `harvest.py` | plan validation and the closed-loop procedures (the arms are given the 28 of `procedures.ATOMS`) |
+| `actions.py`, `procedures.py` | plan validation; the refusal of a procedure that is not the model's own |
 | `milestones.py` | the ledger: what the game's statistics say has happened |
 | `grid.py`, `governor.py` | the cell map; the stall watchdog |
-| `vision.py`, `vision_nether.py`, `cursor.py`, `gui.py`, `camera.py` | frame detectors, GUI geometry, camera arithmetic |
+| `vision.py`, `cursor.py`, `gui.py`, `camera.py`, `geometry.py`, `lava.py` | frame detectors, GUI geometry, camera arithmetic, block geometry |
 | `craft_env.py` | the `drop` action the simulator's spec leaves out |
 | `portal*.py` | the Nether portal case study: host-side geometry ground truth |
 | `testing.py` | stand-ins for the simulator and the model channel, for the offline tests |

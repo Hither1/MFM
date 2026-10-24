@@ -65,7 +65,7 @@ never edits those files and never rewrites the episodic record.
 | VISTA | `--memory vista`, `--agent vista`: `mfm/vista/`, adapters `MCU/mcu_worldmodel/vista.py`, `CUA-KiCad/gym_codex/vista_agent.py` |
 | MFM | `--memory mfm` with the settings of `MCU/mcu_worldmodel/arms.py` (`--memory mfm-matched` is the same memory without procedures of its own, see difference 2); `--agent mfm-carry` with the settings of `CUA-KiCad/gym_codex/memory_agents.py` |
 | MFM (no cross-task memory), Table 3 | `--agent mfm` |
-| Table 5: the standing brief, the procedure set | every arm has the short contract and the 28 atoms (`SHARED` in `MCU/mcu_worldmodel/arms.py`, `procedures.ATOMS`); sizes in difference 2 |
+| Table 5: the standing brief, the procedure set | every arm has the short contract and no built-in procedure (`SHARED` in `MCU/mcu_worldmodel/arms.py`, `procedures.refusal`); sizes in difference 2 |
 | Step budgets: Diamond 12,000, Ender Dragon 36,000 | defaults of `MCU/scripts/run-arm.sh` by task. The recorded 16/24 dragon lives ran on 100,000-step budgets under a 13 to 14 h wall clock, as lives 2 and 3 of a chain (see difference 8) |
 | Seeds: the Minecraft world, the KiCad task order | `--world-seed` (`MCU/src/util.py` `load_world_spec`), `--task-order-seed` (`CUA-KiCad/gym_codex/run_eval.py`) |
 | Milestone scoring | the benchmark's own `MilestoneTrackerCallback`; the chassis keeps the same count in `MCU/mcu_worldmodel/milestones.py` |
@@ -78,15 +78,15 @@ never edits those files and never rewrites the episodic record.
    visual observations, flat log, no agent procedures, no consolidation) were removed;
    the code runs the full method and the baselines only.
 2. **What the arms share on Minecraft, and what they do not.** Shared by every arm, as
-   in Table 5: a short contract, the 28 atoms as the whole procedure set (no
-   task-shaped macro), the runner's own guards switched off (the lava stop, the pillar
+   in Table 5: a short contract, no built-in procedure at all (every entry is a raw
+   action; the `mfm` arm's own scripts are the only procedures), the runner's own guards switched off (the lava stop, the pillar
    on a hit, the refusals), the executor, the perception, the plan caps, the frame size
    (320x180), the model and its reasoning effort, the milestone ledger. Not shared:
-   - The contracts are short but not one text, and not 12 KB each: `mfm` 11,947 bytes,
-     `logbook` 13,235, `direct` 15,228, `vista` 16,058 (`tests/pins_release/*_contract.md`).
+   - The contracts are short but not one text: `mfm` 6,541 bytes, `logbook` 7,051,
+     `direct` 12,850, `vista` 13,556 (`tests/pins_release/*_contract.md`).
      `logbook` and `mfm` read the longer rules under `references/`; `direct` and `vista`
-     have no file access, so their contract carries the full descriptions of the
-     procedures, and the GUI, skills and survival references are left out for them.
+     have no file access, so their contract carries the GUI facts and the recipe list,
+     and the GUI, skills and survival references are left out for them.
    - `mfm` alone has the skill package and its own procedures and reflexes; the
      reflexes it copies or writes act on every fourth tick, and no other arm has a
      tick layer.

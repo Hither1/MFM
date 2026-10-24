@@ -472,9 +472,9 @@ def dimension_jump(start: tuple[float, float], now: tuple[float, float]) -> bool
 
     `location_stats.biome_id` reads 0 in both dimensions on this engine (a staged scene),
     so the signal is the coordinate scale: the Nether is the Overworld's
-    x and z divided by eight. `macros_nether._dimcheck_tick` uses the same test, and
-    this is the host-side copy of it so the report does not depend on the agent
-    running that macro.
+    x and z divided by eight. The agent's portal-trip test (`agent._portal_trip`) reads
+    the same scale; this is the host-side copy, so the report does not depend on the
+    agent.
     """
     moved = math.dist(start, now) > 12.0
     shrank = abs(now[0]) < abs(start[0]) / 2.0 + 8 and abs(now[1]) < abs(start[1]) / 2.0 + 8

@@ -13,7 +13,7 @@
 #           end_stone_tail   start on the End's arrival platform: end_stone
 #           dragon_tail      the same start with bow and arrows: kill_ender_dragon (the ceiling)
 #   ROWS (the claim rows, run in this order, each the source of the next)
-#           none     the shipped mfm arm, a fresh life: the 28 atoms and whatever it writes
+#           none     the shipped mfm arm, a fresh life: the raw keys and whatever it writes
 #                    for itself in mine/ (procedures, reflexes, notes). This life is also
 #                    the chain's life 1.
 #           carry    life 2: the same probe carrying the none life's whole memory
@@ -30,19 +30,6 @@
 #                    skills-only row; none vs own is the clean reuse comparison
 #           ownx     a fresh life with the scripts of ANOTHER probe's chain installed
 #                    (OWNX_SEED=<that chain's carry memory dir>): transfer across probes
-#   CONTROLS (not claim rows; off unless named in ROWS; they hand the agent HARNESS-written
-#   skills or doctrine, so they say what the harness's own macros are worth, never what
-#   the agent learned)
-#           fight    + the generic entity macros (face_entity, fight, shoot_bow)
-#           macros   + the endgame macros (fight_blaze, enderman_pit, explore_nether,
-#                    throw_eye, travel_bearing, fill_end_portal, enter_end, mine_end_stone,
-#                    break_crystal, attack_dragon)
-#           recipe   + references/endgame.md: the chain's doctrine as prose
-#   GRANT_FIGHT / GRANT_MACROS   the procedure names the two control rows grant
-#   LIVE    1: every life runs with --own-live (own.py, the closed-loop section): a script
-#           the agent writes with `LOOP = True` is run during the plan on the live frame,
-#           and its reflexes get the frame. A capability of the chassis, the same in every
-#           row. Use a TAG of its own (TAG=sr3l) so its lives are not the blind chain's.
 #   DEATHS  1 (default): every life runs with --near-deaths, so a death whose respawn is
 #           close to where it happened is named to the agent (YOU DIED) and voids its plan.
 #           These probes fight AT the spawn: the first pilot (job 50240421, run without it)
@@ -64,35 +51,9 @@
 #           it cuts has no result, is run again from scratch, and is never a chain source.
 #
 #   STAGE=probes  every task of TASKS, rows in the order of ROWS
-#   STAGE=smoke   SMOKE=kill: blaze_tail driven by the FAKE codex (tests/fake_codex.py) that
-#                 only ever calls the harness macro fight_blaze -- an ENGINE check, not a row:
-#                 does `kill_entity` fire at all here (0 kills in 37 recorded lives), do the
-#                 kill, the rod and the fire come as the game says. SMOKE=end: end_stone_tail
-#                 with the fake that only looks around -- does /execute in land the avatar on
-#                 the platform at (100, 49, 0) with no YOU DIED, do the frames show the End.
-#                 SMOKE=cow: cook_meat_tail (three cows at the spawn) with the fake calling the
-#                 harness fight on a cow, two sword hits -- the cheapest check that the
-#                 `kill_entity` rule fires at all, when the blaze smoke lands no hit.
-#                 SMOKE=raw: the kill_check task (one cow in a fence ring two blocks east) with
-#                 NO grant: raw attack pulses on the cooldown at cow height -- the kill-rule
-#                 check with nothing but atoms, on a target that cannot flee. (cook_meat_tail's
-#                 cows took hits -- the red flash is in the frames -- and ran: smoke 50226471.)
-#                 SMOKE=loop: kill_check with --own-live: the fake writes a LOOP procedure that
-#                 pulses attack and records the frame it was handed at every call -- the
-#                 engine check of the closed loop (calls 13 ticks apart, a different frame
-#                 each call, the kill), again an instrument and not a skill.
-#                 SMOKE=death: the death_check task (the avatar is dropped 40 blocks onto the
-#                 spawn) with --own-live and a LOOP procedure that writes down every tick's
-#                 health, pose and inventory: what a death AT the spawn looks like, and
-#                 whether the harness names it.
-#                 SMOKE=look: SMOKE_TASK (default enderman_tail) with the fake that only pans
-#                 the camera -- what the scene of a probe looks like and whether it holds
-#                 (the time of day, the summoned mobs still there after 300 steps).
-#                 SMOKE=stare_eyes | stare_body: the stare_check task (one enderman, the
-#                 avatar under Resistance V) with --own-live and a scripted loop that finds
-#                 the eyes and keeps the crosshair ON them (eyes), or on the body once inside
-#                 4.5 blocks (body): does a stared-at enderman teleport away at contact here?
-#                 SMOKE=llm: one real PROBE_STEPS life of SMOKE_TASK/SMOKE_ROW.
+#   STAGE=smoke   SMOKE=llm (the only smoke): one real PROBE_STEPS life of
+#                 SMOKE_TASK/SMOKE_ROW. (The scripted fake-model smokes drove the harness
+#                 macros, which are gone.)
 #
 # Submit from MCU/ of the run worktree with a clean environment, as skill_reuse.sbatch:
 #   env -i HOME USER PATH=$HOME/miniforge3/bin:/usr/bin:/bin MINESTUDIO_SHARED=... \
@@ -126,12 +87,9 @@ if [ "$CLI" = codex ]; then
 fi
 OWNX_SEED="${OWNX_SEED:-}"
 SMOKE_EXTRA="${SMOKE_EXTRA:-}"
-LIVE="${LIVE:-0}"
-LIVE_OPT=""; [ "$LIVE" = 1 ] && LIVE_OPT="--own-live"
+LIVE_OPT=""
 DEATHS="${DEATHS:-1}"
-[ "$DEATHS" = 1 ] && LIVE_OPT="$LIVE_OPT --near-deaths"
-GRANT_FIGHT="${GRANT_FIGHT:-face_entity,fight,shoot_bow}"
-GRANT_MACROS="${GRANT_MACROS:-$GRANT_FIGHT,fight_blaze,enderman_pit,explore_nether,throw_eye,travel_bearing,fill_end_portal,enter_end,mine_end_stone,break_crystal,attack_dragon}"
+[ "$DEATHS" = 1 ] && LIVE_OPT="--near-deaths"
 
 export JAVA_HOME=/usr MCU_SKIP_ENV_SH=1
 export MINESTUDIO_DIR="${TMPDIR:-/tmp}/minestudio-$SLURM_JOB_ID"
@@ -193,9 +151,6 @@ row_opts() {   # row task
                 echo "-- --install-scripts $(mem "$2" $lc)";;
         ownx)   [ -d "$OWNX_SEED/mine" ] || { echo "FATAL: ownx needs OWNX_SEED=<another chain's carry memory dir>" >&2; exit 1; }
                 echo "-- --install-scripts $OWNX_SEED";;
-        fight)  echo "-- --grant $GRANT_FIGHT";;
-        macros) echo "-- --grant $GRANT_MACROS";;
-        recipe) echo "-- --endgame-recipes";;
         *) echo "FATAL: unknown row $1" >&2; exit 1;;
     esac
 }
@@ -221,16 +176,16 @@ tell() {
     local arm="$1" log="output/$1/episode_001/memory/logs.txt" rep="output/$1/episode_001/worldmodel_report.json"
     [ -f "$log" ] || { echo "--- $arm: no logs.txt"; return; }
     # line-anchored: the model quotes "[EVENT] kill_entity" and "YOU DIED" in its own plans
-    echo "--- $arm: kill_entity events $(grep -c '^\[EVENT\] kill_entity' "$log"), sword hits $(grep -c '^\[EVENT\] use_item [a-z_]*sword' "$log"), pickups $(grep -c '^\[EVENT\] pickup' "$log"), named deaths $(grep -c '^\[NOTE\] YOU DIED' "$log"), withheld/refused notes $(grep -c "^\[NOTE\] '[a-z_]*' is \(withheld in this run\|not in this run\)" "$log")"
+    echo "--- $arm: kill_entity events $(grep -c '^\[EVENT\] kill_entity' "$log"), sword hits $(grep -c '^\[EVENT\] use_item [a-z_]*sword' "$log"), pickups $(grep -c '^\[EVENT\] pickup' "$log"), named deaths $(grep -c '^\[NOTE\] YOU DIED' "$log")"
     echo "--- $arm: first position $(grep -m1 -o '\[STATE\] pos=([^)]*)' "$log"), last $(grep -o '\[STATE\] pos=([^)]*)' "$log" | tail -1)"
-    [ -f "$rep" ] && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('--- milestones', d.get('milestones'), '| granted', d.get('granted'), '| start_dimension', d.get('start_dimension'))" "$rep"
+    [ -f "$rep" ] && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('--- milestones', d.get('milestones'), '| start_dimension', d.get('start_dimension'))" "$rep"
 }
 
 export MCU_STOP_AFTER_COMPLETE="$STOP_AFTER"
 if [ "$STAGE" = smoke ]; then
-    SMOKE="${SMOKE:-kill}"
+    SMOKE="${SMOKE:-llm}"
     if [ "$SMOKE" = llm ]; then
-        T="${SMOKE_TASK:-blaze_tail}"; R="${SMOKE_ROW:-macros}"
+        T="${SMOKE_TASK:-blaze_tail}"; R="${SMOKE_ROW:-none}"
         ARM="${TAG}_smoke_${T}_${R}"
         # shellcheck disable=SC2046
         X="$(row_opts "$R" "$T")" || exit 1
@@ -239,33 +194,7 @@ if [ "$STAGE" = smoke ]; then
             $X $(task_extra "$T") $LIVE_OPT
         tell "$ARM"; echo "finished=$(date -Is)"; exit 0
     fi
-    # The fake codex: a scripted model, so the engine and the macros are what is tested.
-    FAKE="$(cd .. && pwd)/tests/fake_codex.py"
-    [ -f "$FAKE" ] || { echo "FATAL: no fake codex at $FAKE"; exit 1; }
-    case "$SMOKE" in
-        kill) T=blaze_tail;     SCRIPT=slurm/smoke/kill.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="--grant $GRANT_FIGHT,fight_blaze";;
-        end)  T=end_stone_tail; SCRIPT=slurm/smoke/end.jsonl;  STEPS="${SMOKE_STEPS:-200}"; GRANT="";;
-        cow)  T=cook_meat_tail; SCRIPT=slurm/smoke/cow.jsonl;  STEPS="${SMOKE_STEPS:-400}"; GRANT="--grant $GRANT_FIGHT";;
-        edge) T=edge_check;     SCRIPT=slurm/smoke/edge.jsonl; STEPS="${SMOKE_STEPS:-320}"; GRANT="";;
-        raw)  T=kill_check;     SCRIPT=slurm/smoke/raw.jsonl;  STEPS="${SMOKE_STEPS:-400}"; GRANT="";;
-        loop) T=kill_check;     SCRIPT=slurm/smoke/loop.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="--own-live";;
-        death) T=death_check;   SCRIPT=slurm/smoke/death.jsonl; STEPS="${SMOKE_STEPS:-200}"; GRANT="--own-live $SMOKE_EXTRA";;
-        stare_eyes|stare_body)
-              T=stare_check; SCRIPT="slurm/smoke/$SMOKE.jsonl"; STEPS="${SMOKE_STEPS:-500}"; GRANT="--own-live";;
-        scan) T="${SMOKE_TASK:-fortress_look}"; SCRIPT=slurm/smoke/scan.jsonl; STEPS="${SMOKE_STEPS:-400}"; GRANT="$SMOKE_EXTRA";;
-        look) T="${SMOKE_TASK:-enderman_tail}"; SCRIPT=slurm/smoke/end.jsonl; STEPS="${SMOKE_STEPS:-300}"; GRANT="$(task_extra "$T") $SMOKE_EXTRA";;
-        *) echo "FATAL: SMOKE must be kill, end, cow, raw, loop, death, look, stare_eyes, stare_body or llm"; exit 1;;
-    esac
-    ARM="${TAG}_smoke_${SMOKE}"
-    cp "$SCRIPT" "logs/${ARM}_script.jsonl"; rm -f "logs/${ARM}_script.jsonl.idx" "logs/${ARM}_fake_calls.jsonl"
-    printf '#!/usr/bin/env bash\nexec python3 %q "$@"\n' "$FAKE" > "logs/${ARM}_fake_codex.sh"; chmod +x "logs/${ARM}_fake_codex.sh"
-    export CODEX_BIN="$PWD/logs/${ARM}_fake_codex.sh" MCU_CODEX_AUTH=none
-    export FAKE_CODEX_SCRIPT="$PWD/logs/${ARM}_script.jsonl" FAKE_CODEX_CALLS="$PWD/logs/${ARM}_fake_calls.jsonl"
-    # shellcheck disable=SC2046,SC2086
-    life "$ARM" "$T" "$STEPS" --cli codex --model fake-codex --effort high \
-        -- $(task_extra "$T") $GRANT
-    tell "$ARM"
-    echo "finished=$(date -Is)"; exit 0
+    echo "FATAL: SMOKE must be llm"; exit 1
 fi
 
 [ "$STAGE" = probes ] || { echo "FATAL: STAGE must be probes or smoke"; exit 1; }

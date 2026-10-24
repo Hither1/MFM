@@ -1,10 +1,10 @@
 """The VISTA arm's adapter: the chassis driven one entry at a time from a codex thread.
 
-`--memory vista` is the world-model chassis (macros, cursor, vision, governor, the
-reflexes -- everything every rung of the ladder shares) with VISTA's memory protocol
-in place of the logbook's: no filesystem the model can read, no `logs.txt` it greps,
-no frames it opens by path. One codex app-server thread calls `play` with ONE plan
-entry -- a procedure call or a raw action held for N ticks, the unit `_log_entry_done`
+`--memory vista` is the world-model chassis (cursor, vision, governor -- everything
+every rung of the ladder shares) with VISTA's memory protocol in place of the logbook's:
+no filesystem the model can read, no `logs.txt` it greps, no frames it opens by path.
+One codex app-server thread calls `play` with ONE plan entry -- a raw action held for N
+ticks, the unit `_log_entry_done`
 writes one log section for -- and gets back, when the entry has run, exactly the facts
 that section carries (the entry as it ran, [STATE] with `moved`, [INV], [EVENT]s,
 [NOTE]s) plus the present state block the logbook arm's turn prompt renders, with the
@@ -65,47 +65,23 @@ OBJECTIVE = ("Complete as many of the task's milestones as you can within the st
 EMPTY_GUIDE = "No reliable model yet."
 
 PLAY_DESCRIPTION = (
-    "Execute exactly ONE plan entry and observe its result. An entry is either "
-    '{"procedure": "<name>", "args": {...}} -- a named procedure from the reference -- or '
-    '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks. The result '
-    "carries the entry as it ran and the ticks it spent, the [STATE] line with the "
-    "distance moved, the inventory delta, the game's own [EVENT] statistics (the ground "
-    "truth for what happened), the harness's [NOTE]s (why a procedure stopped, what a "
-    "guard refused), the present state block (step budget, milestones, vitals, inventory, "
-    "hotbar, held item, nearby entities, GUI, cursor) and the resulting view. The next "
-    "call sees this result before another entry can run. An entry the procedure refuses "
-    "against the present state returns an error without spending ticks."
+    'Execute exactly ONE plan entry and observe its result. An entry is {"action": {<raw '
+    'keys>}, "repeat": N} -- a raw action held for N ticks; this run has no named '
+    "procedures. The result carries the entry as it ran and the ticks it spent, the "
+    "[STATE] line with the distance moved, the inventory delta, the game's own [EVENT] "
+    "statistics (the ground truth for what happened), the harness's [NOTE]s (what the "
+    "harness saw), the present state block (step budget, milestones, vitals, inventory, "
+    "hotbar, main rows, held item, nearby entities, GUI, cursor) and the resulting view. "
+    "The next call sees this result before another entry can run."
 )
 PLAY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "procedure": {"type": "string", "minLength": 1,
-                      "description": "A procedure name from the reference (with `args`)."},
-        "args": {"type": "object", "description": "The procedure's arguments."},
         "action": {"type": "object",
                    "description": "Raw action keys held for `repeat` ticks (with `repeat`)."},
         "repeat": {"type": "integer", "minimum": 1, "maximum": 400},
     },
-}
-
-#: `--no-primitives`: the play tool with no procedure to name -- a raw action per call.
-PLAY_DESCRIPTION_RAW = (
-    PLAY_DESCRIPTION
-    .replace("An entry is either "
-             '{"procedure": "<name>", "args": {...}} -- a named procedure from the reference -- or '
-             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks.',
-             'An entry is {"action": {<raw keys>}, "repeat": N} -- a raw action held for N '
-             "ticks; this run has no named procedures.")
-    .replace("(why a procedure stopped, what a guard refused)", "(what the harness saw)")
-    .replace("hotbar, held item,", "hotbar, main rows, held item,")
-    .replace(" An entry the procedure refuses against the present state returns an error "
-             "without spending ticks.", ""))
-assert PLAY_DESCRIPTION_RAW.count("procedure") == 1, PLAY_DESCRIPTION_RAW
-PLAY_SCHEMA_RAW: dict[str, Any] = {
-    **PLAY_SCHEMA,
-    "properties": {k: v for k, v in PLAY_SCHEMA["properties"].items()
-                   if k in ("action", "repeat")},
     "required": ["action"],
 }
 
@@ -218,11 +194,9 @@ class VistaBridge:
             codex_home=self.codex_home, guide_path=guide, working_path=self.root / "WORKING.md",
             max_invalid_retries=self.max_invalid_retries)
         if self.aligned:
-            play = play_plan_tool(self.agent.primitives, self.agent.entry_cap,
-                                  self.agent.step_cap)
+            play = play_plan_tool(self.agent.entry_cap, self.agent.step_cap)
         else:
-            play = ((PLAY_SCHEMA, PLAY_DESCRIPTION) if self.agent.primitives
-                    else (PLAY_SCHEMA_RAW, PLAY_DESCRIPTION_RAW))
+            play = (PLAY_SCHEMA, PLAY_DESCRIPTION)
         tools = build_tools(build_play_tool(*play), width, height)
         self.runner = AppServerRunner(
             workspace=self.root, codex_home=self.codex_home, io_dir=self.transcript_dir,
@@ -570,9 +544,8 @@ class VistaBridge:
             "position": pos_line, "vitals": vitals(info),
             "inventory": ", ".join(f"{k}x{v}" for k, v in sorted(inv.items())[:24]) or "empty",
             "free_slots": free, "hotbar": hotbar_line(info),
-            # `--no-primitives`: with no `craft` to find the ingredients, a click needs
-            # the slot NUMBER
-            **({} if agent.primitives else {"main_rows": main_rows_line(info)}),
+            # a click needs the slot NUMBER
+            "main_rows": main_rows_line(info),
             "held": held_line(info),
             "nearby_entities": nearby_mobs(info),
             "gui_open": bool(info.get("isGuiOpen", False)),
@@ -596,11 +569,8 @@ class VistaBridge:
 
 
 #: `--vista-aligned`: the play tool takes a plan, at the other arms' caps.
-def play_plan_tool(primitives: bool, entry_cap: int, step_cap: int) -> tuple[dict[str, Any], str]:
-    entry = ('{"procedure": "<name>", "args": {...}} -- a named procedure from the reference -- or '
-             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks'
-             if primitives else
-             '{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks; this run '
+def play_plan_tool(entry_cap: int, step_cap: int) -> tuple[dict[str, Any], str]:
+    entry = ('{"action": {<raw keys>}, "repeat": N} -- a raw action held for N ticks; this run '
              'has no named procedures')
     description = (
         f"Execute ONE plan -- a list of at most {entry_cap} entries, totalling at most "
@@ -616,9 +586,8 @@ def play_plan_tool(primitives: bool, entry_cap: int, step_cap: int) -> tuple[dic
         "type": "object", "additionalProperties": False, "required": ["actions"],
         "properties": {"actions": {
             "type": "array", "minItems": 1, "maxItems": entry_cap,
-            "items": {"type": "object", "description": (
-                "{procedure, args} or {action, repeat}" if primitives
-                else "{action, repeat}: raw keys held for `repeat` ticks")}}}}
+            "items": {"type": "object",
+                      "description": "{action, repeat}: raw keys held for `repeat` ticks"}}}}
     return schema, description
 
 

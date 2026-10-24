@@ -345,7 +345,7 @@ def lava_view(frame: np.ndarray, rows_from: float = 0.35
 
     `bottom` saturates at 0.86: the hotbar cut removes the bottom 14% of the frame, so
     lava that reaches the frame's lower edge reads 0.86 and its distance estimate is an
-    UPPER bound on how near it is (macros_nether.lava_cells says so in its note)."""
+    UPPER bound on how near it is (lava.lava_cells says so in its note)."""
     if frame is None or frame.ndim != 3:
         return 0.0, 0.0, 0.0, 0.0
     h, w = frame.shape[0], frame.shape[1]
@@ -825,8 +825,8 @@ def slot_occupied(frame: np.ndarray, screen_x: int, screen_y: int) -> bool:
 # Motion is primary because it needs no per-mob knowledge: any entity that breathes,
 # steps or swings changes pixels where nothing else does, so `find_moving_blob` finds
 # a phantom, a witch and a wolf with the same code. Its precondition is that the two
-# frames were taken with the camera still -- the caller (macros_entity) holds a still
-# tick before every diff and counts the run of still ticks, because one camera nudge
+# frames were taken with the camera still -- the caller holds a still tick before
+# every diff and counts the run of still ticks, because one camera nudge
 # changes every pixel in the frame and the diff becomes meaningless.
 #
 # Colour is the label, and the fallback where motion is unavailable: a `/summon`ed
@@ -975,8 +975,8 @@ def find_moving_blob(prev: np.ndarray | None, cur: np.ndarray | None,
 
     THE CALLER GUARANTEES the camera did not move and the avatar did not step between
     the two frames: this is a pixel difference, and one degree of yaw changes every
-    pixel in the frame. `macros_entity` holds still ticks and counts them before it
-    asks. The returned (x, y) is the blob's centroid in full-frame coordinates -- the
+    pixel in the frame. The caller holds still ticks and counts them before it asks.
+    The returned (x, y) is the blob's centroid in full-frame coordinates -- the
     point to steer the crosshair onto, and for a mob the middle of its hitbox, which
     is where a melee swing has to land (aiming at a pig's head from 3 blocks missed;
     a pig's hitbox is 0.9 blocks high, probe).

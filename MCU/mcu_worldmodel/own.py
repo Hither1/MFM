@@ -1,11 +1,10 @@
 """The model's own procedures (`--own`): scripts it writes under `mine/procedures/`.
 
-The self-harness arm: the procedure
-library the contract shows is cut to the atoms (`procedures.ATOMS`, `--atoms`) and the
-model rebuilds what it needs as scripts it keeps. A script at `mine/procedures/<name>.py`
-is a procedure from the next turn on: the harness runs it in a subprocess with the state
-on stdin and the call's `args` on the command line, and the PLAN it prints (the same JSON
-shape as actions.json: built-in procedures and raw actions) is parsed with the same caps
+The self-harness arm: there is no built-in procedure (procedures.py), and the model
+builds what it needs above the keys as scripts it keeps. A script at
+`mine/procedures/<name>.py` is a procedure from the next turn on: the harness runs it in a
+subprocess with the state on stdin and the call's `args` on the command line, and the PLAN
+it prints (the same JSON shape as actions.json: raw actions) is parsed with the same caps
 and validator as the model's own plan. Depth one: an own procedure cannot call another.
 
 Why a subprocess and not an import: the model's code must not run inside the purple
@@ -248,7 +247,7 @@ def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int],
 # 50240421: three lives, 16 sword hits, 7 deaths, no kill): every aim was chosen at turn
 # time and swung at where the mob had been, and the third life wrote a procedure whose
 # only job was to find out whether a script can see mid-plan ("There is NO closed visual
-# loop inside a plan"). The runner's own macros have that loop (`macros.tick`); this
+# loop inside a plan"). The runner's macros had that loop (they are gone); this
 # hands the same grain to the model's scripts. It is a capability, not a skill: no
 # detector, no aim rule and no fight is written here.
 LOOP_BUDGET = 200           # ticks a loop entry runs when its args give no `ticks`
@@ -374,47 +373,15 @@ Write a procedure only after the same sequence has worked TWICE by hand, then ca
 name from then on; a script you never call again was a turn spent on nothing. Keep your
 notes in `mine/notes.md` (what worked, coordinates, what each script assumes)."""
 
-#: `--atoms`: the one line under the procedure index.
-ATOMS_LINE = ("This run's procedure set is the ATOMS above: the task-shaped macros (a tree, "
-              "a strip mine, a shaft, the obsidian, the portal, the Nether, the End) are "
-              "not provided. Compose them from the atoms and raw actions; when a "
-              "composition has worked twice, keep it as your own procedure.")
-
-
-def atoms_line() -> str:
-    """ATOMS_LINE for this run's arm: an arm without procedures of its own is not told
-    to keep one."""
-    from mcu_worldmodel import procedures as P
-    return ATOMS_LINE if P.OWN else ATOMS_LINE.split("; when a composition")[0] + "."
-
-
-#: `--atoms`, head of references/skills.md: its situations name the task-shaped macros.
-ATOMS_REF_LINE = ("The macros this file names (harvest_tree, strip_mine, dig_down, make_obsidian, "
-                  "build_portal_frame, light_portal, fight, travel, scan_around, aim_at_ore, ...) "
-                  "are NOT built in this run: read each as a recipe -- the situation, the order of "
-                  "steps, what to verify -- to compose from the atoms and your own scripts. The "
-                  "wall watcher this file describes (a [NOTE] and the flag-time frame when "
-                  "iron- or diamond-ore speckles cross the view) samples every raw "
-                  "{\"attack\": 1} hold in this run and mine_ahead(n, ore_watch=true). A raw "
-                  "hold is also cut the moment its block breaks, so a 30-tick hold per block "
-                  "is the cheap, sighted way to mine; mine_ahead(n) spends all n ticks and "
-                  "is for continuous digging (a shaft).")
-
-
-def atoms_ref_line() -> str:
-    """ATOMS_REF_LINE for this run's arm (see `atoms_line`)."""
-    from mcu_worldmodel import procedures as P
-    return (ATOMS_REF_LINE if P.OWN
-            else ATOMS_REF_LINE.replace("from the atoms and your own scripts", "from the atoms"))
-
-
-# -- `--no-primitives`: not even the atoms ---------------------------------------------
+# -- no built-in procedures ----------------------------------------------------------
 #
-# The arm with no hand-written skill of any grain: the procedure set is empty, no example
-# script ships under skills/, and the runner's wall watcher is off. The model acts through
-# the keys and through what it writes itself (procedures, closed loops, reflexes, all
-# emitting raw actions). What it still gets is what every arm sees -- [STATE], [INV],
-# [CURSOR], [GRID], the frame -- and the knowledge text, whose macro names are recipes.
+# No arm has a hand-written skill of any grain: the procedure set is empty and no
+# procedure or reflex example ships under skills/ beyond the one reflex example. The model
+# acts through the keys and through what it writes itself (procedures, closed loops,
+# reflexes, all emitting raw actions). What it gets is what every arm sees -- [STATE],
+# [INV], [CURSOR], [GRID], the frame -- and the knowledge text, whose macro names are
+# recipes. The texts below rewrite the contract and reference text, which still describes
+# the macros the harness once had, into what is true now.
 
 #: The contract's procedure section, in place of the index.
 NO_PRIMITIVES_LINE = (

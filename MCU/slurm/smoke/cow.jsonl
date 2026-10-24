@@ -1,2 +1,0 @@
-{"artifact": {"actions": [{"procedure": "fight", "args": {"ticks": 150, "label": "cow"}}]}, "message": "[PLAN]\nfight the cow in view"}
-{"artifact": {"actions": [{"procedure": "look", "args": {"yaw": 45}}, {"procedure": "fight", "args": {"ticks": 150, "label": "cow"}}]}, "message": "[PLAN]\nturn 45 and fight"}

@@ -16,7 +16,7 @@ about, and both of which were silently wrong before this module existed:
     delivered 230.
   * `4.32` -- the one-slot cursor move that `gui.PX_PER_DEGREE` implies -- delivers
     `3.215`, i.e. 13.4 px against an 18 px slot. Each GUI move landed a quarter-slot short
-    while `CursorPath` recorded it as exact.
+    while the craft macro of the time recorded it as exact.
 
 So a *total* angle is composed from the reachable set instead of divided into equal parts:
 `4.32` becomes `3.215 + 0.615 + 0.615 = 4.446` (0.5 px of slot error) rather than one hop
@@ -94,8 +94,7 @@ def deliverable(delta: float) -> bool:
     and reaches the game untouched -- measured on the live simulator, yaw exact from
     0.25 through 179 degrees in one tick. Pitch has a further limit that is the game's,
     not the encoder's: it clamps to +/-90, so a large request is applied up to the clamp
-    rather than binned, which `CursorPath` handles by tracking where the cursor actually
-    ended up.
+    rather than binned.
     """
     if QUANTISED:
         return round(delta, 4) in set(reachable())

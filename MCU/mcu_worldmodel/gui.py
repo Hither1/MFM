@@ -1,9 +1,11 @@
-"""Exact inventory-GUI geometry, so crafting is arithmetic instead of guesswork.
+"""Exact inventory-GUI geometry and the recipe table.
 
-The engine has no craft command (see craft_env.py), so crafting is performed the way a
-human does it: open the inventory, move the mouse over slots, click. Every primitive that
-needs is available -- `inventory` toggles the screen, `camera` moves the cursor, `attack`
-is left-click, `use` is right-click. What was missing is knowing *where the slots are*.
+The engine has no craft command (see craft_env.py), and no arm is given a procedure that
+crafts (procedures.py): a recipe is performed the way a human does it -- open the screen,
+move the cursor over slots, click -- with `inventory`, `camera`, `attack` (left-click) and
+`use` (right-click). What this module holds is *where the slots are*, which the harness
+needs to measure the cursor ([CURSOR], cursor.py), read the grid cells ([GRID]) and state
+the slot positions in the contract (prompts.raw_gui_ref).
 
 The numbers below are Minecraft 1.16's `InventoryScreen` / `CraftingScreen` layout in GUI
 pixels. They are fixed by the game, not estimated:
@@ -15,37 +17,10 @@ pixels. They are fixed by the game, not estimated:
     main inventory 3 rows x 9 cols from (8,84)
     hotbar         one row from (8,142)
 
-Two conversions turn those into actions:
-
-    GUI px -> screen px    `MinecraftSim` forces `guiscale_range=[1,1]`, so 1:1.
-    screen px -> degrees   `GUIConstants.MOUSE_MULTIPLIER = 0.1` converts mouse pixels to
-                           camera degrees, so one pixel is 0.1 deg and the 18 px slot pitch
-                           is 1.8 deg -- which is where `CURSOR_DEG_PER_SLOT` came from,
-                           and a live run has now confirmed it by reaching the
-                           `crafting_table` milestone with it.
-
-**The cursor's opening position was measured, not assumed.** Two earlier versions of this
-module guessed it -- first the screen centre, then a corner reached by over-moving into the
-clamp -- and both emitted perfectly-formed crafts that moved nothing at all: no engine
-error, planks unchanged, GUI open throughout. A sweep of px-per-degree over a 12x range
-failed at every value, which is what finally showed the scale was never the problem.
-
-`calibrate_gui.py` settles it by scanning: it puts a known stack in slot 0, opens the
-inventory, and walks the cursor one slot at a time clicking at each stop until the stack
-leaves the slot. Slot 0 (container centre (16, 150)) came back at **(0, +5) slots** from
-the opening position, so the cursor opens at container **(16, 60)** -- `CURSOR_OPEN` below.
-Re-run that module if the render size or GUI scale ever changes.
-
-`info['inventory']` is slot-keyed (`{slot: {type, quantity}}`), so a recipe can be compiled
-against the *actual* inventory rather than assuming where an ingredient sits. That is what
-makes this reliable where a fixed macro is not.
+`MinecraftSim` forces `guiscale_range=[1,1]`, so GUI px are screen px. The cursor opens at
+the screen centre (`CURSOR_OPEN`, measured from frames).
 """
 from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Any
-
-from loguru import logger
 
 # -- geometry -----------------------------------------------------------
 
@@ -112,87 +87,16 @@ def centre(topleft: tuple[int, int]) -> tuple[float, float]:
 #: right value.
 CURSOR_OPEN = (88.0, 83.0)
 
+#: Screen kinds (vision.screen_kind names) whose block keeps what sits in its cells when
+#: the screen closes: a close is lossless for them, and the runner's drop guard and its
+#: "on the floor" note stand down. (A stonecutter's input is a screen-handler slot and
+#: is not kept.)
+KEEPS_CONTENTS = frozenset({"furnace", "chest", "chest2", "brewing"})
+
 
 def container_origin(render_w: int = 640, render_h: int = 360) -> tuple[float, float]:
     """Top-left of the container in SCREEN pixels. The container is centred."""
     return ((render_w - CONTAINER_W) / 2.0, (render_h - CONTAINER_H) / 2.0)
-
-
-def to_screen(gui_pos: tuple[float, float],
-              render: tuple[int, int] = (640, 360)) -> tuple[float, float]:
-    """Container coordinates -> screen pixels."""
-    ox, oy = container_origin(*render)
-    return (ox + gui_pos[0], oy + gui_pos[1])
-
-
-def cursor_home(render_w: int = 640, render_h: int = 360) -> tuple[float, float]:
-    """Container coordinates of the screen centre.
-
-    Kept because it is the documented behaviour of a Minecraft GUI opening, and it is what
-    the geometry tests pin. It is deliberately NOT used to seed a CursorPath -- see the
-    module docstring for why that produced a craft that moved nothing.
-    """
-    ox, oy = container_origin(render_w, render_h)
-    return (render_w / 2.0 - ox, render_h / 2.0 - oy)
-
-
-# -- building the action sequence ---------------------------------------
-
-def _noop() -> dict[str, Any]:
-    from mcu_worldmodel.procedures import noop
-    return noop()
-
-
-def _press(key: str, ticks: int = 2) -> list[dict[str, Any]]:
-    from mcu_worldmodel.procedures import act
-    return [act(**{key: 1}) for _ in range(ticks)] + [_noop()]
-
-
-@dataclass
-class CursorPath:
-    """Accumulates cursor moves and clicks in SCREEN pixels, tracking the true position.
-
-    Tracking matters because every move is relative: emitting each hop from an assumed
-    origin compounds the error, and after four ingredient placements the cursor is in the
-    wrong region entirely -- with nothing in the log to say so, because each individual
-    camera delta was correct. `home()` establishes the origin by clamping.
-    """
-    pos: tuple[float, float] = CURSOR_OPEN
-    actions: list[dict[str, Any]] = field(default_factory=list)
-
-    def move_to(self, target: tuple[float, float]) -> "CursorPath":
-        from mcu_worldmodel import camera as _camera
-        from mcu_worldmodel.procedures import act
-        dx = (target[0] - self.pos[0]) / PX_PER_DEGREE
-        dy = (target[1] - self.pos[1]) / PX_PER_DEGREE
-        # Routed through `camera` rather than emitted directly, because whether one tick
-        # suffices depends on the encoder in the path. In `env` it does and `split` returns
-        # the angle unchanged. Under the `agent` encoder only 11 values per axis survive,
-        # an 18px slot asked for as one 4.32-degree move arrived as 3.215 (13.4px), and the
-        # old `self.pos = target` recorded it as exact -- four moves later the cursor was a
-        # full slot out with nothing in the log to say so. Tracking the sum of what was
-        # actually emitted is correct either way.
-        xs, ys = _camera.split(dx), _camera.split(dy)
-        for pitch, yaw in _camera.plan(dy, dx):
-            self.actions.append(act(camera=[pitch, yaw]))
-        # Where the cursor actually is, which is not where it was aimed.
-        self.pos = (self.pos[0] + sum(xs) * PX_PER_DEGREE,
-                    self.pos[1] + sum(ys) * PX_PER_DEGREE)
-        return self
-
-    def left_click(self) -> "CursorPath":
-        # Release matters: `attack` held across ticks reads as click-and-drag, which
-        # distributes a stack across slots instead of picking it up.
-        self.actions += _press("attack")
-        return self
-
-    def right_click(self) -> "CursorPath":
-        self.actions += _press("use")
-        return self
-
-    def settle(self, ticks: int = 1) -> "CursorPath":
-        self.actions += [_noop() for _ in range(ticks)]
-        return self
 
 
 # -- recipes ------------------------------------------------------------
@@ -240,8 +144,7 @@ PRODUCT = {"charcoal_torch": "torch"}
 # name, or that any survival player reaches for (tools of every tier, containers,
 # furniture, ranged gear, food). Public game knowledge, in the same (grid, cells, out)
 # shape; a family ingredient ("@planks", "@wool") matches any member. The product's
-# statistic name may carry a material prefix ("oak_fence", "white_bed"): macros_gui.
-# product_matches accepts the family suffix.
+# statistic name may carry a material prefix ("oak_fence", "white_bed").
 WOOL = "@wool"
 _T = {"wooden": PLANKS, "stone": "cobblestone", "iron": "iron_ingot", "golden": "gold_ingot",
       "diamond": "diamond"}
@@ -378,78 +281,6 @@ def find_slots(info: dict, ingredient: str) -> list[tuple[int, int]]:
     return found
 
 
-def can_craft(info: dict, item: str) -> tuple[bool, str]:
-    """Whether the inventory holds enough for `item`. Returns (ok, why-not).
-
-    Checked before emitting 30-odd ticks of cursor work: a craft attempted without the
-    ingredients leaves the grid half-filled and the agent with a screen it has to reason
-    its way out of, which is far more expensive than the check.
-    """
-    spec = RECIPES.get(item)
-    if spec is None:
-        return False, f"no recipe for {item!r}"
-    _, cells, _ = spec
-    need: dict[str, int] = {}
-    for ing in cells.values():
-        need[ing] = need.get(ing, 0) + 1
-    for ing, count in need.items():
-        have = sum(q for _, q in find_slots(info, ing))
-        if have < count:
-            return False, f"need {count}x {ing.lstrip('@')}, have {have}"
-    return True, ""
-
-
-def craft_actions(info: dict, item: str, render: tuple[int, int] = (640, 360)
-                  ) -> tuple[list[dict[str, Any]], str]:
-    """Actions that craft `item` from the current inventory. ([], reason) if it cannot.
-
-    Assumes the correct screen is ALREADY open -- the survival inventory for a 2x2 recipe,
-    a crafting table's screen for a 3x3 one -- because opening a table means walking to it
-    and right-clicking it, which is navigation, not GUI work, and belongs in the plan the
-    agent writes rather than buried inside a macro.
-
-    Ingredients are placed with right-click (one item per press) so a stack is not dumped
-    into a single cell, and the output is taken with left-click.
-    """
-    ok, why = can_craft(info, item)
-    if not ok:
-        return [], why
-    grid, cells, _ = RECIPES[item]
-    in_slots = SURVIVAL_CRAFT_IN if grid == "2x2" else TABLE_CRAFT_IN
-    out_slot = SURVIVAL_CRAFT_OUT if grid == "2x2" else TABLE_CRAFT_OUT
-
-    # Spend each source stack down as cells consume it, so two cells needing the same
-    # ingredient do not both plan to take it from a slot that only had one.
-    remaining: dict[str, list[list[int]]] = {}
-    for ing in set(cells.values()):
-        remaining[ing] = [[s, q] for s, q in find_slots(info, ing)]
-
-    path = CursorPath()
-    # One stack at a time: pick it up, right-click one item into each cell it supplies,
-    # then put the remainder back. This is the pattern the agent's own successful crafts
-    # used -- right-click while holding a stack deposits a single item and keeps holding
-    # the rest, so N cells cost N clicks rather than N round trips to the source slot.
-    by_source: dict[int, list[int]] = {}
-    for cell, ing in sorted(cells.items()):
-        if cell >= len(in_slots):
-            return [], f"cell {cell} outside the {grid} grid"
-        stacks = remaining[ing]
-        while stacks and stacks[0][1] <= 0:
-            stacks.pop(0)
-        if not stacks:
-            return [], f"ran out of {ing.lstrip('@')} while filling the grid"
-        stacks[0][1] -= 1
-        by_source.setdefault(stacks[0][0], []).append(cell)
-
-    for src_slot, target_cells in by_source.items():
-        path.move_to(centre(slot_topleft(src_slot))).left_click()
-        for cell in target_cells:
-            path.move_to(centre(in_slots[cell])).right_click()
-        path.move_to(centre(slot_topleft(src_slot))).left_click()
-
-    path.move_to(centre(out_slot)).left_click().settle(2)
-    logger.info(f"[gui] craft {item}: {len(path.actions)} ticks")
-    return path.actions, ""
 
 
 def reference() -> str:
@@ -549,11 +380,6 @@ ENCHANT_BUTTONS = [(60, 14), (60, 33), (60, 52)]
 ENCHANT_BUTTON_SIZE = (108, 19)
 
 
-def enchant_button_centre(i: int) -> tuple[float, float]:
-    """Where to click enchant option `i` (0-2)."""
-    x, y = ENCHANT_BUTTONS[max(0, min(2, int(i)))]
-    return (x + ENCHANT_BUTTON_SIZE[0] / 2.0, y + ENCHANT_BUTTON_SIZE[1] / 2.0)
-
 
 #: `StonecutterScreenHandler`: input left, result right. The result is a BIG slot --
 #: its drawn frame is 26x26 at (138,28), the item area is the usual 16x16 at (143,33)
@@ -570,12 +396,6 @@ CUT_BUTTON_W, CUT_BUTTON_H = 16, 18
 CUT_COLS, CUT_ROWS = 4, 3
 
 
-def cut_button_centre(i: int) -> tuple[float, float]:
-    """Where to click stonecutter recipe button `i` (0-11, row-major, 4 per row)."""
-    i = max(0, min(CUT_COLS * CUT_ROWS - 1, int(i)))
-    return (CUT_RECIPE_ORIGIN[0] + CUT_BUTTON_W * (i % CUT_COLS) + CUT_BUTTON_W / 2.0,
-            CUT_RECIPE_ORIGIN[1] + CUT_BUTTON_H * (i // CUT_COLS) + CUT_BUTTON_H / 2.0)
-
 
 #: `AnvilScreenHandler`: base item, material, result. Recognition only -- no macro is
 #: registered for the anvil (renaming needs a text field the action space cannot type in).
@@ -583,16 +403,3 @@ ANVIL_IN = (27, 47)
 ANVIL_ADD = (76, 47)
 ANVIL_OUT = (134, 47)
 
-
-def cursor_park(kind: str = "inventory") -> tuple[float, float]:
-    """A point inside `kind`'s container that is NOT a slot, for parking the pointer.
-
-    The white arrow (and any stack riding it) is drawn over whatever slot it sits on,
-    and `vision.slot_occupied` reads texture, so a pointer left on a cell makes that
-    cell read FULL: after `container_take` emptied a chest the last cell it clicked
-    still reported an item, and the next take clicked at nothing (a staged scene).
-    Every container's bottom strip, below the hotbar row and inside the frame, is plain
-    body on all nine screens.
-    """
-    bottom = screen_shift(kind) + SCREEN_H.get(kind, CONTAINER_H) - 1
-    return (170.0, float(bottom - 5))

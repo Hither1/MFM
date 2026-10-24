@@ -11,11 +11,9 @@ from __future__ import annotations
 import re
 
 from mcu_worldmodel import gui as G
-from mcu_worldmodel import procedures as P
 
-#: `atoms`: the procedure example in the action reference names an atom.
+#: The procedure example of the action reference, which every contract takes out.
 _DIG_EXAMPLE = '{"procedure": "dig_down", "args": {"n": 40}}'
-_ATOM_EXAMPLE = '{"procedure": "mine_ahead", "args": {"n": 100}}'
 
 ACTION_REFERENCE = """\
 Each entry in {actions_channel} is either a raw action held for N ticks:
@@ -928,15 +926,9 @@ def thin_split(contract: str, tools: bool = True,
                     kept.extend([safety, ""])
                 continue
             if head.startswith(_THIN_PROCEDURES) and tools:
-                # The procedure index stays; the full reference (docs, preconditions,
-                # the notes on each) is a file -- 5,700 of the contract's 14,300 words.
-                from mcu_worldmodel import procedures as P
+                # The section's head stays (no_primitives_thin replaces it); the text
+                # under it is the procedures file, which no arm is given.
                 kept.append(head)
-                kept.append(P.index())
-                if P.VISIBLE is not None:
-                    kept.append(_own_mod().atoms_line())
-                kept.append("Full descriptions, preconditions and the notes on each: "
-                            "`references/procedures.md`.")
                 kept.append("")
                 refs.setdefault("procedures.md", []).extend(b)
                 continue
@@ -1036,10 +1028,7 @@ life's under `previous/`); look after a hit, and when a plan's outcome surprised
 {safety_line}
 
 {reference_head}
-**Procedures** (name, arguments, one line each; full descriptions, preconditions and
-the notes on each: `references/procedures.md`):
-{procedures}
-{atoms_line}
+**Procedures.** {procedures_line}
 {references_tail}
 """
 
@@ -1049,20 +1038,12 @@ THIN_SAFETY = ("**Safety.** The runner does not guard you in this run: no lava s
                "it falls about a point per 4000 steps, so a life's whole deficit is one animal "
                "(raw meat is fine) -- eat when the bar is below 18.")
 
-_MINIMAL_SAFETY = {
-    True: ("**Safety.** The runner has reflexes of its own -- lava coming into view, a "
-           "fall, water under a dig, a hit, the Nether -- and when one stops your plan its "
-           "`[NOTE]` says what it did and why. Read the note before you re-plan."),
-    False: ("**Safety.** The runner does not guard you in this run: no lava stop, no "
-            "pillar on a hit, no refusal. Your reflexes under `mine/reflexes/` are the tick "
-            "layer, and none is installed for you: `skills/reflexes/SKILL.md` names the classes, "
-            "`skills/reflexes/scripts/` holds examples to copy into `mine/reflexes/` in your "
-            "first turn. Natural healing needs the food bar at 18+; here it falls about a point "
-            "per 4000 steps, so a life's whole deficit is one animal (raw meat is fine) -- eat "
-            "when the bar is below 18 (the starving example does it when you carry food)."),
-}
-#: `--no-primitives`: the same, for a run that ships no example to copy.
-_MINIMAL_SAFETY_NO_EXAMPLES = (
+#: The minimal contract's safety line, with the runner's own reflexes on (no arm) and off.
+_MINIMAL_SAFETY_REFLEXES = (
+    "**Safety.** The runner has reflexes of its own -- lava coming into view, a "
+    "fall, water under a dig, a hit, the Nether -- and when one stops your plan its "
+    "`[NOTE]` says what it did and why. Read the note before you re-plan.")
+_MINIMAL_SAFETY = (
     "**Safety.** The runner does not guard you in this run: no lava stop, no pillar on a "
     "hit, no refusal. Your reflexes under `mine/reflexes/` are the tick layer, and none is "
     "installed: `skills/reflexes/SKILL.md` says how they run, and `skills/reflexes/scripts/` "
@@ -1072,12 +1053,8 @@ _MINIMAL_SAFETY_NO_EXAMPLES = (
     "selected, about 32 ticks).")
 
 
-#: `--no-primitives`: the minimal contract's procedure section, and the two sentences of the
-#: action schema that name built-ins (its procedure example, discard_stack).
-_MINIMAL_PROC_SECTION = ("**Procedures** (name, arguments, one line each; full descriptions, "
-                         "preconditions and\nthe notes on each: `references/procedures.md`):\n"
-                         "{procedures}\n{atoms_line}\n")
-assert _MINIMAL_PROC_SECTION in MINIMAL_CONTRACT
+#: The two sentences of the action schema that name a built-in (its procedure example,
+#: discard_stack), and what every contract says in their place.
 _NAMED_PROCEDURE = ("or a named procedure, which expands to many ticks:\n\n    "
                     + _DIG_EXAMPLE)
 _OWN_PROCEDURE = ("or one of YOUR OWN procedures (a script under `mine/procedures/`; this run "
@@ -1088,7 +1065,7 @@ _DISCARD = ("To throw a stack away use the `discard_stack`\nprocedure (below); i
 _DISCARD_RAW = ("To throw a stack away: open the inventory,\nleft-click the stack onto the "
                 "cursor, close the screen (the stack is thrown ahead of you), then\nstep back "
                 "so you do not walk onto it -- the one way to shed junk here.")
-assert _NAMED_PROCEDURE.replace(_DIG_EXAMPLE, "") in ACTION_REFERENCE and _DISCARD in ACTION_REFERENCE
+assert _NAMED_PROCEDURE in ACTION_REFERENCE.replace("{{", "{").replace("}}", "}") and _DISCARD in ACTION_REFERENCE
 
 #: `--no-primitives`, the head of references/gui.md: the screen numbers every GUI macro is
 #: built on, given as facts (the same ones `gui.py` computes with), since no macro clicks.
@@ -1150,11 +1127,12 @@ def raw_gui_ref() -> str:
         fi=c(G.FURNACE_IN), ff=c(G.FURNACE_FUEL), fo=c(G.FURNACE_OUT))
 
 
-#: `--no-primitives` on the thin contract (logbook, vista): the (old, new) rewrites of the
-#: lines that name a built-in outside the procedure section; each old text must occur.
+#: The thin contract of every arm without files of its own (logbook, vista, direct,
+#: mfm-matched): the (old, new) rewrites of the lines that name a built-in outside the
+#: procedure section; each old text must occur.
 _NO_PRIMITIVES_THIN = (
     ("is either a raw action held for N ticks:", "is a raw action held for N ticks:"),
-    ("\n\nor a named procedure, which expands to many ticks:\n\n    " + _ATOM_EXAMPLE, ""),
+    ("\n\n" + _NAMED_PROCEDURE, ""),
     (_DISCARD, _DISCARD_RAW),
     ("`watch(until=..., n)` is the observe step\n  between acting and deciding.",
      "a wait with no keys pressed is the observe\n  step between acting and deciding."),
@@ -1165,12 +1143,17 @@ _NO_PRIMITIVES_YAW = {
     "vista": (" of your\n  own -- the closed-loop skills (look_abs, look_at, go_to) already "
               "handle it.", "."),
 }
+# the act prompt's yaw line, shared by the logbook, direct and mfm-matched contracts
+_NO_PRIMITIVES_YAW["direct"] = _NO_PRIMITIVES_YAW["mfm"] = _NO_PRIMITIVES_YAW["logbook"]
+#: The "kept short" tail of a contract whose reader has no file tools (vista, direct).
+_NO_PRIMITIVES_KEPT_SHORT = (
+    "the procedure descriptions above and the milestone block are what you have.",
+    "the GUI facts and recipes above and the milestone block are what you have.")
 _NO_PRIMITIVES_VISTA = (
     ("a named procedure or a raw action held for N ticks", "a raw action held for N ticks"),
     (" (a longer procedure is cut at the cap and its [NOTE] says so; call it again to "
      "continue)", ""),
-    ("the procedure descriptions above and the milestone block are what you have.",
-     "the GUI facts and recipes above and the milestone block are what you have."),
+    _NO_PRIMITIVES_KEPT_SHORT,
     ("a procedure that\n  stopped early says why there,", "an entry cut short\n  says why there,"),
 )
 #: The two vista edits whose text exists only in the one-entry contract.
@@ -1182,19 +1165,34 @@ _RAW_GUI_FILE = ("No procedure clicks for you; the rest of this file\ndescribes 
 assert _RAW_GUI_FILE in _RAW_GUI
 
 
+def raw_references_tail(text: str) -> str:
+    """The **References.** list of a contract (or its tail) with procedures.md taken out
+    and the gui.md / skills.md lines saying what those files are without built-ins."""
+    text = "\n".join(ln for ln in text.split("\n")
+                     if not ln.startswith("- `references/procedures.md`"))
+    return (text.replace(_THIN_FILES["gui.md"],
+                         "the GUI by hand (the cursor, the clicks, the slot "
+                         "positions) and the screen rules")
+            .replace(_THIN_FILES["skills.md"],
+                     "the skills by situation -- wood, stone, iron, diamonds, water, "
+                     "lava, the portal, the Nether, the End -- as recipes, and what "
+                     "to write down"))
+
+
 def no_primitives_thin(contract: str, memory_mode: str, vista_plan: bool = False) -> str:
-    """The thin contract (`thin_split`'s output) of the logbook or vista arm under
-    `--no-primitives`: the procedure section says there is none, the action schema loses
-    its procedure example and discard_stack, the two lines that name an atom lose it, and
-    the references tail drops procedures.md. The vista arm has no references to read, so
-    the screen facts and the recipe list (what `craft` knew) stand in the procedure
-    section's place."""
+    """The thin contract (`thin_split`'s output) of an arm without files of its own: the
+    procedure section says there is none, the action schema loses its procedure example
+    and discard_stack, the two lines that name an atom lose it, and the references tail
+    drops procedures.md. The vista and direct arms have no references to read, so the
+    screen facts and the recipe list stand in the procedure section's place."""
     edits = list(_NO_PRIMITIVES_THIN) + [_NO_PRIMITIVES_YAW[memory_mode]]
     if memory_mode == "vista":
         # `vista_plan` (`--vista-aligned`): a plan per play, and the references inline
         # after the contract -- no one-entry cap sentence, no "kept short" tail
         edits += [e for e in _NO_PRIMITIVES_VISTA
                   if not (vista_plan and e[0] in _NO_PRIMITIVES_ONE_ENTRY_ONLY)]
+    elif memory_mode == "direct":
+        edits.append(_NO_PRIMITIVES_KEPT_SHORT)
     for old, new in edits:
         if old not in contract:
             raise ValueError(f"no-primitives: the {memory_mode} contract drifted: {old[:60]!r}")
@@ -1203,22 +1201,14 @@ def no_primitives_thin(contract: str, memory_mode: str, vista_plan: bool = False
     end = min(i for i in (contract.find("\n\n**References.**", start),
                           contract.find("\n\n**Kept short.**", start)) if i >= 0)
     section = "**Procedures.** " + _own_mod().NO_PRIMITIVES_LINE_RAW
-    if memory_mode == "vista" and not vista_plan:
+    if memory_mode == "direct" or (memory_mode == "vista" and not vista_plan):
         gui = raw_gui_ref().replace(_RAW_GUI_FILE,
                                     "No procedure clicks for you. What a screen takes is "
                                     "the keys:")
         section += "\n\n" + gui + "\nRecipes available:\n" + G.reference()
     contract = contract[:start] + section.rstrip("\n") + contract[end:]
-    if memory_mode == "logbook":
-        contract = "\n".join(ln for ln in contract.split("\n")
-                             if not ln.startswith("- `references/procedures.md`"))
-        contract = (contract.replace(_THIN_FILES["gui.md"],
-                                     "the GUI by hand (the cursor, the clicks, the slot "
-                                     "positions) and the screen rules")
-                    .replace(_THIN_FILES["skills.md"],
-                             "the skills by situation -- wood, stone, iron, diamonds, water, "
-                             "lava, the portal, the Nether, the End -- as recipes, and what "
-                             "to write down"))
+    if memory_mode in ("logbook", "mfm"):
+        contract = raw_references_tail(contract)
     return contract
 
 
@@ -1231,28 +1221,19 @@ def _previous_note(carried_world: str = "same") -> str:
 
 
 def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, step_cap: int,
-                     scored_by_milestones: bool = True, atoms: bool = False,
+                     scored_by_milestones: bool = True,
                      frames: bool = False, harness_reflexes: bool = True,
                      previous: bool = False, references_tail: str = "",
-                     carried_world: str = "same", primitives: bool = True) -> str:
+                     carried_world: str = "same") -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
+    # no built-in procedure: the schema's two built-in names go
+    head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
     template = MINIMAL_CONTRACT
-    if not primitives:
-        # `--no-primitives`: no index to show, and the schema's two built-in names go
-        head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
-        template = template.replace(_MINIMAL_PROC_SECTION, "**Procedures.** {atoms_line}\n")
-    elif atoms:
-        head = head.replace(_DIG_EXAMPLE, _ATOM_EXAMPLE)
     tools_line = _MFM_TOOLS_LINE.format(zoom=", a crop from `tools/zoom.py`" if frames else "")
     if not previous:                       # from scratch: no earlier life to look back at
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")
-    if not primitives:
-        safety = _MINIMAL_SAFETY_NO_EXAMPLES if not harness_reflexes else _MINIMAL_SAFETY[True]
-        atoms_line = _own_mod().NO_PRIMITIVES_LINE
-    else:
-        safety = _MINIMAL_SAFETY[bool(harness_reflexes)]
-        atoms_line = ("\n" + _own_mod().atoms_line()) if atoms else ""
+    safety = _MINIMAL_SAFETY_REFLEXES if harness_reflexes else _MINIMAL_SAFETY
     return template.format(
         task_text=task_text,
         previous_clause=((" `previous/life_<i>/` your earlier lives, in another world and on "
@@ -1267,8 +1248,7 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
         tools_line=tools_line,
         safety_line=safety,
         reference_head=head.rstrip() + "\n",
-        procedures=P.index(),
-        atoms_line=atoms_line,
+        procedures_line=_own_mod().NO_PRIMITIVES_LINE,
         references_tail=("\n" + references_tail.strip() + "\n") if references_tail.strip() else "",
     )
 
@@ -1374,7 +1354,7 @@ def budget_note(model_steps: int | None, turns: int | None, max_steps: int, *,
 def action_reference(*, entry_cap: int, step_cap: int,
                      memory_mode: str = "mfm",
                      task_family: str = "from_scratch",
-                     atoms: bool = False, harness_reflexes: bool = True,
+                     harness_reflexes: bool = True,
                      own_reflexes: bool = False, vista_plan: bool = False) -> str:
     """The shared action/perception reference, rendered for one memory mode.
 
@@ -1383,7 +1363,7 @@ def action_reference(*, entry_cap: int, step_cap: int,
     checkable rather than aspirational."""
     ref = ACTION_REFERENCE.format(
         entry_cap=entry_cap, step_cap=step_cap,
-        procedures=P.reference() + (("\n\n" + _own_mod().atoms_line()) if atoms else ""),
+        procedures="",
         recipes=G.reference(),
         actions_channel=_ACTIONS_CHANNEL[memory_mode],
         ground_truth_channels=_GROUND_TRUTH_CHANNELS[memory_mode],
@@ -1396,8 +1376,6 @@ def action_reference(*, entry_cap: int, step_cap: int,
                        _SURVIVAL_RULE if task_family == "from_scratch"
                        else _SURVIVAL_GENERIC),
     )
-    if atoms:
-        ref = ref.replace(_DIG_EXAMPLE, _ATOM_EXAMPLE)
     if memory_mode == "vista":
         # The vista arm has the archive but not the tool: the same two checks through
         # `inspect`; and one entry per `play` in place of the plan list.
@@ -1436,7 +1414,7 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                task_family: str = "from_scratch",
                scored_by_milestones: bool = True,
                previous: bool = False, expect: bool = False,
-               frames: bool = False, own: bool = False, atoms: bool = False,
+               frames: bool = False, own: bool = False,
                own_reflexes: bool = False,
                harness_reflexes: bool = True,
                vista_plan: bool = False) -> str:
@@ -1453,7 +1431,7 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
             action_reference=(action_reference(entry_cap=entry_cap if vista_plan else 1,
                                                step_cap=step_cap,
                                                memory_mode="vista", task_family=task_family,
-                                               atoms=atoms, harness_reflexes=harness_reflexes,
+                                               harness_reflexes=harness_reflexes,
                                                vista_plan=vista_plan)
                               + platform_block(platform_prompt, "your `play` call")),
         )
@@ -1483,7 +1461,7 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
         output_contract=output_contract,
         action_reference=(action_reference(entry_cap=entry_cap, step_cap=step_cap,
                                            memory_mode=memory_mode,
-                                           task_family=task_family, atoms=atoms,
+                                           task_family=task_family,
                                            harness_reflexes=harness_reflexes,
                                            own_reflexes=own_reflexes)
                           + platform_block(
@@ -1491,43 +1469,3 @@ def act_prompt(*, task_text: str, progress_block: str, entry_cap: int,
                               "your actions JSON" if memory_mode == "direct"
                               else "your `actions.json`")),
     )
-
-
-# -- the endgame skill probes (slurm/skill_reuse3.sbatch): the chain's late doctrine as prose --
-
-#: The chain section's doctrine past the iron pickaxe -- diamonds, obsidian, the portal,
-#: the Nether, blazes and endermen, the eye, the stronghold, the End, the dragon -- as
-#: the from-scratch dragon arm reads it. A probe whose milestones are only the late ones
-#: is a "general" task (task_family) and never sees it; the `--endgame-recipes` row of
-#: the probes gets it as `references/endgame.md`, headed by which of the macros it names
-#: are built in for that row and which are recipes to compose.
-ENDGAME_RECIPES = _CHAIN_SECTION[_CHAIN_SECTION.index("- **After the iron pickaxe**"):]
-#: The contract's one-line entry for that file.
-ENDGAME_REF_LINE = ("the chain past the iron pickaxe -- diamonds, obsidian, the portal, the "
-                    "Nether, blazes and endermen, the eye of ender, the stronghold, the End, "
-                    "the dragon -- as recipes: the situation, the order of steps, what to verify")
-
-
-def endgame_recipes_ref(visible) -> str:
-    """`references/endgame.md` for one row: the recipes, headed by which of the macros
-    they name are built in (`visible`, the row's procedure names) and which are not."""
-    import re as _re
-    named = []
-    for n in _re.findall(r"`([a-z_]+)\(", ENDGAME_RECIPES):
-        if n in P.REGISTRY and n not in named:
-            named.append(n)
-    built = [n for n in named if n in set(visible)]
-    recipes = [n for n in named if n not in set(visible)]
-    parts = []
-    if recipes:
-        parts.append("The macros this file names that are NOT built in this run -- "
-                     + ", ".join(recipes) + " -- are recipes: read each for the situation, "
-                     "the order of steps and what to verify, and compose it from the "
-                     "procedures in your index and raw actions, or write it as your own "
-                     "procedure under mine/procedures/.")
-    if built:
-        parts.append("Built in for this run, as your index describes them: "
-                     + ", ".join(built) + ".")
-    if not parts:
-        parts.append("Every macro this file names is in your procedure index.")
-    return " ".join(parts) + "\n\n**The chain past the iron pickaxe**\n" + ENDGAME_RECIPES.strip("\n") + "\n"
