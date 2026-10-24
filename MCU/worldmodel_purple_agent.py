@@ -99,8 +99,14 @@ class WorldModelExecutor(AgentExecutor):
         vista_options: dict | None = None,
         frame_size: tuple[int, int] = (320, 180),
         hires_every: int = 1,
+        history_images: bool = True,
+        flat_retrieval: bool = False,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
+        # The record ablations of the mfm arm (mcu_worldmodel/agent.py); off for every
+        # arm of the paper.
+        self.history_images = bool(history_images)
+        self.flat_retrieval = bool(flat_retrieval)
         self.frame_size = tuple(frame_size)
         # Every Nth observation's wire JPEG, kept whole for the record (0 = off).
         self.hires_every = max(0, int(hires_every))
@@ -227,6 +233,8 @@ class WorldModelExecutor(AgentExecutor):
             **({"model_step_budget": self.model_step_budget}
                if self.model_step_budget is not None else {}),
             **({"turn_budget": self.turn_budget} if self.turn_budget is not None else {}),
+            **({"history_images": False} if not self.history_images else {}),
+            **({"flat_retrieval": True} if self.flat_retrieval else {}),
             frame_size=self.frame_size,
             **ARMS[self.arm],
         )
@@ -432,7 +440,13 @@ class WorldModelExecutor(AgentExecutor):
             return
         try:
             data, ext = self.wire_frame_bytes(encoded)
-            (self._hires_dir / f"{self._step:07d}{ext}").write_bytes(data)
+            path = self._hires_dir / f"{self._step:07d}{ext}"
+            path.write_bytes(data)
+            if not self.history_images:
+                # `--no-history-images`: the record beside the workspace is a past frame
+                # too, and the model's shell can read outside its cwd. Written
+                # unreadable; nothing in the harness reads it back (chmod +r for a video).
+                path.chmod(0)
         except Exception as exc:
             self._hires_failed = True
             logger.warning(f"[adapter] hires frame at step {self._step} not kept ({exc}); "
@@ -567,6 +581,22 @@ def main() -> None:
                            "`play`). Shown every turn; once spent the rest of the life runs "
                            "idle. Off: no budget")
 
+    abl = parser.add_argument_group(
+        "record ablations of --memory mfm",
+        "Each takes one thing from the mfm arm's record and says so in its contract; the "
+        "chassis, the caps, the session policy and the model's own files are the arm's own. "
+        "A life from scratch only (no --seed-memory, --install-*)")
+    abl.add_argument("--no-history-images", action="store_true",
+                     help="without historical images: no episode keeps its "
+                          "observation/image.png, image files under the workspace and beside "
+                          "the attached view are swept before every turn, and the hires "
+                          "record is written unreadable. The CURRENT view is still attached "
+                          "and tools/zoom.py still crops it")
+    abl.add_argument("--flat-retrieval", action="store_true",
+                     help="without the episode index tool: the same episodes/, index.jsonl "
+                          "(one line per entry, in order) and frames, but no "
+                          "tools/episodes.py -- text search only")
+
     vista = parser.add_argument_group("vista")
     vista.add_argument("--vista-aligned", action="store_true",
                        help="vista on the other arms' interface: a `play` runs a plan (their "
@@ -601,6 +631,10 @@ def main() -> None:
         parser.error("--model-step-budget: a positive count, on --cli codex")
     if args.turn_budget is not None and args.turn_budget < 1:
         parser.error("--turn-budget: a positive count")
+    if (args.no_history_images or args.flat_retrieval) and (
+            args.memory != "mfm" or args.seed_memory or args.install_scripts):
+        parser.error("--no-history-images/--flat-retrieval are ablations of --memory mfm "
+                     "for a life from scratch (no --seed-memory, --install-scripts)")
     if args.seed_log and mode != "logbook":
         parser.error("--seed-log carries an earlier life's log: it needs --memory logbook")
     vista_options = {k: v for k, v in (("thread_bytes", args.vista_thread_bytes),
@@ -641,13 +675,18 @@ def main() -> None:
         vista_options=vista_options or None,
         frame_size=(fw, fh),
         hires_every=args.hires_every,
+        history_images=not args.no_history_images,
+        flat_retrieval=args.flat_retrieval,
     )
     handler = DefaultRequestHandler(agent_executor=executor, task_store=InMemoryTaskStore())
     card = prepare_agent_card(args.card_url or f"http://{args.host}:{args.port}/")
     app = A2AStarletteApplication(agent_card=card, http_handler=handler)
     logger.info(f"{args.memory} purple agent on {args.host}:{args.port} "
                 f"(model={args.model} effort={args.reasoning_effort} cli={args.cli} "
-                f"task={args.task} max_steps={args.max_steps} session_turns={session_turns})")
+                f"task={args.task} max_steps={args.max_steps} session_turns={session_turns}"
+                + (" ablations=" + ",".join(n for n, on in (("no_history_images", args.no_history_images),
+                                                         ("flat_retrieval", args.flat_retrieval)) if on)
+                   if (args.no_history_images or args.flat_retrieval) else "") + ")")
     uvicorn.run(app.build(), host=args.host, port=args.port, timeout_keep_alive=600)
 
 

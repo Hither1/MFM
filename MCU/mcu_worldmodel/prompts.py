@@ -798,6 +798,22 @@ _MFM_TOOLS_LINE = ("**Tools**: Read, Bash, Grep, Glob to read the log and the ep
                    "`observation/image.png` (this life's or an earlier life's under "
                    "`previous/`), a sheet from `--sheet`{zoom}; Write "
                    "to create `actions.json`, which")
+#: The same line under the two record ablations of the mfm arm (agent.history_images,
+#: agent.flat_retrieval): without history images the only frame is the attached view;
+#: without the query tool there is no `--sheet`.
+_MFM_TOOLS_LINE_NO_IMAGES = ("**Tools**: Read, Bash, Grep, Glob to read the log and the episode index; "
+                             "`view_image <png>` to LOOK at the attached view "
+                             "(`../attach/frame.png`){zoom} -- no earlier frame is kept in this "
+                             "run; Write to create `actions.json`, which")
+_MFM_TOOLS_LINE_FLAT = _MFM_TOOLS_LINE.replace(", a sheet from `--sheet`", "")
+assert _MFM_TOOLS_LINE_FLAT != _MFM_TOOLS_LINE
+
+
+def _mfm_tools_line(*, frames: bool, images: bool = True, flat: bool = False) -> str:
+    zoom = ", a crop from `tools/zoom.py`" if frames else ""
+    if not images:
+        return _MFM_TOOLS_LINE_NO_IMAGES.format(zoom=zoom)
+    return (_MFM_TOOLS_LINE_FLAT if flat else _MFM_TOOLS_LINE).format(zoom=zoom)
 
 
 def _own_mod():
@@ -1017,13 +1033,7 @@ if it works). Then write the file:
 
 {tools_line} is **deleted before your turn starts**: create it, do not edit it.
 
-**Memory.** `./logs.txt` and `episodes/` are the complete record of this life
-(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
-[--sheet out.png] [--then-now <id>] --q "<question>"`);{previous_clause} `mine/` is yours
-and is carried to your next life, and `mine/working.md` is put in front of you every turn. The log knows where; the frame
-knows what: `view_image` a frame before you walk to a remembered place and, on arrival,
-`./tools/episodes.py --then-now <that episode> --q "..."` once (this life's, or an earlier
-life's under `previous/`); look after a hit, and when a plan's outcome surprised you.
+{memory_paragraph}
 {previous_note}
 {safety_line}
 
@@ -1031,6 +1041,46 @@ life's under `previous/`); look after a hit, and when a plan's outcome surprised
 **Procedures.** {procedures_line}
 {references_tail}
 """
+
+#: The minimal contract's memory paragraph: what the record is and how to ask it, what
+#: is yours, and when to look back. The record ablations (agent.history_images,
+#: agent.flat_retrieval) swap the record clause and the look clause, each true for the
+#: run; the clause about mine/ is the same in all four.
+_MEMORY_RECORD = """\
+**Memory.** `./logs.txt` and `episodes/` are the complete record of this life
+(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
+[--sheet out.png] [--then-now <id>] --q "<question>"`);"""
+_MEMORY_RECORD_NO_IMAGES = """\
+**Memory.** `./logs.txt` and `episodes/` are the complete record of this life
+(`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
+--q "<question>"`);"""
+_MEMORY_RECORD_FLAT = """\
+**Memory.** `./logs.txt`, `episodes/` and `index.jsonl` (one JSON line per entry, in
+order) are the complete record of this life; there is no query tool in this run --
+`rg`/`grep` them the way you grep the log;"""
+_MEMORY_MINE = """ `mine/` is yours
+and is carried to your next life, and `mine/working.md` is put in front of you every turn."""
+_MEMORY_LOOK = """ The log knows where; the frame
+knows what: `view_image` a frame before you walk to a remembered place and, on arrival,
+`./tools/episodes.py --then-now <that episode> --q "..."` once (this life's, or an earlier
+life's under `previous/`); look after a hit, and when a plan's outcome surprised you."""
+_MEMORY_LOOK_FLAT = """ The log knows where; the frame
+knows what: `view_image episodes/<id>/observation/image.png` before you walk to a
+remembered place and again on arrival, beside the attached view (this life's, or an
+earlier life's under `previous/`); look after a hit, and when a plan's outcome surprised you."""
+_MEMORY_LOOK_NO_IMAGES = """ No frame of an
+earlier moment is kept in this run: the only image is the current view attached to each
+turn (`../attach/frame.png`, which `tools/zoom.py` crops); what a place looked like is in
+the words you wrote about it, so write down what you would want to recognise again."""
+
+
+def _memory_paragraph(*, images: bool = True, flat: bool = False) -> str:
+    record = (_MEMORY_RECORD_FLAT if flat else
+              _MEMORY_RECORD if images else _MEMORY_RECORD_NO_IMAGES)
+    look = (_MEMORY_LOOK_NO_IMAGES if not images else
+            _MEMORY_LOOK_FLAT if flat else _MEMORY_LOOK)
+    return record + "{previous_clause}" + _MEMORY_MINE + look
+
 
 #: The same statement in the short contract of an arm without reflexes of its own.
 THIN_SAFETY = ("**Safety.** The runner does not guard you in this run: no lava stop, no "
@@ -1067,7 +1117,7 @@ _DISCARD_RAW = ("To throw a stack away: open the inventory,\nleft-click the stac
                 "so you do not walk onto it -- the one way to shed junk here.")
 assert _NAMED_PROCEDURE in ACTION_REFERENCE.replace("{{", "{").replace("}}", "}") and _DISCARD in ACTION_REFERENCE
 
-#: `--no-primitives`, the head of references/gui.md: the screen numbers every GUI macro is
+#: The head of references/gui.md: the screen numbers every GUI macro is
 #: built on, given as facts (the same ones `gui.py` computes with), since no macro clicks.
 _RAW_GUI = """\
 **The GUI by hand (this run).** No procedure clicks for you; the rest of this file
@@ -1224,13 +1274,15 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
                      scored_by_milestones: bool = True,
                      frames: bool = False, harness_reflexes: bool = True,
                      previous: bool = False, references_tail: str = "",
-                     carried_world: str = "same") -> str:
+                     carried_world: str = "same", history_images: bool = True,
+                     flat_retrieval: bool = False) -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
     # no built-in procedure: the schema's two built-in names go
     head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
-    template = MINIMAL_CONTRACT
-    tools_line = _MFM_TOOLS_LINE.format(zoom=", a crop from `tools/zoom.py`" if frames else "")
+    template = MINIMAL_CONTRACT.replace(
+        "{memory_paragraph}", _memory_paragraph(images=history_images, flat=flat_retrieval))
+    tools_line = _mfm_tools_line(frames=frames, images=history_images, flat=flat_retrieval)
     if not previous:                       # from scratch: no earlier life to look back at
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")
     safety = _MINIMAL_SAFETY_REFLEXES if harness_reflexes else _MINIMAL_SAFETY
@@ -1319,7 +1371,7 @@ _DIAMOND_GATED = ("mine_diamond_ore", "diamond", "diamond_pickaxe", "diamond_swo
 
 
 def casting_note(identities) -> str:
-    """`--no-primitives`, a task whose list has `mine_obsidian` and a diamond milestone: what
+    """A task whose list has `mine_obsidian` and a diamond milestone: what
     casting obsidian (water on a lava source) costs in scored milestones. Every arm's contract
     ends with it; empty for any other task."""
     ids = list(identities or ())

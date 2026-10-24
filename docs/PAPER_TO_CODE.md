@@ -74,9 +74,16 @@ never edits those files and never rewrites the episodic record.
 
 ## Differences between the paper and this code
 
-1. **Table 4 is not reproducible from this release.** The four ablation switches (no
-   visual observations, flat log, no agent procedures, no consolidation) were removed;
-   the code runs the full method and the baselines only.
+1. **Two of Table 4's four ablations are in this release, on Minecraft only.**
+   `--no-history-images` (no frame of an earlier moment: no episode image, saved images
+   swept before every turn, the hires record unreadable; the current view is still
+   attached) and `--flat-retrieval` (the same `episodes/`, `index.jsonl` and frames,
+   without `tools/episodes.py`) are flags of `--memory mfm` for a life from scratch;
+   with both off the arm is the full method, byte for byte, and both together give
+   the indexing x visual-evidence 2x2 (`MCU/mcu_worldmodel/agent.py`, `episodes.py`,
+   `prompts._memory_paragraph`; `tests/test_mfm_ablations.py`). The other two (no agent
+   procedures, no consolidation) are not in this release. Table 4's numbers were
+   recorded on an earlier configuration of the arm (built-in procedures on).
 2. **What the arms share on Minecraft, and what they do not.** Shared by every arm, as
    in Table 5: a short contract, no built-in procedure at all (every entry is a raw
    action; the `mfm` arm's own scripts are the only procedures), the runner's own guards switched off (the lava stop, the pillar

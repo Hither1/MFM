@@ -42,7 +42,7 @@ class OwnProcedure:
     doc: str = ""
     params: dict[str, str] = field(default_factory=dict)
     error: str | None = None       # a file the loader could not accept (why)
-    loop: bool = False             # `--own-live`: a closed loop (a top-level `LOOP = True`)
+    loop: bool = False             # `own_live`: a closed loop (a top-level `LOOP = True`)
 
 
 def _is_loop(src: str) -> bool:
@@ -81,7 +81,7 @@ def scan(root: Path, builtins: set[str] | None = None,
          loops: bool = False) -> dict[str, OwnProcedure]:
     """The scripts under `<root>/mine/procedures/*.py`, by name. A file whose name is a
     built-in procedure, or that does not parse, is listed with its `error` (the [OWN]
-    block shows it) and is not callable. `loops` (`--own-live`): a script that declares
+    block shows it) and is not callable. `loops` (`own_live`): a script that declares
     `LOOP = True` is a closed loop; without it the line means nothing."""
     d = Path(root) / OWN_DIR
     out: dict[str, OwnProcedure] = {}
@@ -238,7 +238,7 @@ def index_block(procs: dict[str, OwnProcedure], calls: dict[str, int],
     return "\n".join(lines)
 
 
-# -- closed-loop procedures and the live view (`--own-live`) ---------------------------
+# -- closed-loop procedures and the live view (`own_live`) ---------------------------
 #
 # Why. An own procedure is expanded ONCE, at plan time, from the numbers of the turn; a
 # reflex runs every 4 ticks on numbers and never sees a frame, and what it fires ends
@@ -287,7 +287,7 @@ def parse_loop(out: str) -> tuple[dict[str, Any] | None, str | None]:
             "note": note[0][:400] if note else ""}, None
 
 
-#: The contract's paragraph (appended when `--own-live` is on).
+#: The contract's paragraph (appended when `own_live` is on: the mfm arm).
 LIVE_NOTE = """\
 **Closed-loop procedures and the live view (this run).** Your scripts can SEE while your
 plan runs. A procedure script with a top-level line `LOOP = True` is not expanded at
@@ -337,6 +337,46 @@ frame as a function you can also run on the saved frames under `episodes/` (the 
 picture at {w}x{h}) and check it there before you put it in a loop.
 **Your reflexes see the view too**: their STDIN gains `frame` and `frame_size`, the same
 PNG, written at every reflex check (every 4 ticks)."""
+
+
+#: The record ablations of the mfm arm (agent.history_images, agent.flat_retrieval):
+#: references/own.md rewritten where it points at what the run does not keep. (old, new)
+#: pairs, each old text occurring exactly once in the full arm's file; `{w}`/`{h}` are
+#: the frame size, as in _LOOP_NOTE.
+_OWN_REF_FLAT = (
+    ("- it may read `logs.txt`, `grid.jsonl`, `episodes/` (`tools/episodes.py`) and your own",
+     "- it may read `logs.txt`, `grid.jsonl`, `index.jsonl`, `episodes/` and your own"),
+)
+_OWN_REF_NO_IMAGES = (
+    ("contradictions you have not resolved, and the entries or frames you would re-open\n(paths).",
+     "contradictions you have not resolved, and the entries you would re-open\n(paths)."),
+    ("  view at the engine's render size, larger than the {w}x{h} frames under `episodes/`;\n"
+     "  `frame_size` is its [width, height], so a detector you tune on the saved frames must\n"
+     "  scale its pixel numbers; it is overwritten",
+     "  view at the engine's render size; `frame_size` is its [width, height]; no earlier\n"
+     "  frame is kept in this run; it is overwritten"),
+    ("frame as a function you can also run on the saved frames under `episodes/` (the same\n"
+     "picture at {w}x{h}) and check it there before you put it in a loop.",
+     "frame as a function, and check it on frames you copy at a call before you put it in\n"
+     "a loop."),
+)
+
+
+def ablate_ref(text: str, *, images: bool = True, flat: bool = False,
+               frame_size: tuple[int, int] = (320, 180)) -> str:
+    """references/own.md for an arm with a record ablation on (the full arm's is returned
+    unchanged). Every edit must find its text: a drifted file is an error, not a
+    silent no-op."""
+    edits = (_OWN_REF_FLAT if flat else ()) + (() if images else _OWN_REF_NO_IMAGES)
+    loops = "**Closed-loop procedures.**" in text
+    for old, new in edits:
+        if "{w}" in old and not loops:
+            continue                    # the closed-loop note is not in this file
+        old = old.replace("{w}", str(int(frame_size[0]))).replace("{h}", str(int(frame_size[1])))
+        if text.count(old) != 1:
+            raise ValueError(f"references/own.md drifted from its ablation edit: {old[:60]!r}")
+        text = text.replace(old, new)
+    return text
 
 
 def loop_note(frame_size: tuple[int, int]) -> str:

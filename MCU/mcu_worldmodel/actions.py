@@ -212,7 +212,7 @@ def parse_actions(raw_text: str, *, entry_cap: int = 40, repeat_cap: int = 200,
                     notes.append(f"{name}: own procedures are not enabled this run")
                     continue
                 if name in own_loops:
-                    # A closed loop (own.py, `--own-live`): not expanded here. One marker
+                    # A closed loop (own.py, `own_live`): not expanded here. One marker
                     # the runner resolves from the tick its entry starts, charged its
                     # whole budget like every other closed-loop marker.
                     from mcu_worldmodel.own import LOOP_BUDGET

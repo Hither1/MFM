@@ -69,9 +69,13 @@ class EpisodeStore(MemorySink):
     line with the transition recall of `mfm.memory.recall`. Off, the store is
     byte-identical to what the MCU ladder runs on."""
 
-    def __init__(self, root: Path | str, *, recall: bool = False) -> None:
+    def __init__(self, root: Path | str, *, recall: bool = False, tool: bool = True) -> None:
         self.root = Path(root)
         self.recall = recall
+        # `tool=False` (the MCU flat-retrieval ablation): the record is written exactly
+        # as before -- episodes/, index.jsonl, every image -- but `tools/episodes.py` is
+        # not put in the workspace, so the model reaches the same files by text search.
+        self.tool = bool(tool)
         self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
         self.index_path = self.root / "index.jsonl"
@@ -88,7 +92,8 @@ class EpisodeStore(MemorySink):
         self.n_closed = 0
         self.tags: Counter[str] = Counter()
         self.closed: list[dict[str, Any]] = []
-        self._write_tool()
+        if self.tool:
+            self._write_tool()
 
     def _write_tool(self) -> None:
         dst = self.root / "tools" / "episodes.py"

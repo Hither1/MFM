@@ -42,7 +42,7 @@ from mcu_worldmodel import procedures as _P
 from mcu_worldmodel.claude_backend import ClaudeTurn
 from mcu_worldmodel.codex_backend import CodexTurn
 from mcu_worldmodel.cursor import CursorState
-from mcu_worldmodel.episodes import EpisodeBridge
+from mcu_worldmodel.episodes import IMAGE_SUFFIXES, EpisodeBridge
 from mcu_worldmodel.governor import Governor, cell_of
 from mcu_worldmodel import grid as grid_mod
 from mcu_worldmodel.grid import Grid
@@ -236,6 +236,14 @@ class WorldModelAgent:
         # `--turn-budget N`: N turns for the life -- each call for a plan (an act turn; a
         # vista `play`) -- shown every turn; once spent the rest of the life runs idle.
         turn_budget: int | None = None,
+        # The record ablations of the mfm arm (episodes.py, prompts._memory_paragraph):
+        # `history_images=False` keeps no frame of an earlier moment anywhere the model
+        # can read -- no episode image, image files swept from its directories before
+        # every turn; the current view stays attached and tools/zoom.py still crops it.
+        # `flat_retrieval=True` writes the same record (episodes/, index.jsonl, frames)
+        # without tools/episodes.py: text search only.
+        history_images: bool = True,
+        flat_retrieval: bool = False,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -277,6 +285,23 @@ class WorldModelAgent:
         self.minimal = bool(minimal)
         #: `--no-event-sheet` (mfm): no 2x2 sheet of this turn's event frames; the view alone.
         self.event_sheet = bool(event_sheet)
+        self.history_images = bool(history_images)
+        self.flat_retrieval = bool(flat_retrieval)
+        #: The report's name for each record ablation that is on (empty for the full arm).
+        self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
+                                     + (["flat_retrieval"] if self.flat_retrieval else []))
+        if self.ablations:
+            # Written for the shipped mfm arm from scratch: its minimal contract, its
+            # own files and skills. A carried or installed life would need its own texts.
+            if not (memory_mode == "mfm" and minimal and own and skills):
+                raise ValueError("history_images/flat_retrieval are ablations of the mfm arm "
+                                 "(minimal, own, skills)")
+            if previous_lives or install_scripts or install_carried:
+                raise ValueError("history_images/flat_retrieval are written for a life from "
+                                 "scratch: no previous_lives, install_scripts or install_carried")
+            if not self.history_images:
+                self.event_sheet = False        # the sheet attaches past frames
+        self._image_sweeps = 0
         self.own = bool(own)
         if self.own and memory_mode != "mfm":
             raise ValueError("own needs memory_mode='mfm'")
@@ -417,7 +442,8 @@ class WorldModelAgent:
             raise ValueError(f"unknown cli: {cli!r} (codex|claude)")
         self.cli = cli
         self.episodes: EpisodeBridge | None = (
-            EpisodeBridge(self.memory, self.codex, self.ledger)
+            EpisodeBridge(self.memory, self.codex, self.ledger, images=self.history_images,
+                          tool=not self.flat_retrieval)
             if memory_mode == "mfm" else None)
         if self.episodes is not None and previous_lives:
             self.episodes.seed_previous(list(previous_lives))
@@ -593,7 +619,10 @@ class WorldModelAgent:
                     tail = tail.rstrip("\n") + ("\n- `references/own.md`: the contract for your own "
                                                 "procedures, reflexes and working memory (stdin "
                                                 "state, output shapes, caps)\n")
-                    refs["own.md"] = _own.no_builtins(refs["own.md"])
+                    refs["own.md"] = _own.ablate_ref(_own.no_builtins(refs["own.md"]),
+                                                     images=self.history_images,
+                                                     flat=self.flat_retrieval,
+                                                     frame_size=self.frame_size)
                 # no built-in procedure to describe: the file and its line in the tail go
                 refs.pop("procedures.md", None)
                 tail = prompts.raw_references_tail(tail)
@@ -602,7 +631,8 @@ class WorldModelAgent:
                     entry_cap=self.entry_cap, step_cap=self.step_cap,
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
-                    references_tail=tail, carried_world=self.carried_world)
+                    references_tail=tail, carried_world=self.carried_world,
+                    history_images=self.history_images, flat_retrieval=self.flat_retrieval)
             else:
                 # the thin contract with every built-in taken out
                 contract = prompts.no_primitives_thin(contract, self.memory_mode,
@@ -624,7 +654,9 @@ class WorldModelAgent:
         if self.skills:
             from mcu_worldmodel import skills as _skills
             written = _skills.write_skills(self.memory.root, self.carried_world,
-                                           installed=self.install_carried or bool(self.install_scripts))
+                                           installed=self.install_carried or bool(self.install_scripts),
+                                           history_images=self.history_images,
+                                           flat_retrieval=self.flat_retrieval)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
             if self.install_carried or self.install_scripts:
@@ -2746,6 +2778,8 @@ class WorldModelAgent:
             # a log section); closed as flushed at this step, so the ticks a turn's
             # failure costs are not written to it.
             self.episodes.flush(self.step)
+        if not self.history_images:
+            self._sweep_history_images()        # before the model can open one
         frame = self._save_frame(info, self.step)
         sheet = self._event_sheet(info)
         prompt = self._turn_prompt(info, sheet=sheet is not None)
@@ -2941,6 +2975,14 @@ class WorldModelAgent:
                 bits.append(f"frame: {r['frame']}")
             obs.append(f"  {r['label']}: " + ", ".join(bits))
         observed = "\n".join(obs) if obs else "  (no entry of that plan finished)"
+        if not self.history_images:
+            # No entry frame exists to compare against: the view against the expectation.
+            return (f"[EXPECTED] {exp}\n[OBSERVED] by the harness for that plan:\n{observed}\n"
+                    "Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they "
+                    "match, what differs, and what the VIEW shows that differs (the attached "
+                    "frame against what you expected to see: one visible change, or that "
+                    "nothing visible changed); end it with `EXPECT: ...` for this plan, "
+                    "including what the view should show.")
         return (f"[EXPECTED] {exp}\n[OBSERVED] by the harness for that plan (each entry "
                 f"with the frame it started from):\n{observed}\n"
                 "Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they "
@@ -3016,6 +3058,40 @@ class WorldModelAgent:
                 bits.append(f"note: {r['note']}")
             lines.append(f"- step {r['step']} {r['label']}: " + ", ".join(bits))
         return "[RECENT] the last entries that finished, from the harness's record:\n" + "\n".join(lines)
+
+    # -- the record ablations of the mfm arm -------------------------------------------
+
+    def _mfm_turn_line(self) -> str:
+        """The turn message's one line about the episode record, true for this run."""
+        if self.flat_retrieval:
+            return ("`index.jsonl` and `episodes/` hold the same history as episodes (one line "
+                    "per entry, in order); `rg` them"
+                    + ("; `view_image` opens a frame.\n" if self.history_images
+                       else " (no frames are kept in this run).\n"))
+        if not self.history_images:
+            return ("`./tools/episodes.py` queries the same history as episodes, by step, "
+                    "place, tag or text (no frames are kept in this run).\n")
+        return ("`./tools/episodes.py` queries the same history as episodes, by step, "
+                "place, tag or text, with their frames; `view_image` opens a frame.\n")
+
+    def _sweep_history_images(self) -> None:
+        """`history_images=False`: before every turn, remove every image file the model
+        could open as a past moment -- under its workspace (mine/, a copy at the root,
+        anything it saved) and beside the attached view, which stays. episodes/ never
+        receives one under this flag and is not walked (thousands of entries a life)."""
+        root, attach = self.memory.root, self.memory.attach_dir
+        keep = {attach / "frame.png", attach / "live.png"}
+        gone = 0
+        tops = [p for p in root.iterdir() if p.name != "episodes"] + [attach]
+        for top in tops:
+            for p in ([top] if top.is_file() else top.rglob("*") if top.is_dir() else []):
+                if (p.suffix.lower() in IMAGE_SUFFIXES and p.is_file() and not p.is_symlink()
+                        and p not in keep):
+                    p.unlink(missing_ok=True)
+                    gone += 1
+        if gone:
+            self._image_sweeps += gone
+            logger.info(f"[agent] no-history-images: swept {gone} image file(s)")
 
     # -- the model's own procedures (`--own`, mcu_worldmodel/own.py) ----------------
 
@@ -3111,7 +3187,7 @@ class WorldModelAgent:
         return {"own_expand": _run, "own_names": set(self._own_procs),
                 **({"own_loops": loops} if loops else {})}
 
-    # -- closed-loop own procedures and the live view (`--own-live`, own.py) ----------
+    # -- closed-loop own procedures and the live view (`own_live`, own.py) ----------
 
     def _entry_is_loop(self, idx) -> bool:
         """True when plan entry `idx` is one of the model's closed loops."""
@@ -3464,9 +3540,7 @@ class WorldModelAgent:
             return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
                 "Your memory is `./logs.txt` -- grep it for anything before this call: "
                 "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
-                + ("`./tools/episodes.py` queries the same history as episodes, by step, "
-                   "place, tag or text, with their frames; `view_image` opens a frame.\n"
-                   if self.memory_mode == "mfm" else "")
+                + (self._mfm_turn_line() if self.memory_mode == "mfm" else "")
                 + "The current view is attached.\n"
                 "Write ./actions.json."
             )
@@ -3990,7 +4064,11 @@ class WorldModelAgent:
                             "reflex_fires": dict(self._own_reflex_fires)}
                            if self.own_reflexes else {})}} if self.own else {}),
             **({"mfm_options": {"expect": self.expect, "frames": self.frames,
-                                "event_sheet": self.event_sheet}}
+                                "event_sheet": self.event_sheet,
+                                # only when one is on: the full arm's report is pinned
+                                **({"ablations": list(self.ablations),
+                                    "history_image_sweeps": self._image_sweeps}
+                                   if self.ablations else {})}}
                if self.memory_mode == "mfm" else {}),
             "steps": self.step,
             "turns": dict(self.turns),

@@ -105,6 +105,11 @@ an earlier life, that life's frame of it (`--previous --near X Z`). The log know
 the frame knows what."""
 
 
+#: Image files, as the "without historical images" ablation (`images=False`) sees them:
+#: what the agent sweeps from the model's own directories before every turn.
+IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tif", ".tiff"})
+
+
 def _num(v: Any) -> float | None:
     try:
         return float(v.item() if hasattr(v, "item") else v)
@@ -138,11 +143,18 @@ class EpisodeBridge:
     #: Never auto-close on a tick count: the chassis says when an entry finished.
     _OPEN_ENDED = 10 ** 9
 
-    def __init__(self, memory, codex, ledger) -> None:
+    def __init__(self, memory, codex, ledger, *, images: bool = True, tool: bool = True) -> None:
         self.memory = memory
         self.codex = codex                      # the store reads `agent.codex.calls`
         self.ledger = ledger
-        self.store = EpisodeStore(memory.root)
+        # The two record ablations of the mfm arm (agent.history_images,
+        # agent.flat_retrieval): `images=False` keeps no frame in any episode (state,
+        # action and outcome as before; the row's `image` is None); `tool=False` writes
+        # the same record without `tools/episodes.py`, so index.jsonl and episodes/ are
+        # read with ordinary text search.
+        self.images = bool(images)
+        self.tool = bool(tool)
+        self.store = EpisodeStore(memory.root, tool=self.tool)
         self.mfm_memory_note = MFM_MEMORY_NOTE
         # Earlier lives' records under previous/ (previous.py); None until
         # `seed_previous` is given seed dirs.
@@ -156,7 +168,7 @@ class EpisodeBridge:
 
     def _observation(self, info: dict, step: int, png: bytes | None) -> Observation:
         attachment = None
-        if png:
+        if png and self.images:
             # A fresh file per open: the store hard-links the attachment into the
             # episode, and the attach frame is rewritten in place every turn, so
             # linking THAT would make every episode's image the latest view.
@@ -220,6 +232,9 @@ class EpisodeBridge:
         out["frames_written"] = self.frames_written
         if self.previous is not None:
             out["previous"] = self.previous.audit()
+        if not (self.images and self.tool):
+            out["history_images"] = self.images
+            out["episodes_tool"] = self.tool
         return out
 
     # -- the store's hooks (what is Minecraft about an episode) ---------------------

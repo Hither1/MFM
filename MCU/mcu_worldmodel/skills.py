@@ -455,6 +455,181 @@ def memory_skill(carried_world: str = "same") -> str:
             .replace(_WORKSHOP_SAME, _WORKSHOP_OTHER))
 
 
+# -- the record ablations of the mfm arm: the same package, told the truth about the run --
+#
+# `history_images=False` keeps no frame of an earlier moment; `flat_retrieval=True` keeps
+# the record but not tools/episodes.py (agent.py). The memory skill is rewritten segment
+# by segment -- every old text must occur exactly once, or the edit is stale -- and the
+# harness skill gets a `## This run` section under its title.
+
+_MEM_EPISODES = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `observation/image.png` (the view the
+  entry started from), `state/state.json`, `action.json`, `outcome.json` (moved,
+  descended, inventory delta, events, tags such as `stuck`, `damage`, `milestone`).
+  `./tools/episodes.py --last 5 | --steps A B | --near X Z [--radius R] | --tag damage
+  | --action go_to | --grep text`; add `--sheet out.png` to tile the frames of the
+  matches into one image, `--json` for rows; `--then-now <id> --q "<question>"` writes
+  that episode's frame beside the current view as `then_now.png` -- the recognition
+  check before you walk to a remembered place, or on arrival. Pass `--q` on every
+  look: the record keeps what the look was for.
+"""
+_MEM_EPISODES_NO_IMAGES = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `state/state.json`, `action.json`,
+  `outcome.json` (moved, descended, inventory delta, events, tags such as `stuck`,
+  `damage`, `milestone`). NO frame is kept in this run: no episode has an
+  `observation/image.png`. `./tools/episodes.py --last 5 | --steps A B | --near X Z
+  [--radius R] | --tag damage | --action go_to | --grep text`; `--json` for rows. Pass
+  `--q` on every query: the record keeps what it was for.
+"""
+_MEM_EPISODES_FLAT = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `observation/image.png` (the view the
+  entry started from), `state/state.json`, `action.json`, `outcome.json` (moved,
+  descended, inventory delta, events, tags such as `stuck`, `damage`, `milestone`).
+  `index.jsonl` is their flat chronological record: one JSON line per episode, in
+  order, with the id, step range, tags, position, action, outcome summary, first note,
+  events and the paths. There is NO query tool in this run: `rg`/`grep` `index.jsonl`
+  and `episodes/*/outcome.json` the way you grep `logs.txt`, or write a script.
+"""
+_MEM_EPISODES_FLAT_NO_IMAGES = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `state/state.json`, `action.json`,
+  `outcome.json` (moved, descended, inventory delta, events, tags such as `stuck`,
+  `damage`, `milestone`). NO frame is kept in this run (no `observation/image.png`).
+  `index.jsonl` is their flat chronological record: one JSON line per episode, in
+  order, with the id, step range, tags, position, action, outcome summary, first note,
+  events and the paths. There is NO query tool in this run: `rg`/`grep` `index.jsonl`
+  and `episodes/*/outcome.json` the way you grep `logs.txt`, or write a script.
+"""
+_MEM_FRAMES = """\
+- Frames are files: `./tools/zoom.py <frame.png> x y w h [out.png]` magnifies a region
+  4x for `view_image`; a script with numpy/PIL can read many frames and answer one
+  question over all of them (where the orange was; which frames show a screen).
+"""
+_MEM_FRAMES_NO_IMAGES = """\
+- The only image is the CURRENT view, `../attach/frame.png` (rewritten every turn):
+  `./tools/zoom.py <frame.png> x y w h [out.png]` magnifies a region 4x for
+  `view_image`. No earlier frame exists in this run.
+"""
+_MEM_LOOK = MEMORY_SKILL[MEMORY_SKILL.index("## When to look at a frame"):
+                         MEMORY_SKILL.index("## Working memory")]
+_MEM_LOOK_NO_IMAGES = """\
+## The current view is the only frame
+
+`view_image <png>` opens the attached view (`../attach/frame.png`) or a crop of it from
+`tools/zoom.py`; there is no earlier frame to open in this run. What a place looked
+like lives in words: when you stand somewhere you will want to recognise again, say
+what you see in your briefing (the log keeps it), and on arrival compare the live view
+against those words and the `[STATE]` numbers.
+
+"""
+_MEM_LOOK_FLAT = """\
+## When to look at a frame
+
+`view_image <png>` opens any frame: an episode's `observation/image.png` (find the
+episode in `index.jsonl`), an earlier life's under `previous/`, a crop from
+`tools/zoom.py`. Write the question first ("is the lava in the next cell or two cells
+off?", "is this the ledge I poured from?"). The `[STATE]`/`[NOTE]` numbers say WHERE
+and THAT; the frame says WHAT -- one look costs one image. Open frames before you walk
+to a remembered place and on arrival (that episode's frame beside the attached view),
+after a hit (the frame at the hit shows what hit you), when `OBSERVED vs EXPECTED`
+disagree (the entry's frame is cited beside the outcome), before a route across ground
+you have not walked, and when a plan failed twice for a reason you cannot name. The 22
+runs before this one opened an earlier episode's frame 32 times in 850,000 steps and
+an earlier life's 3 times; every one of those looks was after a stall, none before a
+walk.
+
+"""
+_MEM_DEATH = MEMORY_SKILL[MEMORY_SKILL.index("## Death forensics"):
+                          MEMORY_SKILL.index("## Record every firing")]
+_MEM_DEATH_STATS = MEMORY_SKILL[MEMORY_SKILL.index("Of\nthe 20 deaths"):
+                                MEMORY_SKILL.index(" `skills/memory/scripts/death_sheet.py`")]
+
+
+def _death_section(*, images: bool, flat: bool) -> str:
+    if flat:
+        look = ("`grep -n 'YOU DIED' logs.txt` and read the [NOTE]/[EVENT] lines of the 60 "
+                "steps\nbefore it" + (", then `view_image` the frames of those episodes (find "
+                                       "them in `index.jsonl`)," if images else ","))
+    else:
+        look = "`./tools/episodes.py --steps <death-60>\n<death> --q \"what killed me\"` (the notes and events of those entries),"
+    frame_line = ("The frame tells a burn from a mob: flames over the lower view, orange at the feet. "
+                  if images else
+                  "The notes tell a burn from a mob: LAVA AHEAD or a fire note against `took N "
+                  "damage` with no lava. ")
+    return ("## Death forensics\n\nAfter `YOU DIED`, before you rebuild anything: " + look
+            + " and write one line into\n`mine/GUIDE.md`: step, place, cause, what you will "
+            "refuse next time.\n" + frame_line + _MEM_DEATH_STATS + "\n\n")
+
+
+def _ablate(text: str, edits: list[tuple[str, str]], what: str) -> str:
+    for old, new in edits:
+        if text.count(old) != 1:
+            raise ValueError(f"{what} drifted from its ablation edit: {old[:60]!r}")
+        text = text.replace(old, new)
+    return text
+
+
+def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False) -> str:
+    """skills/memory/SKILL.md for an arm with a record ablation on (unchanged otherwise)."""
+    if images and not flat:
+        return text
+    edits = [(_MEM_EPISODES, {(True, True): _MEM_EPISODES_FLAT,
+                              (False, True): _MEM_EPISODES_FLAT_NO_IMAGES,
+                              (False, False): _MEM_EPISODES_NO_IMAGES}[(images, flat)]),
+             (_MEM_DEATH, _death_section(images=images, flat=flat))]
+    if not images:
+        edits += [("the log, the episodes with their frames, the earlier lives",
+                   "the log, the episodes, the earlier lives"),
+                  (_MEM_FRAMES, _MEM_FRAMES_NO_IMAGES),
+                  ("each with its logs.txt, episodes, index and\n  `mine/`",
+                   "each with its logs.txt, episodes (no frames in this run), index and\n  `mine/`"),
+                  ("the episode id whose frame shows the place", "the episode id of the place"),
+                  ("any data or images you save", "any data you save"),
+                  (_MEM_LOOK, _MEM_LOOK_NO_IMAGES),
+                  ("the entries and frames you would re-open (paths)",
+                   "the entries you would re-open (paths)")]
+    else:
+        edits.append((_MEM_LOOK, _MEM_LOOK_FLAT))
+    if flat:
+        edits += [("`./tools/episodes.py --previous ...` queries\n  them all;",
+                   "their `index.jsonl` files are\n  grep-able like yours;"),
+                  ("run the query tool over them", "search their records")]
+    return _ablate(text, edits, "the memory skill")
+
+
+#: The harness skill's `## This run` lines, one per ablation that is on.
+_HARNESS_THIS_RUN = {
+    "images": ("- No frame of an earlier moment is kept in this run: the current view attached to\n"
+               "  the turn is the only image (`skills/memory/SKILL.md`)."),
+    "flat": ("- There is no `tools/episodes.py` in this run: the record is `logs.txt`,\n"
+             "  `episodes/` and `index.jsonl`, searched with `rg`/`grep` (`skills/memory/SKILL.md`)."),
+}
+
+
+def ablate_harness_skill(text: str, *, images: bool = True, flat: bool = False) -> str:
+    lines = (([] if images else [_HARNESS_THIS_RUN["images"]])
+             + ([_HARNESS_THIS_RUN["flat"]] if flat else []))
+    if not lines:
+        return text
+    return _ablate(text, [("# Harness\n", "# Harness\n\n## This run\n\n" + "\n".join(lines) + "\n")],
+                   "the harness skill")
+
+
+#: The example scripts' comments that point at frames or the query tool.
+_SCRIPT_EDITS = {
+    ("where_was.py", "images"): [("with the frames to open.", "with the step and the life.")],
+    ("where_was.py", "flat"): [(" -- the same thing `./tools/episodes.py --grep` does per episode, from the log side.",
+                                ".")],
+    ("ore_watch.py", "images"): [("-- tune them on the frames under episodes/ (the same picture, smaller) before trusting\n# them.",
+                                  "-- tune them on frames you copy from `frame` before trusting\n# them.")],
+}
+
+
+def ablate_script(name: str, src: str, *, images: bool = True, flat: bool = False) -> str:
+    edits = ((_SCRIPT_EDITS.get((name, "images"), []) if not images else [])
+             + (_SCRIPT_EDITS.get((name, "flat"), []) if flat else []))
+    return _ablate(src, edits, name) if edits else src
+
+
 #: `--install-carried` (previous.PreviousLives.install_own): the carried lives' own
 #: scripts are already in mine/, so the two places that tell the model to copy them say
 #: so instead. (old, new) pairs, each old text occurring exactly once.
@@ -682,12 +857,16 @@ SKILLS: dict[str, tuple[str, dict[str, str]]] = {
 }
 
 
-def write_skills(root: Path, carried_world: str = "same", installed: bool = False) -> list[str]:
+def write_skills(root: Path, carried_world: str = "same", installed: bool = False, *,
+                 history_images: bool = True, flat_retrieval: bool = False) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts (the memory queries and one reflex example). Nothing is installed under mine/:
     the model copies what it wants into mine/ itself. With `installed` the carried lives'
     own scripts were put in mine/ before this, and the memory and procedures skills say so
-    instead of telling the model to copy them. Returns the paths written."""
+    instead of telling the model to copy them. `history_images`/`flat_retrieval` are the
+    record ablations of the mfm arm: the texts say what the run keeps, and
+    `death_sheet.py`, which tiles frames through the query tool, is left out where either
+    is missing. Returns the paths written."""
     root = Path(root)
     written: list[str] = []
     for name, (text, scripts) in SKILLS.items():
@@ -702,6 +881,14 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                 if text.count(old) != 1:
                     raise ValueError(f"{name} skill text drifted from its no-primitives edit")
                 text = text.replace(old, new)
+        if name == "memory":
+            text = ablate_memory_skill(text, images=history_images, flat=flat_retrieval)
+            if not history_images or flat_retrieval:
+                scripts = {k: v for k, v in scripts.items() if k != "death_sheet.py"}
+        elif name == "harness":
+            text = ablate_harness_skill(text, images=history_images, flat=flat_retrieval)
+        scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)
+                   for k, v in scripts.items()}
         d = root / SKILLS_DIR / name
         d.mkdir(parents=True, exist_ok=True)
         p = d / "SKILL.md"

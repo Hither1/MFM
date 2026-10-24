@@ -245,7 +245,8 @@ back and the earlier milestones settled (`given_settled` in the task config: the
 checklist shows them as done in the earlier life, and the scorer's total then counts
 only what the life itself earns). "Distinct" below is the settled milestones plus the
 new ones. All lives: claude-opus-5-5 high, `--own-live --near-deaths`,
-`--install-carried`.
+`--install-carried` (`--own-live` is no longer a flag: the closed loops are part of the
+mfm arm).
 
 | life | start (task) | carried | steps | new in the life | distinct |
 |---|---|---|---|---|---|
