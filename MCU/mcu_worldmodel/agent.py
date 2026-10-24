@@ -244,6 +244,10 @@ class WorldModelAgent:
         # without tools/episodes.py: text search only.
         history_images: bool = True,
         flat_retrieval: bool = False,
+        # `pushed_memory=False`: the turn message carries none of the record the harness
+        # otherwise puts in front of the model -- no [RECENT], [MAP], [EXPECTED]/[OBSERVED]
+        # or [WORKING]; the log, the episodes, the tool and mine/working.md stay, to be read.
+        pushed_memory: bool = True,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -288,16 +292,21 @@ class WorldModelAgent:
         self.history_images = bool(history_images)
         self.flat_retrieval = bool(flat_retrieval)
         #: The report's name for each record ablation that is on (empty for the full arm).
+        self.pushed_memory = bool(pushed_memory)
         self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
-                                     + (["flat_retrieval"] if self.flat_retrieval else []))
+                                     + (["flat_retrieval"] if self.flat_retrieval else [])
+                                     + ([] if self.pushed_memory else ["no_pushed_memory"]))
+        if not self.pushed_memory and len(self.ablations) > 1:
+            raise ValueError("pushed_memory=False is written for the full record (no other "
+                             "ablation): its texts name the frames and the query tool")
         if self.ablations:
             # Written for the shipped mfm arm from scratch: its minimal contract, its
             # own files and skills. A carried or installed life would need its own texts.
             if not (memory_mode == "mfm" and minimal and own and skills):
-                raise ValueError("history_images/flat_retrieval are ablations of the mfm arm "
-                                 "(minimal, own, skills)")
+                raise ValueError("history_images/flat_retrieval/pushed_memory are ablations of "
+                                 "the mfm arm (minimal, own, skills)")
             if previous_lives or install_scripts or install_carried:
-                raise ValueError("history_images/flat_retrieval are written for a life from "
+                raise ValueError("history_images/flat_retrieval/pushed_memory are written for a life from "
                                  "scratch: no previous_lives, install_scripts or install_carried")
             if not self.history_images:
                 self.event_sheet = False        # the sheet attaches past frames
@@ -629,6 +638,7 @@ class WorldModelAgent:
                     refs["own.md"] = _own.ablate_ref(_own.no_builtins(refs["own.md"]),
                                                      images=self.history_images,
                                                      flat=self.flat_retrieval,
+                                                     pushed=self.pushed_memory,
                                                      frame_size=self.frame_size)
                 # no built-in procedure to describe: the file and its line in the tail go
                 refs.pop("procedures.md", None)
@@ -639,7 +649,8 @@ class WorldModelAgent:
                     frames=self.frames, harness_reflexes=self.reflexes,
                     previous=bool(getattr(self.episodes, "previous", None)),
                     references_tail=tail, carried_world=self.carried_world,
-                    history_images=self.history_images, flat_retrieval=self.flat_retrieval)
+                    history_images=self.history_images, flat_retrieval=self.flat_retrieval,
+                    pushed_memory=self.pushed_memory)
             else:
                 # the thin contract with every built-in taken out
                 contract = prompts.no_primitives_thin(contract, self.memory_mode,
@@ -663,7 +674,8 @@ class WorldModelAgent:
             written = _skills.write_skills(self.memory.root, self.carried_world,
                                            installed=self.install_carried or bool(self.install_scripts),
                                            history_images=self.history_images,
-                                           flat_retrieval=self.flat_retrieval)
+                                           flat_retrieval=self.flat_retrieval,
+                                           pushed_memory=self.pushed_memory)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
             if self.install_carried or self.install_scripts:
@@ -3513,7 +3525,7 @@ class WorldModelAgent:
             f"{(self._grid_line() + chr(10)) if self._grid_line() else ''}\n"
         )
         head = budget_part + stall_part + state_part
-        if self.memory_mode == "mfm":
+        if self.memory_mode == "mfm" and self.pushed_memory:
             # [RECENT] and [MAP] are the MFM arms' (mfm, mfm-matched); the logbook arm
             # reads its past from logs.txt alone
             recent = self._recent_block()
@@ -3545,8 +3557,8 @@ class WorldModelAgent:
                 '{"actions": [...]} -- the LAST fenced JSON block is executed.'
             )
         if self.memory_mode in ("logbook", "mfm"):
-            expect = self._expect_block() if self.expect else ""
-            working = self._working_block()
+            expect = self._expect_block() if (self.expect and self.pushed_memory) else ""
+            working = self._working_block() if self.pushed_memory else ""
             return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
                 "Your memory is `./logs.txt` -- grep it for anything before this call: "
                 "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"

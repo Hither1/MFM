@@ -362,12 +362,21 @@ _OWN_REF_NO_IMAGES = (
 )
 
 
-def ablate_ref(text: str, *, images: bool = True, flat: bool = False,
+#: `pushed_memory=False`: working.md is a file to read, not a block of the turn.
+_OWN_REF_UNPUSHED = (
+    ("`mine/working.md` is yours and is put in front of you every turn\nas `[WORKING]`:",
+     "`mine/working.md` is yours; this run does not put it in front of you (no\n"
+     "`[WORKING]`), so read it at the start of a turn:"),
+)
+
+
+def ablate_ref(text: str, *, images: bool = True, flat: bool = False, pushed: bool = True,
                frame_size: tuple[int, int] = (320, 180)) -> str:
     """references/own.md for an arm with a record ablation on (the full arm's is returned
     unchanged). Every edit must find its text: a drifted file is an error, not a
     silent no-op."""
-    edits = (_OWN_REF_FLAT if flat else ()) + (() if images else _OWN_REF_NO_IMAGES)
+    edits = ((_OWN_REF_FLAT if flat else ()) + (() if images else _OWN_REF_NO_IMAGES)
+             + (() if pushed else _OWN_REF_UNPUSHED))
     loops = "**Closed-loop procedures.**" in text
     for old, new in edits:
         if "{w}" in old and not loops:

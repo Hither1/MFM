@@ -1074,12 +1074,18 @@ turn (`../attach/frame.png`, which `tools/zoom.py` crops); what a place looked l
 the words you wrote about it, so write down what you would want to recognise again."""
 
 
-def _memory_paragraph(*, images: bool = True, flat: bool = False) -> str:
+_MEMORY_MINE_UNPUSHED = """ `mine/` is yours
+and is carried to your next life. This run puts nothing of your record in front of you
+each turn -- no `[RECENT]`, `[MAP]`, `[EXPECTED]`/`[OBSERVED]` or `[WORKING]`: what the
+last plan did is in `logs.txt` and `episodes/`, and `mine/working.md` is there to read."""
+
+
+def _memory_paragraph(*, images: bool = True, flat: bool = False, pushed: bool = True) -> str:
     record = (_MEMORY_RECORD_FLAT if flat else
               _MEMORY_RECORD if images else _MEMORY_RECORD_NO_IMAGES)
     look = (_MEMORY_LOOK_NO_IMAGES if not images else
             _MEMORY_LOOK_FLAT if flat else _MEMORY_LOOK)
-    return record + "{previous_clause}" + _MEMORY_MINE + look
+    return record + "{previous_clause}" + (_MEMORY_MINE if pushed else _MEMORY_MINE_UNPUSHED) + look
 
 
 #: The same statement in the short contract of an arm without reflexes of its own.
@@ -1284,13 +1290,14 @@ def minimal_contract(*, task_text: str, progress_block: str, entry_cap: int, ste
                      frames: bool = False, harness_reflexes: bool = True,
                      previous: bool = False, references_tail: str = "",
                      carried_world: str = "same", history_images: bool = True,
-                     flat_retrieval: bool = False) -> str:
+                     flat_retrieval: bool = False, pushed_memory: bool = True) -> str:
     head = ACTION_REFERENCE.split("**Procedures**")[0].format(
         actions_channel=_ACTIONS_CHANNEL["mfm"], entry_cap=entry_cap, step_cap=step_cap)
     # no built-in procedure: the schema's two built-in names go
     head = head.replace(_NAMED_PROCEDURE, _OWN_PROCEDURE).replace(_DISCARD, _DISCARD_RAW)
     template = MINIMAL_CONTRACT.replace(
-        "{memory_paragraph}", _memory_paragraph(images=history_images, flat=flat_retrieval))
+        "{memory_paragraph}", _memory_paragraph(images=history_images, flat=flat_retrieval,
+                                                 pushed=pushed_memory))
     tools_line = _mfm_tools_line(frames=frames, images=history_images, flat=flat_retrieval)
     if not previous:                       # from scratch: no earlier life to look back at
         tools_line = tools_line.replace(" (this life's or an earlier life's under `previous/`)", "")

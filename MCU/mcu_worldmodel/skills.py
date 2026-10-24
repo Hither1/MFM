@@ -568,8 +568,17 @@ def _ablate(text: str, edits: list[tuple[str, str]], what: str) -> str:
     return text
 
 
-def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False) -> str:
+def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False,
+                        pushed: bool = True) -> str:
     """skills/memory/SKILL.md for an arm with a record ablation on (unchanged otherwise)."""
+    if not pushed:                      # written alone (agent.py refuses a combination)
+        return _ablate(text, [
+            ("`mine/working.md` is put in front of you every turn as `[WORKING]` and survives a\ncontext reset:",
+             "`mine/working.md` is not put in front of you in this run (no `[WORKING]`: read it\n"
+             "yourself) and survives a context reset:"),
+            ("when `OBSERVED vs EXPECTED` disagree (the entry's\nframe is cited beside the outcome)",
+             "when `OBSERVED vs EXPECTED` disagree (the entry's\nframe is in its `index.jsonl` row)")],
+            "the memory skill")
     if images and not flat:
         return text
     edits = [(_MEM_EPISODES, {(True, True): _MEM_EPISODES_FLAT,
@@ -602,16 +611,24 @@ _HARNESS_THIS_RUN = {
                "  the turn is the only image (`skills/memory/SKILL.md`)."),
     "flat": ("- There is no `tools/episodes.py` in this run: the record is `logs.txt`,\n"
              "  `episodes/` and `index.jsonl`, searched with `rg`/`grep` (`skills/memory/SKILL.md`)."),
+    "unpushed": ("- The turn message carries no `[RECENT]`, `[MAP]`, `[EXPECTED]`/`[OBSERVED]` or\n"
+                 "  `[WORKING]` in this run: what the last plans did is in `logs.txt` and\n"
+                 "  `episodes/`, and your note is `mine/working.md` -- read them yourself."),
 }
 
 
-def ablate_harness_skill(text: str, *, images: bool = True, flat: bool = False) -> str:
+def ablate_harness_skill(text: str, *, images: bool = True, flat: bool = False,
+                         pushed: bool = True) -> str:
     lines = (([] if images else [_HARNESS_THIS_RUN["images"]])
-             + ([_HARNESS_THIS_RUN["flat"]] if flat else []))
+             + ([_HARNESS_THIS_RUN["flat"]] if flat else [])
+             + ([] if pushed else [_HARNESS_THIS_RUN["unpushed"]]))
     if not lines:
         return text
-    return _ablate(text, [("# Harness\n", "# Harness\n\n## This run\n\n" + "\n".join(lines) + "\n")],
-                   "the harness skill")
+    edits = [("# Harness\n", "# Harness\n\n## This run\n\n" + "\n".join(lines) + "\n")]
+    if not pushed:
+        edits.append(("(state, inventory, ledger, `[RECENT]`,\n`[MAP]`, `[OWN]`, the notes since your last plan)",
+                      "(state, inventory, ledger, `[OWN]`,\nthe notes since your last plan)"))
+    return _ablate(text, edits, "the harness skill")
 
 
 #: The example scripts' comments that point at frames or the query tool.
@@ -858,7 +875,8 @@ SKILLS: dict[str, tuple[str, dict[str, str]]] = {
 
 
 def write_skills(root: Path, carried_world: str = "same", installed: bool = False, *,
-                 history_images: bool = True, flat_retrieval: bool = False) -> list[str]:
+                 history_images: bool = True, flat_retrieval: bool = False,
+                 pushed_memory: bool = True) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts (the memory queries and one reflex example). Nothing is installed under mine/:
     the model copies what it wants into mine/ itself. With `installed` the carried lives'
@@ -882,11 +900,13 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                     raise ValueError(f"{name} skill text drifted from its no-primitives edit")
                 text = text.replace(old, new)
         if name == "memory":
-            text = ablate_memory_skill(text, images=history_images, flat=flat_retrieval)
+            text = ablate_memory_skill(text, images=history_images, flat=flat_retrieval,
+                                       pushed=pushed_memory)
             if not history_images or flat_retrieval:
                 scripts = {k: v for k, v in scripts.items() if k != "death_sheet.py"}
         elif name == "harness":
-            text = ablate_harness_skill(text, images=history_images, flat=flat_retrieval)
+            text = ablate_harness_skill(text, images=history_images, flat=flat_retrieval,
+                                        pushed=pushed_memory)
         scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)
                    for k, v in scripts.items()}
         d = root / SKILLS_DIR / name
