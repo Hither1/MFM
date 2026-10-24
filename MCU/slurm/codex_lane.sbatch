@@ -119,5 +119,12 @@ for spec in "$@"; do
         ${WORLD_SEED:+--world-seed "$WORLD_SEED"} \
         -- ${FLAGS//,/ }
     echo "--- $ARM exit=$? $(date -Is)"
+    # The codex thread store (the rollouts: every tool call, view_image included) lives on
+    # this node's /var/tmp (scripts/codex-home.sh) and is lost with it: keep a copy.
+    SESS="${MCU_CODEX_ROOT:-/var/tmp/mcu-codex-$(id -un)}/$ARM/sessions"
+    if [ -d "$SESS" ]; then
+        mkdir -p "output/$ARM/codex_sessions" && cp -a "$SESS/." "output/$ARM/codex_sessions/" \
+            && echo "--- $ARM rollouts kept: $(find "output/$ARM/codex_sessions" -name 'rollout*.jsonl' | wc -l)"
+    fi
 done
 echo "finished=$(date -Is)"
