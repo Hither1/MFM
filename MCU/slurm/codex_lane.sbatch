@@ -80,17 +80,31 @@ mkdir -p logs
 git -C .. rev-parse HEAD > "logs/lane-$SLURM_JOB_ID.commit"
 git -C .. diff HEAD > "logs/lane-$SLURM_JOB_ID.patch"
 
-# The usage-limit guard. scripts/quota_guard.py reads Claude Code's rate-limit events,
-# which codex does not write; the harness's own gate (mfm/backend/codex_turn.py) logs
-# the fifth refusal in a row and then plays the life on as no-ops. This cancels the job
-# at that line. It only ever stops the job; QUOTA_GUARD=0 turns it off.
+# The codex thread store (the rollouts: every tool call, view_image included) lives on
+# this node's /var/tmp (scripts/codex-home.sh) and is lost with it: keep a copy.
+keep_rollouts() {
+    local sess="${MCU_CODEX_ROOT:-/var/tmp/mcu-codex-$(id -un)}/$1/sessions"
+    if [ -d "$sess" ]; then
+        mkdir -p "output/$1/codex_sessions" && cp -a "$sess/." "output/$1/codex_sessions/" \
+            && echo "--- $1 rollouts kept: $(find "output/$1/codex_sessions" -name 'rollout*.jsonl' | wc -l)"
+    fi
+}
+
+# The usage-limit guard. A codex account past its limit refuses every turn ("You've hit
+# your usage limit" in the turn's events), and the life plays on as no-ops; the MCU
+# harness only records the refusal in codex_turns/*.events.jsonl. On the first such turn
+# this keeps the arm's rollouts and cancels the job. It only ever stops the job;
+# QUOTA_GUARD=0 turns it off.
 if [ "${QUOTA_GUARD:-1}" = 1 ]; then
     (
         while sleep 60; do
             for spec in "$@"; do
-                if grep -q "usage-limit refusals in a row" "logs/${spec%%=*}_purple.log" 2>/dev/null; then
-                    echo "--- usage-limit guard: ${spec%%=*} refused by the account, cancelling $(date -Is)"
+                arm="${spec%%=*}"
+                last=$(ls -t "output/$arm/episode_001/codex_turns/"*.events.jsonl 2>/dev/null | head -1)
+                if [ -n "$last" ] && grep -q '"message":"You.ve hit your usage limit' "$last"; then
+                    echo "--- usage-limit guard: $arm refused by the account ($(basename "$last")), cancelling $(date -Is)"
                     date -Is > "logs/quota_stop-$SLURM_JOB_ID.txt"
+                    keep_rollouts "$arm"
                     scancel "$SLURM_JOB_ID"; exit 0
                 fi
             done
@@ -119,12 +133,6 @@ for spec in "$@"; do
         ${WORLD_SEED:+--world-seed "$WORLD_SEED"} \
         -- ${FLAGS//,/ }
     echo "--- $ARM exit=$? $(date -Is)"
-    # The codex thread store (the rollouts: every tool call, view_image included) lives on
-    # this node's /var/tmp (scripts/codex-home.sh) and is lost with it: keep a copy.
-    SESS="${MCU_CODEX_ROOT:-/var/tmp/mcu-codex-$(id -un)}/$ARM/sessions"
-    if [ -d "$SESS" ]; then
-        mkdir -p "output/$ARM/codex_sessions" && cp -a "$SESS/." "output/$ARM/codex_sessions/" \
-            && echo "--- $ARM rollouts kept: $(find "output/$ARM/codex_sessions" -name 'rollout*.jsonl' | wc -l)"
-    fi
+    keep_rollouts "$ARM"
 done
 echo "finished=$(date -Is)"
