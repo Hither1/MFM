@@ -296,9 +296,9 @@ class WorldModelAgent:
         self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
                                      + (["flat_retrieval"] if self.flat_retrieval else [])
                                      + ([] if self.pushed_memory else ["no_pushed_memory"]))
-        if not self.pushed_memory and len(self.ablations) > 1:
-            raise ValueError("pushed_memory=False is written for the full record (no other "
-                             "ablation): its texts name the frames and the query tool")
+        if not self.pushed_memory and not self.history_images:
+            raise ValueError("pushed_memory=False is written for a record with its frames: not "
+                             "with history_images=False (it may go with flat_retrieval)")
         if self.ablations:
             # Written for the shipped mfm arm from scratch: its minimal contract, its
             # own files and skills. A carried or installed life would need its own texts.

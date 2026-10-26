@@ -604,7 +604,7 @@ def main() -> None:
                      help="without the record in the turn message: no [RECENT], [MAP], "
                           "[EXPECTED]/[OBSERVED] or [WORKING]; logs.txt, episodes/, the query "
                           "tool and mine/working.md stay, for the model to read. Not with "
-                          "the other two ablations")
+                          "--no-history-images; combines with --flat-retrieval")
 
     vista = parser.add_argument_group("vista")
     vista.add_argument("--vista-aligned", action="store_true",
@@ -644,9 +644,9 @@ def main() -> None:
             args.memory != "mfm" or args.seed_memory or args.install_scripts):
         parser.error("--no-history-images/--flat-retrieval/--no-pushed-memory are ablations of "
                      "--memory mfm for a life from scratch (no --seed-memory, --install-scripts)")
-    if args.no_pushed_memory and (args.no_history_images or args.flat_retrieval):
-        parser.error("--no-pushed-memory is written for the full record: not with "
-                     "--no-history-images or --flat-retrieval")
+    if args.no_pushed_memory and args.no_history_images:
+        parser.error("--no-pushed-memory is written for a record with its frames: not with "
+                     "--no-history-images (it may go with --flat-retrieval)")
     if args.seed_log and mode != "logbook":
         parser.error("--seed-log carries an earlier life's log: it needs --memory logbook")
     vista_options = {k: v for k, v in (("thread_bytes", args.vista_thread_bytes),

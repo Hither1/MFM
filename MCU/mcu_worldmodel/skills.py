@@ -571,16 +571,8 @@ def _ablate(text: str, edits: list[tuple[str, str]], what: str) -> str:
 def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False,
                         pushed: bool = True) -> str:
     """skills/memory/SKILL.md for an arm with a record ablation on (unchanged otherwise)."""
-    if not pushed:                      # written alone (agent.py refuses a combination)
-        return _ablate(text, [
-            ("`mine/working.md` is put in front of you every turn as `[WORKING]` and survives a\ncontext reset:",
-             "`mine/working.md` is not put in front of you in this run (no `[WORKING]`: read it\n"
-             "yourself) and survives a context reset:"),
-            ("when `OBSERVED vs EXPECTED` disagree (the entry's\nframe is cited beside the outcome)",
-             "when `OBSERVED vs EXPECTED` disagree (the entry's\nframe is in its `index.jsonl` row)")],
-            "the memory skill")
     if images and not flat:
-        return text
+        return _ablate(text, _mem_unpushed(flat=False), "the memory skill") if not pushed else text
     edits = [(_MEM_EPISODES, {(True, True): _MEM_EPISODES_FLAT,
                               (False, True): _MEM_EPISODES_FLAT_NO_IMAGES,
                               (False, False): _MEM_EPISODES_NO_IMAGES}[(images, flat)]),
@@ -602,7 +594,21 @@ def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False,
         edits += [("`./tools/episodes.py --previous ...` queries\n  them all;",
                    "their `index.jsonl` files are\n  grep-able like yours;"),
                   ("run the query tool over them", "search their records")]
+    if not pushed:                      # with flat only (agent.py refuses no-images with it)
+        edits += _mem_unpushed(flat=flat)
     return _ablate(text, edits, "the memory skill")
+
+
+def _mem_unpushed(*, flat: bool) -> list[tuple[str, str]]:
+    """`pushed_memory=False`: [WORKING] and [OBSERVED] are not in the turn. The look
+    paragraph's line break differs between the full and the flat text."""
+    cited = ("when `OBSERVED vs EXPECTED`\ndisagree (the entry's frame is cited beside the outcome)"
+             if flat else
+             "when `OBSERVED vs EXPECTED` disagree (the entry's\nframe is cited beside the outcome)")
+    return [("`mine/working.md` is put in front of you every turn as `[WORKING]` and survives a\ncontext reset:",
+             "`mine/working.md` is not put in front of you in this run (no `[WORKING]`: read it\n"
+             "yourself) and survives a context reset:"),
+            (cited, cited.replace("is cited beside the outcome", "is in its `index.jsonl` row"))]
 
 
 #: The harness skill's `## This run` lines, one per ablation that is on.
