@@ -622,7 +622,9 @@ def main() -> None:
     abl.add_argument("--no-index", action="store_true",
                      help="without the associative index: no index.jsonl anywhere the model "
                           "reads (this life's or the carried lives') and no query tool; the "
-                          "record is logs.txt and the episode folders. Alone; may carry lives")
+                          "record is logs.txt and the episode folders. The flat cell without "
+                          "the grep-able index; alone it may carry lives, from scratch it "
+                          "combines with --no-history-images/--no-pushed-memory")
     carry.add_argument("--carried-visual", action="store_true",
                     help="the --seed-memory lives are visual-only copies written by "
                          "scripts/visual_carry.py (frames and positions, no word of what "
@@ -668,10 +670,11 @@ def main() -> None:
         parser.error("--no-history-images/--flat-retrieval/--no-pushed-memory/--no-own-code are "
                      "ablations of --memory mfm for a life from scratch (no --seed-memory, "
                      "--install-scripts)")
-    if args.no_index and (args.memory != "mfm" or args.install_scripts or args.no_history_images
-                          or args.flat_retrieval or args.no_pushed_memory or args.no_own_code):
-        parser.error("--no-index is an ablation of --memory mfm, alone (it may carry lives with "
-                     "--seed-memory; not with --install-scripts or the other ablations)")
+    if args.no_index and (args.memory != "mfm" or args.install_scripts
+                          or args.flat_retrieval or args.no_own_code):
+        parser.error("--no-index is an ablation of --memory mfm (alone it may carry lives with "
+                     "--seed-memory; it combines with --no-history-images/--no-pushed-memory "
+                     "from scratch; not with --install-scripts, --flat-retrieval or --no-own-code)")
     if args.carried_visual and not (args.memory == "mfm" and args.seed_memory):
         parser.error("--carried-visual needs --memory mfm and --seed-memory (visual-only copies)")
     if args.no_own_code and (args.no_history_images or args.flat_retrieval or args.no_pushed_memory):

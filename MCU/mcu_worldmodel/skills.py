@@ -494,13 +494,26 @@ _MEM_EPISODES_NO_INDEX = """\
   and NO query tool in this run: `rg`/`grep` `logs.txt` and `episodes/*/*.json`, or
   write a script.
 """
-def _no_index_edits() -> dict[str, list[tuple[str, str]]]:
+_MEM_EPISODES_NO_INDEX_NO_IMAGES = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `state/state.json`, `action.json`,
+  `outcome.json` (moved, descended, inventory delta, events, tags such as `stuck`,
+  `damage`, `milestone`). NO frame is kept in this run (no `observation/image.png`).
+  `ep_NNNNNN` is the `Action N` of the entry's header in `logs.txt`. There is NO index
+  and NO query tool in this run: `rg`/`grep` `logs.txt` and `episodes/*/*.json`, or
+  write a script.
+"""
+def _no_index_edits(*, images: bool = True, pushed: bool = True) -> dict[str, list[tuple[str, str]]]:
+    """Applied to the flat texts of the same run (with `history_images`/`pushed_memory`
+    as set): only the look and death paragraphs with frames name the index."""
+    memory = [(_MEM_EPISODES_FLAT, _MEM_EPISODES_NO_INDEX) if images
+              else (_MEM_EPISODES_FLAT_NO_IMAGES, _MEM_EPISODES_NO_INDEX_NO_IMAGES)]
+    if images:
+        memory += [("(find the\nepisode in `index.jsonl`)", "(its folder is the\n`Action N` of the log header)"),
+                   ("(find them in `index.jsonl`),", "(their folders are the `Action N` of those log headers),")]
+    if not pushed:
+        memory.append(("is in its `index.jsonl` row", "is in its episode folder"))
     return {
-    "memory": [
-        (_MEM_EPISODES_FLAT, _MEM_EPISODES_NO_INDEX),
-        ("(find the\nepisode in `index.jsonl`)", "(its folder is the\n`Action N` of the log header)"),
-        ("(find them in `index.jsonl`),", "(their folders are the `Action N` of those log headers),"),
-    ],
+    "memory": memory,
     "harness": [
         ("- There is no `tools/episodes.py` in this run: the record is `logs.txt`,\n"
          "  `episodes/` and `index.jsonl`, searched with `rg`/`grep` (`skills/memory/SKILL.md`).",
@@ -1031,9 +1044,10 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                                         pushed=pushed_memory)
         if not own_code and name in _NO_OWN_CODE_EDITS:
             text = _ablate(text, _NO_OWN_CODE_EDITS[name], f"the {name} skill")
-        if not index and name in _no_index_edits():
+        no_index_edits = _no_index_edits(images=history_images, pushed=pushed_memory)
+        if not index and name in no_index_edits:
             # the flat text (flat_retrieval is set with index=False), with index.jsonl out
-            text = _ablate(text, _no_index_edits()[name], f"the {name} skill")
+            text = _ablate(text, no_index_edits[name], f"the {name} skill")
             if name == "memory" and not carried_visual and _NO_INDEX_PREVIOUS[0] in text:
                 text = text.replace(*_NO_INDEX_PREVIOUS)
         scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)

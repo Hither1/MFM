@@ -315,8 +315,9 @@ class WorldModelAgent:
                                      + ([] if self.own_code else ["no_own_code"]))
         if not self.own_code and len(self.ablations) > 1:
             raise ValueError("own_code=False is written for the full record (no other ablation)")
-        if not self.index and len(self.ablations) > 1:
-            raise ValueError("index=False is written alone (no other ablation)")
+        if not self.index and not set(self.ablations) <= {"no_index", "no_history_images",
+                                                          "no_pushed_memory"}:
+            raise ValueError("index=False goes alone or with history_images/pushed_memory=False")
         self.carried_visual = bool(carried_visual)
         if self.carried_visual:
             if not (previous_lives and memory_mode == "mfm" and minimal and own and skills):
@@ -3141,7 +3142,9 @@ class WorldModelAgent:
         """The turn message's one line about the episode record, true for this run."""
         if not self.index:
             return ("`episodes/` holds the same history, one folder per entry (`ep_NNNNNN` is the "
-                    "`Action N` of its log header); `rg` it; `view_image` opens a frame.\n")
+                    "`Action N` of its log header); `rg` it"
+                    + ("; `view_image` opens a frame.\n" if self.history_images
+                       else " (no frames are kept in this run).\n"))
         if self.flat_retrieval:
             return ("`index.jsonl` and `episodes/` hold the same history as episodes (one line "
                     "per entry, in order); `rg` them"
