@@ -65,8 +65,8 @@ a turn makes the log, the index or the rules shorter, the harness reports a faul
 The harness calls the model when the current plan is complete or stopped. A turn has
 four parts:
 
-1. **Show.** The harness gives the model the current frame, the state, the new events
-   and its working plan.
+1. **Show.** The harness gives the model the current frame, the state and the new
+   events.
 2. **Search** (Section 3.3). The model can run `tools/episodes.py` to find episodes by
    step, place, action, tag or text. This tool can also make a contact sheet of frames,
    or put a past frame next to the current view. `tools/zoom.py` magnifies a region of

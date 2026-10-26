@@ -839,11 +839,11 @@ _THIN_LOOP = """\
 - *Act*: bounded entries; separate looking from sustained mining; verify clearance before
   advancing; use the right tool for the material. Before a craft, check ingredients,
   quantities and the cursor; after it, check the output in [INV].
-- *Verify*: read what the last plan did from [OBSERVED], [INV], [EVENT] and the view, and
+- *Verify*: read what the last plan did from [INV], [EVENT] and the view, and
   say in one sentence whether it matched. Distinguish "the entries ran" from "the
   objective advanced". A plan cut short can have moved you, spent items or half-done a
   craft: continue from a fresh observation, never replay a resource-consuming prefix
-  blind. When movement stalls, inspect footing and reachable space (`[MAP]`, the view)
+  blind. When movement stalls, inspect footing and reachable space (the view)
   before extending holds or mining more; `watch(until=..., n)` is the observe step
   between acting and deciding.
 """
@@ -979,7 +979,7 @@ if it works). Then write the file:
 **Memory.** `./logs.txt` and `episodes/` are the complete record of this life
 (`./tools/episodes.py --last N | --steps A B | --near X Z | --tag T | --grep text
 [--sheet out.png] [--then-now <id>] --q "<question>"`);{previous_clause} `mine/` is yours
-and is carried to your next life, and `mine/working.md` is put in front of you every turn. The log knows where; the frame
+and is carried to your next life; read `mine/working.md`, your current plan, when a turn starts. The log knows where; the frame
 knows what: `view_image` a frame before you walk to a remembered place and, on arrival,
 `./tools/episodes.py --then-now <that episode> --q "..."` once (this life's, or an earlier
 life's under `previous/`); look after a hit, and when a plan's outcome surprised you.

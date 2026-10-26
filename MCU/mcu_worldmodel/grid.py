@@ -38,10 +38,6 @@ BLOCK_AHEAD = 1.0
 DETOUR_GAIN = 2.0
 #: Route search is capped at this many walked cells (a life walks a few thousand).
 BFS_CAP = 20000
-#: [MAP] radii: hazards and water named within these many blocks.
-NEAR_HAZARD = 8.0
-NEAR_WATER = 8.0
-NEAR_LAVA = 12.0
 #: A walked column at least this many consecutive levels deep under the cell ahead is an
 #: open shaft (grid.drop_ahead); a fall of 4+ blocks hurts, of 23+ kills.
 SHAFT_MIN_DROP = 4
@@ -388,67 +384,6 @@ class Grid:
 
     def last_productive(self) -> Cell | None:
         return self.trail[-1][1] if self.trail else None
-
-    # ---------------- the [MAP] block ----------------
-
-    def summary(self, pos: dict[str, float] | None, step: int, max_lines: int = 6
-                ) -> str:
-        """Five or six lines the model can act on; "" before the first position."""
-        here = cell_of(pos)
-        if here is None or not self.walked:
-            return ""
-        lines = [f"- You stand in cell {here}; {len(self.walked)} cells walked this life "
-                 f"(a route over them is walkable again)."]
-        for item, rec in sorted(self.placed.items()):
-            cell = rec.get("cell")
-            op = self.opened.get(item)
-            pose = (op or rec).get("pose") or {}
-            if cell is None and not pose:
-                continue
-            d = xz_dist(here, tuple(cell)) if cell else math.hypot(
-                here[0] + 0.5 - pose["x"], here[2] + 0.5 - pose["z"])
-            how = (f"opened from ({pose['x']:.1f}, {pose['y']:.0f}, {pose['z']:.1f}) "
-                   f"pitch {pose['pitch']:.0f} yaw {pose['yaw']:.0f}" if op else
-                   f"placed from ({pose['x']:.1f}, {pose['y']:.0f}, {pose['z']:.1f})"
-                   if pose else "cell only")
-            rt = self.route(pos, tuple(cell)) if cell else None
-            via = (f"; walked route: {len(rt)} cells" if rt else
-                   "; no walked route on record" if rt is None else "; you are beside it")
-            lines.append(f"- {item}: cell {tuple(cell) if cell else '?'}, {d:.0f} blocks away, "
-                         f"{how}{via}. `use_at` on its cell opens it.")
-        if self.water:
-            near = sorted(self.water, key=lambda c: xz_dist(here, c))[:1]
-            d = xz_dist(here, near[0])
-            if d <= NEAR_WATER:
-                esc = self.escape_from_water(pos, NEAR_WATER)
-                lines.append(f"- WATER {d:.0f} blocks away at {near[0]}"
-                             + (f"; the dry walked cell nearest you is {esc[-1]}, "
-                                f"{len(esc)} cells along your own trail (dig_down's water "
-                                f"refusal walks you there)." if esc else
-                                "; no walked cell 8+ blocks from it yet -- walk away "
-                                "along open ground first."))
-            else:
-                lines.append(f"- Nearest known water {d:.0f} blocks away at {near[0]}.")
-        hz = [(c, r) for c, r in self.hazard.items() if xz_dist(here, c) <= NEAR_HAZARD
-              and abs(c[1] - here[1]) <= 6]
-        if hz:
-            hz.sort(key=lambda cr: -cr[1]["damage"])
-            c, r = hz[0]
-            lines.append(f"- DANGER within {NEAR_HAZARD:.0f} blocks: {r['kind']} at {c} "
-                         f"({r['damage']:.0f} hp so far, step {r['step']})"
-                         + (f"; {len(hz)} such cells" if len(hz) > 1 else "") + ".")
-        lv = [(c, r) for c, r in self.lava.items() if xz_dist(here, c) <= NEAR_LAVA]
-        if lv:
-            lv.sort(key=lambda cr: xz_dist(here, cr[0]))
-            c, r = lv[0]
-            lines.append(f"- LAVA {r['role']} cell {c}, {xz_dist(here, c):.0f} blocks away "
-                         f"(sighting {100 * r['frac']:.0f}%, step {r['step']}).")
-        bl = [c for c, s in self.blocked.items() if xz_dist(here, c) <= 3.0
-              and step - s <= 2000]
-        if bl:
-            lines.append(f"- Walks stalled beside you at {bl[:3]}: those cells are solid "
-                         f"or a drop; `go_to` now detours over walked cells by itself.")
-        return "\n".join(lines[:max_lines])
 
     # ---------------- persistence ----------------
 

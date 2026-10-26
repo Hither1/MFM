@@ -225,8 +225,8 @@ class WorldModelAgent:
         if (expect or frames) and memory_mode != "mfm":
             raise ValueError("expect/frames need memory_mode='mfm'")
         # The MFM-layer options (parts of the mfm arm; the chassis is unchanged):
-        # `expect` echoes the model's EXPECT line against the harness record next
-        # turn; `frames` gives the arm zoom.py.
+        # `expect`: every briefing ends with an EXPECT line (the model compares it with
+        # the log itself next turn); `frames` gives the arm zoom.py.
         self.expect, self.frames = bool(expect), bool(frames)
         # `thin` (any memory mode): the contract keeps the task, the memory protocol, the
         # response format, the action schema and the procedure index; the long sections
@@ -279,8 +279,6 @@ class WorldModelAgent:
         self._own_reflex_fails: dict[str, int] = {}
         self._own_reflex_off: dict[str, tuple[str, float]] = {}
         self._own_reflex_prev: dict[str, Any] | None = None
-        self._last_expect: str | None = None
-        self._turn_outcomes: list[dict[str, Any]] = []
         self.task_text = task_text
         self.ledger = ledger
         self.entry_cap, self.repeat_cap, self.step_cap = entry_cap, repeat_cap, step_cap
@@ -392,8 +390,6 @@ class WorldModelAgent:
         # Frames at this turn's events (a hit, LAVA AHEAD, a stalled walk, a failed
         # re-open): tiled into one sheet and attached beside the current view.
         self._event_frames: list[tuple[int, str, Any]] = []
-        # The last six finished entries, as the [RECENT] block renders them.
-        self._recent_outcomes: deque = deque(maxlen=6)
         self._cur_pos: dict | None = None
         self._cur_info: dict | None = None    # the latest raw observation
         self._placed: dict[str, tuple[int, int, int]] = {}   # item -> block placed by place_and_open
@@ -4105,7 +4101,6 @@ class WorldModelAgent:
         frame = self._save_frame(info, self.step)
         sheet = self._event_sheet(info)
         prompt = self._turn_prompt(info, sheet=sheet is not None)
-        self._turn_outcomes = []
         # The current view, plus the sheet of this turn's event frames when there
         # were any (never for the direct arm: its only past is the present).
         images = [self.memory.root / frame] if frame else []
@@ -4136,7 +4131,6 @@ class WorldModelAgent:
         briefing, plan_text = self.codex.split_briefing(result.get("message", ""))
         if self.expect:
             m = re.search(r"^\s*EXPECT:\s*(.+?)\s*$", result.get("message", "") or "", re.M)
-            self._last_expect = m.group(1)[:300] if m else None
             self.cursor_stats["expect_lines"] = (
                 self.cursor_stats.get("expect_lines", 0) + (1 if m else 0))
         self.memory.set_plan(plan_text, briefing)
@@ -4275,55 +4269,6 @@ class WorldModelAgent:
         else:
             self._plan_repeat = 0
 
-    def _expect_block(self) -> str:
-        """[EXPECTED] (the model's own EXPECT line from last turn) against [OBSERVED]
-        (what the harness recorded for that plan's entries). VISTA's protocol, in
-        harness form: the mismatch is stated, not re-derived from the log."""
-        if not self._turn_outcomes and self._last_expect is None:
-            return ""                       # the first turn: nothing to compare yet
-        exp = self._last_expect or "(your last briefing had no `EXPECT:` line)"
-        obs = []
-        for r in self._turn_outcomes[-6:]:
-            bits = [f"moved {r['moved']:.1f}"]
-            if abs(r["descended"]) >= 0.5:
-                bits.append(f"descended {r['descended']:.1f}")
-            if r["inv"]:
-                bits.append(f"inv {r['inv']}")
-            if r["events"]:
-                bits.append("events " + "; ".join(r["events"][:3]))
-            if r["note"]:
-                bits.append(f"note: {r['note'][:100]}")
-            if r.get("frame"):
-                bits.append(f"frame: {r['frame']}")
-            obs.append(f"  {r['label']}: " + ", ".join(bits))
-        observed = "\n".join(obs) if obs else "  (no entry of that plan finished)"
-        return (f"[EXPECTED] {exp}\n[OBSERVED] by the harness for that plan (each entry "
-                f"with the frame it started from):\n{observed}\n"
-                "Begin your briefing with one line `OBSERVED vs EXPECTED: ...` -- do they "
-                "match, what differs, and what the VIEW shows that differs (the attached "
-                "frame against the entry's frame: one visible change, or that nothing "
-                "visible changed); end it with `EXPECT: ...` for this plan, including what "
-                "the view should show.")
-
-    WORKING_CAP = 1500
-
-    def _working_block(self) -> str:
-        """`mine/working.md`, the model's own continuation note, put in front of it every
-        turn (VISTA's WORKING.md: the compaction checkpoint it must write before its
-        context is cut). Own arms only; absent when the file is."""
-        if not getattr(self, "own", False):
-            return ""
-        p = self.memory.root / "mine" / "working.md"
-        try:
-            text = p.read_text(encoding="utf-8", errors="replace").strip()
-        except OSError:
-            return ""
-        if not text:
-            return ""
-        if len(text) > self.WORKING_CAP:
-            text = text[:self.WORKING_CAP].rstrip() + f"\n  [... {len(text) - self.WORKING_CAP} more chars: Read mine/working.md]"
-        return "[WORKING] mine/working.md -- your continuation note, as you last wrote it:\n" + text
-
     def _stall_hint(self) -> str:
         """Where the map says a stalled plan could go: the placed table/furnace with
         a walked route, else the farthest walked cell within 12 blocks."""
@@ -4353,25 +4298,6 @@ class WorldModelAgent:
             return (f"The map: you walked cell {c}, {far[1]:.0f} blocks from here -- "
                     f"`go_to(x={c[0] + 0.5}, z={c[2] + 0.5}, within=1)` is a known walk.")
         return ""
-
-    def _recent_block(self) -> str:
-        """The last six finished entries as one objective line each (the harness's
-        own record, so the turn does not start with a grep of the log)."""
-        if not self._recent_outcomes:
-            return ""
-        lines = []
-        for r in self._recent_outcomes:
-            bits = [f"moved {r['moved']:.1f}"]
-            if abs(r["descended"]) >= 0.5:
-                bits.append(f"descended {r['descended']:.1f}")
-            if r["inv"]:
-                bits.append(f"inv {r['inv']}")
-            if r["events"]:
-                bits.append("events " + "; ".join(r["events"][:3]))
-            if r["note"]:
-                bits.append(f"note: {r['note']}")
-            lines.append(f"- step {r['step']} {r['label']}: " + ", ".join(bits))
-        return "[RECENT] the last entries that finished, from the harness's record:\n" + "\n".join(lines)
 
     # -- the model's own procedures (`--own`, mcu_worldmodel/own.py) ----------------
 
@@ -4784,12 +4710,6 @@ class WorldModelAgent:
         )
         head = budget_part + stall_part + state_part
         if self.memory_mode != "direct":
-            recent = self._recent_block()
-            map_block = self.grid.summary(pos, self.step)
-            head += ((recent + "\n\n") if recent else "") + (
-                "[MAP] what the runner knows for certain from this life's own positions "
-                "and events (exact unless marked a sighting):\n" + map_block + "\n\n"
-                if map_block else "")
             if self.own:
                 self._scan_own()
                 own_block = _own.index_block(self._own_procs, self._own_calls,
@@ -4812,9 +4732,7 @@ class WorldModelAgent:
                 '{"actions": [...]} -- the LAST fenced JSON block is executed.'
             )
         if self.memory_mode == "mfm":
-            expect = self._expect_block() if self.expect else ""
-            working = self._working_block()
-            return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
+            return head + (
                 "Your memory is `./logs.txt` -- grep it for anything before this call: "
                 "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
                 + "`./tools/episodes.py` queries the same history as episodes, by step, "
@@ -4836,20 +4754,10 @@ class WorldModelAgent:
             return
         self._own_scorecard(self._plan_entries[index])
         self.action_num += 1
-        first_note = (self.memory._pending_notes[0][:150] if self.memory._pending_notes
-                      else "")
         if self.episodes:
             # Closed before the section is written, with the notes it is about to carry.
             self.episodes.close_entry(events=list(self._pending_events),
                                       notes=list(self.memory._pending_notes))
-        # The frame the entry started from, for [OBSERVED] (VISTA's observe step made
-        # concrete: a mismatch has a one-step look). Several runs opened an earlier episode's
-        # frame 32 times in 850k steps; the compare line never pointed at one.
-        ep_frame = None
-        if self.episodes:
-            closed = getattr(self.episodes.store, "closed", None)
-            if closed:
-                ep_frame = closed[-1].get("image") or None
         # The direct arm has no log: write_action no-ops there, and the batch's facts
         # are not served back to the model at all. The governor tail below still runs
         # in every arm -- enforcement is substrate, not memory.
@@ -4882,12 +4790,6 @@ class WorldModelAgent:
         moved = (((cp["x"] - sp["x"]) ** 2 + (cp["z"] - sp["z"]) ** 2) ** 0.5
                  if (sp and cp) else 0.0)
         descended = (sp["y"] - cp["y"]) if (sp and cp) else 0.0
-        outcome = {
-            "step": self.step, "label": describe_entry(entry).replace("[ACTION] ", "")[:60],
-            "moved": moved, "descended": descended, "inv": self._inventory_delta()[:80],
-            "events": list(self._pending_events), "note": first_note, "frame": ep_frame}
-        self._recent_outcomes.append(outcome)
-        self._turn_outcomes.append(outcome)
         nudge = self.governor.note_entry(
             label=entry.get("procedure", "raw"),
             cell=cell_of(sp) or cell_of(cp), step=self.step,

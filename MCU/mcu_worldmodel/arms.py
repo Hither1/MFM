@@ -35,7 +35,7 @@ SHARED: dict[str, Any] = dict(
 
 #: The memory of the mfm arm.
 MFM_MEMORY: dict[str, Any] = dict(
-    expect=True,              # the EXPECT line, echoed next turn against the record
+    expect=True,              # the EXPECT line that ends every briefing
     frames=True,              # tools/zoom.py
     event_sheet=False,        # the current view alone is attached
 )

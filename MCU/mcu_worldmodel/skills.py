@@ -576,14 +576,14 @@ off?", "is this the ledge I poured from?") and pass it as `--q`. The `[STATE]`/`
 numbers say WHERE and THAT; the frame says WHAT -- one look costs one image. Open frames
 before you walk to a remembered place and on arrival (`--then-now`), after a hit (the
 frame at the hit shows what hit you), when `OBSERVED vs EXPECTED` disagree (the entry's
-frame is cited beside the outcome), before a route across ground you have not walked,
+frame is in its episode), before a route across ground you have not walked,
 and when a plan failed twice for a reason you cannot name. The 22 runs before this one
 opened an earlier episode's frame 32 times in 850,000 steps and an earlier life's 3
 times; every one of those looks was after a stall, none before a walk.
 
 ## Working memory
 
-`mine/working.md` is put in front of you every turn as `[WORKING]` and survives a
+`mine/working.md` is yours to read when a turn starts, and it survives a
 context reset: the plan you are on and why, its next visible prediction, the
 contradictions you have not resolved, the entries and frames you would re-open (paths).
 Rewrite it when the plan changes, under 40 lines. `mine/GUIDE.md`
@@ -791,8 +791,8 @@ description: How this run's loop works, what the runner does and does not do for
 
 ## The loop
 
-Each turn: the frame and the turn message (state, inventory, ledger, `[RECENT]`,
-`[MAP]`, `[OWN]`, the notes since your last plan) -> your briefing (`OBSERVED vs
+Each turn: the frame and the turn message (state, inventory, ledger, `[OWN]`, the
+notes since your last plan) -> your briefing (`OBSERVED vs
 EXPECTED`, then `[PLAN]`, then `EXPECT`) -> `actions.json`, a plan of up to the entry
 and step caps, built from the atoms, your own procedures and raw actions. The runner
 executes it tick by tick; a milestone, a death or a reflex stop ends the plan early and

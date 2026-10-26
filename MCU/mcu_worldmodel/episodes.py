@@ -51,14 +51,14 @@ _MOVE_KEYS = frozenset({"forward", "back", "left", "right", "jump", "sprint"})
 #: The paragraph the MFM arm adds to the log protocol text (`prompts._LOG_CONTRACT`).
 #: Kept here beside the store it describes; `prompts._mfm_contract` splices it in.
 #: `--expect`: the prediction protocol (VISTA's "state what you expect to see"), in
-#: harness form: the EXPECT line is echoed next turn against the harness record.
+#: the model's own form: it compares its EXPECT line with the log next turn.
 MFM_EXPECT_NOTE = """\
 **Expect, then compare.** End every briefing with one line `EXPECT: <what [STATE],
-[INV] or [EVENT] will show if this plan works>`. The next turn opens with
-`[EXPECTED]` (that line) and `[OBSERVED]` (what the harness recorded for the plan's
-entries: moved, descended, inventory delta, events, the note it ended on). Begin the
-briefing with `OBSERVED vs EXPECTED: ...` -- one sentence saying whether they match and
-what differs -- before deciding anything. A plan whose expectation failed twice is not
+[INV] or [EVENT] will show if this plan works>`. Next turn, check that line against
+what the log recorded for the plan's entries (moved, inventory delta, events, the note
+each ended on) and the view, and begin the briefing with `OBSERVED vs EXPECTED: ...`
+-- one sentence saying whether they match and what differs -- before deciding
+anything. A plan whose expectation failed twice is not
 re-proposed with the same target."""
 
 #: `frames`: the arm can read frames at pixel level.

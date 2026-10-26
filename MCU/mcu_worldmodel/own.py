@@ -632,14 +632,13 @@ def reflex_note(harness_reflexes: bool) -> str:
     return _REFLEX_NOTE.replace("{tail}", _REFLEX_TAIL[bool(harness_reflexes)])
 
 
-#: `mine/working.md`: the model's own continuation note (VISTA's WORKING.md). Put in
-#: front of it every turn ([WORKING]), it survives a context reset or compaction, so
-#: the turn after one starts from the note, not from the log.
+#: `mine/working.md`: the model's own continuation note (VISTA's WORKING.md). The
+#: harness does not put it in the turn prompt; it survives a context reset or
+#: compaction, so the turn after one starts from the note, not from the log.
 MFM_WORKING_NOTE = """\
-**Working memory.** `mine/working.md` is yours and is put in front of you every turn
-as `[WORKING]`: the plan you are on and why, its next visible prediction, the
-contradictions you have not resolved, and the entries or frames you would re-open
-(paths). It survives a context reset, so the turn after one starts from it instead of
-from the log. Rewrite it when the plan changes, not every turn; keep it under 40
-lines. `mine/GUIDE.md` is what is true of this world across
-lives; `working.md` is what you are doing now."""
+**Working memory.** `mine/working.md` is yours: the plan you are on and why, its next
+visible prediction, the contradictions you have not resolved, and the entries or frames
+you would re-open (paths). Read it when a turn starts. It survives a context reset, so
+the turn after one starts from it instead of from the log. Rewrite it when the plan
+changes, not every turn; keep it under 40 lines. `mine/GUIDE.md` is what is true of
+this world across lives; `working.md` is what you are doing now."""
