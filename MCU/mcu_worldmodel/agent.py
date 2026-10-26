@@ -251,6 +251,13 @@ class WorldModelAgent:
         # `own_code=False`: no code of the model's runs -- no procedure of its own, no
         # reflex, no closed loop; mine/ (notes, GUIDE.md, working.md) stays.
         own_code: bool = True,
+        # `index=False`: no index.jsonl anywhere the model reads -- this life's, the
+        # carried lives' -- and so no query tool; the record is logs.txt and episodes/.
+        index: bool = True,
+        # `carried_visual=True`: the carried lives are visual-only copies
+        # (scripts/visual_carry.py: frames and positions, no word of what happened), and
+        # the contract and the memory skill say so.
+        carried_visual: bool = False,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -293,16 +300,33 @@ class WorldModelAgent:
         #: `--no-event-sheet` (mfm): no 2x2 sheet of this turn's event frames; the view alone.
         self.event_sheet = bool(event_sheet)
         self.history_images = bool(history_images)
-        self.flat_retrieval = bool(flat_retrieval)
+        self.index = bool(index)
+        if not self.index and flat_retrieval:
+            raise ValueError("index=False already removes the query tool: not with flat_retrieval")
+        # no index means no tool: the flat texts, with index.jsonl taken out of them
+        self.flat_retrieval = bool(flat_retrieval) or not self.index
         #: The report's name for each record ablation that is on (empty for the full arm).
         self.pushed_memory = bool(pushed_memory)
         self.own_code = bool(own_code)
         self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
-                                     + (["flat_retrieval"] if self.flat_retrieval else [])
+                                     + (["flat_retrieval"] if flat_retrieval else [])
+                                     + ([] if self.index else ["no_index"])
                                      + ([] if self.pushed_memory else ["no_pushed_memory"])
                                      + ([] if self.own_code else ["no_own_code"]))
         if not self.own_code and len(self.ablations) > 1:
             raise ValueError("own_code=False is written for the full record (no other ablation)")
+        if not self.index and len(self.ablations) > 1:
+            raise ValueError("index=False is written alone (no other ablation)")
+        self.carried_visual = bool(carried_visual)
+        if self.carried_visual:
+            if not (previous_lives and memory_mode == "mfm" and minimal and own and skills):
+                raise ValueError("carried_visual needs carried lives on the mfm arm (minimal, own, skills)")
+            if install_carried or install_scripts:
+                raise ValueError("carried_visual carries no scripts: not with install_carried/install_scripts")
+            for seed in previous_lives:
+                if not (Path(seed) / ".visual_carry.json").exists():
+                    raise ValueError(f"carried_visual: {seed} is not a visual-only copy "
+                                     "(write it with scripts/visual_carry.py)")
         if not self.pushed_memory and not self.history_images:
             raise ValueError("pushed_memory=False is written for a record with its frames: not "
                              "with history_images=False (it may go with flat_retrieval)")
@@ -312,7 +336,9 @@ class WorldModelAgent:
             if not (memory_mode == "mfm" and minimal and own and skills):
                 raise ValueError("history_images/flat_retrieval/pushed_memory/own_code are "
                                  "ablations of the mfm arm (minimal, own, skills)")
-            if previous_lives or install_scripts or install_carried:
+            # no_index alone may carry lives (its texts cover previous/); the rest are
+            # written for a life from scratch
+            if (previous_lives and self.ablations != ["no_index"]) or install_scripts or install_carried:
                 raise ValueError("history_images/flat_retrieval/pushed_memory/own_code are written for a life from "
                                  "scratch: no previous_lives, install_scripts or install_carried")
             if not self.history_images:
@@ -466,7 +492,7 @@ class WorldModelAgent:
             self.codex.strip_history_images = True
         self.episodes: EpisodeBridge | None = (
             EpisodeBridge(self.memory, self.codex, self.ledger, images=self.history_images,
-                          tool=not self.flat_retrieval)
+                          tool=not self.flat_retrieval, index=self.index)
             if memory_mode == "mfm" else None)
         if self.episodes is not None and previous_lives:
             self.episodes.seed_previous(list(previous_lives))
@@ -647,6 +673,10 @@ class WorldModelAgent:
                                                      flat=self.flat_retrieval,
                                                      pushed=self.pushed_memory,
                                                      frame_size=self.frame_size)
+                    if not self.index:
+                        refs["own.md"] = refs["own.md"].replace(
+                            "- it may read `logs.txt`, `grid.jsonl`, `index.jsonl`, `episodes/` and your own",
+                            "- it may read `logs.txt`, `grid.jsonl`, `episodes/` and your own")
                     if not self.own_code:
                         # mine/ stays; no script of the model's runs
                         refs["own.md"] = _own.MFM_OWN_NOTE_NO_CODE + "\n\n" + _own.MFM_WORKING_NOTE + "\n"
@@ -691,7 +721,8 @@ class WorldModelAgent:
                                            history_images=self.history_images,
                                            flat_retrieval=self.flat_retrieval,
                                            pushed_memory=self.pushed_memory,
-                                           own_code=self.own_code)
+                                           own_code=self.own_code, index=self.index,
+                                           carried_visual=self.carried_visual)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.own_code
                                                    else _skills.SKILLS_NOTE_NO_OWN_CODE) + "\n"
@@ -704,6 +735,13 @@ class WorldModelAgent:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
         if not self.own_code:
             contract = prompts.no_own_code(contract)
+        if not self.index:
+            contract = prompts.no_index(contract)
+        if self.carried_visual:
+            from mcu_worldmodel.previous import MFM_PREVIOUS_NOTE, previous_note_visual
+            if contract.count(MFM_PREVIOUS_NOTE) != 1:
+                raise ValueError("carried_visual: the contract's previous-lives paragraph drifted")
+            contract = contract.replace(MFM_PREVIOUS_NOTE, previous_note_visual(self.index))
         # what casting obsidian costs in scored milestones (every arm, this task only)
         note = prompts.casting_note(m.get("identity") for m in (self.ledger.cfg or []))
         if note:
@@ -3101,6 +3139,9 @@ class WorldModelAgent:
 
     def _mfm_turn_line(self) -> str:
         """The turn message's one line about the episode record, true for this run."""
+        if not self.index:
+            return ("`episodes/` holds the same history, one folder per entry (`ep_NNNNNN` is the "
+                    "`Action N` of its log header); `rg` it; `view_image` opens a frame.\n")
         if self.flat_retrieval:
             return ("`index.jsonl` and `episodes/` hold the same history as episodes (one line "
                     "per entry, in order); `rg` them"
@@ -4109,7 +4150,8 @@ class WorldModelAgent:
                                 # only when one is on: the full arm's report is pinned
                                 **({"ablations": list(self.ablations),
                                     "history_image_sweeps": self._image_sweeps}
-                                   if self.ablations else {})}}
+                                   if self.ablations else {}),
+                                **({"carried_visual": True} if self.carried_visual else {})}}
                if self.memory_mode == "mfm" else {}),
             "steps": self.step,
             "turns": dict(self.turns),

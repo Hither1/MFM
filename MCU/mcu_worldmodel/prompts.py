@@ -1256,6 +1256,24 @@ def no_own_code(contract: str) -> str:
     return contract
 
 
+#: `index=False` (agent.py): the flat contract with index.jsonl taken out.
+def no_index(contract: str) -> str:
+    edits = [
+        ("**Memory.** `./logs.txt`, `episodes/` and `index.jsonl` (one JSON line per entry, in\n"
+         "order) are the complete record of this life; there is no query tool in this run --\n"
+         "`rg`/`grep` them the way you grep the log;",
+         "**Memory.** `./logs.txt` and `episodes/` (one folder per entry; `ep_NNNNNN` is the\n"
+         "`Action N` of its log header) are the complete record of this life; there is no index\n"
+         "and no query tool in this run -- `rg`/`grep` them the way you grep the log;"),
+        ("to read the log and the episode index;", "to read the log and the episode folders;"),
+    ]
+    for old, new in edits:
+        if contract.count(old) != 1:
+            raise ValueError(f"index=False: the contract drifted: {old[:60]!r}")
+        contract = contract.replace(old, new)
+    return contract
+
+
 #: survival.md's one line about the model's reflexes, for `own_code=False`.
 NO_OWN_CODE_SURVIVAL = ("Your reflexes are quiet while a\n  screen is open: at the lake never pour",
                         "At the lake never pour")

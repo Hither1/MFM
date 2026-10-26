@@ -70,7 +70,7 @@ class EpisodeStore(MemorySink):
     byte-identical to what the MCU ladder runs on."""
 
     def __init__(self, root: Path | str, *, recall: bool = False, tool: bool = True,
-                 images: bool = True, push: bool = True) -> None:
+                 images: bool = True, push: bool = True, index: bool = True) -> None:
         self.root = Path(root)
         self.recall = recall
         # `images=False` (the KiCad "without historical images" ablation): no episode
@@ -85,9 +85,15 @@ class EpisodeStore(MemorySink):
         # but `tools/episodes.py` is not put in the workspace, so the model reaches the
         # same files through ordinary text search only.
         self.tool = bool(tool)
+        # `index=False` (the MCU no-index ablation): no index.jsonl is written -- the rows
+        # are kept in memory for the harness only -- and so no query tool either; the
+        # record is logs.txt and the episode folders.
+        self.index = bool(index)
+        if not self.index:
+            self.tool = False
         self._dhash_at: dict[str, str | None] = {}
         self.dir = self.root / "episodes"
-        self.index_path = self.root / "index.jsonl"
+        self.index_path = (self.root / "index.jsonl") if self.index else None
         self.dir.mkdir(parents=True, exist_ok=True)
         existing = sorted(p.name for p in self.dir.glob("ep_*") if p.is_dir())
         self._next_id = (int(existing[-1][3:]) + 1) if existing else 0
@@ -167,6 +173,8 @@ class EpisodeStore(MemorySink):
         self._rewrite_index()
 
     def _rewrite_index(self) -> None:
+        if self.index_path is None:
+            return
         tmp = self.index_path.with_suffix(".jsonl.tmp")
         tmp.write_text("".join(json.dumps(r, sort_keys=True, default=str) + "\n" for r in self.closed),
                        encoding="utf-8")
@@ -366,8 +374,9 @@ class EpisodeStore(MemorySink):
         delta = outcome.get("inventory_delta")
         if isinstance(delta, dict) and delta:
             row["inventory_delta"] = dict(list(delta.items())[:12])
-        with self.index_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
+        if self.index_path is not None:
+            with self.index_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(row, sort_keys=True, default=str) + "\n")
         self.closed.append(row)
         self.n_closed += 1
         self.tags.update(tags)

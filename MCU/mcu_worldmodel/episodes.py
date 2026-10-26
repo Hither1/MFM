@@ -143,7 +143,8 @@ class EpisodeBridge:
     #: Never auto-close on a tick count: the chassis says when an entry finished.
     _OPEN_ENDED = 10 ** 9
 
-    def __init__(self, memory, codex, ledger, *, images: bool = True, tool: bool = True) -> None:
+    def __init__(self, memory, codex, ledger, *, images: bool = True, tool: bool = True,
+                 index: bool = True) -> None:
         self.memory = memory
         self.codex = codex                      # the store reads `agent.codex.calls`
         self.ledger = ledger
@@ -153,8 +154,10 @@ class EpisodeBridge:
         # the same record without `tools/episodes.py`, so index.jsonl and episodes/ are
         # read with ordinary text search.
         self.images = bool(images)
-        self.tool = bool(tool)
-        self.store = EpisodeStore(memory.root, tool=self.tool)
+        self.tool = bool(tool) and bool(index)
+        # `index=False` (agent.index): no index.jsonl here or under previous/, no tool.
+        self.index = bool(index)
+        self.store = EpisodeStore(memory.root, tool=self.tool, index=self.index)
         self.mfm_memory_note = MFM_MEMORY_NOTE
         # Earlier lives' records under previous/ (previous.py); None until
         # `seed_previous` is given seed dirs.
@@ -220,7 +223,7 @@ class EpisodeBridge:
 
     def seed_previous(self, seeds: list) -> None:
         """Carry the earlier lives' records in (the MFM carry)."""
-        self.previous = PreviousLives(self.memory.root)
+        self.previous = PreviousLives(self.memory.root, index=self.index)
         self.previous.seed([Path(s) for s in seeds])
 
     def audit(self) -> dict[str, Any]:

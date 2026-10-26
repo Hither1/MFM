@@ -445,6 +445,73 @@ is another world), copy the scripts worth keeping into `mine/procedures/` and
 assert MEMORY_SKILL.count(_PREVIOUS_SAME) == 1 and MEMORY_SKILL.count(_WORKSHOP_SAME) == 1, \
     "memory skill text drifted from the carried-world paragraphs"
 
+#: `--carried-visual`: the carried lives are frames and positions only
+#: (scripts/visual_carry.py); the paragraph about previous/ and the workshop turn say so.
+_PREVIOUS_VISUAL = """\
+- `previous/life_<i>/`: the records of earlier lives in this same world (same seed,
+  same spawn), oldest first, as frames and positions ONLY: each life's `episodes/`
+  (`observation/image.png` and `state/state.json`: position, step), {index}a `logs.txt`
+  of `Action N | Step S` headers and `[STATE]` lines. No word of what they did or found
+  was carried -- not their plans, notes, events, inventories, milestones or files: a
+  place is known by its frames. The world resets between lives: terrain, water, lava,
+  ore and structures are where they were; nothing built or dropped survives; their
+  step numbers are theirs.
+"""
+_PREVIOUS_VISUAL_INDEX = {
+    True: ("`index.jsonl` (one row per\n  entry: steps, x/y/z, the frame's path; "
+           "`./tools/episodes.py --previous --near X Z |\n  --steps A B [--sheet out.png]` "
+           "lists them with their frames) and "),
+    False: ("(no index in this run;\n  `ep_NNNNNN` is the `Action N` of its log header), and "),
+}
+_WORKSHOP_OPEN = ("read the\nlives' guides, notes and death lines, run the query tool over them, write or update\n"
+                  + _WORKSHOP_SAME + "`mine/reflexes/`, and only then plan.")
+_WORKSHOP_VISUAL = {
+    True: ("look\nthrough their records -- where each life went (its `[STATE]` positions) and what its\n"
+           "frames show there (`./tools/episodes.py --previous --near/--steps ... --sheet`) --\n"
+           "write `mine/GUIDE.md` (verified places with coordinates, the life/step they come\n"
+           "from and the episode id whose frame shows the place), and only then plan."),
+    False: ("look\nthrough their records -- where each life went (its `[STATE]` positions) and what its\n"
+            "frames show there (`view_image previous/life_<i>/episodes/<id>/observation/image.png`)\n"
+            "-- write `mine/GUIDE.md` (verified places with coordinates, the life/step they come\n"
+            "from and the episode id whose frame shows the place), and only then plan."),
+}
+assert MEMORY_SKILL.count(_WORKSHOP_OPEN) == 1, "memory skill workshop paragraph drifted"
+
+
+def visual_carry_skill(text: str, *, index: bool) -> str:
+    """The memory skill for `--carried-visual`."""
+    return _ablate(text, [(_PREVIOUS_SAME, _PREVIOUS_VISUAL.replace("{index}", _PREVIOUS_VISUAL_INDEX[index])),
+                          (_WORKSHOP_OPEN, _WORKSHOP_VISUAL[index])], "the memory skill")
+
+
+#: `index=False` (the no-index ablation): the flat texts with every mention of
+#: index.jsonl taken out -- the record is logs.txt and the episode folders.
+_MEM_EPISODES_NO_INDEX = """\
+- `episodes/ep_NNNNNN/`: one per plan entry, with `observation/image.png` (the view the
+  entry started from), `state/state.json`, `action.json`, `outcome.json` (moved,
+  descended, inventory delta, events, tags such as `stuck`, `damage`, `milestone`).
+  `ep_NNNNNN` is the `Action N` of the entry's header in `logs.txt`. There is NO index
+  and NO query tool in this run: `rg`/`grep` `logs.txt` and `episodes/*/*.json`, or
+  write a script.
+"""
+def _no_index_edits() -> dict[str, list[tuple[str, str]]]:
+    return {
+    "memory": [
+        (_MEM_EPISODES_FLAT, _MEM_EPISODES_NO_INDEX),
+        ("(find the\nepisode in `index.jsonl`)", "(its folder is the\n`Action N` of the log header)"),
+        ("(find them in `index.jsonl`),", "(their folders are the `Action N` of those log headers),"),
+    ],
+    "harness": [
+        ("- There is no `tools/episodes.py` in this run: the record is `logs.txt`,\n"
+         "  `episodes/` and `index.jsonl`, searched with `rg`/`grep` (`skills/memory/SKILL.md`).",
+         "- There is no index and no `tools/episodes.py` in this run: the record is\n"
+         "  `logs.txt` and `episodes/`, searched with `rg`/`grep` (`skills/memory/SKILL.md`)."),
+    ],
+    }
+#: The flat text's line about carried lives, without an index.
+_NO_INDEX_PREVIOUS = ("their `index.jsonl` files are\n  grep-able like yours;",
+                      "their logs and episode folders\n  are grep-able like yours;")
+
 
 def memory_skill(carried_world: str = "same") -> str:
     if carried_world == "same":
@@ -591,9 +658,11 @@ def ablate_memory_skill(text: str, *, images: bool = True, flat: bool = False,
     else:
         edits.append((_MEM_LOOK, _MEM_LOOK_FLAT))
     if flat:
-        edits += [("`./tools/episodes.py --previous ...` queries\n  them all;",
-                   "their `index.jsonl` files are\n  grep-able like yours;"),
-                  ("run the query tool over them", "search their records")]
+        # the carried-lives lines (absent when --carried-visual has rewritten them)
+        edits += [e for e in [("`./tools/episodes.py --previous ...` queries\n  them all;",
+                               "their `index.jsonl` files are\n  grep-able like yours;"),
+                              ("run the query tool over them", "search their records")]
+                  if e[0] in text]
     if not pushed:                      # with flat only (agent.py refuses no-images with it)
         edits += _mem_unpushed(flat=flat)
     return _ablate(text, edits, "the memory skill")
@@ -924,7 +993,8 @@ work and the do-not list (`skills/harness`). Read both in your first turn.
 
 def write_skills(root: Path, carried_world: str = "same", installed: bool = False, *,
                  history_images: bool = True, flat_retrieval: bool = False,
-                 pushed_memory: bool = True, own_code: bool = True) -> list[str]:
+                 pushed_memory: bool = True, own_code: bool = True, index: bool = True,
+                 carried_visual: bool = False) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts (the memory queries and one reflex example). Nothing is installed under mine/:
     the model copies what it wants into mine/ itself. With `installed` the carried lives'
@@ -950,6 +1020,8 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                     raise ValueError(f"{name} skill text drifted from its no-primitives edit")
                 text = text.replace(old, new)
         if name == "memory":
+            if carried_visual:              # before the flat edits, which touch the same lines
+                text = visual_carry_skill(text, index=index)
             text = ablate_memory_skill(text, images=history_images, flat=flat_retrieval,
                                        pushed=pushed_memory)
             if not history_images or flat_retrieval:
@@ -959,6 +1031,11 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
                                         pushed=pushed_memory)
         if not own_code and name in _NO_OWN_CODE_EDITS:
             text = _ablate(text, _NO_OWN_CODE_EDITS[name], f"the {name} skill")
+        if not index and name in _no_index_edits():
+            # the flat text (flat_retrieval is set with index=False), with index.jsonl out
+            text = _ablate(text, _no_index_edits()[name], f"the {name} skill")
+            if name == "memory" and not carried_visual and _NO_INDEX_PREVIOUS[0] in text:
+                text = text.replace(*_NO_INDEX_PREVIOUS)
         scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)
                    for k, v in scripts.items()}
         d = root / SKILLS_DIR / name

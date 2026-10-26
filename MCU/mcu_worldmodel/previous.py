@@ -89,8 +89,11 @@ def lives_of(seed: Path) -> list[Path]:
 class PreviousLives:
     """The carried records of one workspace."""
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, index: bool = True) -> None:
         self.root = Path(root)
+        # `index=False` (the no-index ablation): no life's index.jsonl is linked and no
+        # merged previous/index.jsonl is written; the lives are their logs and episodes.
+        self.index = bool(index)
         self.dir = self.root / "previous"
         self.lives: list[Path] = []          # previous/life_<i> dirs, in order
         self.sources: list[str] = []         # where each life came from
@@ -116,6 +119,8 @@ class PreviousLives:
                 name = p.name
                 if name in NOT_CARRIED or name.startswith("."):
                     continue
+                if name == "index.jsonl" and not self.index:
+                    continue
                 if p.is_dir():
                     self.linked += _link_tree(p, dst / name)
                 elif p.is_file():
@@ -129,7 +134,7 @@ class PreviousLives:
             self.lives.append(dst)
             self.sources.append(str(src))
             idx = src / "index.jsonl"
-            if idx.exists():
+            if idx.exists() and self.index:
                 for line in idx.read_text(encoding="utf-8", errors="replace").splitlines():
                     line = line.strip()
                     if not line:
@@ -371,6 +376,35 @@ work the same thing out again; step numbers in their logs belong to THEIR run.""
 
 #: `--carried-world`: where the carried lives were played, as the contract states it.
 CARRIED_WORLDS = ("same", "other")
+
+
+#: The paragraph for lives carried VISUAL-ONLY (`--carried-visual`, scripts/visual_carry.py):
+#: their frames and positions, no word of what they did. `{index}` is the sentence about
+#: index.jsonl and the query tool, or about the folders when the run has no index.
+MFM_PREVIOUS_NOTE_VISUAL = """\
+`previous/life_<i>/` holds the records of earlier runs in THIS SAME WORLD (same seed,
+same spawn), oldest first, as PICTURES AND PLACES ONLY: each one's `episodes/ep_NNNNNN/`
+with the frame of every entry (`observation/image.png`) and where it was taken
+(`state/state.json`: position and step), {index} and a `logs.txt` with only each
+entry's `Action N | Step S` header and `[STATE]` line. Every word about what those lives
+did or found -- their plans, notes, events, inventories, milestones and their own files
+-- was removed before the carry: what was at a place is in its frames. Nothing from
+them is put in front of you; looking through them is yours to do before searching
+blind. The world resets between lives: terrain, water, lava, ore and every structure
+are exactly where they were; nothing a life built, dug, placed or dropped survives, and
+step numbers in their records belong to THEIR run. Verify arrival at a remembered place
+against your live [STATE]."""
+_VISUAL_INDEX = {
+    True: ("its `index.jsonl` (one row per entry: steps, x/y/z, the\nframe's path; "
+           "`./tools/episodes.py --previous --near X Z | --steps A B` queries all of\nthem "
+           "at once),"),
+    False: ("its folder number `ep_NNNNNN` being the `Action N` of\nits log header (there "
+            "is no index: `rg` their logs and folders, or write a script),"),
+}
+
+
+def previous_note_visual(index: bool = True) -> str:
+    return MFM_PREVIOUS_NOTE_VISUAL.replace("{index}", _VISUAL_INDEX[bool(index)])
 
 
 def previous_note(carried_world: str = "same") -> str:
