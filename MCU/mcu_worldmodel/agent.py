@@ -248,6 +248,9 @@ class WorldModelAgent:
         # otherwise puts in front of the model -- no [RECENT], [MAP], [EXPECTED]/[OBSERVED]
         # or [WORKING]; the log, the episodes, the tool and mine/working.md stay, to be read.
         pushed_memory: bool = True,
+        # `own_code=False`: no code of the model's runs -- no procedure of its own, no
+        # reflex, no closed loop; mine/ (notes, GUIDE.md, working.md) stays.
+        own_code: bool = True,
     ) -> None:
         if memory_mode not in ("direct", "logbook", "vista", "mfm"):
             raise ValueError(f"unknown memory_mode: {memory_mode!r}")
@@ -293,9 +296,13 @@ class WorldModelAgent:
         self.flat_retrieval = bool(flat_retrieval)
         #: The report's name for each record ablation that is on (empty for the full arm).
         self.pushed_memory = bool(pushed_memory)
+        self.own_code = bool(own_code)
         self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
                                      + (["flat_retrieval"] if self.flat_retrieval else [])
-                                     + ([] if self.pushed_memory else ["no_pushed_memory"]))
+                                     + ([] if self.pushed_memory else ["no_pushed_memory"])
+                                     + ([] if self.own_code else ["no_own_code"]))
+        if not self.own_code and len(self.ablations) > 1:
+            raise ValueError("own_code=False is written for the full record (no other ablation)")
         if not self.pushed_memory and not self.history_images:
             raise ValueError("pushed_memory=False is written for a record with its frames: not "
                              "with history_images=False (it may go with flat_retrieval)")
@@ -303,10 +310,10 @@ class WorldModelAgent:
             # Written for the shipped mfm arm from scratch: its minimal contract, its
             # own files and skills. A carried or installed life would need its own texts.
             if not (memory_mode == "mfm" and minimal and own and skills):
-                raise ValueError("history_images/flat_retrieval/pushed_memory are ablations of "
-                                 "the mfm arm (minimal, own, skills)")
+                raise ValueError("history_images/flat_retrieval/pushed_memory/own_code are "
+                                 "ablations of the mfm arm (minimal, own, skills)")
             if previous_lives or install_scripts or install_carried:
-                raise ValueError("history_images/flat_retrieval/pushed_memory are written for a life from "
+                raise ValueError("history_images/flat_retrieval/pushed_memory/own_code are written for a life from "
                                  "scratch: no previous_lives, install_scripts or install_carried")
             if not self.history_images:
                 self.event_sheet = False        # the sheet attaches past frames
@@ -326,7 +333,7 @@ class WorldModelAgent:
         #: The step at which the model-step budget was found spent (None: not yet).
         self._budget_spent_at: int | None = None
         self._budget_spent_why: str | None = None
-        _P.set_own(self.own)
+        _P.set_own(self.own and self.own_code)
         if start_dimension is not None and start_dimension not in _DIMENSION:
             raise ValueError(f"unknown start_dimension: {start_dimension!r} "
                              f"({'|'.join(_DIMENSION)})")
@@ -341,11 +348,11 @@ class WorldModelAgent:
         #: `--own-reflexes` (mcu_worldmodel/own.py): mine/reflexes/<name>.py scripts run
         #: every REFLEX_EVERY ticks on the live numbers and may stop the plan, note, and
         #: queue a short plan of their own -- the model's tick layer, beside the runner's.
-        self.own_reflexes = bool(own_reflexes) and self.own
+        self.own_reflexes = bool(own_reflexes) and self.own and self.own_code
         if own_live and not (self.own and minimal):
             raise ValueError("own_live gives the model's own scripts the live view: it "
                              "needs the mfm arm (own, minimal)")
-        self.own_live = bool(own_live)
+        self.own_live = bool(own_live) and self.own_code
         self.near_deaths = bool(near_deaths)
         #: closed loops run this life: name -> {"entries", "calls", "ticks"}
         self._own_loops: dict[str, dict[str, int]] = {}
@@ -640,6 +647,9 @@ class WorldModelAgent:
                                                      flat=self.flat_retrieval,
                                                      pushed=self.pushed_memory,
                                                      frame_size=self.frame_size)
+                    if not self.own_code:
+                        # mine/ stays; no script of the model's runs
+                        refs["own.md"] = _own.MFM_OWN_NOTE_NO_CODE + "\n\n" + _own.MFM_WORKING_NOTE + "\n"
                 # no built-in procedure to describe: the file and its line in the tail go
                 refs.pop("procedures.md", None)
                 tail = prompts.raw_references_tail(tail)
@@ -661,7 +671,12 @@ class WorldModelAgent:
             from mcu_worldmodel import own as _own
             for f in ("skills.md", "survival.md", "more.md", "gui.md"):
                 if refs.get(f):
-                    refs[f] = _own.no_primitives_ref_line(self.own) + "\n\n" + refs[f]
+                    refs[f] = _own.no_primitives_ref_line(self.own and self.own_code) + "\n\n" + refs[f]
+            if not self.own_code and refs.get("survival.md"):
+                old, new = prompts.NO_OWN_CODE_SURVIVAL
+                if refs["survival.md"].count(old) != 1:
+                    raise ValueError("own_code=False: survival.md drifted")
+                refs["survival.md"] = refs["survival.md"].replace(old, new)
             if refs.get("gui.md"):
                 refs["gui.md"] = prompts.raw_gui_ref() + "\n" + refs["gui.md"]
             if self.vista_aligned:
@@ -675,9 +690,11 @@ class WorldModelAgent:
                                            installed=self.install_carried or bool(self.install_scripts),
                                            history_images=self.history_images,
                                            flat_retrieval=self.flat_retrieval,
-                                           pushed_memory=self.pushed_memory)
+                                           pushed_memory=self.pushed_memory,
+                                           own_code=self.own_code)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
-            contract = contract.rstrip() + "\n" + _skills.SKILLS_NOTE + "\n"
+            contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.own_code
+                                                   else _skills.SKILLS_NOTE_NO_OWN_CODE) + "\n"
             if self.install_carried or self.install_scripts:
                 from mcu_worldmodel.previous import installed_note
                 contract = contract.rstrip() + "\n\n" + installed_note(
@@ -685,6 +702,8 @@ class WorldModelAgent:
                     carried_world=self.carried_world)
         if self.own_live:
             contract = contract.rstrip() + "\n\n" + _own.LIVE_NOTE + "\n"
+        if not self.own_code:
+            contract = prompts.no_own_code(contract)
         # what casting obsidian costs in scored milestones (every arm, this task only)
         note = prompts.casting_note(m.get("identity") for m in (self.ledger.cfg or []))
         if note:
@@ -3115,7 +3134,7 @@ class WorldModelAgent:
     # -- the model's own procedures (`--own`, mcu_worldmodel/own.py) ----------------
 
     def _scan_own(self) -> None:
-        if self.own:
+        if self.own and self.own_code:
             self._own_procs = _own.scan(self.memory.root, loops=self.own_live)
             if self._own_record is None:
                 # Once per life: the record the scripts arrived with (carried by

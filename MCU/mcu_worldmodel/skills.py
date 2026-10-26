@@ -617,6 +617,8 @@ _HARNESS_THIS_RUN = {
                "  the turn is the only image (`skills/memory/SKILL.md`)."),
     "flat": ("- There is no `tools/episodes.py` in this run: the record is `logs.txt`,\n"
              "  `episodes/` and `index.jsonl`, searched with `rg`/`grep` (`skills/memory/SKILL.md`)."),
+    "owncode": ("- No script of yours runs in this run: no procedures, no reflexes, no closed\n"
+                "  loops; every entry of a plan is a raw action (`references/own.md`)."),
     "unpushed": ("- The turn message carries no `[RECENT]`, `[MAP]`, `[EXPECTED]`/`[OBSERVED]` or\n"
                  "  `[WORKING]` in this run: what the last plans did is in `logs.txt` and\n"
                  "  `episodes/`, and your note is `mine/working.md` -- read them yourself."),
@@ -880,9 +882,49 @@ SKILLS: dict[str, tuple[str, dict[str, str]]] = {
 }
 
 
+#: `own_code=False`: the harness and memory skills without the model's scripts; the
+#: procedures and reflexes skills are not written.
+_NO_OWN_CODE_EDITS = {
+    "harness": [
+        ("# Harness\n", "# Harness\n\n## This run\n\n" + _HARNESS_THIS_RUN["owncode"] + "\n"),
+        ("built from raw actions and your own procedures (no built-in procedure exists in\nthis run).",
+         "built from raw actions (no procedure exists in this run, and no script of yours\nruns)."),
+        ("a milestone, a death or a reflex stop ends the plan early",
+         "a milestone or a death ends the plan early"),
+        ("everything, run your reflexes every 4 ticks, carry `mine/`", "everything, carry `mine/`"),
+        ("here those are your reflexes' jobs.", "here nothing does them: your plans must."),
+        ("plans that run long between turns beat plans that check after every block; a script\n"
+         "that saves a turn pays for itself on its second call; a workshop turn that writes a\n"
+         "skill you call twenty times is the best turn of the life.",
+         "plans that run long between turns beat plans that check after every block."),
+        ("\n- Do not write a one-block script; do not write a script you will not call twice.", ""),
+    ],
+    "memory": [
+        ("`[NOTE]` what the runner and your procedures observed,", "`[NOTE]` what the runner observed,"),
+        ("(its notes, guide and scripts)", "(its notes and guide)"),
+        ("`mine/notes.md` (what worked, what each script assumes),\n  `mine/GUIDE.md` (what you took "
+         "from the earlier lives), `mine/procedures/`,\n  `mine/reflexes/`, any data or images you save.",
+         "`mine/notes.md` (what worked, what you would do again),\n  `mine/GUIDE.md` (what you took "
+         "from the earlier lives), any data or images you save."),
+        ("which scripts and reflexes earned their keep and\nwhich assumptions broke), copy the scripts "
+         "worth keeping into `mine/procedures/` and\n`mine/reflexes/`, and only then plan.",
+         "which plans earned their keep and\nwhich assumptions broke), and only then plan."),
+        ("A reflex that fired, a fall, a hit, a death:", "A fall, a hit, a death:"),
+    ],
+}
+
+#: The contract's skills paragraph for `own_code=False`.
+SKILLS_NOTE_NO_OWN_CODE = """\
+
+**Skills.** `skills/<name>/SKILL.md` -- harness-written, immutable -- is the META layer
+of this run: how to use your memory (`skills/memory`), how the loop and its economics
+work and the do-not list (`skills/harness`). Read both in your first turn.
+`skills/memory/scripts/` holds memory queries you may run yourself."""
+
+
 def write_skills(root: Path, carried_world: str = "same", installed: bool = False, *,
                  history_images: bool = True, flat_retrieval: bool = False,
-                 pushed_memory: bool = True) -> list[str]:
+                 pushed_memory: bool = True, own_code: bool = True) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts (the memory queries and one reflex example). Nothing is installed under mine/:
     the model copies what it wants into mine/ itself. With `installed` the carried lives'
@@ -894,6 +936,8 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
     root = Path(root)
     written: list[str] = []
     for name, (text, scripts) in SKILLS.items():
+        if not own_code and name in ("procedures", "reflexes"):
+            continue
         if name == "memory":
             text = memory_skill(carried_world)
             if installed:
@@ -913,6 +957,8 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
         elif name == "harness":
             text = ablate_harness_skill(text, images=history_images, flat=flat_retrieval,
                                         pushed=pushed_memory)
+        if not own_code and name in _NO_OWN_CODE_EDITS:
+            text = _ablate(text, _NO_OWN_CODE_EDITS[name], f"the {name} skill")
         scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)
                    for k, v in scripts.items()}
         d = root / SKILLS_DIR / name

@@ -1228,6 +1228,39 @@ _RAW_GUI_FILE = ("No procedure clicks for you; the rest of this file\ndescribes 
 assert _RAW_GUI_FILE in _RAW_GUI
 
 
+#: `own_code=False` (agent.py): the mfm contract with no script of the model's run. Each
+#: old text must occur once in the assembled contract.
+def no_own_code(contract: str) -> str:
+    own = _own_mod()
+    edits = [
+        ("Your reflexes under `mine/reflexes/` are the tick layer, and none is installed: "
+         "`skills/reflexes/SKILL.md` says how they run, and `skills/reflexes/scripts/` holds an "
+         "example.",
+         "No script of yours runs in this run either: nothing acts between your turns but "
+         "your plan."),
+        ("is either a raw action held for N ticks:", "is a raw action held for N ticks:"),
+        ("\n\n" + _OWN_PROCEDURE, ""),
+        (own.NO_PRIMITIVES_LINE,
+         "This run has NO procedures: no atom, no macro, and no script of yours is run -- "
+         "not as a procedure, not as a reflex. Every entry is a raw action held for N ticks; "
+         "everything above the keys -- an aim, a walk to a point, a dig, a craft, a fight -- "
+         "is yours to compose from raw actions, entry by entry."),
+        ("- `references/own.md`: the contract for your own procedures, reflexes and working "
+         "memory (stdin state, output shapes, caps)",
+         "- `references/own.md`: your own files and your working memory"),
+    ]
+    for old, new in edits:
+        if contract.count(old) != 1:
+            raise ValueError(f"own_code=False: the contract drifted: {old[:60]!r}")
+        contract = contract.replace(old, new)
+    return contract
+
+
+#: survival.md's one line about the model's reflexes, for `own_code=False`.
+NO_OWN_CODE_SURVIVAL = ("Your reflexes are quiet while a\n  screen is open: at the lake never pour",
+                        "At the lake never pour")
+
+
 def raw_references_tail(text: str) -> str:
     """The **References.** list of a contract (or its tail) with procedures.md taken out
     and the gui.md / skills.md lines saying what those files are without built-ins."""

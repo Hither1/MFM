@@ -102,6 +102,7 @@ class WorldModelExecutor(AgentExecutor):
         history_images: bool = True,
         flat_retrieval: bool = False,
         pushed_memory: bool = True,
+        own_code: bool = True,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
         # The record ablations of the mfm arm (mcu_worldmodel/agent.py); off for every
@@ -109,6 +110,7 @@ class WorldModelExecutor(AgentExecutor):
         self.history_images = bool(history_images)
         self.flat_retrieval = bool(flat_retrieval)
         self.pushed_memory = bool(pushed_memory)
+        self.own_code = bool(own_code)
         self.frame_size = tuple(frame_size)
         # Every Nth observation's wire JPEG, kept whole for the record (0 = off).
         self.hires_every = max(0, int(hires_every))
@@ -238,6 +240,7 @@ class WorldModelExecutor(AgentExecutor):
             **({"history_images": False} if not self.history_images else {}),
             **({"flat_retrieval": True} if self.flat_retrieval else {}),
             **({"pushed_memory": False} if not self.pushed_memory else {}),
+            **({"own_code": False} if not self.own_code else {}),
             frame_size=self.frame_size,
             **ARMS[self.arm],
         )
@@ -605,6 +608,11 @@ def main() -> None:
                           "[EXPECTED]/[OBSERVED] or [WORKING]; logs.txt, episodes/, the query "
                           "tool and mine/working.md stay, for the model to read. Not with "
                           "--no-history-images; combines with --flat-retrieval")
+    abl.add_argument("--no-own-code", action="store_true",
+                     help="without code of the model's own: no procedure under mine/procedures/ "
+                          "and no reflex under mine/reflexes/ is run, no closed loop, no "
+                          "example scripts or skills for them; mine/ notes and working.md "
+                          "stay. Not with the other ablations")
 
     vista = parser.add_argument_group("vista")
     vista.add_argument("--vista-aligned", action="store_true",
@@ -640,10 +648,14 @@ def main() -> None:
         parser.error("--model-step-budget: a positive count, on --cli codex")
     if args.turn_budget is not None and args.turn_budget < 1:
         parser.error("--turn-budget: a positive count")
-    if (args.no_history_images or args.flat_retrieval or args.no_pushed_memory) and (
+    if (args.no_history_images or args.flat_retrieval or args.no_pushed_memory
+            or args.no_own_code) and (
             args.memory != "mfm" or args.seed_memory or args.install_scripts):
-        parser.error("--no-history-images/--flat-retrieval/--no-pushed-memory are ablations of "
-                     "--memory mfm for a life from scratch (no --seed-memory, --install-scripts)")
+        parser.error("--no-history-images/--flat-retrieval/--no-pushed-memory/--no-own-code are "
+                     "ablations of --memory mfm for a life from scratch (no --seed-memory, "
+                     "--install-scripts)")
+    if args.no_own_code and (args.no_history_images or args.flat_retrieval or args.no_pushed_memory):
+        parser.error("--no-own-code is written for the full record: not with the other ablations")
     if args.no_pushed_memory and args.no_history_images:
         parser.error("--no-pushed-memory is written for a record with its frames: not with "
                      "--no-history-images (it may go with --flat-retrieval)")
@@ -690,6 +702,7 @@ def main() -> None:
         history_images=not args.no_history_images,
         flat_retrieval=args.flat_retrieval,
         pushed_memory=not args.no_pushed_memory,
+        own_code=not args.no_own_code,
     )
     handler = DefaultRequestHandler(agent_executor=executor, task_store=InMemoryTaskStore())
     card = prepare_agent_card(args.card_url or f"http://{args.host}:{args.port}/")
@@ -699,8 +712,10 @@ def main() -> None:
                 f"task={args.task} max_steps={args.max_steps} session_turns={session_turns}"
                 + (" ablations=" + ",".join(n for n, on in (("no_history_images", args.no_history_images),
                                                          ("flat_retrieval", args.flat_retrieval),
-                                                         ("no_pushed_memory", args.no_pushed_memory)) if on)
-                   if (args.no_history_images or args.flat_retrieval or args.no_pushed_memory)
+                                                         ("no_pushed_memory", args.no_pushed_memory),
+                                                         ("no_own_code", args.no_own_code)) if on)
+                   if (args.no_history_images or args.flat_retrieval or args.no_pushed_memory
+                       or args.no_own_code)
                    else "") + ")")
     uvicorn.run(app.build(), host=args.host, port=args.port, timeout_keep_alive=600)
 

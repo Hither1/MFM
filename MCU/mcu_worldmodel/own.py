@@ -677,6 +677,16 @@ def reflex_note(harness_reflexes: bool) -> str:
 #: `mine/working.md`: the model's own continuation note (VISTA's WORKING.md). Put in
 #: front of it every turn ([WORKING]), it survives a context reset or compaction, so
 #: the turn after one starts from the note, not from the log.
+#: references/own.md's opening for `own_code=False`: mine/ is still yours, nothing in it runs.
+MFM_OWN_NOTE_NO_CODE = """\
+**Your own files.** `mine/` is yours and PERSISTS: notes, data, anything you write there
+survives the turn and is carried to your next life under `previous/life_<i>/mine/`. This
+run executes no script of yours: a file under `mine/procedures/` or `mine/reflexes/` is
+never run, and a `{"procedure": ...}` entry is refused with a [NOTE]. Every entry of a
+plan is a raw action. Keep your notes in `mine/notes.md` (what worked, coordinates,
+what you would do again)."""
+
+
 MFM_WORKING_NOTE = """\
 **Working memory.** `mine/working.md` is yours and is put in front of you every turn
 as `[WORKING]`: the plan you are on and why, its next visible prediction, the
