@@ -104,6 +104,7 @@ class WorldModelExecutor(AgentExecutor):
         pushed_memory: bool = True,
         own_code: bool = True,
         index: bool = True,
+        log: bool = True,
         carried_visual: bool = False,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve()
@@ -114,6 +115,7 @@ class WorldModelExecutor(AgentExecutor):
         self.pushed_memory = bool(pushed_memory)
         self.own_code = bool(own_code)
         self.index = bool(index)
+        self.log = bool(log)
         self.carried_visual = bool(carried_visual)
         self.frame_size = tuple(frame_size)
         # Every Nth observation's wire JPEG, kept whole for the record (0 = off).
@@ -246,6 +248,7 @@ class WorldModelExecutor(AgentExecutor):
             **({"pushed_memory": False} if not self.pushed_memory else {}),
             **({"own_code": False} if not self.own_code else {}),
             **({"index": False} if not self.index else {}),
+            **({"log": False} if not self.log else {}),
             **({"carried_visual": True} if self.carried_visual else {}),
             frame_size=self.frame_size,
             **ARMS[self.arm],
@@ -412,6 +415,8 @@ class WorldModelExecutor(AgentExecutor):
                     self._agent.vista.finish()
                 self._agent.step = self._step
                 self._agent.save_report(self._workspace / "worldmodel_report.json")
+                if last:
+                    self._agent.memory.unlock_log()     # --no-log: the life is over
                 logger.info(f"[adapter] step {self._step}: {self._agent.ledger.progress_line()}")
             except Exception as exc:  # never let bookkeeping kill an episode
                 logger.warning(f"[adapter] report flush failed: {exc}")
@@ -625,6 +630,11 @@ def main() -> None:
                           "record is logs.txt and the episode folders. The flat cell without "
                           "the grep-able index; alone it may carry lives, from scratch it "
                           "combines with --no-history-images/--no-pushed-memory")
+    abl.add_argument("--no-log", action="store_true",
+                     help="with --no-index: no logs.txt the model can read either; the record "
+                          "is the episode folders alone (the same plans, states, events and "
+                          "notes, one folder per entry). The log is still written beside the "
+                          "workspace, write-only until the life ends. From scratch only")
     carry.add_argument("--carried-visual", action="store_true",
                     help="the --seed-memory lives are visual-only copies written by "
                          "scripts/visual_carry.py (frames and positions, no word of what "
@@ -675,6 +685,9 @@ def main() -> None:
         parser.error("--no-index is an ablation of --memory mfm (alone it may carry lives with "
                      "--seed-memory; it combines with --no-history-images/--no-pushed-memory "
                      "from scratch; not with --install-scripts, --flat-retrieval or --no-own-code)")
+    if args.no_log and not (args.no_index and not args.seed_memory):
+        parser.error("--no-log is the --no-index record without its log: it needs --no-index, "
+                     "from scratch (no --seed-memory)")
     if args.carried_visual and not (args.memory == "mfm" and args.seed_memory):
         parser.error("--carried-visual needs --memory mfm and --seed-memory (visual-only copies)")
     if args.no_own_code and (args.no_history_images or args.flat_retrieval or args.no_pushed_memory):
@@ -727,6 +740,7 @@ def main() -> None:
         pushed_memory=not args.no_pushed_memory,
         own_code=not args.no_own_code,
         index=not args.no_index,
+        log=not args.no_log,
         carried_visual=args.carried_visual,
     )
     handler = DefaultRequestHandler(agent_executor=executor, task_store=InMemoryTaskStore())
@@ -739,7 +753,8 @@ def main() -> None:
                                                          ("flat_retrieval", args.flat_retrieval),
                                                          ("no_pushed_memory", args.no_pushed_memory),
                                                          ("no_own_code", args.no_own_code),
-                                                         ("no_index", args.no_index)) if on)
+                                                         ("no_index", args.no_index),
+                                                         ("no_log", args.no_log)) if on)
                    if (args.no_history_images or args.flat_retrieval or args.no_pushed_memory
                        or args.no_own_code or args.no_index)
                    else "") + ")")

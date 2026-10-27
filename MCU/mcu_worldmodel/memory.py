@@ -31,6 +31,10 @@ SEPARATOR = "=" * 80
 # a shrink of one rather than silently repairing it.
 HARNESS_OWNED_FILES = ("logs.txt", "AGENTS.md", "CLAUDE.md", "index.jsonl")
 
+#: `log_visible=False` (the mfm no-log ablation): the log is still written, for the
+#: analysis, into this directory beside the workspace -- write-only until the life ends.
+HIDDEN_LOG_DIR = ".harness_record"
+
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -82,7 +86,7 @@ class MultimodalMemory:
     """Owns the directory tree, and the harness's half of what is written into it."""
 
     def __init__(self, root: str | Path, direct: bool = False, episodes: bool = False,
-                 zoom_tool: bool = False, own: bool = False) -> None:
+                 zoom_tool: bool = False, own: bool = False, log_visible: bool = True) -> None:
         # Absolute, always. The Codex backend runs with cwd == this root and resolves
         # image paths against it, so a relative root silently points nowhere.
         self.root = Path(root).resolve()
@@ -100,10 +104,18 @@ class MultimodalMemory:
         # the earlier views are the episode store's (mfm arm only).
         self.attach_dir = self.root.parent / "attach"
         self.swept = 0
-        self.logs_path = self.root / "logs.txt"
+        # `log_visible=False`: the model's record is episodes/ alone. The log is written
+        # outside the workspace, mode 0200 (the harness appends, nothing reads it), and
+        # made readable by `unlock_log` when the life ends; a `logs.txt` the model makes
+        # is swept like any other file.
+        self.log_visible = bool(log_visible)
+        self.logs_path = (self.root / "logs.txt" if self.log_visible
+                          else self.root.parent / HIDDEN_LOG_DIR / "logs.txt")
 
         self.root.mkdir(parents=True, exist_ok=True)
         self.attach_dir.mkdir(parents=True, exist_ok=True)
+        if self.log and not self.log_visible:
+            self.logs_path.parent.mkdir(parents=True, exist_ok=True)
         if episodes and zoom_tool:
             # The mfm arm's `frames` option: the pixel-level crop tool beside
             # tools/episodes.py.
@@ -111,6 +123,8 @@ class MultimodalMemory:
             self._write_zoom_tool()
         if self.log:
             self.logs_path.touch()
+            if not self.log_visible:
+                self.logs_path.chmod(0o200)
 
         self._plan: str | None = None
         self._pending_briefing: str | None = None
@@ -202,6 +216,8 @@ print(f"wrote {{out}}: {{w}}x{{h}} region at ({{x}},{{y}}), 4x")
         a notes file, a zoomed PNG or a `.git` the model created never survives into the
         next turn in an arm whose protocol does not grant it."""
         keep = set(self.KEEP_BETWEEN_TURNS)
+        if not self.log_visible:
+            keep.discard("logs.txt")
         if self.episodes:
             # `previous/`: the earlier lives' records the mfm arm carries (previous.py).
             keep |= {"episodes", "index.jsonl", "tools", "previous"}
@@ -311,3 +327,11 @@ print(f"wrote {{out}}: {{w}}x{{h}} region at ({{x}},{{y}}), 4x")
         dest = self.root.with_name(self.root.name + suffix)
         shutil.move(str(self.root), str(dest))
         logger.warning(f"[memory] stale workspace moved to {dest}")
+        if not self.log_visible:
+            hidden = self.logs_path.parent
+            shutil.move(str(hidden), str(hidden.with_name(hidden.name + suffix)))
+
+    def unlock_log(self) -> None:
+        """`log_visible=False`: the life is over, the hidden log becomes readable."""
+        if not self.log_visible and self.logs_path.exists():
+            self.logs_path.chmod(0o644)

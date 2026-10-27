@@ -521,6 +521,53 @@ def _no_index_edits(*, images: bool = True, pushed: bool = True) -> dict[str, li
          "  `logs.txt` and `episodes/`, searched with `rg`/`grep` (`skills/memory/SKILL.md`)."),
     ],
     }
+def _no_log_edits(*, images: bool = True, pushed: bool = True) -> dict[str, list[tuple[str, str]]]:
+    """`log=False` (with index=False): the no-index texts with logs.txt taken out -- the
+    record is the episode folders alone. Applied after the no-index edits."""
+    memory = [
+        ("-- the log, the episodes", "-- the episodes"),
+        ("- `logs.txt`: every turn -- `[STATE]` position/pitch/yaw, `[EVENT]` what broke, dropped,\n"
+         "  was crafted or picked up, `[NOTE]` what the runner and your procedures observed,\n"
+         "  `[INV]` inventory changes, `[PLAN]` your own briefings. `grep -n` is the query.\n", ""),
+        ("`ep_NNNNNN` is the `Action N` of the entry's header in `logs.txt`. There is NO index\n"
+         "  and NO query tool in this run: `rg`/`grep` `logs.txt` and `episodes/*/*.json`, or\n"
+         "  write a script.",
+         "`action.json` holds the entry, its `first_step` and, on a plan's first entry, your\n"
+         "  briefing and plan; `outcome.json` holds the notes. There is NO log, NO index and NO\n"
+         "  query tool in this run: `rg`/`grep` `episodes/*/*.json`, or write a script."),
+        ("each with its logs.txt, episodes", "each with its episodes"),
+        ("their logs and episode folders\n  are grep-able like yours; "
+         "`grep -n 'LAVA AHEAD\\|YOU DIED\\|obsidian' previous/life_*/logs.txt` is the",
+         "their episode folders\n  are grep-able like yours; "
+         "`rg -l 'LAVA AHEAD\\|YOU DIED\\|obsidian' previous/life_*/episodes/*/outcome.json` is the"),
+        ("`grep -n 'YOU DIED' logs.txt` and read the [NOTE]/[EVENT] lines of the 60 steps\nbefore it",
+         "`rg -l 'YOU DIED' episodes/*/outcome.json` and read the notes and events of the entries\n"
+         "in the 60 steps before it"),
+        (" `skills/memory/scripts/where_was.py <keyword> [--previous]` is an example of a\n"
+         "memory query written as a script.", ""),
+    ]
+    if images:
+        memory += [("(its folder is the\n`Action N` of the log header)",
+                    "(find it by step or place in\n`episodes/*/state/state.json`)"),
+                   (" the frames of those episodes (their folders are the `Action N` of those log headers),",
+                    " their frames,")]
+    else:
+        memory.append(("(the log keeps it)", "(the entry's `action.json` keeps it)"))
+    harness = [("- There is no index and no `tools/episodes.py` in this run: the record is\n"
+                "  `logs.txt` and `episodes/`, searched with `rg`/`grep` (`skills/memory/SKILL.md`).",
+                "- There is no log, no index and no `tools/episodes.py` in this run: the record is\n"
+                "  `episodes/`, searched with `rg`/`grep` (`skills/memory/SKILL.md`).")]
+    if not pushed:
+        harness.append(("what the last plans did is in `logs.txt` and\n  `episodes/`,",
+                        "what the last plans did is in\n  `episodes/`,"))
+    return {
+        "memory": memory,
+        "harness": harness,
+        "reflexes": [("- Read the state, not the logs: a reflex runs every 4 ticks and has 3 seconds; parsing\n"
+                      "  logs.txt there is how a reflex gets switched off.",
+                      "- Read the state, not the record: a reflex runs every 4 ticks and has 3 seconds; parsing\n"
+                      "  the episode files there is how a reflex gets switched off.")],
+    }
 #: The flat text's line about carried lives, without an index.
 _NO_INDEX_PREVIOUS = ("their `index.jsonl` files are\n  grep-able like yours;",
                       "their logs and episode folders\n  are grep-able like yours;")
@@ -1007,7 +1054,7 @@ work and the do-not list (`skills/harness`). Read both in your first turn.
 def write_skills(root: Path, carried_world: str = "same", installed: bool = False, *,
                  history_images: bool = True, flat_retrieval: bool = False,
                  pushed_memory: bool = True, own_code: bool = True, index: bool = True,
-                 carried_visual: bool = False) -> list[str]:
+                 log: bool = True, carried_visual: bool = False) -> list[str]:
     """Write `skills/` (once, like references/): the four SKILL.md and their example
     scripts (the memory queries and one reflex example). Nothing is installed under mine/:
     the model copies what it wants into mine/ itself. With `installed` the carried lives'
@@ -1050,6 +1097,11 @@ def write_skills(root: Path, carried_world: str = "same", installed: bool = Fals
             text = _ablate(text, no_index_edits[name], f"the {name} skill")
             if name == "memory" and not carried_visual and _NO_INDEX_PREVIOUS[0] in text:
                 text = text.replace(*_NO_INDEX_PREVIOUS)
+        no_log_edits = _no_log_edits(images=history_images, pushed=pushed_memory)
+        if not log and name in no_log_edits:
+            # the no-index text with logs.txt out; where_was.py walks the log
+            text = _ablate(text, no_log_edits[name], f"the {name} skill")
+            scripts = {k: v for k, v in scripts.items() if k != "where_was.py"}
         scripts = {k: ablate_script(k, v, images=history_images, flat=flat_retrieval)
                    for k, v in scripts.items()}
         d = root / SKILLS_DIR / name

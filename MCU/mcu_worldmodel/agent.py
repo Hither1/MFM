@@ -254,6 +254,10 @@ class WorldModelAgent:
         # `index=False`: no index.jsonl anywhere the model reads -- this life's, the
         # carried lives' -- and so no query tool; the record is logs.txt and episodes/.
         index: bool = True,
+        # `log=False` (with index=False): no logs.txt the model can read either; the
+        # record is episodes/ alone, which holds the same plans, states, events and notes.
+        # The log is still written outside the workspace for the analysis.
+        log: bool = True,
         # `carried_visual=True`: the carried lives are visual-only copies
         # (scripts/visual_carry.py: frames and positions, no word of what happened), and
         # the contract and the memory skill say so.
@@ -305,17 +309,21 @@ class WorldModelAgent:
             raise ValueError("index=False already removes the query tool: not with flat_retrieval")
         # no index means no tool: the flat texts, with index.jsonl taken out of them
         self.flat_retrieval = bool(flat_retrieval) or not self.index
+        self.log_visible = bool(log)
+        if not self.log_visible and self.index:
+            raise ValueError("log=False is the no-index record without its log: needs index=False")
         #: The report's name for each record ablation that is on (empty for the full arm).
         self.pushed_memory = bool(pushed_memory)
         self.own_code = bool(own_code)
         self.ablations: list[str] = (([] if self.history_images else ["no_history_images"])
                                      + (["flat_retrieval"] if flat_retrieval else [])
                                      + ([] if self.index else ["no_index"])
+                                     + ([] if self.log_visible else ["no_log"])
                                      + ([] if self.pushed_memory else ["no_pushed_memory"])
                                      + ([] if self.own_code else ["no_own_code"]))
         if not self.own_code and len(self.ablations) > 1:
             raise ValueError("own_code=False is written for the full record (no other ablation)")
-        if not self.index and not set(self.ablations) <= {"no_index", "no_history_images",
+        if not self.index and not set(self.ablations) <= {"no_index", "no_log", "no_history_images",
                                                           "no_pushed_memory"}:
             raise ValueError("index=False goes alone or with history_images/pushed_memory=False")
         self.carried_visual = bool(carried_visual)
@@ -425,7 +433,8 @@ class WorldModelAgent:
 
         self.memory = MultimodalMemory(workspace, direct=memory_mode == "direct",
                                        episodes=memory_mode == "mfm",
-                                       zoom_tool=self.frames, own=self.own)
+                                       zoom_tool=self.frames, own=self.own,
+                                       log_visible=self.log_visible)
         if self.own:
             (self.memory.root / _own.OWN_DIR).mkdir(parents=True, exist_ok=True)
         if self.own_reflexes:
@@ -713,6 +722,8 @@ class WorldModelAgent:
             if self.vista_aligned:
                 # no file tools: the references the other arms read are in the contract
                 contract, refs = prompts.inline_references(contract, refs), {}
+            if refs and not self.log_visible:
+                refs = prompts.no_log_refs(refs)
             if refs:
                 self.memory.write_references(refs)
         if self.skills:
@@ -723,6 +734,7 @@ class WorldModelAgent:
                                            flat_retrieval=self.flat_retrieval,
                                            pushed_memory=self.pushed_memory,
                                            own_code=self.own_code, index=self.index,
+                                           log=self.log_visible,
                                            carried_visual=self.carried_visual)
             logger.info(f"[agent] skills package: {len(written)} file(s) written")
             contract = contract.rstrip() + "\n" + (_skills.SKILLS_NOTE if self.own_code
@@ -738,6 +750,8 @@ class WorldModelAgent:
             contract = prompts.no_own_code(contract)
         if not self.index:
             contract = prompts.no_index(contract)
+        if not self.log_visible:
+            contract = prompts.no_log(contract, images=self.history_images, pushed=self.pushed_memory)
         if self.carried_visual:
             from mcu_worldmodel.previous import MFM_PREVIOUS_NOTE, previous_note_visual
             if contract.count(MFM_PREVIOUS_NOTE) != 1:
@@ -3140,6 +3154,11 @@ class WorldModelAgent:
 
     def _mfm_turn_line(self) -> str:
         """The turn message's one line about the episode record, true for this run."""
+        if not self.log_visible:
+            return ("`episodes/` holds the history, one folder per entry in order (`action.json`, "
+                    "`state/state.json`, `outcome.json`); `rg` it"
+                    + ("; `view_image` opens a frame.\n" if self.history_images
+                       else " (no frames are kept in this run).\n"))
         if not self.index:
             return ("`episodes/` holds the same history, one folder per entry (`ep_NNNNNN` is the "
                     "`Action N` of its log header); `rg` it"
@@ -3623,8 +3642,11 @@ class WorldModelAgent:
             expect = self._expect_block() if (self.expect and self.pushed_memory) else ""
             working = self._working_block() if self.pushed_memory else ""
             return head + (expect + "\n\n" if expect else "") + (working + "\n\n" if working else "") + (
-                "Your memory is `./logs.txt` -- grep it for anything before this call: "
-                "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
+                ("Your memory is `./logs.txt` -- grep it for anything before this call: "
+                 "earlier plans, [STATE] history, [EVENT] lines, your own notes.\n"
+                 if self.memory.log_visible else
+                 "Your memory is `episodes/` -- grep `episodes/*/*.json` for anything before this "
+                 "call: earlier plans, states, events, your own notes.\n")
                 + (self._mfm_turn_line() if self.memory_mode == "mfm" else "")
                 + "The current view is attached.\n"
                 "Write ./actions.json."

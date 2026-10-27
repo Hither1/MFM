@@ -1274,6 +1274,60 @@ def no_index(contract: str) -> str:
     return contract
 
 
+#: `log=False` (agent.py, with index=False): the no-index contract with logs.txt taken
+#: out -- the record is the episode folders alone. `images`/`pushed` as set for the run:
+#: the look clause exists only with frames, the unpushed clause only without the blocks.
+def no_log(contract: str, *, images: bool = True, pushed: bool = True) -> str:
+    edits = [
+        ("**Memory.** `./logs.txt` and `episodes/` (one folder per entry; `ep_NNNNNN` is the\n"
+         "`Action N` of its log header) are the complete record of this life; there is no index\n"
+         "and no query tool in this run -- `rg`/`grep` them the way you grep the log;",
+         "**Memory.** `episodes/` (one folder per entry, `ep_NNNNNN` in order) is the complete\n"
+         "record of this life; there is no log, no index and no query tool in this run --\n"
+         "`rg`/`grep` `episodes/*/*.json` (your plans, states, events and notes);"),
+        ("to read the log and the episode folders;", "to read the episode folders;"),
+    ]
+    if images:
+        edits.append((" The log knows where; the frame\nknows what:", " The record knows where; the frame\nknows what:"))
+    if not pushed:
+        edits.append(("what the\nlast plan did is in `logs.txt` and `episodes/`,", "what the\nlast plan did is in `episodes/`,"))
+    for old, new in edits:
+        if contract.count(old) != 1:
+            raise ValueError(f"log=False: the contract drifted: {old[:60]!r}")
+        contract = contract.replace(old, new)
+    return contract
+
+
+#: `log=False`: the references that name logs.txt. (file, old, new); each old text
+#: occurs exactly once in its file.
+_NO_LOG_REFS = (
+    ("gui.md",
+     "The [INV] and [EVENT] lines in `logs.txt` are the ground truth\n"
+     "   for what a click did: **no [INV] line and no `craft_item`/`pickup` event means the\n"
+     "   click changed nothing**",
+     "The `inventory_delta` and `events` in the entry's `outcome.json` are the ground truth\n"
+     "   for what a click did: **no inventory change and no `craft_item`/`pickup` event means the\n"
+     "   click changed nothing**"),
+    ("own.md", "- it may read `logs.txt`, `grid.jsonl`, `episodes/` and your own",
+     "- it may read `grid.jsonl`, `episodes/` and your own"),
+    ("own.md", "instead of\nfrom the log.", "instead of\nfrom the record."),
+    ("own.md", "read the state, not the logs.", "read the state, not the record."),
+    ("skills.md", "harness writes your briefing and [PLAN] into `logs.txt`, and that is the only place it",
+     "harness writes your briefing and [PLAN] into the entry's `action.json`, and that is the only place it"),
+    ("skills.md", "Grep the log for your own earlier\nbriefings",
+     "Grep `episodes/*/action.json` for your own earlier\nbriefings"),
+)
+
+
+def no_log_refs(refs: dict[str, str]) -> dict[str, str]:
+    refs = dict(refs)
+    for name, old, new in _NO_LOG_REFS:
+        if refs.get(name, "").count(old) != 1:
+            raise ValueError(f"log=False: references/{name} drifted: {old[:60]!r}")
+        refs[name] = refs[name].replace(old, new)
+    return refs
+
+
 #: survival.md's one line about the model's reflexes, for `own_code=False`.
 NO_OWN_CODE_SURVIVAL = ("Your reflexes are quiet while a\n  screen is open: at the lake never pour",
                         "At the lake never pour")
