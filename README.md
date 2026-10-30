@@ -6,20 +6,19 @@
 
 ## Overview
 
-A long-horizon agent must keep its experience and use it again much later. A complete
-history is difficult to search. A summary is easy to search, but it can lose the visual
-and spatial details that the agent needs later.
+Long-horizon agents need to retain experience over tens of thousands of steps and recall
+the right details much later. Full frame histories are difficult to search, while text
+summaries strip away visual and spatial details that only prove important later.
 
-MFM keeps the memory of the agent as a directory of files. The harness records what
-occurs: the frames, the states, the actions and their outcomes. An index connects each
-record to its time, its place and its contents. The agent searches the index with
-programs. When the text is not sufficient, the agent opens the original frames. The
-agent writes what it learns as notes, scripts and plans in the same directory, with
-references to the records that show them. The next task, or the next life in the same
-world, starts with this memory.
+MFM stores an agent's memory as an ordinary directory of files. For every action, the
+harness records an episode (the frame, state, action, and outcome) alongside a
+lightweight text index of when, where, and what happened. The agent queries this index
+with simple command-line tools and opens the original frames whenever text alone is not
+enough. In the same directory, it writes its own semantic notes, reusable procedures, and
+working plans, citing the episodes behind them. When a life or task ends, this folder
+carries over to the next life or even a fresh agent.
 
-This repository contains MFM and the direct baseline (no persistent memory) on two
-benchmarks:
+This repository provides MFM and the memory-free baseline (`direct`) on two benchmarks:
 
 - **MCU-AgentBeats** (Minecraft): Mine Diamond from Scratch, Ender Dragon, and the Nether
   portal case study.
@@ -38,7 +37,9 @@ Results with GPT-6-Astra (mean of 3 seeds):
 The Minecraft results of MFM in this table used the `mfm-atoms` arm (see
 [Run](#minecraft)).
 
-The code of the other baselines in the paper (PRO-LONG, VISTA) is not in this repository.
+The code of the other baselines in the paper (PRO-LONG, VISTA) is not in this repository. Neither
+are the task setups of Section 5: the three short tasks with carried skills, and the ore
+tasks in which fresh agents start from part of an earlier agent's memory of a world.
 
 ## How MFM works
 
