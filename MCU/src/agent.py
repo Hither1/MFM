@@ -77,7 +77,7 @@ class Agent:
         # milestones with the search handed over -- mobs summoned at the spawn, drops
         # given, or a start on the End's arrival platform (their task configs).
         "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail", "dragon_tail",
-        "enderman_flat", "enderman_diamond", "dragon_diamond", "stronghold_tail",
+        "enderman_flat", "enderman_diamond", "dragon_diamond", "stronghold_tail", "dragon_respawn", "nether_search",
         # their instrument: one fenced cow, the kill rule alone (not a probe)
         "kill_check", "death_check", "stare_check", "edge_check", "fortress_look",
     }
@@ -94,7 +94,7 @@ class Agent:
                             "coal_torches_vein", "flint_steel", "reach_marker",
                             "blaze_tail", "enderman_tail", "eye_craft_tail", "end_stone_tail",
                             "dragon_tail", "enderman_flat", "enderman_diamond", "dragon_diamond",
-                            "stronghold_tail"}
+                            "stronghold_tail", "dragon_respawn", "nether_search"}
 
     # How long a purple agent may take to answer one observation before the step is
     # filled with a noop. Reactive policies answer in milliseconds, but a planning

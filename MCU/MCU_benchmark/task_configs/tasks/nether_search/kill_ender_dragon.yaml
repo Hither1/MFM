@@ -1,0 +1,223 @@
+# The Nether SEARCH alone (2026-11-21, the --frontier test): every Nether life of the dragon
+# chain died or turned back within ~70 blocks of its spawn-linked portal exit (-374, 50, -685);
+# the nearest fortress /locate names is ~490 blocks SW, at (-608, -256), and one life found
+# another ~270 blocks NE, near (-232, -919). Here the avatar starts at that exit with the
+# fortress task's kit (shield, iron armour, food), and the respawn point is set there, so one
+# death does not end the search in the Overworld. Nothing about where a fortress is is said.
+# 2026-11-24: the start moved from the exit cell (-374, 50, -685), 3 blocks from the drop to the
+# lava sea, to the plateau cell farthest from any drop (-363, 47, -679; 10 blocks; scan
+# nether_search_probe/plateau.py), facing east, away from the nearest edge. In the first
+# wave one life walked off the exit cell's edge on its first plan and burned the whole kit.
+# The 24 rules are ender_dragon's; the sixteen through netherrack are given, settled.
+custom_init_commands:
+- /give @a minecraft:diamond_pickaxe 1
+- /give @a minecraft:diamond_sword 1
+- /give @a minecraft:iron_pickaxe 1
+- /give @a minecraft:flint_and_steel 1
+- /give @a minecraft:obsidian 12
+- /give @a minecraft:crafting_table 1
+- /give @a minecraft:cobblestone 64
+- /give @a minecraft:cobblestone 64
+- /give @a minecraft:cooked_beef 16
+- /give @a minecraft:torch 12
+- /give @a minecraft:diamond 2
+- /give @a minecraft:bucket 1
+- /give @a minecraft:furnace 1
+- /give @a minecraft:coal 6
+- /give @a minecraft:stick 1
+- /give @a minecraft:spruce_planks 9
+- /replaceitem entity @s weapon.offhand minecraft:shield
+- /replaceitem entity @s armor.head minecraft:iron_helmet
+- /replaceitem entity @s armor.chest minecraft:iron_chestplate
+- /replaceitem entity @s armor.legs minecraft:iron_leggings
+- /replaceitem entity @s armor.feet minecraft:iron_boots
+- /execute in minecraft:the_nether run forceload add -390 -700 -358 -668
+- /execute in minecraft:the_nether run tp @s -362.5 47 -678.5 -90 0
+- /execute in minecraft:the_nether run spawnpoint @s -363 47 -679
+- /execute in minecraft:the_nether run forceload remove -390 -700 -358 -668
+defaults:
+- base
+- _self_
+text: 'Defeat the Ender Dragon. The first part of the journey is already done: earlier lives of yours
+  in this same world went from wood to the diamond pickaxe and sword, mined obsidian, lit a portal and
+  reached the Nether; milestones 1-16 (through netherrack) are counted with those lives and nothing
+  asks for them again: this life is for the eight after them. You stand in the Nether at (-363, 47,
+  -679), a few blocks from where those lives came out of their portal; no portal stands here now. None of them ever saw
+  a nether fortress. You carry the diamond pickaxe and sword, an iron pickaxe, a flint and steel, 12
+  obsidian, a crafting table, 128 cobblestone, 16 cooked beef, 12 torches, 2 diamonds, a bucket, a
+  furnace, 6 coal, a stick and 9 planks, a shield in your off hand, and you wear iron armour. Your
+  respawn point is set here: if you die you come back to this spot, and what you carried and wore
+  lies where you died. Continue from here: blaze rods, ender pearls, blaze powder, eyes of ender, a
+  stronghold, and conquer The End.'
+milestone_reward_cfg:
+- event: mine_block
+  identity: mine_log
+  objects:
+  - log
+  - oak_log
+  - birch_log
+  - spruce_log
+  - jungle_log
+  - acacia_log
+  - dark_oak_log
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: crafting_table
+  objects:
+  - crafting_table
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: wooden_pickaxe
+  objects:
+  - wooden_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_cobblestone
+  objects:
+  - cobblestone
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: stone_pickaxe
+  objects:
+  - stone_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_iron_ore
+  objects:
+  - iron_ore
+  - deepslate_iron_ore
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: furnace
+  objects:
+  - furnace
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: iron_ingot
+  objects:
+  - iron_ingot
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: iron_pickaxe
+  objects:
+  - iron_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_diamond_ore
+  objects:
+  - diamond_ore
+  - deepslate_diamond_ore
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: diamond
+  objects:
+  - diamond
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: diamond_pickaxe
+  objects:
+  - diamond_pickaxe
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: diamond_sword
+  objects:
+  - diamond_sword
+  reward: 1.0
+  max_reward_times: 1
+- event: mine_block
+  identity: mine_obsidian
+  objects:
+  - obsidian
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: flint_and_steel
+  objects:
+  - flint_and_steel
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: netherrack
+  objects:
+  - netherrack
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_blaze
+  objects:
+  - blaze
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: blaze_rod
+  objects:
+  - blaze_rod
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_enderman
+  objects:
+  - enderman
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: ender_pearl
+  objects:
+  - ender_pearl
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: blaze_powder
+  objects:
+  - blaze_powder
+  reward: 1.0
+  max_reward_times: 1
+- event: craft_item
+  identity: eye_of_ender
+  objects:
+  - ender_eye
+  reward: 1.0
+  max_reward_times: 1
+- event: pickup
+  identity: end_stone
+  objects:
+  - end_stone
+  reward: 1.0
+  max_reward_times: 1
+- event: kill_entity
+  identity: kill_ender_dragon
+  objects:
+  - ender_dragon
+  reward: 1.0
+  max_reward_times: 1
+given_milestones:
+- mine_log
+- crafting_table
+- wooden_pickaxe
+- mine_cobblestone
+- stone_pickaxe
+- mine_iron_ore
+- furnace
+- iron_ingot
+- iron_pickaxe
+- mine_diamond_ore
+- diamond
+- diamond_pickaxe
+- diamond_sword
+- mine_obsidian
+- flint_and_steel
+- netherrack
+given_settled: true
+world_seed: 0

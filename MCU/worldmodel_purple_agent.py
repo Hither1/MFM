@@ -90,7 +90,9 @@ class WorldModelExecutor(AgentExecutor):
         install_carried: bool = False,
         install_scripts: list[str] | None = None,
         start_dimension: str | None = None,
+        respawn_dimension: str | None = None,
         near_deaths: bool = False,
+        frontier: bool = False,
         vista_aligned: bool = False,
         model_step_budget: int | None = None,
         turn_budget: int | None = None,
@@ -132,7 +134,9 @@ class WorldModelExecutor(AgentExecutor):
         self.install_carried = install_carried
         self.install_scripts = install_scripts
         self.start_dimension = start_dimension
+        self.respawn_dimension = respawn_dimension
         self.near_deaths = bool(near_deaths)
+        self.frontier = bool(frontier)
         self.vista_aligned = bool(vista_aligned)
         self.model_step_budget = model_step_budget
         self.turn_budget = turn_budget
@@ -238,7 +242,9 @@ class WorldModelExecutor(AgentExecutor):
             **({"install_carried": True} if self.install_carried else {}),
             **({"install_scripts": list(self.install_scripts)} if self.install_scripts else {}),
             **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
+            **({"respawn_dimension": self.respawn_dimension} if self.respawn_dimension else {}),
             **({"near_deaths": True} if self.near_deaths else {}),
+            **({"frontier": True} if self.frontier else {}),
             **({"vista_aligned": True} if self.vista_aligned else {}),
             **({"model_step_budget": self.model_step_budget}
                if self.model_step_budget is not None else {}),
@@ -582,6 +588,14 @@ def main() -> None:
                       help="where the task config puts the avatar at reset (the engine's "
                            "biome id cannot tell); end_stone_tail and dragon_tail start "
                            "in the End")
+    live.add_argument("--respawn-dimension", choices=("overworld", "nether", "end"), default=None,
+                      help="where a death respawns when the task config moved the respawn "
+                           "point (dragon_respawn: the End's arrival platform); absent, a "
+                           "death puts the harness back in the Overworld, as shipped")
+    live.add_argument("--frontier", action="store_true",
+                      help="mfm arm: the cell map also keeps the ground SEEN per dimension and "
+                           "where it ends along eight bearings from the arrival cell; [MAP] "
+                           "names the unseen bearings, grid.jsonl gets `coverage` rows")
     live.add_argument("--near-deaths", action="store_true",
                       help="name a death whose respawn is close to where it happened: the "
                            "YOU DIED note is otherwise written only for a respawn 15+ blocks "
@@ -726,7 +740,9 @@ def main() -> None:
         carried_world=args.carried_world,
         install_carried=args.install_carried,
         install_scripts=args.install_scripts,
-        start_dimension=args.start_dimension, near_deaths=args.near_deaths,
+        start_dimension=args.start_dimension, respawn_dimension=args.respawn_dimension,
+        near_deaths=args.near_deaths,
+        frontier=args.frontier,
         vista_aligned=args.vista_aligned,
         model_step_budget=args.model_step_budget,
         turn_budget=args.turn_budget,

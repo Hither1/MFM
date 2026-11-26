@@ -45,6 +45,17 @@ NEAR_LAVA = 12.0
 #: A walked column at least this many consecutive levels deep under the cell ahead is an
 #: open shaft (grid.drop_ahead); a fall of 4+ blocks hurts, of 23+ kills.
 SHAFT_MIN_DROP = 4
+#: `frontier` (off by default): ground counts as SEEN when it lies within this many blocks
+#: (x, z) of a cell the avatar walked in the same dimension. An approximation -- a tunnel
+#: sees less, a plateau more -- kept coarse on purpose: tiles of TILE x TILE columns.
+SEEN_R = 24
+TILE = 8
+#: The eight bearings, with the yaw that faces them (+x is -sin yaw, +z is cos yaw).
+BEARINGS = (("N", 0.0, -1.0, 180), ("NE", 0.7071, -0.7071, -135), ("E", 1.0, 0.0, -90),
+            ("SE", 0.7071, 0.7071, -45), ("S", 0.0, 1.0, 0), ("SW", -0.7071, 0.7071, 45),
+            ("W", -1.0, 0.0, 90), ("NW", -0.7071, -0.7071, 135))
+#: Rays from the arrival cell stop here: past it a bearing is reported as seen to the cap.
+RAY_CAP = 1024
 
 
 def cell_of(pos: dict[str, float] | None) -> Cell | None:
@@ -93,8 +104,17 @@ class Grid:
     #: air. Standing ticks always record, so the landing cell is on the map.
     FALL_DY = 0.3
 
-    def __init__(self, path: Path | str | None = None) -> None:
+    def __init__(self, path: Path | str | None = None, frontier: bool = False) -> None:
         self.path = Path(path) if path else None
+        #: `frontier`: also keep, per dimension, which ground has been SEEN (SEEN_R around
+        #: the walked cells) and where it ends along eight bearings from the dimension's
+        #: arrival cell -- i.e. where the avatar has NOT been. Walked rows then carry
+        #: their dimension; off, grid.jsonl is byte-identical to before.
+        self.frontier = bool(frontier)
+        self.seen: dict[str, set[tuple[int, int]]] = {}     # dim -> seen tiles
+        self.walked_tiles: dict[str, set[tuple[int, int]]] = {}
+        self.anchor: dict[str, Cell] = {}                     # dim -> first walked cell
+        self._coverage_emitted: dict[str, int] = {}           # dim -> tiles at last row
         self.walked: dict[Cell, dict[str, Any]] = {}     # cell -> {first, last, n}
         self.floor: set[Cell] = set()
         self.blocked: dict[Cell, int] = {}               # cell -> last step
@@ -127,8 +147,10 @@ class Grid:
         except OSError:
             pass
 
-    def observe(self, step: int, pos: dict[str, float] | None) -> None:
-        """One tick's position: the feet cell is walked, the cell under it is floor."""
+    def observe(self, step: int, pos: dict[str, float] | None, dim: str | None = None) -> None:
+        """One tick's position: the feet cell is walked, the cell under it is floor.
+        `dim` (frontier only): the dimension the feet are in; None = not known yet (a
+        staged start before its teleport), and the cell then counts toward no coverage."""
         c = cell_of(pos)
         if c is None:
             return
@@ -136,6 +158,10 @@ class Grid:
         last, self._last_pos = self._last_pos, (int(step), y)
         if last is not None and int(step) - last[0] <= 2 and last[1] - y > self.FALL_DY:
             return                                      # mid-air: not ground anyone stood on
+        if self.frontier and dim and dim not in self.anchor:
+            # the first tick known to be in `dim` anchors it, standing still or not
+            self._see(dim, c)
+            self._emit("anchor", step=int(step), cell=list(c), dim=dim)
         rec = self.walked.get(c)
         if rec is None:
             self.walked[c] = {"first": int(step), "last": int(step), "n": 1}
@@ -155,8 +181,96 @@ class Grid:
                 self.edges.setdefault(last, set()).add(c)
                 self.edges.setdefault(c, set()).add(last)
             self.trail.append((int(step), c))
-            self._emit("walked", step=int(step), cell=list(c))
+            if self.frontier and dim:
+                self._see(dim, c)
+                self._emit("walked", step=int(step), cell=list(c), dim=dim)
+            else:
+                self._emit("walked", step=int(step), cell=list(c))
             self._last_cell = c
+
+    # ---------------- frontier: where the avatar has not been ----------------
+
+    @staticmethod
+    def _tile(x: float, z: float) -> tuple[int, int]:
+        return (int(math.floor(x / TILE)), int(math.floor(z / TILE)))
+
+    def _see(self, dim: str, c: Cell) -> None:
+        self.anchor.setdefault(dim, c)
+        wt = self.walked_tiles.setdefault(dim, set())
+        t = self._tile(c[0], c[2])
+        if t in wt:
+            return
+        wt.add(t)
+        seen = self.seen.setdefault(dim, set())
+        cx, cz = (t[0] + 0.5) * TILE, (t[1] + 0.5) * TILE
+        k = SEEN_R // TILE + 1
+        for i in range(t[0] - k, t[0] + k + 1):
+            for j in range(t[1] - k, t[1] + k + 1):
+                if math.hypot((i + 0.5) * TILE - cx, (j + 0.5) * TILE - cz) <= SEEN_R:
+                    seen.add((i, j))
+
+    def is_seen(self, dim: str, x: float, z: float) -> bool:
+        return self._tile(x, z) in self.seen.get(dim, ())
+
+    def coverage(self, dim: str) -> dict[str, Any] | None:
+        """Along each of eight bearings from the dimension's arrival cell, how far the seen
+        ground runs unbroken and the first unseen point; None before any walked cell."""
+        a = self.anchor.get(dim)
+        if a is None:
+            return None
+        ax, az = a[0] + 0.5, a[2] + 0.5
+        rays = {}
+        for name, ux, uz, yaw in BEARINGS:
+            d = 0
+            while d < RAY_CAP and self.is_seen(dim, ax + ux * d, az + uz * d):
+                d += TILE // 2
+            rays[name] = {"seen_to": d, "yaw": yaw,
+                          "unseen_at": None if d >= RAY_CAP else
+                          [int(round(ax + ux * d)), int(round(az + uz * d))]}
+        return {"dim": dim, "anchor": list(a), "tiles": len(self.seen.get(dim, ())),
+                "walked_tiles": len(self.walked_tiles.get(dim, ())), "rays": rays}
+
+    def note_coverage(self, step: int, dim: str | None) -> dict[str, Any] | None:
+        """A `coverage` row in grid.jsonl for `dim` when its seen ground grew since the
+        last row (once per turn at most: the caller is the turn prompt)."""
+        if not self.frontier or not dim:
+            return None
+        cov = self.coverage(dim)
+        if cov is None or self._coverage_emitted.get(dim) == cov["tiles"]:
+            return cov
+        self._coverage_emitted[dim] = cov["tiles"]
+        self._emit("coverage", step=int(step), dim=dim, anchor=cov["anchor"],
+                   tiles=cov["tiles"],
+                   seen_to={k: r["seen_to"] for k, r in cov["rays"].items()},
+                   unseen_at={k: r["unseen_at"] for k, r in cov["rays"].items()})
+        return cov
+
+    def frontier_lines(self, pos: dict[str, float] | None, dim: str | None) -> list[str]:
+        """The [MAP] lines that say where the avatar has NOT been in this dimension."""
+        if not self.frontier or not dim:
+            return []
+        cov = self.coverage(dim)
+        here = cell_of(pos)
+        if cov is None or here is None:
+            return []
+        a = tuple(cov["anchor"])
+        rays = cov["rays"]
+        parts = []
+        for name, r in rays.items():
+            u = r["unseen_at"]
+            parts.append(f"{name} {r['seen_to']}" + (f" -> ({u[0]}, {u[1]})" if u else "+"))
+        short = [n for n, r in rays.items() if r["seen_to"] <= SEEN_R + TILE]
+        out = [f"- Seen ground in {dim} (approximate: tiles within {SEEN_R} blocks of a cell "
+               f"you walked there; {cov['tiles']} tiles of {TILE}x{TILE}): from your arrival "
+               f"cell {a} ({xz_dist(here, a):.0f} blocks from you), the seen ground runs, "
+               f"by bearing (N = -z, E = +x), blocks -> first unseen point: "
+               + "; ".join(parts) + "."]
+        if short:
+            out.append(f"- Never seen more than {SEEN_R + TILE} blocks from the arrival cell, "
+                       f"along: {', '.join(short)} (yaw "
+                       + ", ".join(str(rays[n]['yaw']) for n in short)
+                       + "). `coverage` rows in grid.jsonl hold every update.")
+        return out
 
     def mark_blocked(self, step: int, pos: dict[str, float] | None) -> Cell | None:
         c = _ahead(pos) if pos else None
@@ -391,8 +505,8 @@ class Grid:
 
     # ---------------- the [MAP] block ----------------
 
-    def summary(self, pos: dict[str, float] | None, step: int, max_lines: int = 6
-                ) -> str:
+    def summary(self, pos: dict[str, float] | None, step: int, max_lines: int = 6,
+                dim: str | None = None) -> str:
         """Five or six lines the model can act on; "" before the first position."""
         here = cell_of(pos)
         if here is None or not self.walked:
@@ -448,7 +562,8 @@ class Grid:
         if bl:
             lines.append(f"- Walks stalled beside you at {bl[:3]}: those cells are solid "
                          f"or a drop; `go_to` now detours over walked cells by itself.")
-        return "\n".join(lines[:max_lines])
+        fr = self.frontier_lines(pos, dim)
+        return "\n".join(lines[:max_lines] + fr)
 
     # ---------------- persistence ----------------
 
@@ -486,6 +601,12 @@ class Grid:
                     self.edges.setdefault(cell, set()).add(last)
                 self.trail.append((step, cell))
                 self._last_cell = cell
+                if self.frontier and r.get("dim"):
+                    self._see(str(r["dim"]), cell)
+            elif kind == "anchor" and cell and r.get("dim") and self.frontier:
+                self._see(str(r["dim"]), cell)
+            elif kind == "coverage" and r.get("dim"):
+                self._coverage_emitted[str(r["dim"])] = int(r.get("tiles", -1))
             elif kind == "blocked" and cell:
                 self.blocked[cell] = step
             elif kind == "water" and cell:
@@ -508,4 +629,8 @@ class Grid:
         return {"walked": len(self.walked), "blocked": len(self.blocked),
                 "water": len(self.water), "lava": len(self.lava),
                 "hazard": len(self.hazard), "placed": sorted(self.placed),
-                "opened": sorted(self.opened), "events": self.events}
+                "opened": sorted(self.opened), "events": self.events,
+                **({"frontier": {d: {"tiles": len(t), "walked_tiles": len(self.walked_tiles.get(d, ())),
+                                     "seen_to": {k: r["seen_to"] for k, r in
+                                                 (self.coverage(d) or {}).get("rays", {}).items()}}
+                                 for d, t in sorted(self.seen.items())}} if self.frontier else {})}

@@ -217,6 +217,9 @@ class WorldModelAgent:
         # `start_dimension`: where the task config put the avatar at reset (the engine's
         # biome id reads 0 everywhere).
         start_dimension: str | None = None,
+        # `respawn_dimension`: where a death respawns when the task config moved the
+        # respawn point (dragon_respawn); None = the Overworld, as shipped.
+        respawn_dimension: str | None = None,
         # `own_live` (mcu_worldmodel/own.py, the closed-loop section; on in the mfm arm):
         # a procedure script that declares `LOOP = True` is run DURING the plan on the
         # live state and the live frame, and the reflexes get the frame too.
@@ -224,6 +227,11 @@ class WorldModelAgent:
         # `--near-deaths`: name a death whose respawn is close to where it happened
         # (`_respawned_here`). Off: a death is named by its teleport alone, as shipped.
         near_deaths: bool = False,
+        # `--frontier` (grid.py): the cell map also keeps, per dimension, the ground SEEN
+        # around the walked cells and where it ends along eight bearings from the
+        # dimension's arrival cell; [MAP] says so and grid.jsonl gets `coverage` rows.
+        # Off: the map, its file and its [MAP] lines are as shipped.
+        frontier: bool = False,
         # `--vista-aligned` (mcu_worldmodel/vista.py): the vista arm's interface on the
         # other arms' terms -- a `play` runs a plan at their caps, the references are in
         # its contract, the checkpoint handoff fires where their CLI compacts. Its memory
@@ -373,6 +381,10 @@ class WorldModelAgent:
             raise ValueError(f"unknown start_dimension: {start_dimension!r} "
                              f"({'|'.join(_DIMENSION)})")
         self.start_dimension = _DIMENSION.get(start_dimension)
+        if respawn_dimension is not None and respawn_dimension not in _DIMENSION:
+            raise ValueError(f"unknown respawn_dimension: {respawn_dimension!r} "
+                             f"({'|'.join(_DIMENSION)})")
+        self.respawn_dimension = _DIMENSION.get(respawn_dimension)
         self._own_procs: dict[str, Any] = {}
         self._own_calls: dict[str, int] = {}
         #: Running ledger counts an own entry's scorecard is cut from (own.RECORD_FILE).
@@ -389,6 +401,10 @@ class WorldModelAgent:
                              "needs the mfm arm (own, minimal)")
         self.own_live = bool(own_live) and self.own_code
         self.near_deaths = bool(near_deaths)
+        self.frontier = bool(frontier)
+        if self.frontier and not (memory_mode == "mfm" and pushed_memory):
+            raise ValueError("frontier speaks through the pushed [MAP] block: it needs the "
+                             "mfm arm with pushed memory")
         #: closed loops run this life: name -> {"entries", "calls", "ticks"}
         self._own_loops: dict[str, dict[str, int]] = {}
         self._own_reflexes: dict[str, Any] = {}
@@ -542,7 +558,8 @@ class WorldModelAgent:
         # opened from, water/lava/hazard cells. Beside the log in every arm that
         # keeps one; the direct arm keeps it in memory only (no file, no prompt
         # surface -- its only past is the present).
-        self.grid = Grid((self.memory.root / "grid.jsonl") if self.memory.log else None)
+        self.grid = Grid((self.memory.root / "grid.jsonl") if self.memory.log else None,
+                         **({"frontier": True} if self.frontier else {}))
         # Frames at this turn's events (a hit, LAVA AHEAD, a stalled walk, a failed
         # re-open): tiled into one sheet and attached beside the current view.
         self._event_frames: list[tuple[int, str, Any]] = []
@@ -794,6 +811,12 @@ class WorldModelAgent:
         if self.vista:
             self.vista.start(info, self._encode_pov(info.get("pov"), 0))
         self._prev_pos = pos
+        if self.start_dimension:
+            # A staged start: the first frame is the Overworld spawn and the task's
+            # teleport lands a tick later. Holding this position is what lets `observe`
+            # see that jump and write the arrival note (nether_search, 11-21: without it
+            # the note never fired in six lives).
+            self._cur_pos = pos
         self._spawn_pos = dict(pos) if pos else None
         self._cur_inv = inventory_counts(info)
         self._empty_slot = _first_empty_slot(info)
@@ -966,7 +989,7 @@ class WorldModelAgent:
                 self._reflex = None
                 self._last_bunker = None
                 self._hp_hist.clear()
-                self._dimension = "the Overworld"
+                self._dimension = self.respawn_dimension or "the Overworld"
             elif (self.near_deaths and (hp is None or hp >= 19.0)
                   and self._respawned_here(prev, pos, info)):
                 # The same death, without the teleport that names it above: the avatar
@@ -987,7 +1010,7 @@ class WorldModelAgent:
                 self._reflex = None
                 self._last_bunker = None
                 self._hp_hist.clear()
-                self._dimension = "the Overworld"
+                self._dimension = self.respawn_dimension or "the Overworld"
         if hp is not None:
             self._hp_hist.append((step, hp))
             while self._hp_hist and step - self._hp_hist[0][0] > 100:
@@ -1417,7 +1440,10 @@ class WorldModelAgent:
         self._prev_pos = pos
         self._cur_pos = pos
         self._cur_info = info
-        self.grid.observe(step, pos)
+        if self.frontier:
+            self.grid.observe(step, pos, self._frontier_dim(step))
+        else:
+            self.grid.observe(step, pos)
         self._prev_pov = self._last_pov
         self._last_pov = info.get("pov")
         self._lava_guard(step, pos)
@@ -1587,6 +1613,15 @@ class WorldModelAgent:
                             f"by step {self.step}: coasting on no-ops to episode end")
             self.cursor_stats["completion_hold"] = (
                 self.cursor_stats.get("completion_hold", 0) + 1)
+            return noop()
+        if self.start_dimension and not self._arrived and self.step <= self.ARRIVAL_WAIT:
+            # A staged start: no turn is planned on the pre-teleport Overworld frame.
+            # nether_search (11-21): all six lives' first plan "corrected" the task text
+            # to the forest it showed, and one walked off the start plateau into the lava
+            # sea with the whole kit (step 165). The first turn waits for the arrival, or
+            # for ARRIVAL_WAIT steps when the first observed frame is already the
+            # destination and no jump is ever seen.
+            self.cursor_stats["arrival_wait"] = self.cursor_stats.get("arrival_wait", 0) + 1
             return noop()
         if self._reflex is not None:
             action = self._reflex_tick(mk_act)
@@ -3611,7 +3646,12 @@ class WorldModelAgent:
             # [RECENT] and [MAP] are the MFM arms' (mfm, mfm-matched); the logbook arm
             # reads its past from logs.txt alone
             recent = self._recent_block()
-            map_block = self.grid.summary(pos, self.step)
+            if self.frontier:
+                fdim = self._frontier_dim(self.step)
+                self.grid.note_coverage(self.step, fdim)
+                map_block = self.grid.summary(pos, self.step, dim=fdim)
+            else:
+                map_block = self.grid.summary(pos, self.step)
             head += ((recent + "\n\n") if recent else "") + (
                 "[MAP] what the runner knows for certain from this life's own positions "
                 "and events (exact unless marked a sighting):\n" + map_block + "\n\n"
@@ -3747,6 +3787,9 @@ class WorldModelAgent:
             if d:
                 bits.append(f"{item} {d:+d}")
         return ", ".join(bits)
+
+    #: staged starts: steps the first turn waits for the start teleport to be seen
+    ARRIVAL_WAIT = 5
 
     NETHER_MOVE_KEYS = ("forward", "back", "left", "right")
 
@@ -4128,6 +4171,14 @@ class WorldModelAgent:
                   "with NO arguments use them exactly. Do not walk into it and do not walk "
                   "around it -- pour from where you stand; lava ends a run in seconds.")
 
+    def _frontier_dim(self, step: int) -> str | None:
+        """The dimension the feet are in, for the frontier map; None while a staged start
+        may still show the Overworld spawn (the first frames, before the start teleport is
+        seen). A staged start whose FIRST observed frame is already the destination
+        (nether_search, job 62642927) never shows the jump: past step 5 the start
+        dimension is where the avatar is."""
+        return self._dimension if (self._arrived or step > 5) else None
+
     # -- reporting --------------------------------------------------------
 
     def report(self) -> dict[str, Any]:
@@ -4155,9 +4206,11 @@ class WorldModelAgent:
                                 "spent_at_step": self._budget_spent_at}}
                if self.model_step_budget is not None or self.turn_budget is not None else {}),
             **({"start_dimension": self.start_dimension} if self.start_dimension else {}),
+            **({"respawn_dimension": self.respawn_dimension} if self.respawn_dimension else {}),
             **({"own_live": True, "own_loops": {k: dict(v) for k, v in self._own_loops.items()}}
                if self.own_live else {}),
             **({"near_deaths": True} if self.near_deaths else {}),
+            **({"frontier": True} if self.frontier else {}),
             **({"skills": True} if self.skills else {}),
             **({"harness_reflexes": False} if not self.reflexes else {}),
             **({"minimal": True} if self.minimal else {}),

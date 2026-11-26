@@ -119,6 +119,8 @@ fi
 task_extra() {
     case "$1" in
         end_stone_tail|dragon_tail|dragon_diamond) echo "--start-dimension end";;
+        dragon_respawn) echo "--start-dimension end --respawn-dimension end";;
+        nether_search) echo "--start-dimension nether --respawn-dimension nether";;
         # a start teleport inside the Overworld is an arrival too, not a death (job 50998371)
         stronghold_tail) echo "--start-dimension overworld";;
         *) ;;
@@ -141,6 +143,8 @@ last_carry() {   # task
 row_opts() {   # row task
     case "$1" in
         none)   echo "--";;
+        # none + the --frontier cell map (grid.py: where the avatar has NOT been)
+        frontier) echo "-- --frontier";;
         carry)  lived "$2" none || { echo "FATAL: carry needs the finished none life at $(mem "$2" none)" >&2; exit 1; }
                 echo "--seed-memory $(mem "$2" none) -- --install-carried";;
         carry[3-9])
