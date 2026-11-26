@@ -560,6 +560,12 @@ class WorldModelAgent:
         # surface -- its only past is the present).
         self.grid = Grid((self.memory.root / "grid.jsonl") if self.memory.log else None,
                          **({"frontier": True} if self.frontier else {}))
+        if self.frontier:
+            # Carried lives (previous/life_<i>/, linked above): the ground they saw in this
+            # same world counts as seen, so a chain of lives sweeps new bearings instead of
+            # re-walking the first one.
+            for g in sorted((self.memory.root / "previous").glob("life_*/grid.jsonl")):
+                self.grid.seed_seen(g)
         # Frames at this turn's events (a hit, LAVA AHEAD, a stalled walk, a failed
         # re-open): tiled into one sheet and attached beside the current view.
         self._event_frames: list[tuple[int, str, Any]] = []

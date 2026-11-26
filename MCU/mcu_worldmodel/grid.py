@@ -112,6 +112,8 @@ class Grid:
         #: their dimension; off, grid.jsonl is byte-identical to before.
         self.frontier = bool(frontier)
         self.seen: dict[str, set[tuple[int, int]]] = {}     # dim -> seen tiles
+        #: the same, from EARLIER lives' grid.jsonl in this world (carried under previous/)
+        self.seen_prev: dict[str, set[tuple[int, int]]] = {}
         self.walked_tiles: dict[str, set[tuple[int, int]]] = {}
         self.anchor: dict[str, Cell] = {}                     # dim -> first walked cell
         self._coverage_emitted: dict[str, int] = {}           # dim -> tiles at last row
@@ -201,16 +203,47 @@ class Grid:
         if t in wt:
             return
         wt.add(t)
-        seen = self.seen.setdefault(dim, set())
+        self.seen.setdefault(dim, set()).update(self._disk(t))
+
+    @staticmethod
+    def _disk(t: tuple[int, int]) -> list[tuple[int, int]]:
+        """The tiles within SEEN_R of tile t's centre."""
         cx, cz = (t[0] + 0.5) * TILE, (t[1] + 0.5) * TILE
         k = SEEN_R // TILE + 1
-        for i in range(t[0] - k, t[0] + k + 1):
-            for j in range(t[1] - k, t[1] + k + 1):
-                if math.hypot((i + 0.5) * TILE - cx, (j + 0.5) * TILE - cz) <= SEEN_R:
-                    seen.add((i, j))
+        return [(i, j) for i in range(t[0] - k, t[0] + k + 1)
+                for j in range(t[1] - k, t[1] + k + 1)
+                if math.hypot((i + 0.5) * TILE - cx, (j + 0.5) * TILE - cz) <= SEEN_R]
+
+    def seed_seen(self, path: Path | str) -> int:
+        """Ground an EARLIER life saw in this same world: its grid.jsonl's walked rows that
+        carry a dimension (a frontier life's). Counted as seen, never as walked: routes,
+        anchors and this life's own record are untouched. Returns the tiles added."""
+        try:
+            lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return 0
+        done: dict[str, set[tuple[int, int]]] = {}
+        before = sum(len(v) for v in self.seen_prev.values())
+        for line in lines:
+            if '"walked"' not in line or '"dim"' not in line:
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if r.get("kind") != "walked" or not r.get("dim") or not r.get("cell"):
+                continue
+            t = self._tile(r["cell"][0], r["cell"][2])
+            d = done.setdefault(str(r["dim"]), set())
+            if t in d:
+                continue
+            d.add(t)
+            self.seen_prev.setdefault(str(r["dim"]), set()).update(self._disk(t))
+        return sum(len(v) for v in self.seen_prev.values()) - before
 
     def is_seen(self, dim: str, x: float, z: float) -> bool:
-        return self._tile(x, z) in self.seen.get(dim, ())
+        t = self._tile(x, z)
+        return t in self.seen.get(dim, ()) or t in self.seen_prev.get(dim, ())
 
     def coverage(self, dim: str) -> dict[str, Any] | None:
         """Along each of eight bearings from the dimension's arrival cell, how far the seen
@@ -227,7 +260,9 @@ class Grid:
             rays[name] = {"seen_to": d, "yaw": yaw,
                           "unseen_at": None if d >= RAY_CAP else
                           [int(round(ax + ux * d)), int(round(az + uz * d))]}
-        return {"dim": dim, "anchor": list(a), "tiles": len(self.seen.get(dim, ())),
+        mine, prev = self.seen.get(dim, set()), self.seen_prev.get(dim, set())
+        return {"dim": dim, "anchor": list(a), "tiles": len(mine | prev),
+                "earlier_tiles": len(prev - mine),
                 "walked_tiles": len(self.walked_tiles.get(dim, ())), "rays": rays}
 
     def note_coverage(self, step: int, dim: str | None) -> dict[str, Any] | None:
@@ -260,8 +295,12 @@ class Grid:
             u = r["unseen_at"]
             parts.append(f"{name} {r['seen_to']}" + (f" -> ({u[0]}, {u[1]})" if u else "+"))
         short = [n for n, r in rays.items() if r["seen_to"] <= SEEN_R + TILE]
+        who = ("you or an earlier life (previous/*/grid.jsonl)" if cov.get("earlier_tiles")
+               else "you")
         out = [f"- Seen ground in {dim} (approximate: tiles within {SEEN_R} blocks of a cell "
-               f"you walked there; {cov['tiles']} tiles of {TILE}x{TILE}): from your arrival "
+               f"{who} walked there; {cov['tiles']} tiles of {TILE}x{TILE}"
+               + (f", {cov['earlier_tiles']} of them only by earlier lives"
+                  if cov.get("earlier_tiles") else "") + "): from your arrival "
                f"cell {a} ({xz_dist(here, a):.0f} blocks from you), the seen ground runs, "
                f"by bearing (N = -z, E = +x), blocks -> first unseen point: "
                + "; ".join(parts) + "."]

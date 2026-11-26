@@ -90,6 +90,9 @@ SMOKE_EXTRA="${SMOKE_EXTRA:-}"
 LIVE_OPT=""
 DEATHS="${DEATHS:-1}"
 [ "$DEATHS" = 1 ] && LIVE_OPT="--near-deaths"
+# FRONTIER=1: every life of this job gets --frontier (grid.py), chain rows included, so a
+# carried life also counts the ground its earlier lives saw (previous/*/grid.jsonl).
+[ "${FRONTIER:-0}" = 1 ] && LIVE_OPT="$LIVE_OPT --frontier"
 
 export JAVA_HOME=/usr MCU_SKIP_ENV_SH=1
 export MINESTUDIO_DIR="${TMPDIR:-/tmp}/minestudio-$SLURM_JOB_ID"
